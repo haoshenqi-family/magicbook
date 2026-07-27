@@ -66,10 +66,14 @@ def _app_instance(tmp_path_factory):
     except ImportError:
         pass  # cps.ai not yet created
 
-    # Seed AI default config (providers + AiConfig row) if the package exists
+    # Seed AI default config (providers + AiConfig row) if the package supports it.
+    # seed_default_config() is added in a later task; guard against both
+    # ImportError (package not yet present) and AttributeError (function not
+    # yet defined) so early-task tests still run.
     try:
         from cps import ai
-        ai.seed_default_config()
+        if hasattr(ai, "seed_default_config"):
+            ai.seed_default_config()
     except ImportError:
         pass
     yield app
@@ -79,11 +83,17 @@ def _app_instance(tmp_path_factory):
 def app(_app_instance):
     """Per-test app fixture. Cleans AI tables before yielding for isolation."""
     from cps.ub import session as ub_session
+    # If a prior test left the session in a rolled-back state, recover first
+    # so our cleanup queries don't themselves raise PendingRollbackError.
+    try:
+        ub_session.rollback()
+    except Exception:
+        pass
     try:
         from cps.ai.models import (AiConfig, AiProvider, AiConversation,
                                    AiMessage, AiUserMemory)
-        # Wipe AI tables clean before each test
-        for model in (AiMessage, AiConversation, AiUserMemory):
+        # Wipe AI tables clean before each test (order matters for FK cascades)
+        for model in (AiMessage, AiConversation, AiUserMemory, AiProvider):
             ub_session.query(model).delete()
         # Reset config to defaults
         cfg = ub_session.query(AiConfig).first()
