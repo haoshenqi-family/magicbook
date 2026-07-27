@@ -1,0 +1,30 @@
+{# AI Companion chat panel — included by reader templates (read.html, readpdf.html, readtxt.html).
+   Adds a floating button (bottom-right) that opens a right-side chat drawer.
+   Depends on jQuery (already loaded by all reader templates). #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai_chat.css') }}">
+<div id="ai-companion-root">
+  <button id="ai-companion-fab" title="{{_('AI Companion')}}">AI</button>
+  <div id="ai-companion-drawer">
+    <header>
+      <h3>{{_('AI Reading Companion')}}</h3>
+      <button id="ai-companion-close">&times;</button>
+    </header>
+    <div id="ai-chat-messages"></div>
+    <div id="ai-chat-input-area">
+      <textarea id="ai-chat-input" placeholder="{{_('Ask about the current page...')}}"></textarea>
+      <button id="ai-chat-send">{{_('Send')}}</button>
+    </div>
+  </div>
+</div>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<script>
+  // Pass book metadata to JS so it can be included in chat requests
+  window.AICompanionBookMeta = {
+    title: "{{ title|e }}",
+    authors: [],
+    description: "",
+    tags: []
+  };
+</script>
+<script src="{{ url_for('static', filename='js/ai_page_extract.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ai_chat.js') }}"></script>

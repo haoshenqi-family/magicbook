@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block body %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-sm-10">
+      <h2>{{_('AI Companion Settings')}}</h2>
+      <form method="post" action="{{ url_for('aichat.admin') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-group">
+          <label><input type="checkbox" name="enabled" {% if config.enabled %}checked{% endif %}> {{_('Enable AI Companion')}}</label>
+        </div>
+        <div class="form-group">
+          <label><input type="checkbox" name="memory_enabled" {% if config.memory_enabled %}checked{% endif %}> {{_('Enable long-term memory')}}</label>
+        </div>
+        <div class="form-group">
+          <label>{{_('Default Provider')}}</label>
+          <select name="default_provider" class="form-control">
+            {% for p in available_providers %}
+            <option value="{{ p }}" {% if config.default_provider == p %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>{{_('Default Model')}}</label>
+          <input type="text" name="default_model" class="form-control" value="{{ config.default_model }}">
+        </div>
+        <div class="form-group">
+          <label>{{_('Extract memory every N messages')}}</label>
+          <input type="number" name="memory_extract_interval" class="form-control" value="{{ config.memory_extract_interval }}" min="1" max="100">
+        </div>
+        <div class="form-group">
+          <label>{{_('Extra system prompt instructions')}}</label>
+          <textarea name="system_prompt_extra" class="form-control" rows="3">{{ config.system_prompt_extra }}</textarea>
+        </div>
+
+        <h3>{{_('Providers')}}</h3>
+        {% for prov in providers %}
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h4>{{ prov.display_name or prov.provider_name }}
+              <label class="pull-right"><input type="checkbox" name="provider_{{ prov.id }}_active" {% if prov.active %}checked{% endif %}> {{_('Active')}}</label>
+            </h4>
+          </div>
+          <div class="panel-body">
+            <div class="form-group">
+              <label>{{_('API Base URL')}}</label>
+              <input type="text" name="provider_{{ prov.id }}_api_base" class="form-control" value="{{ prov.api_base }}">
+            </div>
+            <div class="form-group">
+              <label>{{_('API Key')}} {{_('(leave blank to keep current)')}}</label>
+              <input type="password" name="provider_{{ prov.id }}_api_key" class="form-control" placeholder="sk-...">
+            </div>
+            {% if prov.provider_name == "authentik" %}
+            <div class="form-group">
+              <label>{{_('Client Secret')}}</label>
+              <input type="password" name="provider_{{ prov.id }}_client_secret" class="form-control" placeholder="{{_('Leave blank to keep current')}}">
+            </div>
+            {% else %}
+            <div class="form-group">
+              <label>{{_('Models (one per line, format: id|label)')}}</label>
+              <textarea name="provider_{{ prov.id }}_models" class="form-control" rows="3">{% set models = prov.models_json | from_json %}{% for m in models %}{{ m.id }}|{{ m.label }}
+{% endfor %}</textarea>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+
+        <button type="submit" class="btn btn-primary">{{_('Save')}}</button>
+        <a href="{{ url_for('admin.admin') }}" class="btn btn-default">{{_('Back to Admin')}}</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

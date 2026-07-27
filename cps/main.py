@@ -76,11 +76,21 @@ def main():
     app.register_blueprint(meta)
     app.register_blueprint(gdrive)
     app.register_blueprint(editbook)
+    # AI companion blueprint (minimal intrusion: 3 lines added)
+    from cps.ai.routes import aichat
+    app.register_blueprint(aichat)
+    from cps import ai  # noqa: F401 — seeds default AI config on import
     if kobo_available:
         limiter.limit("3/minute", key_func=get_remote_address)(kobo)
         app.register_blueprint(kobo)
         app.register_blueprint(kobo_auth)
     if oauth_available:
         app.register_blueprint(oauth)
+    # Authentik OAuth (no-op if not configured)
+    try:
+        from cps.ai.authentik import register_authentik
+        register_authentik(app)
+    except ImportError:
+        pass
     success = web_server.start()
     sys.exit(0 if success else 1)

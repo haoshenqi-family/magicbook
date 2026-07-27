@@ -24,6 +24,7 @@
 
 from markupsafe import escape
 import datetime
+import json
 import mimetypes
 from uuid import uuid4
 
@@ -130,6 +131,18 @@ def escapedlink_filter(url, text):
 @jinjia.app_template_filter('uuidfilter')
 def uuidfilter(var):
     return uuid4()
+
+
+@jinjia.app_template_filter('from_json')
+def from_json(value):
+    """Parse a JSON string into a Python object (used by the AI admin template
+    to render AiProvider.models_json). Returns [] on empty/invalid input."""
+    if not value:
+        return []
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return []
 
 
 @jinjia.app_template_filter('cache_timestamp')

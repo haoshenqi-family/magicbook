@@ -8,7 +8,12 @@ class TestSmoke:
         assert app.config["TESTING"] is True
 
     def test_admin_login_works(self, admin_client):
-        """The admin_client fixture should be logged in."""
-        rv = admin_client.get("/", follow_redirects=False)
-        # Logged-in users get 200 on index, not 302 redirect to login
-        assert rv.status_code in (200, 302)
+        """The admin_client fixture should be logged in.
+
+        We hit /ai/admin (which doesn't touch calibre_db) instead of /,
+        because the index page queries calibre_db.session which is None
+        in the test environment (no calibre metadata.db).
+        """
+        rv = admin_client.get("/ai/admin")
+        # Admin page returns 200 for logged-in admins
+        assert rv.status_code == 200
