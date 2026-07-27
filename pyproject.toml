@@ -118,6 +118,10 @@ comics = [
 kobo = [
     "jsonschema>=3.2.0,<4.30.0",
 ]
+dev = [
+    "pytest>=7.0,<10.0",
+    "pytest-mock>=3.10,<4.0",
+]
 
 [project.scripts]
 cps = "calibreweb.__main__:main"
@@ -127,3 +131,12 @@ include-package-data = true
 
 [tool.setuptools.dynamic]
 version = {attr = "calibreweb.cps.constants.STABLE_VERSION"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
