@@ -77,11 +77,12 @@
 - 伴读面板模板 `cps/templates/ai_chat_panel.html`，静态资源 `cps/static/js/ai_chat.js`、`ai_page_extract.js`、`cps/static/css/ai_chat.css`。
 - 已注入到阅读器模板（`read.html` / `readpdf.html` / `readtxt.html`）。
 - 后台配置页 `cps/templates/ai_admin.html`，支持 Provider/模型配置与 Authentik client_secret。
-- 已知问题：`https://hyh.haoshenqi.top/ai/admin` 报错，**待排查**（疑似运行期/部署问题，非路由缺失）。
+- AI 表自动创建：`cps/ai/__init__.py` 在导入时调用 `ensure_ai_tables()`（显式 `Base.metadata.create_all` AI 相关表）与 `seed_default_config()`（写入默认 `AiConfig` + deepseek `AiProvider`）。这是因为 calibre-web 的 `ub.init_db()` 在 `create_app()` 内执行 `create_all` 时，`cps.ai.models` 尚未导入注册到 `Base.metadata`，AI 表不会被自动创建。
+- 已知问题：~~`https://hyh.haoshenqi.top/ai/admin` 报错~~ **已修复**（见 2026-07-31 变更记录）。
 
 ## 7. 待办与待澄清
 
-- [ ] 排查 `/ai/admin` 在线报错原因。
+- [x] 排查 `/ai/admin` 在线报错原因。（根因：AI 表未创建 + 默认 config 未 seed；已于 `cps/ai/__init__.py` 修复）
 - [ ] 确认「deepseek V4 flash」的准确模型标识，并统一配置默认模型。
 - [ ] 明确记忆系统的提取频率/触发策略是否需要可配置（当前默认每 N 条消息提取一次）。
 
@@ -90,3 +91,4 @@
 | 日期 | 变更内容 | 说明 |
 | --- | --- | --- |
 | 2026-07-31 | 初始版本 | 依据用户原始需求整理：AI 伴读页面、AI 记忆系统、Authentik 登录、多 provider/多模型（初期 DeepSeek）、最小侵入原则；并记录 `/ai/admin` 报错待排查、deepseek V4 flash 模型名待澄清。 |
+| 2026-07-31 | 修复 `/ai/admin` 500 报错 | 根因：`cps.ai.models` 在 `create_app()` 的 `Base.metadata.create_all` 之后才被导入，导致 `ai_config`/`ai_provider` 等表从未创建，首次访问 `/ai/admin` 查询即抛 `OperationalError: no such table`。修复：在 `cps/ai/__init__.py` 导入时新增 `ensure_ai_tables()` 显式建表，并调用 `seed_default_config()` 写入默认配置。验证：模拟线上全新 DB 启动，`/ai/admin` 返回 200 且含 DeepSeek；测试套件 58 passed。 |

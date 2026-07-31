@@ -12,9 +12,43 @@ import json
 import logging
 
 from . import registry  # noqa: F401 — registers built-in providers on import
-from .models import AiConfig, AiProvider
+from .models import (AiConfig, AiProvider, AiConversation, AiMessage,
+                     AiUserMemory)
 
 log = logging.getLogger("cps.ai")
+
+
+def ensure_ai_tables():
+    """Create the AI tables if they don't exist yet.
+
+    calibre-web's ``ub.init_db()`` runs ``Base.metadata.create_all(engine)``
+    during ``create_app()``, but ``cps.ai.models`` is only imported *after*
+    that (from ``cps/main.py``), so the AI models were not yet registered on
+    ``Base.metadata`` when ``create_all`` ran. As a result the AI tables were
+    never created and any query against them raised
+    ``OperationalError: no such table: ...`` (this was the root cause of the
+    ``/ai/admin`` 500 on production).
+
+    This function is called at import time of ``cps.ai`` (which happens after
+    ``create_app()`` in the normal ``main()`` startup path, so ``ub.session``
+    is already bound to an engine). It is safe to call multiple times —
+    ``create_all`` with an explicit ``tables=`` list is idempotent.
+    """
+    try:
+        from cps.ub import session as ub_session, Base
+        engine = ub_session.bind
+        if engine is None:
+            # Session not bound yet (imported before create_app); defer.
+            return
+        Base.metadata.create_all(engine, tables=[
+            AiConfig.__table__,
+            AiProvider.__table__,
+            AiConversation.__table__,
+            AiMessage.__table__,
+            AiUserMemory.__table__,
+        ])
+    except Exception as e:
+        log.warning("ensure_ai_tables failed: %s", e)
 
 
 def seed_default_config():
@@ -53,3 +87,11 @@ def seed_default_config():
             ub_session.rollback()
         except Exception:
             pass
+
+
+# On import: (1) make sure the AI tables exist, then (2) seed default config.
+# Both are no-ops if the app/session isn't ready yet or the tables already
+# exist. In the normal startup path (cps/main.py) this import happens after
+# create_app(), so ub.session is bound and everything works.
+ensure_ai_tables()
+seed_default_config()
