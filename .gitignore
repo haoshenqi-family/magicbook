@@ -35,3 +35,10 @@ gdrive_credentials
 client_secrets.json
 gmail.json
 /.key
+
+# Calibre library (runtime data, books imported locally)
+library/*/
+library/metadata.db
+
+# Local tool state
+.local/
