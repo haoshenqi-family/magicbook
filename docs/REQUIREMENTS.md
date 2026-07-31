@@ -4,7 +4,7 @@
 >
 > - 项目性质：calibre-web 的 fork，进行二次开发。
 > - 项目目标：在 calibre-web 基础上增加「AI 帮助阅读」能力。
-> - 在线站点（参考）：`https://hyh.haoshenqi.top/ai/admin`（当前报错，待排查）。
+> - 在线站点（参考）：`https://hyh.haoshenqi.top/ai/admin`（~~报错~~ 已修复，见 §8 变更记录 2026-07-31）。
 
 ---
 
