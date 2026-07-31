@@ -50,43 +50,39 @@ jobs:
           cache-from: type=registry,ref=${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
           cache-to: type=inline
 
-      - name: Deploy via SSH
-        if: success() && github.ref == 'refs/heads/develop'
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_SSH_HOST }}
-          username: ${{ secrets.DEPLOY_SSH_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            cd ${{ secrets.DEPLOY_PATH }}
-
-            echo "==> Pulling new image..."
-            docker compose pull
-
-            echo "==> Recreating container..."
-            docker compose up -d
-
-            echo "==> Waiting for service to be healthy..."
-            sleep 20
-
-            echo "==> Cleaning up old images..."
-            docker image prune -f
-
-            echo "==> Deployment completed"
-            docker compose ps
-
-      - name: Send Bark Notification on Success
-        if: success()
-        env:
-          BARK_KEY: ${{ secrets.BARK_KEY }}
-          PROJECT_NAME: ${{ github.event.repository.name }}
-        run: |
-          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建成功"
-
-      - name: Send Bark Notification on Failure
-        if: failure()
-        env:
-          BARK_KEY: ${{ secrets.BARK_KEY }}
-          PROJECT_NAME: ${{ github.event.repository.name }}
-        run: |
-          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建失败"
+      # 部署与通知步骤暂时停用（secrets 未配置），仅构建并推送镜像
+      # - name: Deploy via SSH
+      #   if: success() && github.ref == 'refs/heads/develop'
+      #   uses: appleboy/ssh-action@v1
+      #   with:
+      #     host: ${{ secrets.DEPLOY_SSH_HOST }}
+      #     username: ${{ secrets.DEPLOY_SSH_USER }}
+      #     key: ${{ secrets.DEPLOY_SSH_KEY }}
+      #     script: |
+      #       cd ${{ secrets.DEPLOY_PATH }}
+      #       echo "==> Pulling new image..."
+      #       docker compose pull
+      #       echo "==> Recreating container..."
+      #       docker compose up -d
+      #       echo "==> Waiting for service to be healthy..."
+      #       sleep 20
+      #       echo "==> Cleaning up old images..."
+      #       docker image prune -f
+      #       echo "==> Deployment completed"
+      #       docker compose ps
+      #
+      # - name: Send Bark Notification on Success
+      #   if: success()
+      #   env:
+      #     BARK_KEY: ${{ secrets.BARK_KEY }}
+      #     PROJECT_NAME: ${{ github.event.repository.name }}
+      #   run: |
+      #     curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建成功"
+      #
+      # - name: Send Bark Notification on Failure
+      #   if: failure()
+      #   env:
+      #     BARK_KEY: ${{ secrets.BARK_KEY }}
+      #     PROJECT_NAME: ${{ github.event.repository.name }}
+      #   run: |
+      #     curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建失败"
