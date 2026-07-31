@@ -1,0 +1,92 @@
+name: Build and Push to Aliyun
+
+on:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+env:
+  ALIYUN_REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  ALIYUN_NAMESPACE: magichouse
+  IMAGE_NAME: calibre-web-ai
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Read snapshot version
+        id: version
+        run: |
+          if [ -f deploy/.snapshot-version ]; then
+            VERSION=$(cat deploy/.snapshot-version | tr -d '[:space:]')
+          else
+            VERSION="unknown-$(date '+%Y%m%d.%H%M%S')"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "==> 构建版本: $VERSION"
+
+      - name: Login to Aliyun Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.ALIYUN_REGISTRY }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=registry,ref=${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+          cache-to: type=inline
+
+      - name: Deploy via SSH
+        if: success() && github.ref == 'refs/heads/develop'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+
+            echo "==> Pulling new image..."
+            docker compose pull
+
+            echo "==> Recreating container..."
+            docker compose up -d
+
+            echo "==> Waiting for service to be healthy..."
+            sleep 20
+
+            echo "==> Cleaning up old images..."
+            docker image prune -f
+
+            echo "==> Deployment completed"
+            docker compose ps
+
+      - name: Send Bark Notification on Success
+        if: success()
+        env:
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          PROJECT_NAME: ${{ github.event.repository.name }}
+        run: |
+          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建成功"
+
+      - name: Send Bark Notification on Failure
+        if: failure()
+        env:
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          PROJECT_NAME: ${{ github.event.repository.name }}
+        run: |
+          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建失败"

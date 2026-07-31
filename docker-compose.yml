@@ -1,0 +1,36 @@
+services:
+  calibre-web:
+    image: registry.cn-hangzhou.aliyuncs.com/magichouse/calibre-web-ai:latest
+    container_name: calibre-web-ai
+    restart: unless-stopped
+    ports:
+      - "${CALIBRE_PORT:-8083}:8083"
+    environment:
+      CALIBRE_PORT: 8083
+      CALIBRE_DBPATH: /config
+      CALIBRE_LIBRARY: /calibre-library
+      TZ: Asia/Shanghai
+      # 调试/限流配置（可选）
+      CALIBRE_CONFIG_RECONNECT: ${CALIBRE_CONFIG_RECONNECT:-0}
+    volumes:
+      # Calibre 书库目录（必须包含 metadata.db）
+      - ${CALIBRE_LIBRARY_PATH:-./calibre-library}:/calibre-library
+      # 应用配置目录（app.db / settings / keberos / gdrive 凭据等）
+      - ${CONFIG_PATH:-./config}:/config
+      # 日志（可选）
+      - ${LOG_PATH:-./logs}:/app/logs
+    # 以 root 运行以便自动修正挂载卷权限，entrypoint 会 gosu 降权到 calibre 用户
+    user: "0:0"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "8083"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    # 如需 Traefik 反代，可在此添加 labels（参考 app-manager 项目）
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.calibre.rule=Host(`book.example.com`)
+    #   - traefik.http.routers.calibre.entrypoints=websecure
+    #   - traefik.http.routers.calibre.tls.certresolver=letsencrypt
+    #   - traefik.http.services.calibre.loadbalancer.server.port=8083

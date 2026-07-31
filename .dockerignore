@@ -1,0 +1,72 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python 缓存与虚拟环境
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 构建产物
+build/
+dist/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 数据库文件（运行时生成，不应打入镜像）
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# 日志
+*.log
+*.log.*
+logs/
+
+# Calibre-Web 运行时缓存
+cps/cache/
+
+# 配置文件（运行时通过卷挂载提供）
+settings.yaml
+gdrive_credentials
+client_secrets.json
+gmail.json
+.key
+
+# 测试
+tests/
+test/
+htmlcov/
+.coverage
+.tox/
+
+# 文档
+README.md
+SECURITY.md
+CONTRIBUTING.md
+CHANGELOG.md
+docs/
+
+# 备份
+*.bak
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# CI 临时文件
+PR_BODY.md
