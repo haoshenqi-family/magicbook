@@ -12,6 +12,9 @@ services:
       TZ: Asia/Shanghai
       # 调试/限流配置（可选）
       CALIBRE_CONFIG_RECONNECT: ${CALIBRE_CONFIG_RECONNECT:-0}
+    env_file:
+      # AI_DATABASE_URL 等敏感配置（.env 已被 gitignore，不提交）
+      - .env
     volumes:
       # Calibre 书库目录（必须包含 metadata.db）
       - ${CALIBRE_LIBRARY_PATH:-./calibre-library}:/calibre-library

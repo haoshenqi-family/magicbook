@@ -27,9 +27,20 @@ import logging
 
 from flask import redirect, url_for, flash
 from flask_babel import gettext as _
-from flask_dance.consumer import oauth_authorized
-from flask_dance.consumer.oauth2 import OAuth2ConsumerBlueprint
-from oauthlib.oauth2 import TokenExpiredError, InvalidGrantError
+
+# flask-dance / oauthlib are optional (Authentik OAuth). Guard the imports so
+# this module can be imported — and the rest of the AI package load — even when
+# they are not installed. register_authentik() becomes a no-op in that case.
+try:
+    from flask_dance.consumer import oauth_authorized
+    from flask_dance.consumer.oauth2 import OAuth2ConsumerBlueprint
+    from oauthlib.oauth2 import TokenExpiredError, InvalidGrantError
+    _FLASK_DANCE_AVAILABLE = True
+except ImportError:
+    oauth_authorized = None
+    OAuth2ConsumerBlueprint = None
+    TokenExpiredError = InvalidGrantError = Exception
+    _FLASK_DANCE_AVAILABLE = False
 
 from cps import ub, logger
 from cps.cw_login import current_user
@@ -54,7 +65,8 @@ def _get_encryption_key():
 def _get_authentik_config():
     """Return (client_id, client_secret, base_url) or None if not configured."""
     try:
-        sess = ub.session
+        from .database import get_session
+        sess = get_session()
         prov = sess.query(AiProvider).filter_by(
             provider_name="authentik", active=True).first()
         if prov is None or not prov.api_base:
@@ -78,9 +90,12 @@ def _get_authentik_config():
 def register_authentik(flask_app):
     """Register the Authentik OAuth2 blueprint if configured.
 
-    Called from cps/main.py. Safe to call when authentik is not configured —
-    it will be a no-op.
+    Called from cps/main.py. Safe to call when authentik is not configured or
+    flask-dance is not installed — it will be a no-op.
     """
+    if not _FLASK_DANCE_AVAILABLE:
+        log.info("flask-dance not installed, skipping Authentik OAuth registration")
+        return
     global _AUTHENTIK_BLUEPRINT
     config = _get_authentik_config()
     if config is None:

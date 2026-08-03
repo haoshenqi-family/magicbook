@@ -5,60 +5,32 @@ to minimize intrusion into upstream calibre-web.
 
 ``seed_default_config()`` ensures the ``AiConfig`` and ``AiProvider`` tables
 have their default rows (deepseek provider, disabled by default). It is safe
-to call multiple times — it only inserts missing rows. ``ub.session`` is read
-lazily so this module can be imported before ``create_app()`` runs.
+to call multiple times — it only inserts missing rows. The AI data session is
+read lazily so this module can be imported before the AI data layer initializes.
 """
 import json
 import logging
 
 from . import registry  # noqa: F401 — registers built-in providers on import
 from .models import (AiConfig, AiProvider, AiConversation, AiMessage,
-                     AiUserMemory)
+                     AiUserMemory)  # noqa: F401
 
 log = logging.getLogger("cps.ai")
-
-
-def ensure_ai_tables():
-    """Create the AI tables if they don't exist yet.
-
-    calibre-web's ``ub.init_db()`` runs ``Base.metadata.create_all(engine)``
-    during ``create_app()``, but ``cps.ai.models`` is only imported *after*
-    that (from ``cps/main.py``), so the AI models were not yet registered on
-    ``Base.metadata`` when ``create_all`` ran. As a result the AI tables were
-    never created and any query against them raised
-    ``OperationalError: no such table: ...`` (this was the root cause of the
-    ``/ai/admin`` 500 on production).
-
-    This function is called at import time of ``cps.ai`` (which happens after
-    ``create_app()`` in the normal ``main()`` startup path, so ``ub.session``
-    is already bound to an engine). It is safe to call multiple times —
-    ``create_all`` with an explicit ``tables=`` list is idempotent.
-    """
-    try:
-        from cps.ub import session as ub_session, Base
-        engine = ub_session.bind
-        if engine is None:
-            # Session not bound yet (imported before create_app); defer.
-            return
-        Base.metadata.create_all(engine, tables=[
-            AiConfig.__table__,
-            AiProvider.__table__,
-            AiConversation.__table__,
-            AiMessage.__table__,
-            AiUserMemory.__table__,
-        ])
-    except Exception as e:
-        log.warning("ensure_ai_tables failed: %s", e)
 
 
 def seed_default_config():
     """Ensure the ai_config singleton and default providers exist in the DB.
 
-    Safe to call multiple times — it only inserts missing rows. Reads
-    ``cps.ub.session`` lazily so it works even when this package was imported
-    before the app/session was initialized.
+    Safe to call multiple times — it only inserts missing rows. Uses the
+    independent AI data session (cps.ai.database) so AI config never touches
+    calibre-web's system app.db.
+
+    Note: on the very first import (before the AI data layer has initialized)
+    this is a no-op via the guard below; it runs for real once the data layer
+    is ready (see the module-level call at the bottom).
     """
-    from cps.ub import session as ub_session
+    from .database import get_session
+    ub_session = get_session()
     try:
         cfg = ub_session.query(AiConfig).first()
         if cfg is None:
@@ -89,9 +61,11 @@ def seed_default_config():
             pass
 
 
-# On import: (1) make sure the AI tables exist, then (2) seed default config.
-# Both are no-ops if the app/session isn't ready yet or the tables already
-# exist. In the normal startup path (cps/main.py) this import happens after
-# create_app(), so ub.session is bound and everything works.
-ensure_ai_tables()
-seed_default_config()
+# On import, seed the default config. The AI tables themselves are created by
+# cps.ai.database.init_ai_db() (lazy, on first get_session()) on the
+# INDEPENDENT AI data store — never on calibre-web's system app.db. Seeding is
+# a no-op until the data layer is ready (get_session initializes it lazily).
+try:
+    seed_default_config()
+except Exception as e:  # pragma: no cover - data layer not ready yet
+    log.debug("deferred seed_default_config: %s", e)

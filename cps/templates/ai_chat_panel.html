@@ -7,6 +7,10 @@
   <div id="ai-companion-drawer">
     <header>
       <h3>{{_('AI Reading Companion')}}</h3>
+      <div class="ai-chat-conv-bar">
+        <select id="ai-chat-conversations" title="{{_('Switch conversation')}}"></select>
+        <button id="ai-chat-new" type="button" title="{{_('New conversation')}}">＋</button>
+      </div>
       <button id="ai-companion-close">&times;</button>
     </header>
     <div id="ai-chat-messages"></div>

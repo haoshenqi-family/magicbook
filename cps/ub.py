@@ -696,6 +696,10 @@ def init_db(app_db_path):
     Session.configure(bind=engine)
     session = Session()
 
+    # NOTE: AI tables (ai_*) intentionally do NOT live on ub.Base. They use
+    # their own base + engine (cps.ai.database), so they must NOT be created
+    # here — this keeps the AI data out of the system app.db entirely.
+
     if os.path.exists(app_db_path):
         Base.metadata.create_all(engine)
         migrate_Database(session)

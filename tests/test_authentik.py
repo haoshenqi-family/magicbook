@@ -9,9 +9,8 @@ class TestAuthentik:
         # Should not raise even if no authentik provider row exists
         register_authentik(app)
 
-    def test_register_authentik_with_config(self, app):
+    def test_register_authentik_with_config(self, app, ai_session):
         """When authentik config is present, the blueprint should register."""
-        from cps.ub import session
         from cps.ai.models import AiProvider
         from cps.ai.crypto import encrypt_value
         from cps.ai.routes import _get_encryption_key
@@ -26,8 +25,8 @@ class TestAuthentik:
         prov.models_json = json.dumps(
             {"client_secret_encrypted": encrypt_value("test-secret", key)})
         prov.active = True
-        session.add(prov)
-        session.commit()
+        ai_session.add(prov)
+        ai_session.commit()
 
         from cps.ai.authentik import register_authentik, _AUTHENTIK_BLUEPRINT
         # The session-scoped app may have already handled a request (other

@@ -124,14 +124,13 @@ class TestExtractUserMemory:
 
 
 class TestGetUserMemoryStrings:
-    def test_returns_user_memories(self, app):
-        from cps.ub import session
+    def test_returns_user_memories(self, app, ai_session):
         from cps.ai.models import AiUserMemory
         m1 = AiUserMemory(user_id=1, content="Likes sci-fi", source_book_id=1)
         m2 = AiUserMemory(user_id=1, content="Prefers concise answers", source_book_id=2)
         m3 = AiUserMemory(user_id=2, content="Other user's memory", source_book_id=1)
-        session.add_all([m1, m2, m3])
-        session.commit()
+        ai_session.add_all([m1, m2, m3])
+        ai_session.commit()
 
         mems = get_user_memory_strings(user_id=1, limit=10)
         assert "Likes sci-fi" in mems
@@ -143,9 +142,8 @@ class TestGetUserMemoryStrings:
         mems = get_user_memory_strings(user_id=99999, limit=10)
         assert mems == []
 
-    def test_stores_extracted_memory_in_db(self, app):
+    def test_stores_extracted_memory_in_db(self, app, ai_session):
         """extract_user_memory should persist the extracted memory in AiUserMemory."""
-        from cps.ub import session
         from cps.ai.models import AiUserMemory
 
         fake_provider = MagicMock()
@@ -157,7 +155,7 @@ class TestGetUserMemoryStrings:
             user_id=7, book_id=99,
         )
 
-        stored = session.query(AiUserMemory).filter_by(user_id=7).all()
+        stored = ai_session.query(AiUserMemory).filter_by(user_id=7).all()
         assert len(stored) == 1
         assert stored[0].content == "User likes deep dives"
         assert stored[0].source_book_id == 99

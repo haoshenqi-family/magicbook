@@ -42,3 +42,9 @@ library/metadata.db
 
 # Local tool state
 .local/
+
+# Secrets — never commit real credentials
+.env
+
+# Temp docs (not tracked by git)
+docs/temp/

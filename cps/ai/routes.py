@@ -1,18 +1,29 @@
-"""AI companion blueprint — chat API, history, memory, and admin config routes.
+"""AI companion blueprint — chat API, conversations, history, memory, admin.
 
-All routes are mounted under ``/ai/``. The blueprint is registered in
-``cps/main.py``. Authentication uses calibre-web's existing
-``user_login_required`` decorator. CSRF is handled automatically by
-Flask-WTF's CSRFProtect (the frontend sends the X-CSRFToken header).
+Why conversations instead of one thread per book:
+- A reader previously had exactly one chat thread per (user, book). Users now
+  want multiple independent conversations per book ("+ 新建会话" + a dropdown
+  to switch). The ``conversation_id`` is carried by the frontend on every chat
+  request; ``/ai/conversations/<book_id>`` lists and creates threads.
+
+Storage:
+- All AI rows live in the independent AI data layer (``cps.ai.database``),
+  NOT in calibre-web's ub.session. See cps/ai/database.py for why.
+
+Routes are mounted under ``/ai/``. Authentication uses calibre-web's existing
+``user_login_required`` decorator. CSRF is handled by Flask-WTF (the frontend
+sends the X-CSRFToken header).
 """
 import json
 import os
+
+from sqlalchemy import func
 
 from flask import (Blueprint, Response, request, jsonify, stream_with_context,
                    abort)
 from flask_babel import gettext as _
 
-from cps import logger, calibre_db, ub
+from cps import logger, calibre_db
 from cps.cw_login import current_user
 from cps.usermanagement import user_login_required
 from cps.render_template import render_title_template
@@ -22,6 +33,8 @@ from .models import (AiConfig, AiProvider, AiConversation, AiMessage,
                      AiUserMemory)
 from .registry import get_provider, list_providers
 from .crypto import encrypt_value, decrypt_value
+from .database import get_session
+from .timezone import now as now_cn
 from .memory import (build_system_prompt, extract_user_memory,
                      get_user_memory_strings, should_extract_memory)
 
@@ -29,10 +42,15 @@ log = logger.create()
 
 aichat = Blueprint("aichat", __name__)
 
+# Default title shown in the conversation dropdown until the first real
+# question gives the thread a meaningful name.
+DEFAULT_CONV_TITLE = "新会话"
+_TITLE_MAX_LEN = 30
+
 
 def _session():
-    """Lazy access to cps.ub.session (read at call time, not import time)."""
-    return ub.session
+    """Lazy access to the AI data session (read at call time, not import time)."""
+    return get_session()
 
 
 def _get_encryption_key():
@@ -40,6 +58,7 @@ def _get_encryption_key():
 
     Returns the raw bytes key (or empty bytes if unavailable).
     """
+    from cps import ub
     settings_path = os.path.dirname(ub.app_DB_path)
     key, _err = get_encryption_key(settings_path)
     return key or b""
@@ -81,20 +100,85 @@ def _serialize_message(msg):
     }
 
 
-def _get_or_create_conversation(user_id, book_id, book_format, title):
+def _get_or_create_conversation(user_id, book_id, book_format, title,
+                                conversation_id=None):
+    """Return an existing conversation (by id, if it belongs to the user+book)
+    or create a fresh one.
+
+    Ownership guard: a conversation_id that belongs to another user or another
+    book returns None so the caller can reject the request (404) — we never
+    fall through to creating/joining a thread the user shouldn't touch.
+
+    New threads always start with the generic title; the first real question
+    renames them (see chat()). We deliberately ignore ``title`` here so the
+    auto-naming isn't defeated by book metadata titles.
+    """
     sess = _session()
-    conv = sess.query(AiConversation).filter_by(
-        user_id=user_id, book_id=book_id
-    ).first()
-    if conv is None:
-        conv = AiConversation()
-        conv.user_id = user_id
-        conv.book_id = book_id
-        conv.book_format = book_format or ""
-        conv.title = title or ""
-        sess.add(conv)
-        sess.commit()
+    if conversation_id is not None:
+        conv = sess.query(AiConversation).filter_by(id=conversation_id).first()
+        if conv is None or conv.user_id != user_id:
+            return None
+        if book_id and conv.book_id != book_id:
+            return None
+        return conv
+
+    conv = AiConversation()
+    conv.user_id = user_id
+    conv.book_id = book_id
+    conv.book_format = book_format or ""
+    conv.title = DEFAULT_CONV_TITLE
+    sess.add(conv)
+    sess.commit()
     return conv
+
+
+@aichat.route("/ai/conversations/<int:book_id>", methods=["GET"])
+@user_login_required
+def conversations(book_id):
+    """Return all conversations of the current user for a book (newest first).
+
+    ``message_count`` lets the frontend show how active each thread is.
+    """
+    sess = _session()
+    convs = sess.query(AiConversation).filter_by(
+        user_id=current_user.id, book_id=book_id)\
+        .order_by(AiConversation.updated_at.desc()).all()
+    if not convs:
+        return jsonify({"conversations": []})
+    # Batch-count messages once instead of one count() query per conversation.
+    conv_ids = [c.id for c in convs]
+    counts = dict(
+        sess.query(AiMessage.conversation_id,
+                   func.count(AiMessage.id))
+        .filter(AiMessage.conversation_id.in_(conv_ids))
+        .group_by(AiMessage.conversation_id).all())
+    out = []
+    for c in convs:
+        out.append({
+            "id": c.id,
+            "title": c.title or DEFAULT_CONV_TITLE,
+            "book_id": c.book_id,
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "updated_at": c.updated_at.isoformat() if c.updated_at else None,
+            "message_count": counts.get(c.id, 0),
+        })
+    return jsonify({"conversations": out})
+
+
+@aichat.route("/ai/conversations/<int:book_id>", methods=["POST"])
+@user_login_required
+def new_conversation(book_id):
+    """Create a fresh empty conversation for the current user + book."""
+    sess = _session()
+    body = request.get_json(silent=True) or {}
+    conv = AiConversation()
+    conv.user_id = current_user.id
+    conv.book_id = book_id
+    conv.book_format = body.get("book_format", "")
+    conv.title = DEFAULT_CONV_TITLE
+    sess.add(conv)
+    sess.commit()
+    return jsonify({"conversation_id": conv.id, "title": conv.title})
 
 
 @aichat.route("/ai/chat", methods=["POST"])
@@ -102,10 +186,13 @@ def _get_or_create_conversation(user_id, book_id, book_format, title):
 def chat():
     """Stream a chat completion response.
 
-    Request JSON: ``{book_id, book_format, message, page_context,
-                     book_title?, book_authors?, book_description?, book_tags?}``
+    Request JSON: ``{book_id, conversation_id?, book_format, message,
+                     page_context, book_title?, book_authors?,
+                     book_description?, book_tags?}``
     Response: ``text/event-stream`` of content deltas (``data: <chunk>\\n\\n``),
     terminated by ``data: [DONE]``.
+
+    If ``conversation_id`` is omitted the server creates a new conversation.
     """
     sess = _session()
     data = request.get_json(silent=True) or {}
@@ -136,6 +223,7 @@ def chat():
 
     page_context = data.get("page_context", "")
     book_format = data.get("book_format", "")
+    conversation_id = data.get("conversation_id")
 
     # Load config + memory
     cfg = sess.query(AiConfig).first()
@@ -153,9 +241,12 @@ def chat():
         extra_prompt=cfg.system_prompt_extra if cfg else "",
     )
 
-    # Get or create conversation + load history
+    # Get or create conversation + load history. title is intentionally empty:
+    # new threads are auto-named from the first question (see _get_or_create_conversation).
     conv = _get_or_create_conversation(current_user.id, book_id, book_format,
-                                       book_title)
+                                       "", conversation_id)
+    if conv is None:
+        return jsonify({"error": "conversation not found or not owned"}), 404
     history_msgs = sess.query(AiMessage).filter_by(conversation_id=conv.id)\
         .order_by(AiMessage.created_at.asc()).all()
 
@@ -164,13 +255,16 @@ def chat():
         messages.append({"role": hm.role, "content": hm.content})
     messages.append({"role": "user", "content": message})
 
-    # Save the user message
+    # Save the user message; auto-name the thread from the first question.
     user_msg = AiMessage()
     user_msg.conversation_id = conv.id
     user_msg.role = "user"
     user_msg.content = message
     user_msg.page_context = (page_context or "")[:4000]
     sess.add(user_msg)
+    if not conv.title or conv.title == DEFAULT_CONV_TITLE:
+        conv.title = message.replace("\n", " ")[:_TITLE_MAX_LEN] or DEFAULT_CONV_TITLE
+    conv.updated_at = now_cn()
     sess.commit()
 
     try:
@@ -195,7 +289,7 @@ def chat():
             yield "data: [DONE]\n\n"
             return
 
-        # Save the assistant reply
+        # Save the assistant reply (persist every exchange to the DB).
         reply_text = "".join(full_reply)
         try:
             asst_msg = AiMessage()
@@ -203,6 +297,11 @@ def chat():
             asst_msg.role = "assistant"
             asst_msg.content = reply_text
             sess.add(asst_msg)
+            # Bump the thread's activity time so the conversation list orders
+            # by "most recently active" rather than creation order.
+            conv_row = sess.query(AiConversation).filter_by(id=conv_id).first()
+            if conv_row is not None:
+                conv_row.updated_at = now_cn()
             sess.commit()
 
             # Maybe extract memory
@@ -234,26 +333,33 @@ def chat():
                              "X-Accel-Buffering": "no"})
 
 
-@aichat.route("/ai/history/<int:book_id>", methods=["GET"])
+@aichat.route("/ai/history/<int:conversation_id>", methods=["GET"])
 @user_login_required
-def history(book_id):
-    """Return the conversation history for a book as JSON."""
+def history(conversation_id):
+    """Return the message history of one conversation as JSON."""
     sess = _session()
     conv = sess.query(AiConversation).filter_by(
-        user_id=current_user.id, book_id=book_id).first()
+        id=conversation_id, user_id=current_user.id).first()
     if conv is None:
-        return jsonify({"messages": []})
+        return jsonify({"messages": [], "conversation": None})
     msgs = conv.messages.order_by(AiMessage.created_at.asc()).all()
-    return jsonify({"messages": [_serialize_message(m) for m in msgs]})
+    return jsonify({
+        "conversation": {
+            "id": conv.id,
+            "title": conv.title or DEFAULT_CONV_TITLE,
+            "book_id": conv.book_id,
+        },
+        "messages": [_serialize_message(m) for m in msgs],
+    })
 
 
-@aichat.route("/ai/history/<int:book_id>", methods=["DELETE"])
+@aichat.route("/ai/history/<int:conversation_id>", methods=["DELETE"])
 @user_login_required
-def clear_history(book_id):
-    """Delete the conversation (and all its messages) for a book."""
+def clear_history(conversation_id):
+    """Delete one conversation (and all its messages)."""
     sess = _session()
     conv = sess.query(AiConversation).filter_by(
-        user_id=current_user.id, book_id=book_id).first()
+        id=conversation_id, user_id=current_user.id).first()
     if conv:
         sess.delete(conv)
         sess.commit()

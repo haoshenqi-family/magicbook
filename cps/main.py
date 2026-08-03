@@ -76,10 +76,15 @@ def main():
     app.register_blueprint(meta)
     app.register_blueprint(gdrive)
     app.register_blueprint(editbook)
-    # AI companion blueprint (minimal intrusion: 3 lines added)
+    # AI companion blueprint (minimal intrusion: a few lines added here,
+    # nothing in create_app).
     from cps.ai.routes import aichat
     app.register_blueprint(aichat)
-    from cps import ai  # noqa: F401 — seeds default AI config on import
+    from cps import ai
+    ai.seed_default_config()
+    # Release the AI scoped session at the end of each request (AI-only hook).
+    from cps.ai import database as ai_db
+    app.teardown_appcontext(lambda exc: ai_db.remove_session())
     if kobo_available:
         limiter.limit("3/minute", key_func=get_remote_address)(kobo)
         app.register_blueprint(kobo)

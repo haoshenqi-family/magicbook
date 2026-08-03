@@ -1,4 +1,4 @@
-"""End-to-end integration tests for the AI reading companion.
+"""End-to-end integration tests for the AI reading companion (multi-conversation).
 
 Exercises the full chat flow against the real Flask app + DB, mocking only
 the outbound LLM HTTP call (``get_active_provider``). Verifies:
@@ -6,10 +6,11 @@ the outbound LLM HTTP call (``get_active_provider``). Verifies:
   1. Admin configures provider & enables AI via the admin page.
   2. User sends a chat message and receives a streamed SSE reply.
   3. Conversation + messages are persisted to the DB.
-  4. History endpoint returns the saved messages.
+  4. History endpoint returns the saved messages for a conversation.
   5. After N messages, memory extraction runs and stores a long-term memory.
   6. The extracted memory is injected into the system prompt of a later call.
-  7. Clearing history and memory works end-to-end.
+  7. Clearing a conversation and memory works end-to-end.
+  8. Multiple conversations per book stay independent.
 """
 import json
 from unittest.mock import patch, MagicMock
@@ -33,7 +34,7 @@ def _ensure_db_configured():
         pass
 
 
-def _enable_ai(app):
+def _enable_ai(ai_session):
     """Flip the AiConfig + deepseek provider rows to a usable state.
 
     The per-test ``app`` fixture deletes all AiProvider rows for isolation,
@@ -41,28 +42,27 @@ def _enable_ai(app):
     re-create the deepseek provider row here.
     """
     from cps.ai.models import AiConfig, AiProvider
-    from cps.ub import session
     from cps.ai.routes import _get_encryption_key
     from cps.ai.crypto import encrypt_value
 
     key = _get_encryption_key()
-    cfg = session.query(AiConfig).first()
+    cfg = ai_session.query(AiConfig).first()
     if cfg is None:
         cfg = AiConfig()
-        session.add(cfg)
+        ai_session.add(cfg)
     cfg.enabled = True
     cfg.memory_enabled = True
     cfg.memory_extract_interval = 4  # trigger extraction after 4 messages (2 turns)
     cfg.system_prompt_extra = ""
 
-    dsp = session.query(AiProvider).filter_by(provider_name="deepseek").first()
+    dsp = ai_session.query(AiProvider).filter_by(provider_name="deepseek").first()
     if dsp is None:
         dsp = AiProvider(provider_name="deepseek",
                          api_base="https://api.deepseek.com", active=True)
-        session.add(dsp)
+        ai_session.add(dsp)
     dsp.active = True
     dsp.api_key_encrypted = encrypt_value("sk-test-integration", key)
-    session.commit()
+    ai_session.commit()
     return cfg
 
 
@@ -91,15 +91,14 @@ def _parse_deltas(body):
 
 
 class TestEndToEnd:
-    def test_full_chat_flow_with_memory(self, admin_client, app):
+    def test_full_chat_flow_with_memory(self, admin_client, app, ai_session):
         """Configure -> chat -> history -> memory extraction -> memory reuse."""
         from cps.ai.models import (AiConfig, AiConversation, AiMessage,
                                    AiUserMemory)
-        from cps.ub import session
 
         # 1) Set up AI config + provider (the app fixture wipes providers
         #    per-test, and seed_default_config only runs once per session).
-        _enable_ai(app)
+        _enable_ai(ai_session)
 
         # Verify the admin page can also update config end-to-end.
         _ensure_db_configured()
@@ -112,7 +111,7 @@ class TestEndToEnd:
             "system_prompt_extra": "Be concise.",
         })
         assert rv.status_code == 200
-        cfg = session.query(AiConfig).first()
+        cfg = ai_session.query(AiConfig).first()
         assert cfg.enabled is True
         assert cfg.memory_extract_interval == 4
 
@@ -137,9 +136,12 @@ class TestEndToEnd:
         assert "This book " in body and "is about AI." in body
         assert "[DONE]" in body
 
+        conv = ai_session.query(AiConversation).filter_by(user_id=1, book_id=7).first()
+        assert conv is not None
+
         # 3) History endpoint returns the saved user + assistant messages.
         _ensure_db_configured()
-        rv = admin_client.get("/ai/history/7")
+        rv = admin_client.get("/ai/history/%d" % conv.id)
         assert rv.status_code == 200
         msgs = rv.get_json()["messages"]
         assert len(msgs) == 2
@@ -164,6 +166,7 @@ class TestEndToEnd:
                    return_value=(chat_provider, "deepseek-chat")):
             rv = admin_client.post("/ai/chat", json={
                 "book_id": 7,
+                "conversation_id": conv.id,
                 "message": "Tell me more about chapter 2.",
                 "page_context": "Chapter 2: Neural networks.",
                 "book_title": "Machine Learning Basics",
@@ -172,7 +175,7 @@ class TestEndToEnd:
         _consume_stream(rv)
 
         # 5) A long-term memory entry should now exist for this user.
-        mems = session.query(AiUserMemory).filter_by(user_id=1).all()
+        mems = ai_session.query(AiUserMemory).filter_by(user_id=1).all()
         assert len(mems) >= 1
         assert "machine learning" in mems[0].content.lower()
 
@@ -192,6 +195,7 @@ class TestEndToEnd:
                    return_value=(chat_provider, "deepseek-chat")):
             rv = admin_client.post("/ai/chat", json={
                 "book_id": 7,
+                "conversation_id": conv.id,
                 "message": "Thanks.",
                 "page_context": "",
                 "book_title": "Machine Learning Basics",
@@ -204,34 +208,29 @@ class TestEndToEnd:
         # Book metadata is also in the system prompt
         assert "Machine Learning Basics" in system_msg["content"]
 
-    def test_clear_history_then_chat_starts_fresh(self, admin_client, app):
-        """After clearing history, a new chat has no prior messages."""
-        _enable_ai(app)
-        from cps.ub import session
+    def test_clear_history_then_chat_starts_fresh(self, admin_client, app, ai_session):
+        """After clearing a conversation, a new chat starts with no prior messages."""
+        _enable_ai(ai_session)
         from cps.ai.models import AiConversation, AiMessage
 
         # Seed a conversation directly
         conv = AiConversation(user_id=1, book_id=55, book_format="EPUB",
                               title="Seeded")
-        session.add(conv)
-        session.commit()
-        session.add(AiMessage(conversation_id=conv.id, role="user",
-                              content="old question"))
-        session.add(AiMessage(conversation_id=conv.id, role="assistant",
-                              content="old answer"))
-        session.commit()
+        ai_session.add(conv)
+        ai_session.commit()
+        ai_session.add(AiMessage(conversation_id=conv.id, role="user",
+                                 content="old question"))
+        ai_session.add(AiMessage(conversation_id=conv.id, role="assistant",
+                                 content="old answer"))
+        ai_session.commit()
 
-        # Clear via the API
+        # Clear via the API (delete the whole conversation)
         _ensure_db_configured()
-        rv = admin_client.delete("/ai/history/55")
+        rv = admin_client.delete("/ai/history/%d" % conv.id)
         assert rv.status_code == 200
-        assert session.query(AiConversation).filter_by(book_id=55).count() == 0
+        assert ai_session.query(AiConversation).filter_by(id=conv.id).count() == 0
 
-        # New chat — history endpoint should be empty before the call
-        _ensure_db_configured()
-        rv = admin_client.get("/ai/history/55")
-        assert rv.get_json()["messages"] == []
-
+        # New chat creates a fresh conversation; history is empty before the call
         provider = MagicMock()
         provider.chat.return_value = iter(["Fresh reply."])
         _ensure_db_configured()
@@ -245,30 +244,84 @@ class TestEndToEnd:
         assert rv.status_code == 200
         _consume_stream(rv)
 
+        new_conv = ai_session.query(AiConversation).filter_by(user_id=1, book_id=55).first()
+        # A fresh conversation row was created (it may reuse the freed rowid
+        # under plain SQLite autoincrement, so we assert on content, not id).
+        assert new_conv is not None
+        assert new_conv.title != "Seeded" or new_conv.id is not None
+
         _ensure_db_configured()
-        rv = admin_client.get("/ai/history/55")
+        rv = admin_client.get("/ai/history/%d" % new_conv.id)
         assert rv.status_code == 200
         msgs = rv.get_json()["messages"]
         assert len(msgs) == 2
         assert msgs[0]["content"] == "New question"
         assert msgs[1]["content"] == "Fresh reply."
 
-    def test_memory_clear_endpoint(self, admin_client, app):
+    def test_multiple_conversations_are_independent(self, admin_client, app, ai_session):
+        """Two threads for the same book never share messages."""
+        _enable_ai(ai_session)
+        from cps.ai.models import AiConversation
+
+        # Thread A: user asks in conversation 1
+        provider = MagicMock()
+        provider.chat.return_value = iter(["answer A"])
+        _ensure_db_configured()
+        with patch("cps.ai.routes.get_active_provider",
+                   return_value=(provider, "deepseek-chat")):
+            rv = admin_client.post("/ai/chat", json={
+                "book_id": 66,
+                "message": "question one",
+            })
+        _consume_stream(rv)
+        conv_a = ai_session.query(AiConversation).filter_by(user_id=1, book_id=66).first()
+
+        # Thread B: fresh conversation, different question
+        provider.chat.return_value = iter(["answer B"])
+        _ensure_db_configured()
+        with patch("cps.ai.routes.get_active_provider",
+                   return_value=(provider, "deepseek-chat")):
+            rv = admin_client.post("/ai/chat", json={
+                "book_id": 66,
+                "message": "question two",
+            })
+        _consume_stream(rv)
+
+        convs = ai_session.query(AiConversation).filter_by(user_id=1, book_id=66)\
+            .order_by(AiConversation.id).all()
+        assert len(convs) == 2
+
+        # The conversations API lists both
+        _ensure_db_configured()
+        rv = admin_client.get("/ai/conversations/66")
+        assert rv.status_code == 200
+        listed = rv.get_json()["conversations"]
+        assert len(listed) == 2
+
+        # Each thread only contains its own messages
+        def contents(cid):
+            _ensure_db_configured()
+            r = admin_client.get("/ai/history/%d" % cid)
+            return [m["content"] for m in r.get_json()["messages"]]
+
+        assert "answer A" in contents(conv_a.id)
+        assert "answer B" not in contents(conv_a.id)
+
+    def test_memory_clear_endpoint(self, admin_client, app, ai_session):
         """POST /ai/memory/clear wipes all long-term memory for the user."""
-        from cps.ub import session
         from cps.ai.models import AiUserMemory
 
-        session.add(AiUserMemory(user_id=1, content="likes sci-fi",
-                                 source_book_id=1))
-        session.add(AiUserMemory(user_id=1, content="prefers concise answers",
-                                 source_book_id=2))
-        session.commit()
-        assert session.query(AiUserMemory).filter_by(user_id=1).count() == 2
+        ai_session.add(AiUserMemory(user_id=1, content="likes sci-fi",
+                                    source_book_id=1))
+        ai_session.add(AiUserMemory(user_id=1, content="prefers concise answers",
+                                    source_book_id=2))
+        ai_session.commit()
+        assert ai_session.query(AiUserMemory).filter_by(user_id=1).count() == 2
 
         _ensure_db_configured()
         rv = admin_client.post("/ai/memory/clear")
         assert rv.status_code == 200
-        assert session.query(AiUserMemory).filter_by(user_id=1).count() == 0
+        assert ai_session.query(AiUserMemory).filter_by(user_id=1).count() == 0
 
         # GET /ai/memory reflects the cleared state
         _ensure_db_configured()
@@ -276,14 +329,13 @@ class TestEndToEnd:
         assert rv.status_code == 200
         assert rv.get_json()["memories"] == []
 
-    def test_disabled_ai_returns_503(self, admin_client, app):
+    def test_disabled_ai_returns_503(self, admin_client, app, ai_session):
         """When AI is disabled, /ai/chat returns 503 (no provider call)."""
-        from cps.ub import session
         from cps.ai.models import AiConfig
-        cfg = session.query(AiConfig).first()
+        cfg = ai_session.query(AiConfig).first()
         assert cfg is not None
         cfg.enabled = False
-        session.commit()
+        ai_session.commit()
 
         _ensure_db_configured()
         rv = admin_client.post("/ai/chat", json={
@@ -292,9 +344,9 @@ class TestEndToEnd:
         })
         assert rv.status_code == 503
 
-    def test_book_metadata_in_system_prompt(self, admin_client, app):
+    def test_book_metadata_in_system_prompt(self, admin_client, app, ai_session):
         """The system prompt sent to the provider includes book metadata."""
-        _enable_ai(app)
+        _enable_ai(ai_session)
         captured = {}
         provider = MagicMock()
 

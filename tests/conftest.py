@@ -8,6 +8,7 @@ Strategy:
 """
 import os
 import sys
+import tempfile
 
 import pytest
 
@@ -16,19 +17,31 @@ _WORKSPACE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _WORKSPACE not in sys.path:
     sys.path.insert(0, _WORKSPACE)
 
+# ---------------------------------------------------------------------------
+# Environment must be set at MODULE level, before any test module (or conftest
+# itself) imports `cps`. cps/constants.py computes CONFIG_DIR from
+# CALIBRE_DBPATH at import time — if a test file does `import cps.ai` at module
+# scope, it triggers `import cps` before the session fixture runs, and the env
+# would still be unset, pointing calibre-web at a real (non-temp) app.db.
+# ---------------------------------------------------------------------------
+_CFG_DIR = tempfile.mkdtemp(prefix="cw_config_")
+os.environ["CALIBRE_DBPATH"] = _CFG_DIR
+os.environ["FLASK_DEBUG"] = "1"
+# Point AI data storage at an isolated SQLite file. create_app() calls
+# load_dotenv(), which would otherwise pick up the repo's .env (MySQL) and try
+# to connect in the test env. python-dotenv won't override an already-set var.
+os.environ["AI_DATABASE_URL"] = "sqlite:///{0}/ai_companion.db".format(_CFG_DIR)
+
 
 @pytest.fixture(scope="session")
 def _app_instance(tmp_path_factory):
     """Initialize calibre-web's global app + ub.session once per session.
 
-    Uses a temp directory for the settings DB so we don't clobber any real config.
-    Background threads (scheduler, updater) are disabled to prevent pytest from
-    hanging on non-daemon threads.
+    Uses a temp directory (set at module level via CALIBRE_DBPATH) for the
+    settings DB so we don't clobber any real config. Background threads
+    (scheduler, updater) are disabled to prevent pytest from hanging on
+    non-daemon threads.
     """
-    db_dir = tmp_path_factory.mktemp("cw_config")
-    os.environ["CALIBRE_DBPATH"] = str(db_dir)
-    os.environ["FLASK_DEBUG"] = "1"
-
     # Disable APScheduler so it doesn't spawn a background thread that blocks exit
     from cps.services import background_scheduler
     background_scheduler.use_APScheduler = False
@@ -48,6 +61,12 @@ def _app_instance(tmp_path_factory):
     finally:
         sys.argv = saved_argv
 
+    # Initialize the independent AI data layer (lazy by default, but make it
+    # deterministic here so seeding + cleanup always have tables available).
+    from cps.ai.database import init_ai_db, remove_session
+    init_ai_db()
+    app.teardown_appcontext(lambda exc: remove_session())
+
     app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
 
     # Pretend the calibre DB is configured. The admin blueprint's
@@ -57,6 +76,17 @@ def _app_instance(tmp_path_factory):
     try:
         from cps import config as cw_config
         cw_config.db_configured = True
+    except Exception:
+        pass
+
+    # Force standard (non-LDAP) login for the test env. LDAP is not part of
+    # the test scope; when the simpleldap module is installed the login route
+    # otherwise tries to bind against a (nonexistent) LDAP server and fails.
+    try:
+        from cps import constants
+        cw_config.config_login_type = constants.LOGIN_STANDARD
+        from cps import services
+        services.ldap = None
     except Exception:
         pass
 
@@ -99,20 +129,8 @@ def _app_instance(tmp_path_factory):
     except ImportError:
         pass  # cps.ai not yet created
 
-    # Import cps.ai so its models are registered on ub.Base.metadata, then
-    # explicitly create_all to add the AI tables (init_db ran before cps.ai
-    # was imported, so they weren't included in the initial create_all).
-    try:
-        import cps.ai.models  # noqa: F401 — registers AiConfig etc. on Base
-        from cps.ub import Base
-        # Re-bind create_all to the same engine ub.session is using
-        from cps.ub import session as _sess
-        engine = _sess.bind
-        if engine is not None:
-            Base.metadata.create_all(engine)
-    except ImportError:
-        pass
-
+    # AI tables are created by cps.ai.database.init_ai_db() inside create_app()
+    # (they live on their own AiBase + AI_DATABASE_URL engine, not ub.Base).
     # Seed AI default config (providers + AiConfig row) if the package supports it.
     # seed_default_config() is added in a later task; guard against both
     # ImportError (package not yet present) and AttributeError (function not
@@ -129,11 +147,17 @@ def _app_instance(tmp_path_factory):
 @pytest.fixture
 def app(_app_instance):
     """Per-test app fixture. Cleans AI tables before yielding for isolation."""
-    from cps.ub import session as ub_session
-    # If a prior test left the session in a rolled-back state, recover first
+    # If a prior test left the sessions in a rolled-back state, recover first
     # so our cleanup queries don't themselves raise PendingRollbackError.
     try:
+        from cps.ub import session as ub_session
         ub_session.rollback()
+    except Exception:
+        pass
+    from cps.ai.database import get_session
+    ai_session = get_session()
+    try:
+        ai_session.rollback()
     except Exception:
         pass
     try:
@@ -141,9 +165,9 @@ def app(_app_instance):
                                    AiMessage, AiUserMemory)
         # Wipe AI tables clean before each test (order matters for FK cascades)
         for model in (AiMessage, AiConversation, AiUserMemory, AiProvider):
-            ub_session.query(model).delete()
+            ai_session.query(model).delete()
         # Reset config to defaults
-        cfg = ub_session.query(AiConfig).first()
+        cfg = ai_session.query(AiConfig).first()
         if cfg:
             cfg.enabled = False
             cfg.memory_enabled = True
@@ -151,10 +175,17 @@ def app(_app_instance):
             cfg.default_model = "deepseek-chat"
             cfg.memory_extract_interval = 10
             cfg.system_prompt_extra = ""
-        ub_session.commit()
+        ai_session.commit()
     except ImportError:
         pass  # cps.ai not yet created (early in test setup)
     yield _app_instance
+
+
+@pytest.fixture
+def ai_session(app):
+    """Direct access to the independent AI data session for assertions."""
+    from cps.ai.database import get_session
+    return get_session()
 
 
 @pytest.fixture

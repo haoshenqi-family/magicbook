@@ -1,5 +1,7 @@
-/* AI Companion chat panel logic.
-   - Loads conversation history for the current book on open
+/* AI Companion chat panel logic — multi-conversation.
+   - Lists the current book's conversations in a dropdown
+   - "+" button creates a new conversation
+   - Switching conversations loads that thread's history
    - Sends messages via fetch (streaming SSE) and renders markdown
    - Includes current page context extracted by ai_page_extract.js
    Depends on: jQuery (loaded by reader pages), ai_page_extract.js */
@@ -10,6 +12,7 @@
   var BOOK_ID = null;
   var BOOK_FORMAT = null;
   var BOOK_META = null;
+  var currentConversationId = null;
   var sending = false;
 
   function getCsrfToken() {
@@ -22,6 +25,10 @@
     return { id: null, format: null };
   }
 
+  function storageKey() {
+    return "calibre.ai.conv." + BOOK_ID;
+  }
+
   function init() {
     var info = getBookIdFromUrl();
     BOOK_ID = info.id;
@@ -31,11 +38,15 @@
     $("#ai-companion-fab").on("click", toggleDrawer);
     $("#ai-companion-close").on("click", closeDrawer);
     $("#ai-chat-send").on("click", sendMessage);
+    $("#ai-chat-new").on("click", newConversation);
+    $("#ai-chat-conversations").on("change", function () {
+      selectConversation(parseInt($(this).val(), 10));
+    });
     $("#ai-chat-input").on("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
 
-    loadHistory();
+    loadConversations();
   }
 
   function toggleDrawer() {
@@ -45,10 +56,65 @@
     $("#ai-companion-drawer").removeClass("open");
   }
 
-  function loadHistory() {
+  function loadConversations() {
     if (!BOOK_ID) return;
-    $.getJSON("/ai/history/" + BOOK_ID, function (data) {
-      var $box = $("#ai-chat-messages").empty();
+    $.getJSON("/ai/conversations/" + BOOK_ID, function (data) {
+      var convs = data.conversations || [];
+      var $sel = $("#ai-chat-conversations").empty();
+      convs.forEach(function (c) {
+        $sel.append($("<option>").val(c.id).text(c.title + (c.message_count ? " (" + c.message_count + ")" : "")));
+      });
+      if (!convs.length) {
+        newConversation();
+        return;
+      }
+      // Prefer the previously active conversation, else the newest one.
+      var preferred = parseInt(localStorage.getItem(storageKey()) || "", 10);
+      var target = convs.some(function (c) { return c.id === preferred; }) ? preferred : convs[0].id;
+      selectConversation(target);
+    });
+  }
+
+  function newConversation() {
+    if (!BOOK_ID) return;
+    $.ajax({
+      url: "/ai/conversations/" + BOOK_ID,
+      method: "POST",
+      contentType: "application/json",
+      headers: { "X-CSRFToken": getCsrfToken() },
+      data: JSON.stringify({ book_format: BOOK_FORMAT }),
+    }).then(function (res) {
+      var id = res.conversation_id;
+      // Insert the fresh thread at the top of the dropdown and select it.
+      var $sel = $("#ai-chat-conversations");
+      $sel.prepend($("<option>").val(id).text(res.title || "新会话"));
+      $sel.val(id);
+      currentConversationId = id;
+      persistSelection();
+      clearMessages();
+    });
+  }
+
+  function selectConversation(conversationId) {
+    if (!conversationId) return;
+    currentConversationId = conversationId;
+    persistSelection();
+    $("#ai-chat-conversations").val(conversationId);
+    loadHistory(conversationId);
+  }
+
+  function persistSelection() {
+    try { localStorage.setItem(storageKey(), String(currentConversationId)); } catch (e) {}
+  }
+
+  function clearMessages() {
+    $("#ai-chat-messages").empty();
+  }
+
+  function loadHistory(conversationId) {
+    if (!conversationId) return;
+    $.getJSON("/ai/history/" + conversationId, function (data) {
+      clearMessages();
       (data.messages || []).forEach(function (m) {
         appendMessage(m.role, m.content);
       });
@@ -112,6 +178,7 @@
       body: JSON.stringify({
         book_id: BOOK_ID,
         book_format: BOOK_FORMAT,
+        conversation_id: currentConversationId,
         message: message,
         page_context: pageContext,
         book_title: BOOK_META.title,
@@ -171,6 +238,8 @@
       }
       sending = false;
       $("#ai-chat-send").prop("disabled", false);
+      // Refresh the dropdown (the active thread title may have changed).
+      loadConversations();
     }
   }
 

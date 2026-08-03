@@ -18,10 +18,10 @@ log = logger.create()
 
 
 def _session():
-    """Lazy access to cps.ub.session — read at call time, not import time,
-    so this module can be imported before create_app() initializes the session."""
-    from cps.ub import session as s
-    return s
+    """Lazy access to the AI data session — read at call time, not import time,
+    so this module can be imported before create_app() initializes the data layer."""
+    from .database import get_session
+    return get_session()
 
 _MAX_PAGE_CHARS = 8000
 _MAX_DESC_CHARS = 1000
