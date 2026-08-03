@@ -181,6 +181,33 @@ def new_conversation(book_id):
     return jsonify({"conversation_id": conv.id, "title": conv.title})
 
 
+@aichat.route("/ai/conversations/<int:conversation_id>/rename", methods=["POST"])
+@user_login_required
+def rename_conversation(conversation_id):
+    """Rename a conversation owned by the current user.
+
+    Request JSON: ``{title}``. Empty/whitespace titles are rejected so a
+    thread never ends up with a blank label in the dropdown.
+    """
+    sess = _session()
+    conv = sess.query(AiConversation).filter_by(
+        id=conversation_id, user_id=current_user.id).first()
+    if conv is None:
+        return jsonify({"error": "conversation not found or not owned"}), 404
+
+    body = request.get_json(silent=True) or {}
+    raw = body.get("title")
+    title = raw.strip() if isinstance(raw, str) else ""
+    if not title:
+        return jsonify({"error": "title is required"}), 400
+    if len(title) > 500:
+        return jsonify({"error": "title too long"}), 400
+
+    conv.title = title
+    sess.commit()
+    return jsonify({"conversation_id": conv.id, "title": conv.title})
+
+
 @aichat.route("/ai/chat", methods=["POST"])
 @user_login_required
 def chat():

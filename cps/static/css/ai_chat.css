@@ -36,6 +36,9 @@
   font-size: 13px; background: #fff; color: #333;
 }
 #ai-chat-new { flex: 0 0 auto; font-size: 18px; line-height: 1; }
+/* Rename / delete action buttons (hide text, keep icon + touch target) */
+#ai-chat-rename, #ai-chat-delete { flex: 0 0 auto; font-size: 15px; line-height: 1; }
+#ai-chat-rename:hover, #ai-chat-delete:hover { color: #ffe0b2; }
 
 #ai-chat-messages { flex: 1; overflow-y: auto; padding: 16px; background: #f9f9f9; }
 .ai-chat-msg { margin-bottom: 12px; padding: 10px 14px; border-radius: 12px; max-width: 88%; word-wrap: break-word; }
@@ -72,6 +75,7 @@
   #ai-chat-input { font-size: 16px; min-height: 48px; }
   #ai-chat-send { padding: 10px 24px; font-size: 16px; }
   #ai-chat-new { padding: 4px 8px; font-size: 20px; }
+  #ai-chat-rename, #ai-chat-delete { padding: 4px 8px; font-size: 17px; }
 
   /* Messages: allow slightly wider bubbles on phones. */
   .ai-chat-msg { max-width: 95%; padding: 10px 12px; }

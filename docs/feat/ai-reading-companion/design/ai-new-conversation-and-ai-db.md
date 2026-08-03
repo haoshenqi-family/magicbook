@@ -59,19 +59,22 @@
 |------|------|------|
 | GET | `/ai/conversations/<book_id>` | 当前用户在该书下的会话列表（含 `id/title/created_at/updated_at/message_count`，按更新时间倒序） |
 | POST | `/ai/conversations/<book_id>` | 新建空会话，返回 `{conversation_id, title}` |
+| POST | `/ai/conversations/<conversation_id>/rename` | 重命名会话（body `{title}`，非空且 ≤500 字符，校验所有权） |
+| DELETE | `/ai/history/<conversation_id>` | 删除会话（含级联消息，幂等返回 200） |
 | POST | `/ai/chat` | 请求体增加可选 `conversation_id`；未传或会话不存在 → 自动新建；首条消息写入后若标题为空则用消息前 30 字自动命名 |
 | GET | `/ai/history/<conversation_id>` | 按**会话 id**返回该会话消息（原按 book_id 的语义废弃） |
-| DELETE | `/ai/history/<conversation_id>` | 按会话 id 删除（含级联消息） |
 
 `/ai/memory`、`/ai/memory/clear`、`/ai/admin` 不变（仅数据源切换）。
 
 ### 3.4 前端变更
 
-- `ai_chat_panel.html`：抽屉 header 增加会话 `<select>`（标题下拉）+「＋ 新建会话」按钮。
+- `ai_chat_panel.html`：抽屉 header 增加会话 `<select>`（标题下拉）+「＋ 新建会话」按钮，以及 **✎ 重命名 / 🗑 删除** 操作按钮。
 - `ai_chat.js`：
   - 打开抽屉 → `GET /ai/conversations/<book_id>` 渲染下拉，默认选中最近会话并加载其历史。
   - 「＋ 新建会话」→ `POST /ai/conversations/<book_id>` → 清空消息区并切换。
   - 切换下拉 → `GET /ai/history/<conversation_id>` 加载。
+  - **✎ 重命名**：`prompt` 输入 → `POST /ai/conversations/<id>/rename` → 按 id 定位下拉项就地更新 label（保留消息计数后缀，规避切换竞态）。
+  - **🗑 删除**：`confirm` 确认 → `DELETE /ai/history/<id>` → 从下拉移除并切到相邻/首个会话，删光则自动新建；带 `deleting` 防重入标志。
   - 发送消息携带 `conversation_id`。
 - `ai_chat.css`：下拉/按钮样式。
 

@@ -171,6 +171,74 @@ class TestAiRoutes:
         assert conv.book_id == 7
         assert conv.book_format == "EPUB"
 
+    def test_rename_conversation(self, admin_client, ai_session):
+        conv = AiConversation(user_id=1, book_id=7, title="旧标题")
+        ai_session.add(conv)
+        ai_session.commit()
+        conv_id = conv.id
+
+        rv = admin_client.post("/ai/conversations/%d/rename" % conv_id,
+                               json={"title": "新标题"})
+        assert rv.status_code == 200
+        assert rv.get_json()["title"] == "新标题"
+        loaded = ai_session.query(AiConversation).filter_by(id=conv_id).first()
+        assert loaded.title == "新标题"
+
+    def test_rename_requires_title(self, admin_client, ai_session):
+        conv = AiConversation(user_id=1, book_id=7, title="保持")
+        ai_session.add(conv)
+        ai_session.commit()
+        conv_id = conv.id
+
+        for bad in ("", "   ", None):
+            rv = admin_client.post("/ai/conversations/%d/rename" % conv_id,
+                                   json={"title": bad})
+            assert rv.status_code == 400, "title=%r should be rejected" % bad
+        loaded = ai_session.query(AiConversation).filter_by(id=conv_id).first()
+        assert loaded.title == "保持"
+
+    def test_rename_rejects_non_string_title(self, admin_client, ai_session):
+        conv = AiConversation(user_id=1, book_id=7, title="保持")
+        ai_session.add(conv)
+        ai_session.commit()
+        conv_id = conv.id
+
+        for bad in (123, True, [1, 2], {"a": 1}):
+            rv = admin_client.post("/ai/conversations/%d/rename" % conv_id,
+                                   json={"title": bad})
+            assert rv.status_code == 400, "title=%r should be rejected" % bad
+        loaded = ai_session.query(AiConversation).filter_by(id=conv_id).first()
+        assert loaded.title == "保持"
+
+    def test_rename_rejects_overlong_title(self, admin_client, ai_session):
+        conv = AiConversation(user_id=1, book_id=7, title="保持")
+        ai_session.add(conv)
+        ai_session.commit()
+        conv_id = conv.id
+
+        rv = admin_client.post("/ai/conversations/%d/rename" % conv_id,
+                               json={"title": "x" * 501})
+        assert rv.status_code == 400
+        loaded = ai_session.query(AiConversation).filter_by(id=conv_id).first()
+        assert loaded.title == "保持"
+
+    def test_rename_rejects_unknown_conversation(self, admin_client, ai_session):
+        rv = admin_client.post("/ai/conversations/999999/rename",
+                               json={"title": "x"})
+        assert rv.status_code == 404
+
+    def test_rename_rejects_other_users_conversation(self, admin_client, ai_session):
+        conv = AiConversation(user_id=99, book_id=7, title="别人的")
+        ai_session.add(conv)
+        ai_session.commit()
+        conv_id = conv.id
+
+        rv = admin_client.post("/ai/conversations/%d/rename" % conv_id,
+                               json={"title": "篡改"})
+        assert rv.status_code == 404
+        loaded = ai_session.query(AiConversation).filter_by(id=conv_id).first()
+        assert loaded.title == "别人的"
+
     def test_conversations_list(self, admin_client, ai_session):
         c1 = AiConversation(user_id=1, book_id=7, title="thread A")
         c2 = AiConversation(user_id=1, book_id=7, title="thread B")
@@ -277,6 +345,16 @@ class TestAiRoutes:
         assert rv.status_code == 200
         assert ai_session.query(AiConversation).filter_by(id=conv.id).count() == 0
         assert ai_session.query(AiMessage).filter_by(conversation_id=conv.id).count() == 0
+
+    def test_delete_does_not_affect_other_users_conversation(self, admin_client, ai_session):
+        conv = AiConversation(user_id=99, book_id=99, book_format="EPUB")
+        ai_session.add(conv)
+        ai_session.commit()
+
+        rv = admin_client.delete("/ai/history/%d" % conv.id)
+        assert rv.status_code == 200
+        # The other user's conversation must remain untouched.
+        assert ai_session.query(AiConversation).filter_by(id=conv.id).count() == 1
 
     def test_get_memory(self, admin_client, ai_session):
         m = AiUserMemory(user_id=1, content="Likes sci-fi", source_book_id=1)

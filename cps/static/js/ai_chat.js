@@ -14,6 +14,7 @@
   var BOOK_META = null;
   var currentConversationId = null;
   var sending = false;
+  var deleting = false;
 
   function getCsrfToken() {
     return $("input[name='csrf_token']").val() || "";
@@ -39,6 +40,8 @@
     $("#ai-companion-close").on("click", closeDrawer);
     $("#ai-chat-send").on("click", sendMessage);
     $("#ai-chat-new").on("click", newConversation);
+    $("#ai-chat-rename").on("click", renameConversation);
+    $("#ai-chat-delete").on("click", deleteConversation);
     $("#ai-chat-conversations").on("change", function () {
       selectConversation(parseInt($(this).val(), 10));
     });
@@ -101,6 +104,74 @@
     persistSelection();
     $("#ai-chat-conversations").val(conversationId);
     loadHistory(conversationId);
+  }
+
+  function renameConversation() {
+    var id = currentConversationId;
+    if (!id) return;
+    var $sel = $("#ai-chat-conversations");
+    var $opt = $sel.find("option:selected");
+    var currentTitle = $opt.text() || "";
+    var newTitle = window.prompt("重命名会话", currentTitle.replace(/\s*\(\d+\)$/, ""));
+    if (newTitle === null) return;           // cancelled
+    newTitle = (newTitle || "").trim();
+    if (!newTitle) return;                    // empty not allowed
+    $.ajax({
+      url: "/ai/conversations/" + id + "/rename",
+      method: "POST",
+      contentType: "application/json",
+      headers: { "X-CSRFToken": getCsrfToken() },
+      data: JSON.stringify({ title: newTitle }),
+    }).then(function (res) {
+      // Locate the option by id (the user may have switched conversations
+      // while the request was in flight) and keep its message-count suffix.
+      var $target = $sel.find("option[value='" + id + "']");
+      if (!$target.length) return;
+      var m = currentTitle.match(/\((\d+)\)$/);
+      $target.text(res.title + (m ? " (" + m[1] + ")" : ""));
+    }).fail(function (xhr) {
+      var msg = "重命名失败";
+      try { msg += ": " + (JSON.parse(xhr.responseText).error || xhr.status); }
+      catch (e) { msg += ": HTTP " + xhr.status; }
+      window.alert(msg);
+    });
+  }
+
+  function deleteConversation() {
+    var id = currentConversationId;
+    if (!id || deleting) return;
+    var $sel = $("#ai-chat-conversations");
+    var title = $sel.find("option:selected").text() || "";
+    if (!window.confirm("删除会话「" + title + "」？该操作不可恢复。")) return;
+    deleting = true;
+    $.ajax({
+      url: "/ai/history/" + id,
+      method: "DELETE",
+      headers: { "X-CSRFToken": getCsrfToken() },
+    }).then(function () {
+      deleting = false;
+      // Remove the option; if it was selected, jump to the next/previous one.
+      var $cur = $sel.find("option[value='" + id + "']");
+      if (!$cur.length) return; // already removed by another request
+      var $next = $cur.next("option");
+      if (!$next.length) $next = $cur.prev("option");
+      $cur.remove();
+      if ($next.length) {
+        selectConversation(parseInt($next.val(), 10));
+      } else if ($sel.find("option").length) {
+        selectConversation(parseInt($sel.find("option").first().val(), 10));
+      } else {
+        currentConversationId = null;
+        clearMessages();
+        newConversation();
+      }
+    }).fail(function (xhr) {
+      deleting = false;
+      var msg = "删除失败";
+      try { msg += ": " + (JSON.parse(xhr.responseText).error || xhr.status); }
+      catch (e) { msg += ": HTTP " + xhr.status; }
+      window.alert(msg);
+    });
   }
 
   function persistSelection() {
