@@ -37,20 +37,39 @@ def seed_default_config():
             cfg = AiConfig()
             ub_session.add(cfg)
 
-        # Ensure the deepseek provider row exists
-        dsp = ub_session.query(AiProvider).filter_by(provider_name="deepseek").first()
-        if dsp is None:
-            dsp = AiProvider()
-            dsp.provider_name = "deepseek"
-            dsp.display_name = "DeepSeek"
-            dsp.api_base = "https://api.deepseek.com"
-            dsp.api_key_encrypted = ""
-            dsp.models_json = json.dumps([
-                {"id": "deepseek-chat", "label": "DeepSeek Chat (V3)"},
-                {"id": "deepseek-reasoner", "label": "DeepSeek Reasoner (R1)"},
-            ])
-            dsp.active = True
-            ub_session.add(dsp)
+        # Ensure default provider rows exist (deepseek + generic openai-compatible).
+        defaults = [
+            {
+                "provider_name": "deepseek",
+                "display_name": "DeepSeek",
+                "api_base": "https://api.deepseek.com",
+                "models": [
+                    {"id": "deepseek-chat", "label": "DeepSeek Chat (V3)"},
+                    {"id": "deepseek-reasoner", "label": "DeepSeek Reasoner (R1)"},
+                ],
+            },
+            {
+                "provider_name": "openai",
+                "display_name": "OpenAI Compatible",
+                "api_base": "",
+                "models": [
+                    {"id": "gpt-4o", "label": "GPT-4o"},
+                    {"id": "gpt-4o-mini", "label": "GPT-4o mini"},
+                ],
+            },
+        ]
+        for d in defaults:
+            row = ub_session.query(AiProvider).filter_by(
+                provider_name=d["provider_name"]).first()
+            if row is None:
+                row = AiProvider()
+                row.provider_name = d["provider_name"]
+                row.display_name = d["display_name"]
+                row.api_base = d["api_base"]
+                row.api_key_encrypted = ""
+                row.models_json = json.dumps(d["models"])
+                row.active = True
+                ub_session.add(row)
 
         ub_session.commit()
     except Exception as e:

@@ -56,6 +56,59 @@ class TestAiRoutes:
         })
         assert rv.status_code == 503
 
+    def test_chat_with_keyless_openai_provider(self, admin_client, ai_session):
+        """An OpenAI-compatible provider without an API key must work (e.g. Ollama).
+
+        get_active_provider() must NOT reject a keyless provider whose class
+        declares requires_key=False; only the HTTP call itself can fail.
+        """
+        from cps.ai.crypto import encrypt_value
+        from cps.ai.routes import _get_encryption_key
+        from cps.ai.models import AiConfig, AiProvider
+
+        cfg = ai_session.query(AiConfig).first() or AiConfig()
+        if cfg.id is None:
+            ai_session.add(cfg)
+        cfg.enabled = True
+        cfg.default_provider = "openai"
+        cfg.default_model = "llama3"
+        cfg.memory_enabled = False
+
+        prov = ai_session.query(AiProvider).filter_by(provider_name="openai").first()
+        if prov is None:
+            prov = AiProvider()
+            prov.provider_name = "openai"
+            prov.api_base = "http://localhost:11434/v1"
+            ai_session.add(prov)
+        prov.api_base = "http://localhost:11434/v1"
+        prov.api_key_encrypted = encrypt_value("", _get_encryption_key())
+        prov.active = True
+        ai_session.commit()
+
+        # The real get_active_provider() runs now; only the outbound HTTP is mocked.
+        from unittest.mock import MagicMock
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        # chat() uses streaming, so mock an SSE response body.
+        fake_response.iter_lines = MagicMock(return_value=iter([
+            b'data: {"choices":[{"delta":{"content":"from "}}]}\n\n',
+            b'data: {"choices":[{"delta":{"content":"ollama"}}]}\n\n',
+            b'data: [DONE]\n\n',
+        ]))
+        fake_response.__enter__ = MagicMock(return_value=fake_response)
+        fake_response.__exit__ = MagicMock(return_value=False)
+        with patch("cps.ai.openai_compat.requests.post", return_value=fake_response):
+            rv = admin_client.post("/ai/chat", json={
+                "book_id": 1,
+                "book_format": "EPUB",
+                "message": "hi there",
+            })
+        assert rv.status_code == 200
+        body = rv.get_data(as_text=True)
+        # SSE stream: content arrives as separate delta chunks.
+        assert '"delta": "from "' in body
+        assert '"delta": "ollama"' in body
+
     def test_chat_streams_response(self, admin_client, ai_session):
         """POST /ai/chat should stream SSE chunks back."""
         _enable_ai(ai_session)

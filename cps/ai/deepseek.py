@@ -47,12 +47,13 @@ class DeepSeekProvider(BaseProvider):
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-        payload = {
-            "model": model,
-            "messages": messages,
-            "stream": stream,
-        }
+        # Apply extra kwargs first, then force the reserved fields so callers
+        # can never accidentally override model/messages/stream.
+        payload = {"model": model, "messages": messages, "stream": stream}
         payload.update(kwargs)
+        payload["model"] = model
+        payload["messages"] = messages
+        payload["stream"] = stream
 
         if stream:
             return self._stream_chat(url, headers, payload)

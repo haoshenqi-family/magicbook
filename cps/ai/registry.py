@@ -7,6 +7,7 @@ from typing import Dict, List, Type
 
 from .base import BaseProvider
 from .deepseek import DeepSeekProvider
+from .openai_compat import OpenAICompatProvider
 
 
 _PROVIDER_CLASSES: Dict[str, Type[BaseProvider]] = {}
@@ -37,3 +38,4 @@ def get_provider(name: str, api_base: str, api_key: str,
 
 # Register built-in providers at import time
 register_provider_class("deepseek", DeepSeekProvider)
+register_provider_class("openai", OpenAICompatProvider)

@@ -82,11 +82,13 @@ def get_active_provider():
 
     key = _get_encryption_key()
     api_key = decrypt_value(prov_row.api_key_encrypted, key)
-    if not api_key:
-        raise RuntimeError(f"provider '{provider_name}' has no API key set")
 
     provider = get_provider(provider_name, api_base=prov_row.api_base,
                             api_key=api_key)
+    # Some providers (e.g. OpenAI-compatible local gateways) work without an
+    # API key; only enforce a key when the provider class requires it.
+    if not api_key and provider.requires_key:
+        raise RuntimeError(f"provider '{provider_name}' has no API key set")
     return provider, cfg.default_model
 
 

@@ -5,6 +5,7 @@ import pytest
 
 from cps.ai.registry import get_provider, register_provider_class, list_providers
 from cps.ai.deepseek import DeepSeekProvider
+from cps.ai.openai_compat import OpenAICompatProvider
 
 
 class TestRegistry:
@@ -12,11 +13,21 @@ class TestRegistry:
         names = list_providers()
         assert "deepseek" in names
 
+    def test_list_providers_includes_openai(self):
+        names = list_providers()
+        assert "openai" in names
+
     def test_get_provider_by_name(self):
         p = get_provider("deepseek", api_base="https://api.deepseek.com",
                          api_key="sk-test")
         assert isinstance(p, DeepSeekProvider)
         assert p.name == "deepseek"
+
+    def test_get_openai_provider_by_name(self):
+        p = get_provider("openai", api_base="https://gateway.example.com/v1",
+                         api_key="sk-test")
+        assert isinstance(p, OpenAICompatProvider)
+        assert p.name == "openai"
 
     def test_get_unknown_provider_raises(self):
         with pytest.raises(KeyError, match="unknown"):
@@ -83,6 +94,23 @@ class TestSeedDefaultConfig:
         ids = [m["id"] for m in models]
         assert "deepseek-chat" in ids
 
+    def test_seed_creates_openai_provider_row(self, app, ai_session):
+        from cps.ai.models import AiProvider
+        from cps.ai import seed_default_config
+
+        ai_session.query(AiProvider).delete()
+        ai_session.commit()
+
+        seed_default_config()
+
+        prov = ai_session.query(AiProvider).filter_by(provider_name="openai").first()
+        assert prov is not None
+        assert prov.display_name == "OpenAI Compatible"
+        assert prov.active is True
+        models = json.loads(prov.models_json)
+        ids = [m["id"] for m in models]
+        assert "gpt-4o" in ids
+
     def test_seed_is_idempotent(self, app, ai_session):
         """Running seed_default_config twice should not duplicate rows."""
         from cps.ai.models import AiConfig, AiProvider
@@ -97,3 +125,4 @@ class TestSeedDefaultConfig:
 
         assert ai_session.query(AiConfig).count() == 1
         assert ai_session.query(AiProvider).filter_by(provider_name="deepseek").count() == 1
+        assert ai_session.query(AiProvider).filter_by(provider_name="openai").count() == 1
