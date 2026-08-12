@@ -51,18 +51,11 @@
               <label>{{_('API Key')}} {{_('(leave blank to keep current)')}}</label>
               <input type="password" name="provider_{{ prov.id }}_api_key" class="form-control" placeholder="sk-...">
             </div>
-            {% if prov.provider_name == "authentik" %}
-            <div class="form-group">
-              <label>{{_('Client Secret')}}</label>
-              <input type="password" name="provider_{{ prov.id }}_client_secret" class="form-control" placeholder="{{_('Leave blank to keep current')}}">
-            </div>
-            {% else %}
             <div class="form-group">
               <label>{{_('Models (one per line, format: id|label)')}}</label>
               <textarea name="provider_{{ prov.id }}_models" class="form-control" rows="3">{% set models = prov.models_json | from_json %}{% for m in models %}{{ m.id }}|{{ m.label }}
 {% endfor %}</textarea>
             </div>
-            {% endif %}
           </div>
         </div>
         {% endfor %}

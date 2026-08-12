@@ -91,11 +91,5 @@ def main():
         app.register_blueprint(kobo_auth)
     if oauth_available:
         app.register_blueprint(oauth)
-    # Authentik OAuth (no-op if not configured)
-    try:
-        from cps.ai.authentik import register_authentik
-        register_authentik(app)
-    except ImportError:
-        pass
     success = web_server.start()
     sys.exit(0 if success else 1)

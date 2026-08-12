@@ -446,33 +446,19 @@ def admin():
                 prov.api_key_encrypted = encrypt_value(new_key, key)
             prov.active = request.form.get(field_prefix + "active") == "on"
 
-            # For authentik, store client_secret in models_json; for AI providers
-            # parse newline-separated "id|label" lines into JSON.
-            if prov.provider_name == "authentik":
-                new_secret = request.form.get(field_prefix + "client_secret", "")
-                extra = {}
-                try:
-                    extra = json.loads(prov.models_json or "{}")
-                    if not isinstance(extra, dict):
-                        extra = {}
-                except (ValueError, TypeError):
-                    extra = {}
-                if new_secret:
-                    extra["client_secret_encrypted"] = encrypt_value(new_secret, key)
-                prov.models_json = json.dumps(extra)
-            else:
-                models_text = request.form.get(field_prefix + "models", "")
-                models_list = []
-                for line in models_text.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if "|" in line:
-                        mid, mlabel = line.split("|", 1)
-                    else:
-                        mid, mlabel = line, line
-                    models_list.append({"id": mid.strip(), "label": mlabel.strip()})
-                prov.models_json = json.dumps(models_list)
+            # Parse newline-separated "id|label" lines into a model list.
+            models_text = request.form.get(field_prefix + "models", "")
+            models_list = []
+            for line in models_text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                if "|" in line:
+                    mid, mlabel = line.split("|", 1)
+                else:
+                    mid, mlabel = line, line
+                models_list.append({"id": mid.strip(), "label": mlabel.strip()})
+            prov.models_json = json.dumps(models_list)
 
         sess.commit()
 

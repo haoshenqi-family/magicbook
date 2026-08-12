@@ -126,4 +126,5 @@
 - **MySQL 字符集**：必须按 `docs/feat/ai-reading-companion/sql/create_ai_database.sql` 以 `utf8mb4` 建库，否则 emoji/多字节会报 `Incorrect string value`。
 - **时区**：AI 表时间统一为**中国大陆时区（Asia/Shanghai，UTC+8）**，存 naive 北京时间墙钟时间（见 `cps/ai/timezone.py`）。不采用 aware datetime，以免 MySQL（DATETIME 无时区 + PyMySQL aware→UTC 转换）与 SQLite 存储不一致。
 - 移除 `user` 外键后，AI 表与用户表仅应用层关联（`user_id` 整数），删除用户时需注意孤儿数据（当前无删除用户场景，可接受）。
+- **Authentik 登录**：已由 `cps/oidc.py`（authlib OIDC，环境变量 `AUTHENTIK_ISSUER` 等配置）统一承接；原 AI 包内的 `cps/ai/authentik.py`（flask-dance OAuth2，需 flask-dance 且从未被使用）已移除。`cps/ai` 不再包含认证逻辑。
 - **`.env` 限制**：`load_dotenv()` 在 `cps.constants` 导入后执行，因此 `.env` 仅用于 `AI_DATABASE_URL`（`CALIBRE_DBPATH` 等需通过环境变量/容器注入）。

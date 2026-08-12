@@ -1,7 +1,7 @@
 """AI reading companion subpackage for calibre-web.
 
-All AI-related code (providers, chat API, memory, authentik OAuth) lives here
-to minimize intrusion into upstream calibre-web.
+All AI-related code (providers, chat API, memory) lives here to minimize
+intrusion into upstream calibre-web.
 
 ``seed_default_config()`` ensures the ``AiConfig`` and ``AiProvider`` tables
 have their default rows (deepseek provider, disabled by default). It is safe
