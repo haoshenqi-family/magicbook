@@ -2,6 +2,13 @@
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
 
+# Load environment variables from .env
+set -a
+if [ -f "$DIR/.env" ]; then
+    source "$DIR/.env"
+fi
+set +a
+
 PID=$(ss -tlnp 2>/dev/null | grep ':8085 ' | grep -oP 'pid=\K[0-9]+')
 if [ -n "$PID" ]; then
     echo "Stopping Calibre-Web (PID $PID)..."
