@@ -86,6 +86,8 @@ def callback():
         user = ub.User(name=username, email=userinfo.get("email", ""), role=1)
         user.oidc_issuer = issuer
         user.oidc_subject = subject
+        # 跨应用稳定标识直接沿用 Authentik sub，与 moon-well 等外部系统身份对齐
+        user.user_key = subject
         ub.session.add(user)
         ub.session.commit()
     login_user(user, remember=True)

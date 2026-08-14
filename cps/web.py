@@ -24,6 +24,7 @@ import mimetypes
 import chardet  # dependency of requests
 import copy
 import requests
+import uuid
 from importlib.metadata import metadata
 
 from flask import Blueprint, jsonify, request, redirect, send_from_directory, make_response, flash, abort, url_for, current_app
@@ -213,7 +214,9 @@ def reading_vocabulary():
     if not constants.MOON_WELL_READING_URL or not constants.MOON_WELL_INTEGRATION_TOKEN:
         return jsonify({"success": False, "message": "reading vocabulary is not configured"}), 503
     payload = request.get_json(silent=True) or {}
-    payload["userKey"] = str(current_user.id)
+    # 用跨应用稳定标识 user_key（OIDC 用户=Authentik sub，本地用户=UUID）替代自增 id，
+    # 使 moon-well 侧可映射回自己的 app_user（oidc_subject）。回填前的旧库兜底用 user.id。
+    payload["userKey"] = getattr(current_user, "user_key", None) or str(current_user.id)
     try:
         response = requests.post(
             constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/analyze",
@@ -1328,6 +1331,7 @@ def register_post():
     if check_valid_domain(email):
         content.name = nickname
         content.email = email
+        content.user_key = str(uuid.uuid4())
         password = generate_random_password(config.config_password_min_length)
         content.password = generate_password_hash(password)
         content.role = config.config_default_role

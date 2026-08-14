@@ -27,6 +27,14 @@ MAGICBOOK_INTEGRATION_TOKEN=replace-with-a-long-random-token
 
 magicbook 通过自己的 Flask 登录会话确定用户，并在服务端代理请求；令牌不会下发到浏览器。moon-well 的 `/reading-vocabulary/**` 是集成接口，使用 `X-Magicbook-Token` 校验令牌。
 
+`userKey` 是 magicbook 的**跨应用稳定标识 `user_key`**（非自增 `user.id`）：
+
+- Authentik/OIDC 用户：`user_key` = Authentik `sub`（与 moon-well 侧 `app_user.oidc_subject` 一致，两端据此映射为同一人）。
+- 本地用户：`user_key` = 创建时生成的 UUID4。
+- 存量用户由启动迁移回填（OIDC 用户沿用 sub，其余生成 UUID），幂等。
+
+> 历史数据迁移：升级前以 `user.id` 上报的 ES 记录，需用 `docs/temp/scripts/export_user_key_map.py` 导出 `{old_id: user_key}` 映射，交由 moon-well 侧 `migrate_reading_vocabulary_userkey.py` 重写（见 sso-user-unification 设计文档 §7）。
+
 ## 当前范围
 
 第一版接入 EPUB/KEPUB 阅读器，因为 epub.js 能直接访问当前章节 iframe 的 HTML 文本和 CFI 位置。PDF、TXT、漫画和音频阅读器尚未接入这套识词流程。
