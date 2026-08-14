@@ -81,6 +81,19 @@
 | `docs/kb/sql/`              | SQL 相关文档                                                    |
 | `docs/temp/`               | 临时文件目录（脚本、临时文档等），**不跟踪 Git**                        |
 | `docs/temp/scripts/`               | 临时脚本 **不跟踪 Git**                        |
+| `requests.md` (根目录)     | 对话需求记录，仅记录用户需求                              |
+| `response.md` (根目录)     | 对话回应记录，含每个需求回应、冲突说明及两文件总结                 |
+
+---
+
+## 📝 对话记录 (requests.md / response.md)
+
+- **`requests.md`**：仅记录每一次对话用户的需求，除此之外不做任何事情。
+- **`response.md`**：每次任务完成后检查需求列表，更新功能说明，包括：
+  - 对每个 request 的回应；
+  - 对 requests.md 与 response.md 两个文件的总结。
+- **冲突记录**：若 request 之间存在冲突，必须在 response.md 中记录。
+- **原则**：尽量简单。
 
 ---
 
