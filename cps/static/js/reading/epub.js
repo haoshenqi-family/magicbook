@@ -143,7 +143,60 @@ var reader;
 
     // Mark unfamiliar words in the currently visible EPUB document and show their history.
     var vocabularyInFlight = false;
+    // Words that have already been sent to moon-well this session, to avoid re-requesting.
     var vocabularySeen = {};
+    // word -> latest record returned by moon-well, kept across page turns so that
+    // re-rendered pages (going back to a previously read page) can be re-marked.
+    var vocabularyRecords = {};
+
+    // 从导航目录中按 href 文件名递归匹配章节标题。
+    function findTocLabel(items, href) {
+        var target = (href || '').split('/').pop();
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if ((item.href || '').split('/').pop() === target) return item.label;
+            if (item.subitems && item.subitems.length) {
+                var label = findTocLabel(item.subitems, href);
+                if (label) return label;
+            }
+        }
+        return '';
+    }
+
+    // 获取当前章节的真实标题。旧实现读取 #chapter-title，但该元素被
+    // reader.min.js 的 MetaController 填充为书籍作者而非章节名，
+    // 导致上报给 moon-well 的 chapter 字段错误。
+    function currentChapterTitle() {
+        var label = '';
+        try {
+            var location = reader.currentLocation && reader.currentLocation();
+            var cfi = location && location.start && location.start.cfi;
+            var nav = reader.book.navigation;
+            if (cfi && nav && nav.toc) {
+                var spineItem = reader.book.spine.get(cfi);
+                if (spineItem) {
+                    if (nav.toc[spineItem.index] && nav.toc[spineItem.index].label) {
+                        label = nav.toc[spineItem.index].label;
+                    }
+                    if (!label && spineItem.href) {
+                        label = findTocLabel(nav.toc, spineItem.href);
+                    }
+                }
+            }
+        } catch (e) {}
+        // 兜底：取当前渲染文档的 <title>
+        if (!label) {
+            try {
+                var contents = reader.rendition.getContents();
+                if (contents && contents.length && contents[0].document &&
+                    contents[0].document.title) {
+                    label = contents[0].document.title;
+                }
+            } catch (e) {}
+        }
+        return label;
+    }
+
     function visibleWords() {
         var words = {};
         reader.rendition.getContents().forEach(function (content) {
@@ -155,16 +208,19 @@ var reader;
                 var sentence = (node.parentElement && node.parentElement.textContent || node.textContent || '').trim();
                 (node.textContent.match(/\b[A-Za-z][A-Za-z'’-]*\b/g) || []).forEach(function (raw) {
                     var word = raw.toLowerCase().replace(/[’']/g, "'");
-                    if (word.length > 1 && !vocabularySeen[word]) words[word] = sentence.slice(0, 500);
+                    // 收集所有可见词（不做 seen 过滤），以便翻回已读页时用缓存重新标注
+                    if (word.length > 1) words[word] = sentence.slice(0, 500);
                 });
             }
         });
         return words;
     }
 
-    function markVocabulary(words, records) {
+    function markVocabulary(records) {
         var byWord = {};
-        (records || []).forEach(function (record) { byWord[record.word] = record; });
+        (records || []).forEach(function (record) {
+            if (record && record.word) byWord[record.word] = record;
+        });
         reader.rendition.getContents().forEach(function (content) {
             var doc = content.document;
             if (!doc || !doc.body) return;
@@ -172,6 +228,10 @@ var reader;
             var textNodes = [], node;
             while ((node = walker.nextNode())) textNodes.push(node);
             textNodes.forEach(function (textNode) {
+                // 已包过 span 的文本节点跳过，防止重复标注产生嵌套 span
+                var parent = textNode.parentElement;
+                if (parent && parent.classList &&
+                    parent.classList.contains('reading-vocabulary-unknown')) return;
                 var fragment = doc.createDocumentFragment(), text = textNode.textContent, last = 0;
                 var regex = /\b[A-Za-z][A-Za-z'’-]*\b/g, match;
                 while ((match = regex.exec(text))) {
@@ -202,19 +262,36 @@ var reader;
         if (!calibre.readingVocabularyEnabled || vocabularyInFlight) return;
         var words = visibleWords(), list = Object.keys(words);
         if (!list.length) return;
+
+        // 已缓存 records 的词直接用缓存重新标注（翻页/翻回时 DOM 重建），
+        // 仅对从未请求过的词发起网络请求。
+        var cachedRecords = [], fresh = [];
+        list.forEach(function (word) {
+            if (vocabularyRecords[word]) {
+                cachedRecords.push(vocabularyRecords[word]);
+            } else if (!vocabularySeen[word]) {
+                fresh.push(word);
+            }
+        });
+        if (cachedRecords.length) markVocabulary(cachedRecords);
+
+        if (!fresh.length) return;
         vocabularyInFlight = true;
         var location = reader.currentLocation && reader.currentLocation();
         $.ajax({
             url: calibre.readingVocabularyUrl, method: 'POST', contentType: 'application/json',
             data: JSON.stringify({bookId: calibre.bookId, bookName: calibre.bookName,
-                chapter: document.getElementById('chapter-title').textContent,
+                chapter: currentChapterTitle(),
                 page: document.getElementById('pages-count').textContent,
                 cfi: location && location.start && location.start.cfi || '',
-                words: list.map(function (word) { return {word: word, sentence: words[word]}; })})
+                words: fresh.map(function (word) { return {word: word, sentence: words[word]}; })})
         }).done(function (response) {
             var records = response.result || response.data || [];
-            list.forEach(function (word) { vocabularySeen[word] = true; });
-            markVocabulary(words, records);
+            fresh.forEach(function (word) { vocabularySeen[word] = true; });
+            (records || []).forEach(function (record) {
+                if (record && record.word) vocabularyRecords[record.word] = record;
+            });
+            markVocabulary(records);
         }).always(function () { vocabularyInFlight = false; });
     }
     reader.rendition.on('relocated', function () { setTimeout(inspectVocabulary, 120); });
