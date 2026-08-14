@@ -449,6 +449,191 @@ class TestAiRoutes:
         assert cfg.memory_extract_interval == 5
         assert cfg.system_prompt_extra == "Be terse."
 
+    def test_admin_model_syncs_to_provider(self, admin_client, ai_session):
+        """default_model auto-corrects to the provider's first model."""
+        import json as _json
+        from cps.ai.models import AiProvider
+        # openai provider with known models
+        prov = AiProvider(provider_name="openai", api_base="https://g.example/v1",
+                          active=True, models_json=_json.dumps(
+                              [{"id": "gpt-4o", "label": "GPT-4o"},
+                               {"id": "llama3", "label": "llama3"}]))
+        ai_session.add(prov)
+        ai_session.commit()
+
+        rv = admin_client.post("/ai/admin", data={
+            "enabled": "on",
+            "default_provider": "openai",
+            "default_model": "deepseek-chat",  # doesn't belong to openai
+        })
+        assert rv.status_code == 200
+        cfg = ai_session.query(AiConfig).first()
+        assert cfg.default_model == "gpt-4o"  # auto-corrected to first model
+
+    def test_admin_add_custom_provider(self, admin_client, ai_session):
+        """POSTing a new_provider_name should create a custom provider row."""
+        from cps.ai.models import AiProvider
+        rv = admin_client.post("/ai/admin", data={
+            "enabled": "on",
+            "default_provider": "deepseek",
+            "new_provider_name": "my-local",
+            "new_provider_display": "My Local Gateway",
+            "new_provider_api_base": "http://localhost:11434/v1",
+        })
+        assert rv.status_code == 200
+        prov = ai_session.query(AiProvider).filter_by(provider_name="my-local").first()
+        assert prov is not None
+        assert prov.display_name == "My Local Gateway"
+        assert prov.api_base == "http://localhost:11434/v1"
+
+    def test_admin_add_duplicate_provider_is_ignored(self, admin_client, ai_session):
+        from cps.ai.models import AiProvider
+        admin_client.post("/ai/admin", data={"new_provider_name": "dup"})
+        admin_client.post("/ai/admin", data={"new_provider_name": "dup"})
+        assert ai_session.query(AiProvider).filter_by(provider_name="dup").count() == 1
+
+    def test_admin_delete_provider(self, admin_client, ai_session):
+        from cps.ai.models import AiProvider
+        prov = AiProvider(provider_name="to-delete", api_base="", active=False)
+        ai_session.add(prov)
+        ai_session.commit()
+        pid = prov.id
+
+        rv = admin_client.post("/ai/admin", data={
+            "enabled": "on",
+            "default_provider": "deepseek",
+            "provider_%d_delete" % pid: "on",
+        })
+        assert rv.status_code == 200
+        assert ai_session.query(AiProvider).filter_by(id=pid).count() == 0
+
+    def test_admin_delete_default_provider_resets_default(self, admin_client, ai_session):
+        """Deleting the current default provider must re-point default_provider."""
+        from cps.ai.models import AiProvider, AiConfig
+        cfg = ai_session.query(AiConfig).first()
+        cfg.default_provider = "to-delete"
+        ai_session.commit()
+        prov = AiProvider(provider_name="to-delete", api_base="", active=True)
+        ai_session.add(prov)
+        ai_session.commit()
+        pid = prov.id
+
+        rv = admin_client.post("/ai/admin", data={
+            "enabled": "on",
+            "default_provider": "to-delete",
+            "provider_%d_delete" % pid: "on",
+        })
+        assert rv.status_code == 200
+        assert ai_session.query(AiProvider).filter_by(id=pid).count() == 0
+        # default_provider must not point at the deleted row.
+        assert ai_session.query(AiConfig).first().default_provider != "to-delete"
+
+    def test_test_provider_rejects_non_http_api_base(self, admin_client):
+        rv = admin_client.post("/ai/test_provider", json={
+            "api_base": "file:///etc/passwd",
+            "model": "gpt-4o",
+        })
+        assert rv.status_code == 400
+        assert "http" in rv.get_json()["error"]
+
+    def test_test_provider_success(self, admin_client):
+        """/ai/test_provider reports ok with a mocked successful chat."""
+        from unittest.mock import MagicMock
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_response.json = MagicMock(return_value={
+            "choices": [{"message": {"content": "OK"}}]
+        })
+        with patch("cps.ai.openai_compat.requests.post", return_value=fake_response):
+            rv = admin_client.post("/ai/test_provider", json={
+                "api_base": "https://gateway.example.com/v1",
+                "api_key": "sk-x",
+                "model": "gpt-4o",
+            })
+        assert rv.status_code == 200
+        data = rv.get_json()
+        assert data["ok"] is True
+        assert "OK" in data["reply"]
+        # models key always present (empty when /models isn't reachable)
+        assert "models" in data
+
+    def test_test_provider_lists_models(self, admin_client):
+        """/ai/test_provider includes the model list fetched from /models."""
+        from unittest.mock import MagicMock
+        chat_response = MagicMock()
+        chat_response.status_code = 200
+        chat_response.json = MagicMock(return_value={
+            "choices": [{"message": {"content": "OK"}}]
+        })
+        models_response = MagicMock()
+        models_response.status_code = 200
+        models_response.json = MagicMock(return_value={
+            "data": [{"id": "gpt-4o"}, {"id": "gpt-4o-mini"}]
+        })
+        with patch("cps.ai.openai_compat.requests.post", return_value=chat_response), \
+             patch("cps.ai.openai_compat.requests.get", return_value=models_response):
+            rv = admin_client.post("/ai/test_provider", json={
+                "api_base": "https://gateway.example.com/v1",
+                "api_key": "sk-x",
+                "model": "gpt-4o",
+            })
+        data = rv.get_json()
+        assert data["ok"] is True
+        assert "gpt-4o" in data["models"]
+        assert "gpt-4o-mini" in data["models"]
+
+    def test_test_provider_failure(self, admin_client):
+        """/ai/test_provider reports failure when the HTTP call raises."""
+        fake_response = MagicMock()
+        fake_response.status_code = 401
+        fake_response.text = "Unauthorized"
+        fake_response.__enter__ = MagicMock(return_value=fake_response)
+        fake_response.__exit__ = MagicMock(return_value=False)
+        with patch("cps.ai.openai_compat.requests.post", return_value=fake_response):
+            rv = admin_client.post("/ai/test_provider", json={
+                "api_base": "https://gateway.example.com/v1",
+                "api_key": "sk-bad",
+                "model": "gpt-4o",
+            })
+        data = rv.get_json()
+        assert data["ok"] is False
+        assert "error" in data
+
+    def test_test_provider_requires_fields(self, admin_client):
+        rv = admin_client.post("/ai/test_provider", json={"api_base": ""})
+        assert rv.status_code == 400
+        rv = admin_client.post("/ai/test_provider", json={"api_base": "x", "model": ""})
+        assert rv.status_code == 400
+
+    def test_test_provider_uses_stored_key_when_blank(self, admin_client, ai_session):
+        """Blank api_key + provider_id falls back to the stored provider key."""
+        from cps.ai.models import AiProvider
+        from cps.ai.crypto import encrypt_value
+        from cps.ai.routes import _get_encryption_key
+        prov = AiProvider(provider_name="stored-key", api_base="https://g.example/v1")
+        prov.api_key_encrypted = encrypt_value("sk-stored", _get_encryption_key())
+        ai_session.add(prov)
+        ai_session.commit()
+        pid = prov.id
+
+        from unittest.mock import MagicMock
+        fake_response = MagicMock()
+        fake_response.status_code = 200
+        fake_response.json = MagicMock(return_value={
+            "choices": [{"message": {"content": "OK"}}]
+        })
+        with patch("cps.ai.openai_compat.requests.post", return_value=fake_response) as mock_post:
+            rv = admin_client.post("/ai/test_provider", json={
+                "provider_id": pid,
+                "api_base": "https://g.example/v1",
+                "api_key": "",
+                "model": "gpt-4o",
+            })
+        assert rv.get_json()["ok"] is True
+        # The request must carry the stored key as the auth header.
+        headers = mock_post.call_args.kwargs.get("headers") or mock_post.call_args[1].get("headers")
+        assert headers["Authorization"] == "Bearer sk-stored"
+
     def test_history_requires_auth(self, client):
         rv = client.get("/ai/history/1")
         # With anonymous browsing enabled (calibre-web default), an anonymous

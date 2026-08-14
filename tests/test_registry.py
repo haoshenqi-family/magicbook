@@ -29,9 +29,11 @@ class TestRegistry:
         assert isinstance(p, OpenAICompatProvider)
         assert p.name == "openai"
 
-    def test_get_unknown_provider_raises(self):
-        with pytest.raises(KeyError, match="unknown"):
-            get_provider("nonexistent", api_base="", api_key="")
+    def test_get_unknown_provider_falls_back_to_openai_compat(self):
+        """Unknown/custom names fall back to the generic OpenAI-compatible provider."""
+        p = get_provider("my-custom-provider", api_base="https://x.example/v1",
+                         api_key="sk-x")
+        assert isinstance(p, OpenAICompatProvider)
 
     def test_register_custom_provider(self):
         from cps.ai.base import BaseProvider, ModelInfo

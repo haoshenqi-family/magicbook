@@ -47,10 +47,20 @@ AI 伴读目前仅内置 DeepSeek provider。用户希望增加一个**兼容 Op
 - `api_key`：OpenAI 格式密钥（可留空给本地无鉴权端点）
 - `models`：每行 `模型id|显示名`（如 `gpt-4o|GPT-4o`）
 
+### 3.5 Provider 列表管理（自定义名称 + 测试连接）
+
+admin 页面支持完整的 provider 生命周期管理：
+
+- **自定义名称**：`registry.get_provider()` 对未知名称回退到 `OpenAICompatProvider`，因此 admin 可添加任意命名的 provider 行（如 `my-openai`、`local-llm`），无需新增 Python 类。默认 provider 下拉合并「内置类名 ∪ DB 中已有 provider 名」。
+- **添加**：表单填写 `provider_name` + 显示名 + api_base，POST 提交创建新行（重名忽略）。
+- **删除**：每个 provider 面板的「Delete」复选框，保存时删除该行。
+- **测试连接**：`POST /ai/test_provider`（body `{provider_id?, provider_name?, api_base, api_key?, model}`）。后端用 `OpenAICompatProvider` 发一个最小 chat 请求（`stream=False`，`"Reply with exactly: OK"`），返回 `{ok, reply?, error?, models}`；`api_key` 为空且传了 `provider_id` 时回退到该 provider 已存储的 key。**`models` 是尽力而为的模型列表**（有 key 时从 `/models` 拉取，失败/无 key 返回空，不阻塞主结果）。页面每个 provider 面板有「Test」按钮 + 结果区（展示 reply/error 与模型列表）。
+
 ## 4. 测试
 
 - `tests/test_provider_openai_compat.py`：name、/models 拉取（成功/无 key/错误）、流式/非流式、HTTP 错误、api_base 尾部斜杠处理、无 key 省略鉴权头。
-- `tests/test_registry.py`：`openai` 在 list_providers、可实例化；seed 创建 openai 行且幂等。
+- `tests/test_registry.py`：`openai` 在 list_providers、可实例化；未知名称回退 `OpenAICompatProvider`；seed 创建 openai 行且幂等。
+- `tests/test_ai_routes.py`：admin 添加/去重/删除自定义 provider；`/ai/test_provider` 成功/失败/字段校验/存储 key 回退。
 
 ## 5. 风险与注意
 

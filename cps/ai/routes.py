@@ -413,6 +413,66 @@ def clear_memory():
     return jsonify({"status": "ok"})
 
 
+@aichat.route("/ai/test_provider", methods=["POST"])
+@user_login_required
+def test_provider():
+    """Validate an OpenAI-compatible provider connection without saving it.
+
+    Request JSON: ``{provider_id?, provider_name?, api_base, api_key?, model}``.
+    Sends a minimal chat request to check connectivity/auth and, best-effort,
+    lists the models the endpoint advertises via ``/models``. When
+    ``provider_id`` is given and ``api_key`` is blank, the stored key is used.
+
+    Response: ``{ok, reply?, error?, models: [..]}`` — ``models`` is a
+    best-effort list (empty when the endpoint doesn't expose ``/models``).
+    """
+    if not current_user.role_admin():
+        abort(403)
+    sess = _session()
+    body = request.get_json(silent=True) or {}
+    api_base = (body.get("api_base") or "").strip()
+    model = (body.get("model") or "").strip()
+    api_key = (body.get("api_key") or "").strip()
+
+    # Fall back to the stored key when the admin left the key field blank.
+    provider_id = body.get("provider_id")
+    if not api_key and provider_id:
+        prov_row = sess.query(AiProvider).filter_by(id=provider_id).first()
+        if prov_row:
+            api_key = decrypt_value(prov_row.api_key_encrypted, _get_encryption_key())
+
+    if not api_base:
+        return jsonify({"ok": False, "error": "api_base is required"}), 400
+    if not model:
+        return jsonify({"ok": False, "error": "model is required"}), 400
+    if not api_base.lower().startswith(("http://", "https://")):
+        return jsonify({"ok": False, "error": "api_base must start with http(s)://"}), 400
+
+    provider = get_provider(body.get("provider_name") or "openai",
+                            api_base=api_base, api_key=api_key)
+
+    # Best-effort model list from /models; never blocks or fails the result.
+    models = []
+    try:
+        models = [m.id for m in provider.available_models()]
+    except Exception as e:
+        log.debug("model listing failed during provider test: %s", e)
+
+    try:
+        reply = provider.chat(
+            [{"role": "system", "content": "You are a connectivity check."},
+             {"role": "user", "content": "Reply with exactly: OK"}],
+            model=model, stream=False)
+        return jsonify({"ok": True, "reply": (reply or "")[:200],
+                        "models": models})
+    except Exception as e:
+        # Truncate the error so a chatty/remote body never floods the admin UI
+        # or leaks more than needed (e.g. from an SSRF target).
+        log.warning("provider test failed: %s", e)
+        return jsonify({"ok": False, "error": str(e)[:500],
+                        "models": models})
+
+
 @aichat.route("/ai/admin", methods=["GET", "POST"])
 @user_login_required
 def admin():
@@ -438,29 +498,80 @@ def admin():
 
         # Update provider configs
         key = _get_encryption_key()
+
+        # 1) Delete providers marked for removal.
+        deleted_names = []
+        for prov in list(sess.query(AiProvider).all()):
+            if request.form.get(f"provider_{prov.id}_delete") == "on":
+                deleted_names.append(prov.provider_name)
+                sess.delete(prov)
+
+        # 2) Add a brand-new custom provider if a name was supplied.
+        new_name = (request.form.get("new_provider_name") or "").strip()
+        if new_name:
+            exists = sess.query(AiProvider).filter_by(provider_name=new_name).first()
+            if exists is None:
+                new_prov = AiProvider()
+                new_prov.provider_name = new_name
+                new_prov.display_name = (request.form.get("new_provider_display") or new_name).strip()
+                new_prov.api_base = (request.form.get("new_provider_api_base") or "").strip()
+                new_prov.models_json = "[]"
+                new_prov.active = False
+                sess.add(new_prov)
+
+        sess.flush()  # assign ids so the update loop below can address new rows
+
+        # 3) Update existing providers.
         for prov in sess.query(AiProvider).all():
             field_prefix = f"provider_{prov.id}_"
-            prov.api_base = request.form.get(field_prefix + "api_base", prov.api_base)
+            if f"{field_prefix}api_base" in request.form:
+                prov.api_base = request.form.get(field_prefix + "api_base", prov.api_base)
             new_key = request.form.get(field_prefix + "api_key", "")
             if new_key:
                 prov.api_key_encrypted = encrypt_value(new_key, key)
-            prov.active = request.form.get(field_prefix + "active") == "on"
+            # Only touch active/models when the full form actually submitted
+            # them; a partial POST (e.g. a delete-only form) must not wipe them.
+            if f"{field_prefix}active" in request.form:
+                prov.active = request.form.get(field_prefix + "active") == "on"
+            if f"{field_prefix}models" in request.form:
+                # Parse newline-separated "id|label" lines into a model list.
+                # Accept both half-width '|' and full-width '｜' separators.
+                models_text = request.form.get(field_prefix + "models", "")
+                models_list = []
+                for line in models_text.splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if "|" in line:
+                        mid, mlabel = line.split("|", 1)
+                    elif "｜" in line:
+                        mid, mlabel = line.split("｜", 1)
+                    else:
+                        mid, mlabel = line, line
+                    models_list.append({"id": mid.strip(), "label": mlabel.strip()})
+                prov.models_json = json.dumps(models_list)
 
-            # Parse newline-separated "id|label" lines into a model list.
-            models_text = request.form.get(field_prefix + "models", "")
-            models_list = []
-            for line in models_text.splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                if "|" in line:
-                    mid, mlabel = line.split("|", 1)
-                else:
-                    mid, mlabel = line, line
-                models_list.append({"id": mid.strip(), "label": mlabel.strip()})
-            prov.models_json = json.dumps(models_list)
+        # If the default provider was just deleted, point it at a surviving one
+        # so chat doesn't start failing with 'provider not configured'.
+        if cfg.default_provider in deleted_names:
+            remaining = [p.provider_name for p in sess.query(AiProvider).all()]
+            cfg.default_provider = (remaining[0] if remaining else
+                                    list_providers()[0] if list_providers() else "deepseek")
 
         sess.commit()
+
+        # Auto-correct the default model if it doesn't belong to the selected
+        # provider (e.g. switching deepseek -> openai left 'deepseek-chat' set).
+        prov_row = sess.query(AiProvider).filter_by(
+            provider_name=cfg.default_provider).first()
+        if prov_row:
+            try:
+                models = json.loads(prov_row.models_json or "[]")
+            except (ValueError, TypeError):
+                models = []
+            if models and cfg.default_model not in {m["id"] for m in models}:
+                cfg.default_model = models[0]["id"]
+                sess.commit()
 
     cfg = sess.query(AiConfig).first()
     if cfg is None:
@@ -468,7 +579,13 @@ def admin():
         sess.add(cfg)
         sess.commit()
     providers = sess.query(AiProvider).all()
+    # The default-provider dropdown merges built-in provider classes with any
+    # custom providers already stored in the DB.
     available_provider_classes = list_providers()
+    db_names = [p.provider_name for p in providers]
+    for n in db_names:
+        if n not in available_provider_classes:
+            available_provider_classes.append(n)
 
     return render_title_template("ai_admin.html", title=_("AI Companion Settings"),
                                  config=cfg, providers=providers,

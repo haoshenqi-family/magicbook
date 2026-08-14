@@ -39,10 +39,15 @@
         <div class="panel panel-default">
           <div class="panel-heading">
             <h4>{{ prov.display_name or prov.provider_name }}
-              <label class="pull-right"><input type="checkbox" name="provider_{{ prov.id }}_active" {% if prov.active %}checked{% endif %}> {{_('Active')}}</label>
+              <label class="pull-right"><input type="checkbox" name="provider_{{ prov.id }}_delete"> {{_('Delete')}}</label>
+              <label class="pull-right" style="margin-right:15px"><input type="checkbox" name="provider_{{ prov.id }}_active" {% if prov.active %}checked{% endif %}> {{_('Active')}}</label>
             </h4>
           </div>
           <div class="panel-body">
+            <div class="form-group">
+              <label>{{_('Provider Name')}}</label>
+              <input type="text" class="form-control" value="{{ prov.provider_name }}" readonly>
+            </div>
             <div class="form-group">
               <label>{{_('API Base URL')}}</label>
               <input type="text" name="provider_{{ prov.id }}_api_base" class="form-control" value="{{ prov.api_base }}">
@@ -56,9 +61,39 @@
               <textarea name="provider_{{ prov.id }}_models" class="form-control" rows="3">{% set models = prov.models_json | from_json %}{% for m in models %}{{ m.id }}|{{ m.label }}
 {% endfor %}</textarea>
             </div>
+            <div class="form-group">
+              <label>{{_('Test connection (uses the fields above)')}}</label>
+              <div class="input-group">
+                <input type="text" id="provider_{{ prov.id }}_test_model" class="form-control" placeholder="{{_('Model id to test')}}">
+                <span class="input-group-btn">
+                  <button type="button" class="btn btn-default" onclick="testProvider({{ prov.id }})">{{_('Test')}}</button>
+                </span>
+              </div>
+              <div id="provider_{{ prov.id }}_test_result" class="help-block"></div>
+            </div>
           </div>
         </div>
         {% endfor %}
+
+        <h3>{{_('Add Provider')}}</h3>
+        <div class="panel panel-default">
+          <div class="panel-body">
+            <div class="row">
+              <div class="col-sm-4 form-group">
+                <label>{{_('Provider Name')}}</label>
+                <input type="text" name="new_provider_name" class="form-control" placeholder="{{_('e.g. my-openai')}}">
+              </div>
+              <div class="col-sm-4 form-group">
+                <label>{{_('Display Name')}}</label>
+                <input type="text" name="new_provider_display" class="form-control" placeholder="{{_('e.g. My OpenAI')}}">
+              </div>
+              <div class="col-sm-4 form-group">
+                <label>{{_('API Base URL')}}</label>
+                <input type="text" name="new_provider_api_base" class="form-control" placeholder="https://...">
+              </div>
+            </div>
+          </div>
+        </div>
 
         <button type="submit" class="btn btn-primary">{{_('Save')}}</button>
         <a href="{{ url_for('admin.admin') }}" class="btn btn-default">{{_('Back to Admin')}}</a>
@@ -66,4 +101,47 @@
     </div>
   </div>
 </div>
+<script>
+  var TEST_PROVIDER_URL = "{{ url_for('aichat.test_provider') }}";
+  function testProvider(id) {
+    var $base = $('input[name="provider_' + id + '_api_base"]');
+    var $key = $('input[name="provider_' + id + '_api_key"]');
+    var $model = $('#provider_' + id + '_test_model');
+    var $result = $('#provider_' + id + '_test_result');
+    var apiBase = $base.val().trim();
+    var model = $model.val().trim();
+    if (!apiBase || !model) {
+      $result.text('{{_("Please fill API Base URL and model to test.")}}').css('color', 'orange');
+      return;
+    }
+    var apiKey = $key.val().trim();
+    // If the key field is left blank it may mean "keep current stored key" —
+    // read it from the existing value placeholder only when actually provided.
+    $result.text('{{_("Testing...")}}').css('color', '#888');
+    $.ajax({
+      url: TEST_PROVIDER_URL,
+      method: 'POST',
+      contentType: 'application/json',
+      headers: { 'X-CSRFToken': $('input[name="csrf_token"]').val() || '' },
+      data: JSON.stringify({ provider_id: id, api_base: apiBase, api_key: apiKey, model: model }),
+      success: function (res) {
+        var text = '';
+        if (res.ok) {
+          text = '{{_("OK:")}} ' + res.reply;
+        } else {
+          text = '{{_("Failed:")}} ' + res.error;
+        }
+        if (res.models && res.models.length) {
+          text += ' {{_("Models:")}} ' + res.models.join(', ');
+        }
+        $result.text(text).css('color', res.ok ? 'green' : 'red');
+      },
+      error: function (xhr) {
+        var msg = xhr.status + ' ' + xhr.statusText;
+        try { msg += ' - ' + (JSON.parse(xhr.responseText).error || ''); } catch (e) {}
+        $result.text('{{_("Failed:")}} ' + msg).css('color', 'red');
+      }
+    });
+  }
+</script>
 {% endblock %}
