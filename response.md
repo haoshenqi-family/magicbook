@@ -43,3 +43,22 @@
 - **requests.md**：追加 R2（打通用户体系 + 前置验证 + 最小侵入编码 + 迁移脚本/文档）。
 - **response.md**：记录 R2 的验证结论、设计要点、实现清单与待上线动作。
 - **冲突记录**：无；本次任务涉及两个仓库（magicbook、moon-well），均在各自仓库内改动。
+
+---
+
+## 2026-08-16
+
+### 对 requests 的回应
+
+- **R3（检查划词翻译功能）**：已完成检查，定位并修复 2 个真实缺陷。
+  - **功能定位**：划词翻译即 EPUB 阅读器生词标注（`cps/static/js/reading/epub.js` 的 `inspectVocabulary`/`markVocabulary`，经 `/ajax/reading-vocabulary` 代理到 moon-well，生词波浪下划线标注，点击查看释义）。按 `docs/reading-vocabulary.md`，PDF/TXT/漫画/音频暂未接入，故划词仅存在于 EPUB。
+  - **Bug 1（点击生词弹错释义）**：`markVocabulary` 的 `while` 循环中 `var span` 为函数作用域，所有 `click` 闭包共享同一变量，点击任意生词都弹出**最后一个**生词的释义。已改为 `alert(this.title)`。
+  - **Bug 2（生产环境划词静默失效）**：`read.html` 不加载 `main.js`（无全局 `$.ajaxSetup`），而服务端全局启用 CSRF（`cps/__init__.py`），`inspectVocabulary` 的 ajax POST 未带 `X-CSRFToken`，真实环境返回 **400** 导致生词标注静默失效；既有测试因 `WTF_CSRF_ENABLED=False` 掩盖了该问题。已显式补充 `X-CSRFToken` 头，并新增回归测试 `test_rejects_missing_csrf_when_protection_enabled`（临时开启 CSRF 验证：无 token→400，带 token→放行）。
+  - **验证**：手工模拟 CSRF 开启的测试客户端确认「WITH token→通过、WITHOUT token→400」；`node --check` 校验 JS 语法；全量测试 **123 passed**。
+  - **Bug 3（翻页过快时生词漏标）**：`inspectVocabulary` 在 `relocated` 后触发，但若上一请求仍在飞行（`vocabularyInFlight`）会直接 `return`，导致新页面生词无人检查、直到用户再次翻页。已增加 `vocabularyRetryPending` 标志：飞行中被跳过时置位，请求完成（`always`）后自动重检当前页；`node` 模拟验证翻页场景 `calls=2`（自动重检）。
+
+### 总结
+
+- **requests.md**：追加 R3（检查划词翻译功能）。
+- **response.md**：记录 R3 的检查结论、3 个 bug 的成因与修复、验证方式。
+- **冲突记录**：无。

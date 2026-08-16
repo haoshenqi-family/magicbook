@@ -117,3 +117,44 @@ def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured
     body = rv.get_json()
     assert body["success"] is False
     assert "service unavailable" in body["message"]
+
+
+def test_rejects_missing_csrf_when_protection_enabled(app, moonwell_configured):
+    """生产环境 CSRF 全局启用：EPUB 阅读器不加载 main.js，划词请求必须自带
+    X-CSRFToken，否则被 400 拦截导致生词标注静默失效。本用例复现该场景。
+
+    conftest 默认关闭 CSRF（WTF_CSRF_ENABLED=False），这里临时开启以贴近真实部署。
+    """
+    import re
+
+    app.config.update(WTF_CSRF_ENABLED=True)
+    try:
+        client = app.test_client()
+
+        # 登录页渲染 csrf_token 隐藏域（与阅读器页面一致），先 GET 再提取
+        html = client.get("/login").get_data(as_text=True)
+        m = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html)
+        assert m, "login page should render a csrf token"
+        token = m.group(1)
+
+        rv = client.post("/login",
+                         data={"username": "admin", "password": "admin123",
+                               "csrf_token": token})
+        assert rv.status_code == 302, f"login with token failed: {rv.status_code}"
+
+        # 模拟 epub.js 修复前的请求（无 X-CSRFToken）→ 必须被 CSRF 拒绝
+        rv = _post_vocab(client)
+        assert rv.status_code == 400, "missing CSRF token must be rejected"
+
+        # 修复后的请求（带 X-CSRFToken）→ 通过 CSRF，进入业务逻辑
+        # （moon-well 已配置但 fake_post 未 mock 时不会走到网络层；
+        #  此处仅验证 CSRF 放行，具体返回由业务层决定）
+        rv = client.post("/ajax/reading-vocabulary",
+                         json={"bookId": 7, "bookName": "B", "chapter": "C",
+                               "page": "3/120", "cfi": "x",
+                               "words": [{"word": "serendipity",
+                                          "sentence": "A lucky serendipity."}]},
+                         headers={"X-CSRFToken": token})
+        assert rv.status_code != 400, "request with CSRF token must pass CSRF"
+    finally:
+        app.config.update(WTF_CSRF_ENABLED=False)

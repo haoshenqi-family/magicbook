@@ -143,6 +143,9 @@ var reader;
 
     // Mark unfamiliar words in the currently visible EPUB document and show their history.
     var vocabularyInFlight = false;
+    // 翻页时若上一请求仍在飞行，标记待重检；请求完成后重新检查当前页，
+    // 避免新页面因 inFlight 短路而漏标生词。
+    var vocabularyRetryPending = false;
     // Words that have already been sent to moon-well this session, to avoid re-requesting.
     var vocabularySeen = {};
     // word -> latest record returned by moon-well, kept across page turns so that
@@ -246,7 +249,7 @@ var reader;
                         (record.lastBookName ? '\n上次：' + record.lastBookName + ' · ' + (record.lastChapter || '') : '');
                     span.dataset.word = word;
                     span.addEventListener('click', function () {
-                        alert(span.title);
+                        alert(this.title);
                     });
                     fragment.appendChild(span); last = regex.lastIndex;
                 }
@@ -259,7 +262,12 @@ var reader;
     }
 
     function inspectVocabulary() {
-        if (!calibre.readingVocabularyEnabled || vocabularyInFlight) return;
+        if (!calibre.readingVocabularyEnabled) return;
+        // 上一请求仍在飞行：标记待重检并跳过本次，避免漏标新页面的生词
+        if (vocabularyInFlight) {
+            vocabularyRetryPending = true;
+            return;
+        }
         var words = visibleWords(), list = Object.keys(words);
         if (!list.length) return;
 
@@ -280,6 +288,9 @@ var reader;
         var location = reader.currentLocation && reader.currentLocation();
         $.ajax({
             url: calibre.readingVocabularyUrl, method: 'POST', contentType: 'application/json',
+            // EPUB 阅读器不加载 main.js，不会自动附带 CSRF 头；而服务端全局启用
+            // CSRF，缺 token 会返回 400 导致生词标注静默失效，故在此显式补充。
+            headers: { "X-CSRFToken": $("input[name='csrf_token']").val() || "" },
             data: JSON.stringify({bookId: calibre.bookId, bookName: calibre.bookName,
                 chapter: currentChapterTitle(),
                 page: document.getElementById('pages-count').textContent,
@@ -292,7 +303,15 @@ var reader;
                 if (record && record.word) vocabularyRecords[record.word] = record;
             });
             markVocabulary(records);
-        }).always(function () { vocabularyInFlight = false; });
+        }).always(function () {
+            vocabularyInFlight = false;
+            // 飞行期间有过翻页（pending 被置位）：请求完成后重检当前页，
+            // 保证翻页过快时生词也能被标注
+            if (vocabularyRetryPending) {
+                vocabularyRetryPending = false;
+                setTimeout(inspectVocabulary, 50);
+            }
+        });
     }
     reader.rendition.on('relocated', function () { setTimeout(inspectVocabulary, 120); });
 
