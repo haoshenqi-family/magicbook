@@ -222,7 +222,8 @@ def reading_vocabulary():
             constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/analyze",
             json=payload,
             headers={"X-Magicbook-Token": constants.MOON_WELL_INTEGRATION_TOKEN},
-            timeout=8,
+            # 15s 超时容忍 moon-well 冷启动（重启后首次连接 ES/Nacos）的临时慢响应
+            timeout=15,
         )
         return (response.text, response.status_code,
                 {"Content-Type": response.headers.get("Content-Type", "application/json")})
