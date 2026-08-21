@@ -154,9 +154,11 @@
   - **moon-well 侧**：
     - `ReadingVocabularyRequest`：`words[]` → `pageText`。
     - `ReadingVocabularyService.analyze()`：新增 `extractWords()` 分词（正则与前端一致、去重、丢弃单字母）+ `sentenceAround()` 句子上下文提取；沿用「查历史 → 查词库释义 → 写 ES → 统计 studyTimes → 响应」逻辑。
-    - 全量测试 **54 passed**（原 50 + 新增 extractWords/句子提取 4 条，BUILD SUCCESS）。
+    - 全量测试 **54 passed**（新增 extractWords/句子提取 4 条，BUILD SUCCESS）。
   - **magicbook 测试**：`test_reading_vocabulary.py` payload 契约改为 `pageText`，全量 **126 passed**。
+  - **部署**：magicbook 已提交 `14c0b52` 并重启生效（前端已含 pageText）；moon-well 已提交 `453f9b7` 并 push 远程 develop（已同步），CI 自动构建镜像。
   - **文档**：`docs/reading-vocabulary.md` 补充接口设计（请求/响应示例）与改动说明。
+  - **待办（fnos 侧）**：CI 构建完成后，在 fnos 上 `cd /app/moon-well && docker compose pull && docker compose up -d` 更新 moon-well 容器，使线上接受新 pageText 接口。
 
 ### 总结
 
