@@ -35,14 +35,14 @@ def moonwell_unconfigured(monkeypatch):
 
 
 def _post_vocab(client):
-    """POST a sample word-context payload to the proxy endpoint."""
+    """POST a sample page-text payload to the proxy endpoint."""
     return client.post("/ajax/reading-vocabulary", json={
         "bookId": 7,
         "bookName": "Sample Book",
         "chapter": "Chapter 1",
         "page": "3/120",
         "cfi": "epubcfi(/6/4!/4/2)",
-        "words": [{"word": "serendipity", "sentence": "A lucky serendipity."}],
+        "pageText": "A lucky serendipity happened today.",
     })
 
 
@@ -152,8 +152,7 @@ def test_rejects_missing_csrf_when_protection_enabled(app, moonwell_configured):
         rv = client.post("/ajax/reading-vocabulary",
                          json={"bookId": 7, "bookName": "B", "chapter": "C",
                                "page": "3/120", "cfi": "x",
-                               "words": [{"word": "serendipity",
-                                          "sentence": "A lucky serendipity."}]},
+                               "pageText": "A lucky serendipity happened today."},
                          headers={"X-CSRFToken": token})
         assert rv.status_code != 400, "request with CSRF token must pass CSRF"
     finally:

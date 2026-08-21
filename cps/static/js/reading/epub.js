@@ -146,11 +146,12 @@ var reader;
     // 翻页时若上一请求仍在飞行，标记待重检；请求完成后重新检查当前页，
     // 避免新页面因 inFlight 短路而漏标生词。
     var vocabularyRetryPending = false;
-    // Words that have already been sent to moon-well this session, to avoid re-requesting.
-    var vocabularySeen = {};
     // word -> latest record returned by moon-well, kept across page turns so that
     // re-rendered pages (going back to a previously read page) can be re-marked.
     var vocabularyRecords = {};
+    // 最近一次已成功提交的页面文本签名；翻回已读页（文本相同）时直接复用
+    // 缓存 records 标注，不再重复请求 moon-well。
+    var lastPageTextSignature = null;
 
     // 从导航目录中按 href 文件名递归匹配章节标题。
     function findTocLabel(items, href) {
@@ -200,23 +201,18 @@ var reader;
         return label;
     }
 
-    function visibleWords() {
-        var words = {};
+    // 收集当前可见页面的完整文本（各章节 iframe body 文本拼接）。
+    // 不再在前端逐词提取——词的分词、句子上下文与归档逻辑已迁移到 moon-well，
+    // 前端只上报整页文本，避免每页重复携带数十个 word+sentence 的冗余 payload。
+    function currentPageText() {
+        var parts = [];
         reader.rendition.getContents().forEach(function (content) {
             var doc = content.document;
             if (!doc || !doc.body) return;
-            var walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
-            var node;
-            while ((node = walker.nextNode())) {
-                var sentence = (node.parentElement && node.parentElement.textContent || node.textContent || '').trim();
-                (node.textContent.match(/\b[A-Za-z][A-Za-z'’-]*\b/g) || []).forEach(function (raw) {
-                    var word = raw.toLowerCase().replace(/[’']/g, "'");
-                    // 收集所有可见词（不做 seen 过滤），以便翻回已读页时用缓存重新标注
-                    if (word.length > 1) words[word] = sentence.slice(0, 500);
-                });
-            }
+            var text = doc.body.innerText || doc.body.textContent || '';
+            if (text) parts.push(text.trim());
         });
-        return words;
+        return parts.join('\n\n').trim();
     }
 
     function markVocabulary(records) {
@@ -268,22 +264,18 @@ var reader;
             vocabularyRetryPending = true;
             return;
         }
-        var words = visibleWords(), list = Object.keys(words);
-        if (!list.length) return;
+        var pageText = currentPageText();
+        if (!pageText) return;
 
-        // 已缓存 records 的词直接用缓存重新标注（翻页/翻回时 DOM 重建），
-        // 仅对从未请求过的词发起网络请求。
-        var cachedRecords = [], fresh = [];
-        list.forEach(function (word) {
-            if (vocabularyRecords[word]) {
-                cachedRecords.push(vocabularyRecords[word]);
-            } else if (!vocabularySeen[word]) {
-                fresh.push(word);
-            }
-        });
-        if (cachedRecords.length) markVocabulary(cachedRecords);
+        // 页面文本与上次已上传的完全一致（翻回已读页/同一渲染重触发）：
+        // 直接用缓存 records 重新标注，不重复请求 moon-well
+        var sign = pageText.slice(0, 64) + '#' + pageText.length;
+        if (sign === lastPageTextSignature) {
+            if (Object.keys(vocabularyRecords).length) markVocabulary(Object.keys(vocabularyRecords)
+                .map(function (w) { return vocabularyRecords[w]; }));
+            return;
+        }
 
-        if (!fresh.length) return;
         vocabularyInFlight = true;
         var location = reader.currentLocation && reader.currentLocation();
         $.ajax({
@@ -295,13 +287,13 @@ var reader;
                 chapter: currentChapterTitle(),
                 page: document.getElementById('pages-count').textContent,
                 cfi: location && location.start && location.start.cfi || '',
-                words: fresh.map(function (word) { return {word: word, sentence: words[word]}; })})
+                pageText: pageText})
         }).done(function (response) {
             var records = response.result || response.data || [];
-            fresh.forEach(function (word) { vocabularySeen[word] = true; });
             (records || []).forEach(function (record) {
                 if (record && record.word) vocabularyRecords[record.word] = record;
             });
+            lastPageTextSignature = sign;
             markVocabulary(records);
         }).always(function () {
             vocabularyInFlight = false;

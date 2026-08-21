@@ -1,14 +1,49 @@
 # 阅读单词学习
 
-EPUB 阅读器支持在当前可见页面识别英文单词，并将学习上下文交给 `moon-well` 保存。
+EPUB 阅读器支持识别当前可见页面的英文单词，并将学习上下文交给 `moon-well` 保存。
 
 ## 功能
 
-- 当前页面中的英文单词会被批量识别。
-- `moon-well` 根据用户历史返回陌生词和释义。
+- 阅读器把**当前页完整文本**上报给 moon-well。
+- `moon-well` 负责分词、提取句子上下文、判定陌生词与查询释义。
 - 陌生词在阅读器中以波浪下划线标识，悬停或点击可查看释义及上次学习信息。
 - 每次遇到单词都会保存：单词、句子、用户、书籍 ID/名称、章节、页码、EPUB CFI、学习时间和次数。
 - 历史记录使用 Elasticsearch 的 `reading_vocabulary` 索引保存；原有 `vocabulary` 索引继续提供词汇释义。
+
+## 接口设计
+
+**请求**（magicbook `/ajax/reading-vocabulary` → moon-well `POST /reading-vocabulary/analyze`）：
+
+```jsonc
+{
+  "userKey": "跨应用稳定标识（Authentik sub / UUID）",
+  "bookId": 7,
+  "bookName": "Sample Book",
+  "chapter": "Chapter 1",
+  "page": "3/120",
+  "cfi": "epubcfi(...)",
+  "pageText": "当前页完整文本（由 moon-well 分词）"
+}
+```
+
+> 说明：早期版本由前端逐词上报 `words: [{word, sentence}]`，一页数十词使 payload 过大。
+> 当前改为只上报整页文本，**分词、句子上下文提取、查词归档全部由 moon-well 完成**。
+
+**响应**（moon-well → magicbook → 前端标注）：
+
+```jsonc
+{
+  "success": true,
+  "code": 200,
+  "result": [
+    { "word": "serendipity", "translation": "好运", "lastBookName": "...",
+      "lastChapter": "...", "lastPage": "...", "lastStudyTime": "...",
+      "studyTimes": 2, "unknown": true }
+  ]
+}
+```
+
+前端仅在 `unknown: true` 时用波浪线标注该词。
 
 ## 配置
 
