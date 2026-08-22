@@ -201,38 +201,44 @@ var reader;
         return label;
     }
 
-    // 收集当前可见「页」的文本。EPUB.js 的 getContents() 返回整个 section 文档
-    // （iframe 内是整章内容，通过 CSS 分栏分页），直接取 body.innerText 会把整章
-    // 文本都上报（可达数十 KB）。这里改用 currentLocation() 的 start/end CFI 精确定位
-    // 当前页起止，经 rendition.getRange() 得到 DOM Range 后提取文本，只含本页内容。
-    function currentPageText() {
+    // 收集当前可见「页」的文本（异步回调）。
+    // EPUB.js 的 getContents() 返回整个 section 文档（iframe 内整章内容经 CSS 分栏
+    // 分页），直接取 body.innerText 会把整章文本都上报（可达数十 KB）。首选用
+    // currentLocation() 的 start/end CFI 经 book.getRange() 精确取「当前页」文本；
+    // 若 CFI 定位失败或结果为空，退回整 section 文本，保证一定有内容可上报。
+    function currentPageText(done) {
+        var fallback = function () {
+            var parts = [];
+            try {
+                reader.rendition.getContents().forEach(function (content) {
+                    var doc = content.document;
+                    if (!doc || !doc.body) return;
+                    var text = doc.body.innerText || doc.body.textContent || '';
+                    if (text) parts.push(text.trim());
+                });
+            } catch (e) {}
+            done(parts.join('\n\n').trim());
+        };
+        var startCfi = null, endCfi = null;
         try {
             var location = reader.currentLocation && reader.currentLocation();
-            var startCfi = location && location.start && location.start.cfi;
-            var endCfi = location && location.end && location.end.cfi;
-            if (!startCfi || !endCfi) return '';
-            var startRange = reader.rendition.getRange(startCfi);
-            var endRange = reader.rendition.getRange(endCfi);
-            if (!startRange || !endRange) return '';
-            var doc = startRange.commonAncestorContainer;
-            if (doc && doc.nodeType === Node.TEXT_NODE) doc = doc.parentNode;
-            var ownerDoc = doc && doc.ownerDocument;
-            if (!ownerDoc) return '';
-            var range = ownerDoc.createRange();
-            range.setStart(startRange.startContainer, startRange.startOffset);
-            range.setEnd(endRange.endContainer, endRange.endOffset);
-            return (range.toString() || '').trim();
-        } catch (e) {
-            // 兜底：CFI 定位失败时退回整 section 文本（仍按旧逻辑拼接）
-            var parts = [];
-            reader.rendition.getContents().forEach(function (content) {
-                var doc = content.document;
-                if (!doc || !doc.body) return;
-                var text = doc.body.innerText || doc.body.textContent || '';
-                if (text) parts.push(text.trim());
-            });
-            return parts.join('\n\n').trim();
-        }
+            startCfi = location && location.start && location.start.cfi;
+            endCfi = location && location.end && location.end.cfi;
+        } catch (e) {}
+        if (!startCfi || !endCfi) { fallback(); return; }
+        try {
+            Promise.all([reader.book.getRange(startCfi), reader.book.getRange(endCfi)]).then(function (ranges) {
+                var sr = ranges && ranges[0], er = ranges && ranges[1];
+                if (!sr || !er || !sr.startContainer || !er.startContainer) { fallback(); return; }
+                var doc = sr.startContainer.ownerDocument;
+                if (!doc || !doc.createRange) { fallback(); return; }
+                var range = doc.createRange();
+                range.setStart(sr.startContainer, sr.startOffset);
+                range.setEnd(er.endContainer, er.endOffset);
+                var text = (range.toString() || '').trim();
+                if (text) done(text); else fallback();
+            }).catch(fallback);
+        } catch (e) { fallback(); }
     }
 
     function markVocabulary(records) {
@@ -279,51 +285,60 @@ var reader;
 
     function inspectVocabulary() {
         if (!calibre.readingVocabularyEnabled) return;
-        // 上一请求仍在飞行：标记待重检并跳过本次，避免漏标新页面的生词
+        // 上一请求（含异步取文）仍在飞行：标记待重检并跳过本次，避免漏标新页面的生词
         if (vocabularyInFlight) {
             vocabularyRetryPending = true;
             return;
         }
-        var pageText = currentPageText();
-        if (!pageText) return;
-
-        // 页面文本与上次已上传的完全一致（翻回已读页/同一渲染重触发）：
-        // 直接用缓存 records 重新标注，不重复请求 moon-well
-        var sign = pageText.slice(0, 64) + '#' + pageText.length;
-        if (sign === lastPageTextSignature) {
-            if (Object.keys(vocabularyRecords).length) markVocabulary(Object.keys(vocabularyRecords)
-                .map(function (w) { return vocabularyRecords[w]; }));
-            return;
-        }
 
         vocabularyInFlight = true;
-        var location = reader.currentLocation && reader.currentLocation();
-        $.ajax({
-            url: calibre.readingVocabularyUrl, method: 'POST', contentType: 'application/json',
-            // EPUB 阅读器不加载 main.js，不会自动附带 CSRF 头；而服务端全局启用
-            // CSRF，缺 token 会返回 400 导致生词标注静默失效，故在此显式补充。
-            headers: { "X-CSRFToken": $("input[name='csrf_token']").val() || "" },
-            data: JSON.stringify({bookId: calibre.bookId, bookName: calibre.bookName,
-                chapter: currentChapterTitle(),
-                page: document.getElementById('pages-count').textContent,
-                cfi: location && location.start && location.start.cfi || '',
-                pageText: pageText})
-        }).done(function (response) {
-            var records = response.result || response.data || [];
-            (records || []).forEach(function (record) {
-                if (record && record.word) vocabularyRecords[record.word] = record;
-            });
-            lastPageTextSignature = sign;
-            markVocabulary(records);
-        }).always(function () {
-            vocabularyInFlight = false;
-            // 飞行期间有过翻页（pending 被置位）：请求完成后重检当前页，
-            // 保证翻页过快时生词也能被标注
-            if (vocabularyRetryPending) {
-                vocabularyRetryPending = false;
-                setTimeout(inspectVocabulary, 50);
+        currentPageText(function (pageText) {
+            if (!pageText) {
+                finishVocabularyFlight();
+                return;
             }
+
+            // 页面文本与上次已上传的完全一致（翻回已读页/同一渲染重触发）：
+            // 直接用缓存 records 重新标注，不重复请求 moon-well
+            var sign = pageText.slice(0, 64) + '#' + pageText.length;
+            if (sign === lastPageTextSignature) {
+                if (Object.keys(vocabularyRecords).length) markVocabulary(Object.keys(vocabularyRecords)
+                    .map(function (w) { return vocabularyRecords[w]; }));
+                finishVocabularyFlight();
+                return;
+            }
+
+            var location = reader.currentLocation && reader.currentLocation();
+            $.ajax({
+                url: calibre.readingVocabularyUrl, method: 'POST', contentType: 'application/json',
+                // EPUB 阅读器不加载 main.js，不会自动附带 CSRF 头；而服务端全局启用
+                // CSRF，缺 token 会返回 400 导致生词标注静默失效，故在此显式补充。
+                headers: { "X-CSRFToken": $("input[name='csrf_token']").val() || "" },
+                data: JSON.stringify({bookId: calibre.bookId, bookName: calibre.bookName,
+                    chapter: currentChapterTitle(),
+                    page: document.getElementById('pages-count').textContent,
+                    cfi: location && location.start && location.start.cfi || '',
+                    pageText: pageText})
+            }).done(function (response) {
+                var records = response.result || response.data || [];
+                (records || []).forEach(function (record) {
+                    if (record && record.word) vocabularyRecords[record.word] = record;
+                });
+                lastPageTextSignature = sign;
+                markVocabulary(records);
+            }).always(function () {
+                finishVocabularyFlight();
+            });
         });
+    }
+
+    // 请求（含异步取文）结束：清飞行标记；期间若有过翻页则重检当前页
+    function finishVocabularyFlight() {
+        vocabularyInFlight = false;
+        if (vocabularyRetryPending) {
+            vocabularyRetryPending = false;
+            setTimeout(inspectVocabulary, 50);
+        }
     }
     reader.rendition.on('relocated', function () { setTimeout(inspectVocabulary, 120); });
 
