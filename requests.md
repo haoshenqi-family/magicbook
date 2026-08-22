@@ -33,3 +33,5 @@
 6. OIDC 登录的 redirect_uri 仍是旧域名 hyh.haoshenqi.top，需改为新域名 magicbook.haoyuhang.top。
 
 7. 修改划词翻译接口设计：payload 太大，改为只发送这一页的文本，其他逻辑（分词/查词/归档）由 moon-well 完成。
+
+8. 总结划词翻译的功能要求，更新到 reading-vocabulary.md。

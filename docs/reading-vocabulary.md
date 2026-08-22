@@ -1,14 +1,57 @@
-# 阅读单词学习
+# 阅读单词学习（划词翻译）
 
-EPUB 阅读器支持识别当前可见页面的英文单词，并将学习上下文交给 `moon-well` 保存。
+EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上交给 `moon-well`，由其对每个单词分词、查释义、判定陌生词并回传标注所需数据；陌生词在阅读器内以波浪下划线标识，悬停或点击可查看释义与历史学习信息。
 
-## 功能
+## 功能要求
 
-- 阅读器把**当前页完整文本**上报给 moon-well。
-- `moon-well` 负责分词、提取句子上下文、判定陌生词与查询释义。
-- 陌生词在阅读器中以波浪下划线标识，悬停或点击可查看释义及上次学习信息。
-- 每次遇到单词都会保存：单词、句子、用户、书籍 ID/名称、章节、页码、EPUB CFI、学习时间和次数。
-- 历史记录使用 Elasticsearch 的 `reading_vocabulary` 索引保存；原有 `vocabulary` 索引继续提供词汇释义。
+### 1. 核心目标
+
+- 读者在阅读 EPUB 时，**自动**标记当前页中的「陌生/待学单词」（无需手动划选）。
+- 对陌生词提供释义、上一次学习记录（书籍/章节/页/时间/次数）的即时查看。
+- 完善的学习闭环：首次标记 → 释义展示 → 学习历史与次数随每次出现递增。
+
+### 2. 交互要求
+
+- 陌生词以**波浪下划线** + `cursor: help` 标识，悬停高亮背景（见 `reader.css` 的 `.reading-vocabulary-unknown`）。
+- 点击陌生词弹出释义；若无释义则提示「点击查看学习记录」，有历史则附「上次：<书> · <章节>」。
+- 每个词仅包一层 span，禁止出现嵌套标注（已在 `markVocabulary` 中跳过已标注的文本节点）。
+
+### 3. 数据上报要求
+
+- 前端**只上报当前可见「页」的文本 `pageText`**，不得逐词上报，避免 payload 膨胀（早期 `words:[{word,sentence}]` 一页数十词过大，已废弃）。
+- 必须只取**当前页**而非整章：EPUB.js 的 iframe 内是整章内容经 CSS 分栏分页，直接取 `body.innerText` 会把整章全文（可达数十 KB）上报。正确做法是经 `currentLocation()` 的 start/end CFI 用 `book.getRange()` 精确取当前页；取文失败时兜底取整章，**保证接口必定被调用**。
+- 分词、句子上下文提取、陌生词判定、释义查询、历史归档**全部由 moon-well 完成**，与前端正则保持一致（`\b[A-Za-z][A-Za-z'’-]*\b`，丢弃单字母）。
+- 每次遇到单词都归档：单词、句子上下文、用户、书籍 ID/名称、章节、页码、EPUB CFI、学习时间和次数；历史入 ES `reading_vocabulary` 索引，原 `vocabulary` 索引继续提供词汇释义。
+
+### 4. 缓存与请求优化
+
+- 翻页/翻回时若页面文本与上次一致（签名对比），**不重复请求 moon-well**，直接复用已缓存 records 重新标注（`lastPageTextSignature`）。
+- 已在会话内返回过的记录缓存于 `vocabularyRecords`（word → record），翻回已读页时立即重标。
+- 请求飞行期间发生翻页：标记待重检，请求结束后自动重检新页，避免漏标（`vocabularyRetryPending`）。
+
+### 5. 异常与降级
+
+- 未配置 moon-well 地址或令牌：阅读器保持原有行为，**不弹错误弹窗**；后端返回 503「not configured」。
+- moon-well 不可达或超时：后端返回 503「service unavailable」，阅读器静默处理。
+- 代理超时设置 15 秒，容忍 moon-well 冷启动（重启后首连 ES/Nacos）的临时慢响应。
+- 请求必须携带 CSRF token：EPUB 阅读器不加载 `main.js`（无全局 `$.ajaxSetup`），而服务端全局启用 CSRF，故前端显式附带 `X-CSRFToken`，否则生词标注在真实环境静默失效（曾出现 400）。
+
+## 配置
+
+在 magicbook 进程配置：
+
+```bash
+MOON_WELL_READING_URL=http://fnos:8082
+MOON_WELL_INTEGRATION_TOKEN=<与 moon-well 一致的随机令牌>
+```
+
+在 moon-well 进程配置同一个令牌：
+
+```bash
+MAGICBOOK_INTEGRATION_TOKEN=<同一随机令牌>
+```
+
+magicbook 通过自己的 Flask 登录会话确定用户，并在服务端代理请求；令牌不会下发到浏览器。moon-well 的 `/reading-vocabulary/**` 是集成接口，使用 `X-Magicbook-Token` 校验令牌。
 
 ## 接口设计
 
@@ -26,8 +69,8 @@ EPUB 阅读器支持识别当前可见页面的英文单词，并将学习上下
 }
 ```
 
-> 说明：早期版本由前端逐词上报 `words: [{word, sentence}]`，一页数十词使 payload 过大。
-> 当前改为只上报整页文本，**分词、句子上下文提取、查词归档全部由 moon-well 完成**。
+- magicbook 是**纯透传代理**：校验本地登录会话、注入 `userKey`、附带 `X-Magicbook-Token`，转发到 moon-well。
+- **响应结构保持不变**，前端标注逻辑零改动。
 
 **响应**（moon-well → magicbook → 前端标注）：
 
@@ -43,24 +86,17 @@ EPUB 阅读器支持识别当前可见页面的英文单词，并将学习上下
 }
 ```
 
-前端仅在 `unknown: true` 时用波浪线标注该词。
+前端仅在 `unknown: true` 时用波浪线标注该词；`translation` 为空时回退「点击查看学习记录」。
 
-## 配置
+### moon-well 侧职责
 
-在 magicbook 进程配置：
+- `extractWords(pageText)`：正则分词、去重、丢弃单字母（与前端一致）。
+- `sentenceAround(text, start, end)`：提取每个词所在句子的上下文片段（至句读/换行，上限 500 字符）。
+- 对每词：查历史（`reading_vocabulary` ES 索引）→ 查词库释义（`vocabulary` 索引）→ 写 ES 归档 → 统计 `studyTimes` → 返回 VO。
+- 释义缺失时沿用历史释义，避免覆盖为空。
+- `userKey` 命中 `app_user.oidc_subject` 时记录额外写入 `userId`（moon-well 内部用户关联）。
 
-```bash
-MOON_WELL_READING_URL=https://moon-well.example.com
-MOON_WELL_INTEGRATION_TOKEN=replace-with-a-long-random-token
-```
-
-在 moon-well 进程配置同一个令牌：
-
-```bash
-MAGICBOOK_INTEGRATION_TOKEN=replace-with-a-long-random-token
-```
-
-magicbook 通过自己的 Flask 登录会话确定用户，并在服务端代理请求；令牌不会下发到浏览器。moon-well 的 `/reading-vocabulary/**` 是集成接口，使用 `X-Magicbook-Token` 校验令牌。
+## userKey（跨应用用户标识）
 
 `userKey` 是 magicbook 的**跨应用稳定标识 `user_key`**（非自增 `user.id`）：
 
