@@ -228,6 +228,32 @@ def reading_vocabulary():
         return jsonify({"success": False, "message": "reading vocabulary service unavailable"}), 503
 
 
+@web.route("/ajax/reading-translate", methods=["POST"])
+@user_login_required
+def reading_translate():
+    """Proxy selected reader text to moon-well without exposing its token."""
+    if not constants.MOON_WELL_READING_URL or not constants.MOON_WELL_INTEGRATION_TOKEN:
+        return jsonify({"success": False, "message": "reading translation is not configured"}), 503
+    payload = request.get_json(silent=True) or {}
+    text = str(payload.get("text", "")).strip()
+    if not text or len(text) > 2000:
+        return jsonify({"success": False, "message": "selected text must be between 1 and 2000 characters"}), 400
+    payload["userKey"] = str(current_user.id)
+    payload["text"] = text
+    try:
+        response = requests.post(
+            constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/translate",
+            json=payload,
+            headers={"X-Magicbook-Token": constants.MOON_WELL_INTEGRATION_TOKEN},
+            timeout=20,
+        )
+        return (response.text, response.status_code,
+                {"Content-Type": response.headers.get("Content-Type", "application/json")})
+    except requests.RequestException as error:
+        log.warning("moon-well reading translation request failed: %s", error)
+        return jsonify({"success": False, "message": "reading translation service unavailable"}), 503
+
+
 '''
 @web.route("/ajax/getcomic/<int:book_id>/<book_format>/<int:page>")
 @user_login_required

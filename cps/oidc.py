@@ -3,7 +3,7 @@ from urllib.parse import urljoin
 
 from authlib.integrations.flask_client import OAuth
 from flask import Blueprint, current_app, redirect, request, session, url_for, flash
-from . import ub, log
+from . import ub, log, constants
 from .cw_login import login_user
 
 
@@ -53,7 +53,7 @@ def callback():
     if user is None:
         # Never merge an existing local account silently by username or email.
         # An administrator can link accounts explicitly later if required.
-        user = ub.User(name=username, email=userinfo.get("email", ""), role=1)
+        user = ub.User(name=username, email=userinfo.get("email", ""), role=constants.ADMIN_USER_ROLES)
         user.oidc_issuer = issuer
         user.oidc_subject = subject
         ub.session.add(user)
