@@ -201,18 +201,38 @@ var reader;
         return label;
     }
 
-    // 收集当前可见页面的完整文本（各章节 iframe body 文本拼接）。
-    // 不再在前端逐词提取——词的分词、句子上下文与归档逻辑已迁移到 moon-well，
-    // 前端只上报整页文本，避免每页重复携带数十个 word+sentence 的冗余 payload。
+    // 收集当前可见「页」的文本。EPUB.js 的 getContents() 返回整个 section 文档
+    // （iframe 内是整章内容，通过 CSS 分栏分页），直接取 body.innerText 会把整章
+    // 文本都上报（可达数十 KB）。这里改用 currentLocation() 的 start/end CFI 精确定位
+    // 当前页起止，经 rendition.getRange() 得到 DOM Range 后提取文本，只含本页内容。
     function currentPageText() {
-        var parts = [];
-        reader.rendition.getContents().forEach(function (content) {
-            var doc = content.document;
-            if (!doc || !doc.body) return;
-            var text = doc.body.innerText || doc.body.textContent || '';
-            if (text) parts.push(text.trim());
-        });
-        return parts.join('\n\n').trim();
+        try {
+            var location = reader.currentLocation && reader.currentLocation();
+            var startCfi = location && location.start && location.start.cfi;
+            var endCfi = location && location.end && location.end.cfi;
+            if (!startCfi || !endCfi) return '';
+            var startRange = reader.rendition.getRange(startCfi);
+            var endRange = reader.rendition.getRange(endCfi);
+            if (!startRange || !endRange) return '';
+            var doc = startRange.commonAncestorContainer;
+            if (doc && doc.nodeType === Node.TEXT_NODE) doc = doc.parentNode;
+            var ownerDoc = doc && doc.ownerDocument;
+            if (!ownerDoc) return '';
+            var range = ownerDoc.createRange();
+            range.setStart(startRange.startContainer, startRange.startOffset);
+            range.setEnd(endRange.endContainer, endRange.endOffset);
+            return (range.toString() || '').trim();
+        } catch (e) {
+            // 兜底：CFI 定位失败时退回整 section 文本（仍按旧逻辑拼接）
+            var parts = [];
+            reader.rendition.getContents().forEach(function (content) {
+                var doc = content.document;
+                if (!doc || !doc.body) return;
+                var text = doc.body.innerText || doc.body.textContent || '';
+                if (text) parts.push(text.trim());
+            });
+            return parts.join('\n\n').trim();
+        }
     }
 
     function markVocabulary(records) {
