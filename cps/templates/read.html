@@ -60,9 +60,10 @@
 	            <span id="chapter-title"></span>
 	        </div>
 	        <div id="title-controls">
+	            <a id="immersive-translate" title="{{_('Immersive translation')}}">译</a>
 	            <a id="bookmark" class="icon-bookmark-empty">Bookmark</a>
 	            <a id="setting" class="icon-cog">Settings</a>
-	            <a id="fullscreen" class="icon-resize-full">Fullscreen</a>            
+	            <a id="fullscreen" class="icon-resize-full">Fullscreen</a>
 	        </div>
 	    </div>
 
@@ -134,7 +135,14 @@
                 <label class="item">{{ _('Spread') }}:</label>
                 <button type="button" id="spread" onclick="spread(this.id)"><span>✓</span>{{_('Two columns')}}</button>
                 <button type="button" id="nonespread" onclick="spread(this.id)"><span></span>{{_('One column')}}</button>
-              </div>            
+              </div>
+              <div class="form-group" id="ttsEngineWrapper">
+                <label class="item">{{_('Read-aloud engine')}}:</label>
+                <select id="ttsEngine" style="margin-top: 5px;">
+                  <option value="ai">{{_('AI speech (configured by admin)')}}</option>
+                  <option value="browser">{{_('Browser built-in voice')}}</option>
+                </select>
+              </div>
             <div class="closer icon-cancel-circled"></div>
         </div>
     </div>
@@ -152,6 +160,9 @@
             useBookmarks: "{{ current_user.is_authenticated | tojson }}",
             readingVocabularyUrl: "{{ url_for('web.reading_vocabulary') }}",
             readingTranslationUrl: "{{ url_for('web.reading_translate') }}",
+            readingTranslateBatchUrl: "{{ url_for('web.reading_translate_batch') }}",
+            readingTtsUrl: "{{ url_for('aichat.tts_speak') }}",
+            ttsConfigured: {{ (tts_configured if tts_configured is defined else False) | tojson }},
             bookId: {{ bookid }},
             bookName: {{ title|tojson }},
             readingVocabularyEnabled: {{ current_user.is_authenticated|tojson }}

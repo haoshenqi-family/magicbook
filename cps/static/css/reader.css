@@ -88,6 +88,47 @@
   font-size: 11px;
 }
 .reading-translation-popover.is-loading { opacity: .8; }
+
+#titlebar a#immersive-translate {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
+#titlebar a#immersive-translate.active {
+  opacity: 1;
+  color: #f5a623;
+  border: 1px solid rgba(245, 166, 35, .6);
+  padding: 3px;
+}
+
+#settings-modal #ttsEngine {
+  color: #fff;
+  background: transparent;
+  border: 1px solid #666;
+  padding: 4px 8px;
+  max-width: 220px;
+}
+
+#reader-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%);
+  z-index: 10001;
+  max-width: calc(100vw - 48px);
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: rgba(30, 30, 30, .92);
+  color: #fff;
+  font: 13px/1.4 sans-serif;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+#reader-toast.is-visible { opacity: 1; }
+
 .read-footer #pages-count {
   font-size: 12px;
 

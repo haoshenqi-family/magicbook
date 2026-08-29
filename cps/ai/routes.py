@@ -35,6 +35,7 @@ from .registry import get_provider, list_providers
 from .crypto import encrypt_value, decrypt_value
 from .database import get_session
 from .timezone import now as now_cn
+from .tts import TTS_CACHE, synthesize_speech, tts_cache_key
 from .memory import (build_system_prompt, extract_user_memory,
                      get_user_memory_strings, should_extract_memory)
 
@@ -46,6 +47,10 @@ aichat = Blueprint("aichat", __name__)
 # question gives the thread a meaningful name.
 DEFAULT_CONV_TITLE = "新会话"
 _TITLE_MAX_LEN = 30
+
+#: Dedicated AiProvider row name holding the reader TTS configuration
+#: (api_base/api_key in the shared columns, model+voice in models_json).
+TTS_PROVIDER_NAME = "tts"
 
 
 def _session():
@@ -90,6 +95,23 @@ def get_active_provider():
     if not api_key and provider.requires_key:
         raise RuntimeError(f"provider '{provider_name}' has no API key set")
     return provider, cfg.default_model
+
+
+def get_tts_config():
+    """Return the dedicated TTS provider row (or None if never configured)."""
+    return _session().query(AiProvider).filter_by(
+        provider_name=TTS_PROVIDER_NAME).first()
+
+
+def _tts_settings(row):
+    """Parse the TTS row's model/voice settings (falls back to defaults)."""
+    try:
+        settings = json.loads(row.models_json or "{}")
+    except (ValueError, TypeError):
+        settings = {}
+    if not isinstance(settings, dict):
+        settings = {}
+    return settings
 
 
 def _serialize_message(msg):
@@ -473,6 +495,72 @@ def test_provider():
                         "models": models})
 
 
+@aichat.route("/ai/tts", methods=["POST"])
+@user_login_required
+def tts_speak():
+    """Synthesize a reader paragraph to mp3 via the configured TTS service.
+
+    Request JSON: ``{text}`` (1..2000 chars). Response: ``audio/mpeg`` bytes,
+    or a JSON ``{error}`` body with 4xx/5xx when unconfigured or failed — the
+    reader distinguishes the two by the Content-Type header.
+    """
+    data = request.get_json(silent=True) or {}
+    text = str(data.get("text", "")).strip()
+    if not text or len(text) > 2000:
+        return jsonify({"error": "text must be between 1 and 2000 characters"}), 400
+
+    row = get_tts_config()
+    if row is None or not row.active or not row.api_base:
+        return jsonify({"error": "TTS service is not configured"}), 503
+    settings = _tts_settings(row)
+    model = settings.get("model") or "tts-1"
+    voice = settings.get("voice") or "alloy"
+    api_key = decrypt_value(row.api_key_encrypted, _get_encryption_key())
+
+    cache_key = tts_cache_key(model, voice, text)
+    audio = TTS_CACHE.get(cache_key)
+    if audio is None:
+        try:
+            audio = synthesize_speech(row.api_base, api_key, model, voice, text)
+        except Exception as e:
+            log.warning("TTS synthesis failed: %s", e)
+            return jsonify({"error": str(e)[:500]}), 502
+        TTS_CACHE.put(cache_key, audio)
+    return Response(audio, mimetype="audio/mpeg")
+
+
+@aichat.route("/ai/test_tts", methods=["POST"])
+@user_login_required
+def test_tts():
+    """Validate the TTS configuration by synthesizing a short sample.
+
+    Request JSON: ``{api_base, api_key?, model?, voice?}``; a blank api_key
+    falls back to the stored one. Response is either ``audio/mpeg`` (played
+    by the admin UI) or a JSON ``{error}`` on failure.
+    """
+    if not current_user.role_admin():
+        abort(403)
+    body = request.get_json(silent=True) or {}
+    api_base = (body.get("api_base") or "").strip()
+    if not api_base.lower().startswith(("http://", "https://")):
+        return jsonify({"error": "api_base must start with http(s)://"}), 400
+    model = (body.get("model") or "").strip() or "tts-1"
+    voice = (body.get("voice") or "").strip() or "alloy"
+    api_key = (body.get("api_key") or "").strip()
+    if not api_key:
+        row = get_tts_config()
+        if row:
+            api_key = decrypt_value(row.api_key_encrypted, _get_encryption_key())
+
+    try:
+        audio = synthesize_speech(api_base, api_key, model, voice,
+                                  "你好，这是 AI 朗读测试。")
+    except Exception as e:
+        log.warning("TTS test failed: %s", e)
+        return jsonify({"error": str(e)[:500]}), 502
+    return Response(audio, mimetype="audio/mpeg")
+
+
 @aichat.route("/ai/admin", methods=["GET", "POST"])
 @user_login_required
 def admin():
@@ -499,9 +587,38 @@ def admin():
         # Update provider configs
         key = _get_encryption_key()
 
+        # 0) Dedicated TTS provider row — a fixed panel, never part of the
+        # generic provider list below (its models_json is {"model","voice"},
+        # not an id|label list, so the generic loop would corrupt it).
+        tts_row = sess.query(AiProvider).filter_by(
+            provider_name=TTS_PROVIDER_NAME).first()
+        if tts_row is None:
+            tts_row = AiProvider()
+            tts_row.provider_name = TTS_PROVIDER_NAME
+            tts_row.display_name = "AI 朗读（TTS）"
+            tts_row.models_json = json.dumps({"model": "", "voice": ""})
+            tts_row.active = False
+            sess.add(tts_row)
+        if "tts_api_base" in request.form:
+            tts_row.active = request.form.get("tts_enabled") == "on"
+            tts_row.api_base = (request.form.get("tts_api_base") or "").strip()
+            tts_key = request.form.get("tts_api_key", "")
+            if tts_key:
+                tts_row.api_key_encrypted = encrypt_value(tts_key, key)
+            # 每个字段只在表单里出现时才更新：部分提交（如测试或第三方
+            # 调用）不应把已保存的 model/voice 清空
+            tts_settings = _tts_settings(tts_row)
+            if "tts_model" in request.form:
+                tts_settings["model"] = (request.form.get("tts_model") or "").strip()
+            if "tts_voice" in request.form:
+                tts_settings["voice"] = (request.form.get("tts_voice") or "").strip()
+            tts_row.models_json = json.dumps(tts_settings)
+
         # 1) Delete providers marked for removal.
         deleted_names = []
         for prov in list(sess.query(AiProvider).all()):
+            if prov.provider_name == TTS_PROVIDER_NAME:
+                continue
             if request.form.get(f"provider_{prov.id}_delete") == "on":
                 deleted_names.append(prov.provider_name)
                 sess.delete(prov)
@@ -523,6 +640,8 @@ def admin():
 
         # 3) Update existing providers.
         for prov in sess.query(AiProvider).all():
+            if prov.provider_name == TTS_PROVIDER_NAME:
+                continue
             field_prefix = f"provider_{prov.id}_"
             if f"{field_prefix}api_base" in request.form:
                 prov.api_base = request.form.get(field_prefix + "api_base", prov.api_base)
@@ -553,8 +672,11 @@ def admin():
 
         # If the default provider was just deleted, point it at a surviving one
         # so chat doesn't start failing with 'provider not configured'.
+        # The TTS row is excluded: it is not a chat provider and its
+        # models_json is a dict, which the model auto-correct below cannot parse.
         if cfg.default_provider in deleted_names:
-            remaining = [p.provider_name for p in sess.query(AiProvider).all()]
+            remaining = [p.provider_name for p in sess.query(AiProvider).all()
+                         if p.provider_name != TTS_PROVIDER_NAME]
             cfg.default_provider = (remaining[0] if remaining else
                                     list_providers()[0] if list_providers() else "deepseek")
 
@@ -579,6 +701,23 @@ def admin():
         sess.add(cfg)
         sess.commit()
     providers = sess.query(AiProvider).all()
+    tts_row = None
+    chat_providers = []
+    for p in providers:
+        if p.provider_name == TTS_PROVIDER_NAME:
+            tts_row = p
+        else:
+            chat_providers.append(p)
+    providers = chat_providers
+    if tts_row is None:
+        # First visit: seed the fixed TTS row so the panel has stable defaults.
+        tts_row = AiProvider()
+        tts_row.provider_name = TTS_PROVIDER_NAME
+        tts_row.display_name = "AI 朗读（TTS）"
+        tts_row.models_json = json.dumps({"model": "", "voice": ""})
+        tts_row.active = False
+        sess.add(tts_row)
+        sess.commit()
     # The default-provider dropdown merges built-in provider classes with any
     # custom providers already stored in the DB.
     available_provider_classes = list_providers()
@@ -589,5 +728,6 @@ def admin():
 
     return render_title_template("ai_admin.html", title=_("AI Companion Settings"),
                                  config=cfg, providers=providers,
+                                 tts_config=tts_row,
                                  available_providers=available_provider_classes,
                                  page="aiadmin")

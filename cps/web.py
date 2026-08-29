@@ -229,9 +229,45 @@ def reading_translate():
                            "reading translation")
 
 
+@web.route("/ajax/reading-translate-batch", methods=["POST"])
+@user_login_required
+def reading_translate_batch():
+    """Proxy immersive paragraph translation (one LLM call per page)."""
+    payload = request.get_json(silent=True) or {}
+    paragraphs = payload.get("paragraphs")
+    if not isinstance(paragraphs, list) or not 1 <= len(paragraphs) <= 20:
+        return jsonify({"success": False,
+                        "message": "paragraphs must contain 1 to 20 items"}), 400
+    cleaned = []
+    for item in paragraphs:
+        text = str(item or "").strip()
+        if not text or len(text) > 2000:
+            return jsonify({"success": False,
+                            "message": "each paragraph must be between 1 and 2000 characters"}), 400
+        cleaned.append(text)
+    payload["paragraphs"] = cleaned
+    # 60s：moon-well 一次 LLM 调用翻译整页，比逐段接口慢得多
+    return _moonwell_proxy("/vocabulary/reading/translate-batch", payload, 60,
+                           "reading batch translation")
+
+
 def _moonwell_session_authorization():
     access_token = flask_session.get("moonwell_access_token")
     return "Bearer " + access_token if access_token else None
+
+
+def _tts_configured():
+    """Whether the admin enabled an AI TTS provider (reader default engine)."""
+    try:
+        # Lazy import: cps.ai.routes pulls the whole AI stack and is only
+        # needed on the epub reader page; importing at module load would risk
+        # circular imports with cps/__init__.
+        from cps.ai.routes import get_tts_config
+        row = get_tts_config()
+        return bool(row and row.active and row.api_base)
+    except Exception as e:
+        log.debug("TTS config lookup failed: %s", e)
+        return False
 
 
 # moon-well 走内网直连（fnos:8082）。进程可能因封面下载等功能携带 http_proxy
@@ -1677,7 +1713,7 @@ def read_book(book_id, book_format):
     if book_format.lower() == "epub" or book_format.lower() == "kepub":
         log.debug("Start [k]epub reader for %d", book_id)
         return render_title_template('read.html', bookid=book_id, title=book.title, bookmark=bookmark,
-                                     book_format=book_format)
+                                     book_format=book_format, tts_configured=_tts_configured())
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
         return render_title_template('readpdf.html', pdffile=book_id, title=book.title)
