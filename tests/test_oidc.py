@@ -126,7 +126,12 @@ class TestInitOidc:
         monkeypatch.setenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI",
                            "https://cw.example/oidc/callback")
         from cps.oidc import oauth
-        assert init_oidc(app) is True
-        assert app.config.get("AUTHENTIK_OIDC_ENABLED") is True
-        client = oauth.create_client("authentik")
-        assert isinstance(client, AuthentikOAuth2App)
+        try:
+            assert init_oidc(app) is True
+            assert app.config.get("AUTHENTIK_OIDC_ENABLED") is True
+            client = oauth.create_client("authentik")
+            assert isinstance(client, AuthentikOAuth2App)
+        finally:
+            # app 是会话级共享实例：不清掉该标志会让后续用例渲染 /login 时
+            # 走到未注册的 oidc.login 端点，url_for 抛 BuildError
+            app.config.pop("AUTHENTIK_OIDC_ENABLED", None)

@@ -288,7 +288,7 @@ var reader;
 
     function paragraphSpeechText(el) {
         var text = (el.textContent || '').replace(/\s+/g, ' ').trim();
-        // 与后端 /ai/tts 校验一致的上限；超长段落截断朗读
+        // 与后端 /ajax/reading-tts 校验一致的上限；超长段落截断朗读
         return text.length > 2000 ? text.slice(0, 2000) : text;
     }
 
@@ -357,7 +357,8 @@ var reader;
             var type = resp.headers.get('Content-Type') || '';
             if (resp.ok && type.indexOf('audio') >= 0) return resp.blob();
             return resp.json().then(function (data) {
-                throw new Error(data.error || ('HTTP ' + resp.status));
+                // magicbook 代理错误为 {message}，moon-well 原生错误为 {msg}
+                throw new Error(data.error || data.message || data.msg || ('HTTP ' + resp.status));
             });
         }).then(function (blob) {
             if (seq !== ttsRequestSeq) return;

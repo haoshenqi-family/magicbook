@@ -75,42 +75,6 @@
         </div>
         {% endfor %}
 
-        <h3>{{_('AI Speech (TTS)')}}</h3>
-        <div class="panel panel-default">
-          <div class="panel-heading">
-            <h4>{{_('Reader paragraph read-aloud')}}
-              <label class="pull-right"><input type="checkbox" name="tts_enabled" {% if tts_config.active %}checked{% endif %}> {{_('Enabled')}}</label>
-            </h4>
-          </div>
-          <div class="panel-body">
-            <div class="form-group">
-              <label>{{_('API Base URL')}} {{_('(OpenAI-compatible, serves /audio/speech)')}}</label>
-              <input type="text" name="tts_api_base" class="form-control" value="{{ tts_config.api_base }}" placeholder="https://...">
-            </div>
-            <div class="form-group">
-              <label>{{_('API Key')}} {{_('(leave blank to keep current)')}}</label>
-              <input type="password" name="tts_api_key" class="form-control" placeholder="sk-...">
-            </div>
-            <div class="row">
-              <div class="col-sm-6 form-group">
-                <label>{{_('Model')}}</label>
-                <input type="text" name="tts_model" class="form-control" value="{% set tts_settings = tts_config.models_json | from_json %}{{ tts_settings.model or '' }}" placeholder="tts-1">
-              </div>
-              <div class="col-sm-6 form-group">
-                <label>{{_('Voice')}}</label>
-                <input type="text" name="tts_voice" class="form-control" value="{{ tts_settings.voice or '' }}" placeholder="alloy">
-              </div>
-            </div>
-            <div class="form-group">
-              <label>{{_('Test synthesis (uses the fields above)')}}</label>
-              <div>
-                <button type="button" class="btn btn-default" onclick="testTts()">{{_('Play test audio')}}</button>
-                <span id="tts_test_result" class="help-block" style="display:inline; margin-left:10px;"></span>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <h3>{{_('Add Provider')}}</h3>
         <div class="panel panel-default">
           <div class="panel-body">
@@ -139,41 +103,6 @@
 </div>
 <script>
   var TEST_PROVIDER_URL = "{{ url_for('aichat.test_provider') }}";
-  var TEST_TTS_URL = "{{ url_for('aichat.test_tts') }}";
-  function testTts() {
-    var $result = $('#tts_test_result');
-    var apiBase = $('input[name="tts_api_base"]').val().trim();
-    var apiKey = $('input[name="tts_api_key"]').val().trim();
-    var model = $('input[name="tts_model"]').val().trim();
-    var voice = $('input[name="tts_voice"]').val().trim();
-    if (!apiBase) {
-      $result.text('{{_("Please fill API Base URL to test.")}}').css('color', 'orange');
-      return;
-    }
-    $result.text('{{_("Synthesizing...")}}').css('color', '#888');
-    fetch(TEST_TTS_URL, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json',
-                 'X-CSRFToken': $('input[name="csrf_token"]').val() || '' },
-      body: JSON.stringify({ api_base: apiBase, api_key: apiKey,
-                             model: model, voice: voice })
-    }).then(function (resp) {
-      var type = resp.headers.get('Content-Type') || '';
-      if (resp.ok && type.indexOf('audio') >= 0) return resp.blob();
-      return resp.json().then(function (data) {
-        throw new Error(data.error || (resp.status + ' ' + resp.statusText));
-      });
-    }).then(function (blob) {
-      var url = URL.createObjectURL(blob);
-      var audio = new Audio(url);
-      audio.onended = function () { URL.revokeObjectURL(url); };
-      audio.play();
-      $result.text('{{_("OK: playing sample audio.")}}').css('color', 'green');
-    }).catch(function (err) {
-      $result.text('{{_("Failed:")}} ' + err.message).css('color', 'red');
-    });
-  }
   function testProvider(id) {
     var $base = $('input[name="provider_' + id + '_api_base"]');
     var $key = $('input[name="provider_' + id + '_api_key"]');

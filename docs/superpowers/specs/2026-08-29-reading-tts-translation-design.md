@@ -3,6 +3,13 @@
 日期：2026-08-29
 状态：已批准（用户确认）
 
+> **变更记录（2026-08-29 v2）**：TTS 链路改为 **moon-well 中转 + 阿里云百炼（DashScope）**。
+> magicbook 放弃直连 OpenAI 兼容 `/audio/speech` 的适配（`cps/ai/tts.py`、`/ai/tts`、
+> `/ai/test_tts`、admin TTS 面板均已移除；旧 `provider_name="tts"` 行在下一次保存
+> admin 配置时清理）。原因：百炼 TTS 走 DashScope 私有协议（嵌套请求体 + 非流式
+> 返回 `output.audio.url` OSS 链接需二次下载），且 TTS 仅在百炼北京地域可用，
+> 统一由 moon-well 适配可复用其鉴权与配置体系。原设计中的 TTS 段落已按此更新。
+
 ## 背景
 
 magicbook（Calibre-Web 定制版）的 EPUB 阅读器已有生词标注与划词翻译能力。本次新增两个阅读功能：
@@ -14,10 +21,10 @@ magicbook（Calibre-Web 定制版）的 EPUB 阅读器已有生词标注与划�
 
 | 决策点 | 结论 |
 | --- | --- |
-| TTS 方案 | AI TTS（OpenAI 兼容 `/audio/speech`）为主 + 浏览器 `speechSynthesis` 兜底，引擎可切换 |
+| TTS 方案 | ~~AI TTS（OpenAI 兼容 `/audio/speech`）~~ **v2：moon-well 中转到阿里云百炼** + 浏览器 `speechSynthesis` 兜底，引擎可切换 |
 | 翻译链路 | moon-well 新增批量翻译接口，一次 LLM 调用翻译整页段落 |
 | 目标语言 | 固定英→中（与划词翻译一致） |
-| TTS 配置入口 | 复用 `/ai/admin` 全局配置，管理员统一管理 |
+| TTS 配置入口 | ~~复用 `/ai/admin` 全局配置~~ **v2：moon-well `tts:` 配置（环境变量 DASHSCOPE_API_KEY 等）** |
 | 朗读按钮显示 | hover 段落时浮现小图标，不打断阅读 |
 | 翻译开关 | 阅读器顶部工具栏图标按钮，状态存 localStorage，译文带缓存 |
 
@@ -25,16 +32,16 @@ magicbook（Calibre-Web 定制版）的 EPUB 阅读器已有生词标注与划�
 
 ```
 magicbook 前端 (read.html + js/reading/epub.js)
-  ├─ 每段 hover 浮现朗读按钮 → POST /ai/tts → 播放 mp3（失败降级 speechSynthesis）
+  ├─ 每段 hover 浮现朗读按钮 → POST /ajax/reading-tts → 播放 mp3（失败降级 speechSynthesis）
   └─ 工具栏"译"开关 → POST /ajax/reading-translate-batch → 段落后插入译文
 
 magicbook 后端
-  ├─ POST /ai/tts            → TTS Provider（OpenAI 兼容 /audio/speech），内存 LRU 缓存
-  ├─ POST /ajax/reading-translate-batch → 代理 moon-well 批量翻译（复用 _moonwell_proxy）
-  └─ /ai/admin               → 新增 TTS 配置块（AiProvider 表 provider_name="tts" 专用行）
+  ├─ POST /ajax/reading-tts → 代理 moon-well /tts/speak（二进制透传，复用 _moonwell_proxy + binary）
+  └─ POST /ajax/reading-translate-batch → 代理 moon-well 批量翻译（复用 _moonwell_proxy）
 
 moon-well
-  └─ POST /vocabulary/reading/translate-batch → 一次 LLM 调用批量翻译，返回同序数组
+  ├─ POST /vocabulary/reading/translate-batch → 一次 LLM 调用批量翻译，返回同序数组
+  └─ POST /tts/speak → 适配百炼 DashScope 非实时合成（含音频下载 + LRU 缓存）
 ```
 
 ## 详细设计
@@ -46,12 +53,18 @@ moon-well
 - `ReadingVocabularyController` 新增 `POST /vocabulary/reading/translate-batch`，返回 `Result<Map>`（`{"translations": [...]}`）。
 - 复用现有 JWT 拦截器鉴权与全局异常处理。
 
-### magicbook：TTS 后端
+### moon-well：百炼 TTS（v2 新增）
 
-- `AiProvider` 表新增专用行 `provider_name="tts"`，复用 `api_base / api_key_encrypted` 列，`models_json` 存 `{"model": "...", "voice": "...", "models": [...], "voices": [...]}`——无数据库迁移。
-- `cps/ai/tts.py`：`synthesize_speech(api_base, api_key, model, voice, text, timeout) -> bytes`，OpenAI 兼容 `POST {api_base}/audio/speech`，`response_format=mp3`。
-- `POST /ai/tts`（登录用户）：校验文本 1~2000 字符 → 取 TTS 配置 → 合成 → 流式返回 `audio/mpeg`；内存 LRU（128 条，text hash → bytes）。未配置返回 JSON 错误。
-- `/ai/admin` 表单新增"AI 朗读服务"配置块（api_base/api_key/model/voice，测试合成按钮）。
+- `TtsProperties`（`@ConfigurationProperties(prefix="tts")`）：`api-key / base-url / model / voice / timeout-ms`，环境变量 `DASHSCOPE_API_KEY / DASHSCOPE_BASE_URL / TTS_MODEL / TTS_VOICE / TTS_TIMEOUT_MS`。
+- `ReadingTtsService.speak(text)`：DashScope 非实时协议 `POST {base}/api/v1/services/audio/tts/SpeechSynthesizer`（嵌套 `input`：text/voice/format=mp3）→ 解析 `output.audio.url` → 下载音频字节。`SHA-256(text|model|voice)` 为键的 LRU 缓存（128 条）。未配置 api-key 抛 `GlobalException`（全局异常处理器返回 JSON+500）。
+- `ReadingTtsController`：`POST /tts/speak`，JWT 拦截器自动鉴权，成功返回 `audio/mpeg` 字节。
+
+### magicbook：TTS 代理（v2 替换原直连方案）
+
+- `POST /ajax/reading-tts`（登录用户）：校验文本 1~2000 字符 → `_moonwell_proxy("/tts/speak", payload, 65, binary=True)`。
+- `_moonwell_proxy` 增加 `binary` 参数：按原始字节透传响应体（音频/JSON 错误均适用），令牌 401 自动刷新逻辑不变。
+- 前端 `ttsConfigured` 改为登录即可用（AI 朗读依赖 moon-well 会话令牌，与阅读词汇功能同源）。
+- ~~`cps/ai/tts.py`、`/ai/tts`、`/ai/test_tts`、admin TTS 面板~~（已移除，见变更记录）。
 
 ### magicbook：批量翻译代理
 
@@ -63,19 +76,19 @@ moon-well
 - **朗读**：全局单例 `Audio`，一次一段；播放中可停止、切段自动停止；AI 失败 toast 并自动降级 `speechSynthesis`（en 声音）重试一次；段落 >2000 字符截断。
 - **沉浸式翻译**：工具栏"译"按钮开关（localStorage 记忆）；开启时收集当前页段落 → 批量翻译 → 每段下插入 `<div class="reading-translation">`（小字号浅色，随主题）；译文缓存 localStorage（书 key + 段落文本 hash，上限 500 条 LRU）；关闭立即移除译文但保留缓存；翻页时开关开着自动翻译新页。
 - **设置**：阅读设置弹窗新增朗读引擎选择（AI 朗读 / 浏览器本地），localStorage 记忆。
-- `window.calibre` 新增 `readingTtsUrl / readingTranslateBatchUrl / ttsEnabled`。
+- `window.calibre` 新增 `readingTtsUrl / readingTranslateBatchUrl / ttsConfigured`。
 
 ## 错误处理
 
 - 新接口均需登录；AJAX 显式带 `X-CSRFToken`。
-- API key 仅服务端加解密。
+- 百炼 DASHSCOPE_API_KEY 仅配置在 moon-well 服务端，不进 magicbook。
 - moon-well 401 → 代理自动刷新 token；失败提示重新登录。
-- 翻译失败 → 译文区显示"翻译失败，点击重试"。
+- TTS 失败（JSON 错误透传）→ 前端 toast 并降级浏览器语音；翻译失败 → 译文区显示"翻译失败，点击重试"。
 
 ## 测试
 
-- moon-well：`ReadingVocabularyServiceTest`（mock LlmFacade）覆盖正常 JSON / 围栏包裹 / 数量不匹配 / 空输入 / 参数校验。
-- magicbook：pytest mock requests，覆盖 TTS 路由校验与合成调用、批量代理参数校验。
+- moon-well：`ReadingVocabularyServiceTest`（mock LlmFacade）覆盖批量翻译各分支；`ReadingTtsServiceTest`（spy 覆写 RestTemplate 工厂）覆盖 DashScope 协议、音频下载、缓存复用、未配置、解析/网络失败。
+- magicbook：pytest mock requests，覆盖 `/ajax/reading-tts` 代理校验与二进制透传、批量代理参数校验。
 - 浏览器手工验收：hover 按钮、播放/停止、引擎切换、翻译开关、缓存、翻页重注入。
 
 ## 明确不做（YAGNI）

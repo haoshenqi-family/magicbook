@@ -139,7 +139,7 @@
               <div class="form-group" id="ttsEngineWrapper">
                 <label class="item">{{_('Read-aloud engine')}}:</label>
                 <select id="ttsEngine" style="margin-top: 5px;">
-                  <option value="ai">{{_('AI speech (configured by admin)')}}</option>
+                  <option value="ai">{{_('AI speech (via moon-well)')}}</option>
                   <option value="browser">{{_('Browser built-in voice')}}</option>
                 </select>
               </div>
@@ -161,8 +161,8 @@
             readingVocabularyUrl: "{{ url_for('web.reading_vocabulary') }}",
             readingTranslationUrl: "{{ url_for('web.reading_translate') }}",
             readingTranslateBatchUrl: "{{ url_for('web.reading_translate_batch') }}",
-            readingTtsUrl: "{{ url_for('aichat.tts_speak') }}",
-            ttsConfigured: {{ (tts_configured if tts_configured is defined else False) | tojson }},
+            readingTtsUrl: "{{ url_for('web.reading_tts') }}",
+            ttsConfigured: {{ current_user.is_authenticated | tojson }},
             bookId: {{ bookid }},
             bookName: {{ title|tojson }},
             readingVocabularyEnabled: {{ current_user.is_authenticated|tojson }}
