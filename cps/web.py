@@ -209,16 +209,16 @@ def update_view():
 @web.route("/ajax/reading-vocabulary", methods=["POST"])
 @user_login_required
 def reading_vocabulary():
-    """Proxy the reader's word context to moon-well without exposing its token."""
-    if not constants.MOON_WELL_READING_URL or not constants.MOON_WELL_INTEGRATION_TOKEN:
-        return jsonify({"success": False, "message": "reading vocabulary is not configured"}), 503
+    """Proxy the reader's word context using the caller's moon-well JWT."""
+    authorization = request.headers.get("authorization") or _moonwell_session_authorization()
+    if not constants.MOON_WELL_READING_URL or not authorization:
+        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
     payload = request.get_json(silent=True) or {}
-    payload["userKey"] = str(current_user.id)
     try:
         response = requests.post(
             constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/analyze",
             json=payload,
-            headers={"X-Magicbook-Token": constants.MOON_WELL_INTEGRATION_TOKEN},
+            headers={"authorization": authorization},
             timeout=8,
         )
         return (response.text, response.status_code,
@@ -231,20 +231,20 @@ def reading_vocabulary():
 @web.route("/ajax/reading-translate", methods=["POST"])
 @user_login_required
 def reading_translate():
-    """Proxy selected reader text to moon-well without exposing its token."""
-    if not constants.MOON_WELL_READING_URL or not constants.MOON_WELL_INTEGRATION_TOKEN:
-        return jsonify({"success": False, "message": "reading translation is not configured"}), 503
+    """Proxy selected reader text using the caller's moon-well JWT."""
+    authorization = request.headers.get("authorization") or _moonwell_session_authorization()
+    if not constants.MOON_WELL_READING_URL or not authorization:
+        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
     payload = request.get_json(silent=True) or {}
     text = str(payload.get("text", "")).strip()
     if not text or len(text) > 2000:
         return jsonify({"success": False, "message": "selected text must be between 1 and 2000 characters"}), 400
-    payload["userKey"] = str(current_user.id)
     payload["text"] = text
     try:
         response = requests.post(
             constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/translate",
             json=payload,
-            headers={"X-Magicbook-Token": constants.MOON_WELL_INTEGRATION_TOKEN},
+            headers={"authorization": authorization},
             timeout=20,
         )
         return (response.text, response.status_code,
@@ -252,6 +252,11 @@ def reading_translate():
     except requests.RequestException as error:
         log.warning("moon-well reading translation request failed: %s", error)
         return jsonify({"success": False, "message": "reading translation service unavailable"}), 503
+
+
+def _moonwell_session_authorization():
+    access_token = flask_session.get("moonwell_access_token")
+    return "Bearer " + access_token if access_token else None
 
 
 '''

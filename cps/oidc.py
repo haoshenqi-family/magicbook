@@ -1,4 +1,5 @@
 import os
+import requests
 from urllib.parse import urljoin
 
 from authlib.integrations.flask_client import OAuth
@@ -42,6 +43,7 @@ def login():
 @oidc.get("/callback")
 def callback():
     token = oauth.authentik.authorize_access_token()
+    id_token = token.get("id_token")
     userinfo = token.get("userinfo") or oauth.authentik.userinfo()
     subject = userinfo.get("sub")
     if not subject:
@@ -59,4 +61,17 @@ def callback():
         ub.session.add(user)
         ub.session.commit()
     login_user(user, remember=True)
+    if id_token and constants.MOON_WELL_READING_URL:
+        try:
+            response = requests.post(
+                constants.MOON_WELL_READING_URL.rstrip("/") + "/auth/oidc/exchange",
+                json={"idToken": id_token}, timeout=8)
+            response.raise_for_status()
+            moonwell_result = response.json().get("result", {})
+            if moonwell_result.get("accessToken"):
+                session["moonwell_access_token"] = moonwell_result["accessToken"]
+            if moonwell_result.get("refreshToken"):
+                session["moonwell_refresh_token"] = moonwell_result["refreshToken"]
+        except requests.RequestException as error:
+            log.warning("moon-well OIDC token exchange failed: %s", error)
     return redirect(session.pop("oidc_next", url_for("web.index")))

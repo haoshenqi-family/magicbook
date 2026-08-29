@@ -228,20 +228,41 @@ var reader;
     document.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') closeTranslationPopover();
     });
-    function visibleWords() {
-        var words = {};
+    function isVisibleTextNode(node, content) {
+        var parent = node.parentElement;
+        if (!parent || /^(SCRIPT|STYLE|NOSCRIPT)$/i.test(parent.tagName)) return false;
+        var win = content.window, rects = node.getClientRects();
+        for (var i = 0; i < rects.length; i++) {
+            var rect = rects[i];
+            if (rect.bottom > 0 && rect.right > 0 &&
+                rect.top < win.innerHeight && rect.left < win.innerWidth) return true;
+        }
+        return false;
+    }
+
+    function visiblePageText() {
+        var chunks = [];
         reader.rendition.getContents().forEach(function (content) {
             var doc = content.document;
             if (!doc || !doc.body) return;
             var walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
             var node;
             while ((node = walker.nextNode())) {
-                var sentence = (node.parentElement && node.parentElement.textContent || node.textContent || '').trim();
-                (node.textContent.match(/\b[A-Za-z][A-Za-z'’-]*\b/g) || []).forEach(function (raw) {
-                    var word = raw.toLowerCase().replace(/[’']/g, "'");
-                    if (word.length > 1 && !vocabularySeen[word]) words[word] = sentence.slice(0, 500);
-                });
+                if (isVisibleTextNode(node, content) && node.textContent.trim()) {
+                    chunks.push(node.textContent.trim());
+                }
             }
+        });
+        // A paginated EPUB document can still contain the whole chapter in its
+        // iframe DOM; only text with a line box in the current viewport is sent.
+        return chunks.join(' ').replace(/\s+/g, ' ').trim().slice(0, 12000);
+    }
+
+    function visibleWords(pageText) {
+        var words = {};
+        (pageText.match(/\b[A-Za-z][A-Za-z'’-]*\b/g) || []).forEach(function (raw) {
+            var word = raw.toLowerCase().replace(/[’']/g, "'");
+            if (word.length > 1 && !vocabularySeen[word]) words[word] = pageText.slice(0, 500);
         });
         return words;
     }
@@ -284,7 +305,9 @@ var reader;
 
     function inspectVocabulary() {
         if (!calibre.readingVocabularyEnabled || vocabularyInFlight) return;
-        var words = visibleWords(), list = Object.keys(words);
+        var pageText = visiblePageText();
+        if (!pageText) return;
+        var words = visibleWords(pageText), list = Object.keys(words);
         if (!list.length) return;
         vocabularyInFlight = true;
         var location = reader.currentLocation && reader.currentLocation();
@@ -294,7 +317,7 @@ var reader;
                 chapter: document.getElementById('chapter-title').textContent,
                 page: document.getElementById('pages-count').textContent,
                 cfi: location && location.start && location.start.cfi || '',
-                words: list.map(function (word) { return {word: word, sentence: words[word]}; })})
+                pageText: pageText})
         }).done(function (response) {
             var records = response.result || response.data || [];
             list.forEach(function (word) { vocabularySeen[word] = true; });

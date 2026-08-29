@@ -16,16 +16,9 @@ EPUB 阅读器支持在当前可见页面识别英文单词，并将学习上下
 
 ```bash
 MOON_WELL_READING_URL=https://moon-well.example.com
-MOON_WELL_INTEGRATION_TOKEN=replace-with-a-long-random-token
 ```
 
-在 moon-well 进程配置同一个令牌：
-
-```bash
-MAGICBOOK_INTEGRATION_TOKEN=replace-with-a-long-random-token
-```
-
-magicbook 通过自己的 Flask 登录会话确定用户，并在服务端代理请求；令牌不会下发到浏览器。moon-well 的 `/reading-vocabulary/**` 是集成接口，使用 `X-Magicbook-Token` 校验令牌。
+调用 `/reading-vocabulary/**` 时使用 moon-well 标准 `authorization: Bearer <token>` 请求头。moon-well 通过 JWT 的 `UserContext` 确定用户，客户端不能通过 `userKey` 冒充其他用户。
 
 ## 当前范围
 
