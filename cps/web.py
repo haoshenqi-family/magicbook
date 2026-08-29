@@ -234,6 +234,11 @@ def _moonwell_session_authorization():
     return "Bearer " + access_token if access_token else None
 
 
+# moon-well 走内网直连（fnos:8082）。进程可能因封面下载等功能携带 http_proxy
+# 环境变量，requests 默认信任它，内网域名会被代理断连导致 503，必须显式绕过。
+_MOONWELL_NO_PROXY = {"http": None, "https": None}
+
+
 def _moonwell_refresh_session_token():
     """用会话中的 refresh token 换取新的 moon-well access token。
 
@@ -247,7 +252,8 @@ def _moonwell_refresh_session_token():
     try:
         response = requests.post(
             constants.MOON_WELL_READING_URL.rstrip("/") + "/auth/refreshToken",
-            json={"refreshToken": refresh_token}, timeout=8)
+            json={"refreshToken": refresh_token}, timeout=8,
+            proxies=_MOONWELL_NO_PROXY)
         if response.status_code != 200:
             raise requests.RequestException("refresh returned %s" % response.status_code)
         result = response.json().get("result", {})
@@ -278,7 +284,8 @@ def _moonwell_proxy(path, payload, timeout, label):
         return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
     try:
         response = requests.post(base + path, json=payload,
-                                 headers={"authorization": authorization}, timeout=timeout)
+                                 headers={"authorization": authorization}, timeout=timeout,
+                                 proxies=_MOONWELL_NO_PROXY)
         if response.status_code == 401 and not client_authorization:
             access_token = _moonwell_refresh_session_token()
             if not access_token:
@@ -286,7 +293,7 @@ def _moonwell_proxy(path, payload, timeout, label):
                                 "message": "moon-well login expired, please sign in again"}), 401
             response = requests.post(base + path, json=payload,
                                      headers={"authorization": "Bearer " + access_token},
-                                     timeout=timeout)
+                                     timeout=timeout, proxies=_MOONWELL_NO_PROXY)
         return (response.text, response.status_code,
                 {"Content-Type": response.headers.get("Content-Type", "application/json")})
     except requests.RequestException as error:

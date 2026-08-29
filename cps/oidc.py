@@ -93,9 +93,11 @@ def callback():
     login_user(user, remember=True)
     if id_token and constants.MOON_WELL_READING_URL:
         try:
+            # 内网直连，绕过可能存在的 http_proxy 环境变量（封面下载等功能会设置）
             response = requests.post(
                 constants.MOON_WELL_READING_URL.rstrip("/") + "/auth/oidc/exchange",
-                json={"idToken": id_token}, timeout=8)
+                json={"idToken": id_token}, timeout=8,
+                proxies={"http": None, "https": None})
             response.raise_for_status()
             moonwell_result = response.json().get("result", {})
             if moonwell_result.get("accessToken"):

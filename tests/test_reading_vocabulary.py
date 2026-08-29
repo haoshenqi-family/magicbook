@@ -93,10 +93,11 @@ def test_proxies_successfully(admin_client, moonwell_configured, monkeypatch):
                                        "translation": "好运", "unknown": True}]})
         headers = {"Content-Type": "application/json"}
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
         captured["url"] = url
         captured["json"] = json
         captured["headers"] = headers
+        captured["proxies"] = proxies
         return FakeResponse()
 
     monkeypatch.setattr(requests, "post", fake_post)
@@ -112,6 +113,8 @@ def test_proxies_successfully(admin_client, moonwell_configured, monkeypatch):
     # Token must not leak into the response either.
     assert "moonwell-jwt-abc" not in rv.get_data(as_text=True)
     assert captured["url"].endswith("/vocabulary/reading/analyze")
+    # moon-well 是内网服务：必须显式绕过环境代理（http_proxy 会让内网请求 503）
+    assert captured["proxies"] == {"http": None, "https": None}
 
 
 def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured,
@@ -119,7 +122,7 @@ def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured
     """Network failure to moon-well surfaces as 503, not a crash."""
     import requests
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
         raise requests.RequestException("connection refused")
 
     monkeypatch.setattr(requests, "post", fake_post)
@@ -161,7 +164,7 @@ def test_refreshes_session_token_on_401(admin_client, moonwell_configured,
         text = json.dumps({"result": [{"word": "serendipity", "unknown": True}]})
         headers = {"Content-Type": "application/json"}
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
         calls.append({"url": url, "json": json, "headers": headers})
         if url.endswith("/auth/refreshToken"):
             return FakeRefreshResponse()
@@ -200,7 +203,7 @@ def test_returns_401_when_refresh_fails(admin_client, moonwell_configured,
         text = json.dumps({"code": 401, "message": "token invalid"})
         headers = {"Content-Type": "application/json"}
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
         return FakeUnauthorized()
 
     monkeypatch.setattr(requests, "post", fake_post)
@@ -230,7 +233,7 @@ def test_client_token_401_is_passed_through_without_refresh(admin_client,
         text = json.dumps({"code": 401, "message": "token invalid"})
         headers = {"Content-Type": "application/json"}
 
-    def fake_post(url, json=None, headers=None, timeout=None):
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
         calls.append(url)
         return FakeUnauthorized()
 
