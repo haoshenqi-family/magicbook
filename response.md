@@ -281,3 +281,59 @@
 - **requests.md**：追加 R16（401 排查）、R17（重跑 CI + 令牌自动刷新）。
 - **response.md**：记录 401 根因链（CI 502→镜像未更新→两侧鉴权不匹配）、CI 重跑、刷新逻辑实现与测试结果。
 - **冲突记录**：无。
+
+---
+
+## 2026-08-29（Harry Potter 整理会话，自 ubuntu 工作区合并）
+
+### 对 requests 的回应（R18 Harry Potter 整理）
+
+- **R18（整理 HP 系列 + cover not available + 互联网封面）**：已完成 metadata 整理；封面按用户决定暂不处理。
+  - **"cover not available" 根因**：7 本书导入时在 `library/Unknown/` 下生成了**完全相同**的占位 `cover.jpg`（282×400，7 份 md5 一致），且 `books.has_cover=0`，calibre-web 据此判定无封面。
+  - **互联网封面可行性（已实测）**：本服务器出网受限——Google Books / OpenLibrary / Wikimedia / Amazon / Douban 全部超时或被拒（仅 baidu/github 可达），无法直接拉取真实封面。已向用户提供替代方案（本地生成文字封面 / 用户提供封面图 / 提供下载脚本在有网机器执行），用户选择**暂不处理封面**。
+  - **metadata 整理（calibredb 完成，已备份 metadata.db 至 docs/temp）**：
+    - 作者 `Unknown` → `J.K. Rowling`，目录自动迁移至 `library/J.K. Rowling/(44–50)`，`Unknown/` 目录已清空。
+    - 丛书 `Harry Potter` #1–#7（正确顺序：50→44→49→46→48→47→45）。
+    - 补充出版社（Scholastic / Scholastic Paperbacks / Arthur A. Levine Books）、出版日期、语言（`zh` → `eng`，正文实测为英文）、ISBN（5 本；《凤凰社》无法验证故留空）、英文内容简介 7 条。
+    - 修复书名大小写（`Order Of` → `Order of`）。
+  - **验证**：DB 查询确认全部字段（author/series/index/pubdate/isbn/comments/lang）就位；书籍文件在磁盘正确就位；`metadata.db` 仍不入 git。
+  - **封面（已获用户代理 http://127.0.0.1:12811 后完成）**：配置代理后服务器可出网，改从 **OpenLibrary** 拉取——7 本按 ISBN（第 5 部无 ISBN 用书名检索）下载官方封面写入 `cover.jpg`，`has_cover` 全部置 1（此前封面源 Google Books 429、OpenLibrary 直连超时均不可用）。同时补上此前留空的第 5 部《凤凰社》ISBN：`0439358078`（美版精装，Arthur A. Levine）。
+
+### 总结（R18）
+
+- **requests.md**：追加 R18（HP 整理 + 封面诊断）。
+- **response.md**：记录 cover not available 根因、互联网封面不可达的实测结论、metadata 整理明细与验证、封面暂缓的用户决定。
+- **冲突记录**：无。
+
+### 对 requests 的回应（R19 Harry Potter 入书架）
+
+- **R19（放入书架 /shelf/2）**：已完成。
+  - 书架 #2「harry potter」（public）为 calibre-web 的书架，数据存于 `app.db.book_shelf_link`（非 library/metadata.db）。
+  - 按丛书顺序 #1–#7 入库：50→44→49→46→48→47→45，`order` 字段由 1 至 7（原 44 已存在、order 更新为 2，其余 6 本新增），`date_added` 使用 UTC 当前时间。
+  - cps 书架读取无查询缓存（`cps/shelf.py` 每请求直查 `ub.BookShelf`），故直接写库即时生效。
+  - **验证**：`book_shelf_link` shelf=2 计 7 行且排序正确；`GET /shelf/2` 返回 302→`/login`（站点需登录，书架逻辑正常；登录后即可见 7 本）。
+
+### 总结（R19）
+
+- **requests.md**：追加 R19（HP 入书架）。
+- **response.md**：记录书架机制（app.db book_shelf_link）、写入结果（7 本按系列顺序）与验证。
+- **冲突记录**：无。
+
+---
+
+## 2026-08-29（第四次对话：reading-vocabulary 仍 401 → HS256 修复与部署）
+
+### 对 requests 的回应（R16 补充 / R17 后续：CI 通过后仍 401）
+
+- **镜像已部署但 401 依旧 → 发现第二个根因（代码 bug）**：
+  - 通过公网 `moonwell.haoshenqi.top` + ubuntu 跳板（SSH `root@192.168.31.9`）完成飞牛部署：`.env` 补 `AUTHENTIK_MAGICBOOK_ISSUER/CLIENT_ID/CLIENT_SECRET`（client_secret 取自 ubuntu `/apprun/magicbook/.env`）、`docker-compose.yml` 同步三行环境变量、阿里云 docker 凭证从 ubuntu 复制到飞牛后 `docker compose pull && up -d` 成功。
+  - 部署后 exchange 接口已存在，但测试请求返回 `Missing required "keys" member` → 排查 Authentik discovery：**magicbook 与 moonwell 两个 provider 均只支持 HS256 对称签名，JWKS 端点返回空对象 `{}`**。moon-well 的 exchange/callback 用 `JwtDecoders.fromIssuerLocation()`（JWKS 公钥路径）验证 id_token —— **必然失败**，与镜像无关。
+- **moon-well 代码修复（`5c19b4b`）**：`OidcAuthController.decodeOidcToken()` 按 token 头部算法自适应——HS 系列用 client_secret 对称验签（`NimbusJwtDecoder.withSecretKey`），RS/ES 仍走 issuer JWKS；exchange 增加 issuer 校验（注意 `jwt.getIssuer()` 返回 URL 对象，必须用 `getClaimAsString("iss")` 比较）；新增配置 `exchange-client-secret`（application.yml + compose.yaml）。新增 2 个单测（HS256 正确验签 / 篡改签名拒绝），OidcAuthControllerTest 5/5 通过。
+- **magicbook 侧**：提交推送 `7fa261ff`（令牌自动刷新，见 R17）。
+- **会话记录合并**：ubuntu 工作区另一会话留下的 HP 记录（原编号 R16-18）与本地 401 记录编号冲突，已重编号为 R18-20 合并回仓库。
+
+### 总结
+
+- **moon-well**：`fix(oidc): 兼容 Authentik HS256 对称签名的 id_token 验证`（controller + yml + compose + 测试）。
+- **magicbook**：`fix(reading): 会话 JWT 过期时自动刷新 moon-well access token` + 会话记录合并。
+- **冲突记录**：requests/response.md 两会话编号冲突已合并重排。

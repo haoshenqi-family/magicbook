@@ -47,3 +47,6 @@
 15. 重启后图书全部消失 —— 排查并恢复图书。附带：master 分支曾跟踪 library/metadata.db，需移除跟踪防复发。
 16. reading-vocabulary 401 排查：定位为 moon-well CI 构建失败（阿里云 Maven 502）导致新版镜像未部署、两侧鉴权方案不匹配。
 17. 重跑失败的 CI；并修复排查中发现的隐患——moon-well access token 7 天过期后无刷新逻辑，阅读词汇功能会周期性 401。
+18. 整理 Harry Potter 系列：为什么显示 "cover not available"？封面能否从互联网获取并补充必要的 metadata。
+19. 把哈利波特系列放入书架 https://magicbook.haoyuhang.top/shelf/2。
+20. 哈利波特系列无法在线阅读，是否因为格式是 mobi？
