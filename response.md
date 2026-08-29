@@ -356,3 +356,21 @@
 - **moon-well**：LLD 设计文档 + analyze 判定重构 + 接口合并 + known/unknown upsert + initByUserId hard_level + 回填脚本 + 文档更新。
 - **magicbook**：代理路径切换 + 文档与会话记录更新。
 - **冲突记录**：无。
+
+---
+
+## 2026-08-29（第六次对话：reading-vocabulary 503 排查）
+
+### 对 requests 的回应（R23 503 修复）
+
+- **R23（503 根因与修复）**：已完成。
+  - **根因**：calibre-web 进程环境携带 `http_proxy=127.0.0.1:12811`（R18 封面下载会话遗留），requests 默认信任环境代理，内网 moon-well 请求（`http://fnos:8082`）被 naive 代理断连（代理无法解析内网主机名），`_moonwell_proxy` 捕获 RequestException 返回 503。日志实证：15:40 两条 `ProxyError('Unable to connect to proxy', RemoteDisconnected(...))`。
+  - **复现验证**：带 proxy 环境请求 fnos:8082 必现 ProxyError；`proxies={'http': None, 'https': None}` 直连正常 401。
+  - **修复**（magicbook `2287f03d`，已部署 ubuntu）：四处 moon-well 调用（`_moonwell_proxy` 两次转发、`_moonwell_refresh_session_token` 刷新、`oidc.py` exchange）显式 `proxies=None` 内网直连，不再受进程环境影响；封面下载等出网功能继续使用环境代理不受影响。happy-path 测试新增 proxies 断言防回归，9/9 通过。
+  - **附带发现**：oidc.py 的 exchange 同样受影响——带 proxy 的进程上登录换票会静默失败（仅记 warning，表现为 session 无令牌、阅读器 401），本次一并修复。
+  - **现状**：新进程环境已干净（proxy 为上次会话注入），公网接口恢复 400（未登录正常响应）；代码级免疫确保未来带 proxy 重启不再复发。
+
+### 总结（R23）
+
+- **magicbook**：`fix(reading): moon-well 内网请求绕过环境代理修复 503`（web.py + oidc.py + 测试）。
+- **冲突记录**：无。
