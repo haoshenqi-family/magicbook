@@ -143,7 +143,7 @@ var reader;
 
     // Mark unfamiliar words in the currently visible EPUB document and show their history.
     var vocabularyInFlight = false;
-    // 翻页时若上一请求仍在飞行，标记待重检；请求完成后重新检查当前页，
+// 翻页时若上一请求仍在飞行，标记待重检；请求完成后重新检查当前页，
     // 避免新页面因 inFlight 短路而漏标生词。
     var vocabularyRetryPending = false;
     // word -> latest record returned by moon-well, kept across page turns so that
@@ -166,6 +166,92 @@ var reader;
         }
         return '';
     }
+
+    // 划词翻译：选中文本弹出翻译气泡（来自 master 分支功能）。
+    var translationRequest = 0;
+    var translationPopover;
+
+    function closeTranslationPopover() {
+        if (translationPopover) {
+            translationPopover.remove();
+            translationPopover = null;
+        }
+    }
+
+    function showTranslationPopover(text, rect, loading) {
+        closeTranslationPopover();
+        translationPopover = document.createElement('div');
+        translationPopover.className = 'reading-translation-popover' + (loading ? ' is-loading' : '');
+        translationPopover.textContent = loading ? '翻译中…' : text;
+        document.body.appendChild(translationPopover);
+        var top = rect.bottom + 8, left = rect.left;
+        var bounds = translationPopover.getBoundingClientRect();
+        if (top + bounds.height > window.innerHeight) top = Math.max(8, rect.top - bounds.height - 8);
+        left = Math.min(Math.max(8, left), window.innerWidth - bounds.width - 8);
+        translationPopover.style.top = top + 'px';
+        translationPopover.style.left = left + 'px';
+        return translationPopover;
+    }
+
+    function translateSelection(content) {
+        if (!calibre.readingVocabularyEnabled || !calibre.readingTranslationUrl) return;
+        var selection = content.window.getSelection();
+        var text = selection && selection.toString().replace(/\s+/g, ' ').trim();
+        if (!text || text.length > 2000) return;
+        var range = selection.getRangeAt(0), rect = range.getBoundingClientRect();
+        if (!rect.width && !rect.height) return;
+        var frame = content.window.frameElement;
+        if (frame) {
+            var frameRect = frame.getBoundingClientRect();
+            rect = {top: rect.top + frameRect.top, bottom: rect.bottom + frameRect.top,
+                left: rect.left + frameRect.left, width: rect.width, height: rect.height};
+        }
+        var requestId = ++translationRequest;
+        var popover = showTranslationPopover('', rect, true);
+        var context = range.commonAncestorContainer.parentElement &&
+            range.commonAncestorContainer.parentElement.textContent || text;
+        $.ajax({
+            url: calibre.readingTranslationUrl, method: 'POST', contentType: 'application/json',
+            data: JSON.stringify({text: text, context: context.slice(0, 2000)})
+        }).done(function (response) {
+            if (requestId !== translationRequest || !translationPopover) return;
+            var result = response.result || response.data || {};
+            popover.classList.remove('is-loading');
+            popover.textContent = result.translation || '暂无翻译';
+            if (result.source) {
+                var source = document.createElement('div');
+                source.className = 'translation-source';
+                source.textContent = result.source === 'dictionary' ? '词典' : 'AI 翻译';
+                popover.appendChild(source);
+            }
+        }).fail(function () {
+            if (requestId === translationRequest && translationPopover) {
+                popover.classList.remove('is-loading');
+                popover.textContent = '翻译失败，请稍后重试';
+            }
+        });
+    }
+
+    function bindSelectionTranslation(content) {
+        content.document.addEventListener('mouseup', function () {
+            setTimeout(function () { translateSelection(content); }, 0);
+        });
+        content.document.addEventListener('touchend', function () {
+            setTimeout(function () { translateSelection(content); }, 80);
+        });
+    }
+
+    reader.rendition.on('rendered', function (section, view) {
+        var content = view && view.contents;
+        if (content && content.document) bindSelectionTranslation(content);
+    });
+    document.addEventListener('mousedown', function (event) {
+        if (!translationPopover || translationPopover.contains(event.target)) return;
+        closeTranslationPopover();
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closeTranslationPopover();
+    });
 
     // 获取当前章节的真实标题。旧实现读取 #chapter-title，但该元素被
     // reader.min.js 的 MetaController 填充为书籍作者而非章节名，

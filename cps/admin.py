@@ -1277,8 +1277,6 @@ def simulatedbchange():
 @admin_required
 def new_user():
     content = ub.User()
-    # 本地账号跨应用稳定标识（替代自增 id），创建即生成、不可变
-    content.user_key = str(uuid.uuid4())
     languages = calibre_db.speaking_language()
     translations = get_available_locale()
     kobo_support = feature_support['kobo'] and config.config_kobo_sync
@@ -1612,7 +1610,6 @@ def ldap_import_create_user(user, user_data):
     content.password = ''  # dummy password which will be replaced by ldap one
     content.email = useremail
     content.kindle_mail = ereader_mail
-    content.user_key = str(uuid.uuid4())
     content.default_language = config.config_default_language
     content.locale = config.config_default_locale
     content.role = config.config_default_role

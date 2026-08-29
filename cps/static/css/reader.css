@@ -69,6 +69,25 @@
 .reading-vocabulary-unknown:hover {
   background: rgba(217, 139, 0, 0.16);
 }
+
+.reading-translation-popover {
+  position: fixed;
+  z-index: 10000;
+  max-width: min(360px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .22);
+  font: 14px/1.45 sans-serif;
+}
+.reading-translation-popover .translation-source {
+  margin-top: 4px;
+  color: #777;
+  font-size: 11px;
+}
+.reading-translation-popover.is-loading { opacity: .8; }
 .read-footer #pages-count {
   font-size: 12px;
 

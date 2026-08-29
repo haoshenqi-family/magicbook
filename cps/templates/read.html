@@ -151,6 +151,7 @@
             bookmark: "{{ bookmark.bookmark_key if bookmark != None }}",
             useBookmarks: "{{ current_user.is_authenticated | tojson }}",
             readingVocabularyUrl: "{{ url_for('web.reading_vocabulary') }}",
+            readingTranslationUrl: "{{ url_for('web.reading_translate') }}",
             bookId: {{ bookid }},
             bookName: {{ title|tojson }},
             readingVocabularyEnabled: {{ current_user.is_authenticated|tojson }}

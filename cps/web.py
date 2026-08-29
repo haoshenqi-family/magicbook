@@ -24,7 +24,6 @@ import mimetypes
 import chardet  # dependency of requests
 import copy
 import requests
-import uuid
 from importlib.metadata import metadata
 
 from flask import Blueprint, jsonify, request, redirect, send_from_directory, make_response, flash, abort, url_for, current_app
@@ -210,18 +209,16 @@ def update_view():
 @web.route("/ajax/reading-vocabulary", methods=["POST"])
 @user_login_required
 def reading_vocabulary():
-    """Proxy the reader's word context to moon-well without exposing its token."""
-    if not constants.MOON_WELL_READING_URL or not constants.MOON_WELL_INTEGRATION_TOKEN:
-        return jsonify({"success": False, "message": "reading vocabulary is not configured"}), 503
+    """Proxy the reader's word context using the caller's moon-well JWT."""
+    authorization = request.headers.get("authorization") or _moonwell_session_authorization()
+    if not constants.MOON_WELL_READING_URL or not authorization:
+        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
     payload = request.get_json(silent=True) or {}
-    # 用跨应用稳定标识 user_key（OIDC 用户=Authentik sub，本地用户=UUID）替代自增 id，
-    # 使 moon-well 侧可映射回自己的 app_user（oidc_subject）。回填前的旧库兜底用 user.id。
-    payload["userKey"] = getattr(current_user, "user_key", None) or str(current_user.id)
     try:
         response = requests.post(
             constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/analyze",
             json=payload,
-            headers={"X-Magicbook-Token": constants.MOON_WELL_INTEGRATION_TOKEN},
+            headers={"authorization": authorization},
             # 15s 超时容忍 moon-well 冷启动（重启后首次连接 ES/Nacos）的临时慢响应
             timeout=15,
         )
@@ -230,6 +227,37 @@ def reading_vocabulary():
     except requests.RequestException as error:
         log.warning("moon-well reading vocabulary request failed: %s", error)
         return jsonify({"success": False, "message": "reading vocabulary service unavailable"}), 503
+
+
+@web.route("/ajax/reading-translate", methods=["POST"])
+@user_login_required
+def reading_translate():
+    """Proxy selected reader text using the caller's moon-well JWT."""
+    authorization = request.headers.get("authorization") or _moonwell_session_authorization()
+    if not constants.MOON_WELL_READING_URL or not authorization:
+        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
+    payload = request.get_json(silent=True) or {}
+    text = str(payload.get("text", "")).strip()
+    if not text or len(text) > 2000:
+        return jsonify({"success": False, "message": "selected text must be between 1 and 2000 characters"}), 400
+    payload["text"] = text
+    try:
+        response = requests.post(
+            constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/translate",
+            json=payload,
+            headers={"authorization": authorization},
+            timeout=20,
+        )
+        return (response.text, response.status_code,
+                {"Content-Type": response.headers.get("Content-Type", "application/json")})
+    except requests.RequestException as error:
+        log.warning("moon-well reading translation request failed: %s", error)
+        return jsonify({"success": False, "message": "reading translation service unavailable"}), 503
+
+
+def _moonwell_session_authorization():
+    access_token = flask_session.get("moonwell_access_token")
+    return "Bearer " + access_token if access_token else None
 
 
 '''
@@ -1332,7 +1360,6 @@ def register_post():
     if check_valid_domain(email):
         content.name = nickname
         content.email = email
-        content.user_key = str(uuid.uuid4())
         password = generate_random_password(config.config_password_min_length)
         content.password = generate_password_hash(password)
         content.role = config.config_default_role

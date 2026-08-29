@@ -42,16 +42,9 @@ EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上
 
 ```bash
 MOON_WELL_READING_URL=http://fnos:8082
-MOON_WELL_INTEGRATION_TOKEN=<与 moon-well 一致的随机令牌>
 ```
 
-在 moon-well 进程配置同一个令牌：
-
-```bash
-MAGICBOOK_INTEGRATION_TOKEN=<同一随机令牌>
-```
-
-magicbook 通过自己的 Flask 登录会话确定用户，并在服务端代理请求；令牌不会下发到浏览器。moon-well 的 `/reading-vocabulary/**` 是集成接口，使用 `X-Magicbook-Token` 校验令牌。
+调用 `/reading-vocabulary/**` 时使用 moon-well 标准 `authorization: Bearer <token>` 请求头。token 来自 Authentik OIDC 登录回调中经 `POST /auth/oidc/exchange` 交换得到的 moon-well JWT（存于服务端会话 `moonwell_access_token`），或由客户端请求头显式携带。moon-well 通过 JWT 的 `UserContext` 确定用户，客户端不能通过 `userKey` 冒充其他用户。
 
 ## 接口设计
 
@@ -59,7 +52,6 @@ magicbook 通过自己的 Flask 登录会话确定用户，并在服务端代理
 
 ```jsonc
 {
-  "userKey": "跨应用稳定标识（Authentik sub / UUID）",
   "bookId": 7,
   "bookName": "Sample Book",
   "chapter": "Chapter 1",
@@ -69,7 +61,7 @@ magicbook 通过自己的 Flask 登录会话确定用户，并在服务端代理
 }
 ```
 
-- magicbook 是**纯透传代理**：校验本地登录会话、注入 `userKey`、附带 `X-Magicbook-Token`，转发到 moon-well。
+- magicbook 是**纯透传代理**：校验本地登录会话，通过 OIDC 登录时交换得到的 moon-well JWT（`authorization: Bearer`）鉴权，转发到 moon-well。
 - **响应结构保持不变**，前端标注逻辑零改动。
 
 **响应**（moon-well → magicbook → 前端标注）：
@@ -94,17 +86,7 @@ magicbook 通过自己的 Flask 登录会话确定用户，并在服务端代理
 - `sentenceAround(text, start, end)`：提取每个词所在句子的上下文片段（至句读/换行，上限 500 字符）。
 - 对每词：查历史（`reading_vocabulary` ES 索引）→ 查词库释义（`vocabulary` 索引）→ 写 ES 归档 → 统计 `studyTimes` → 返回 VO。
 - 释义缺失时沿用历史释义，避免覆盖为空。
-- `userKey` 命中 `app_user.oidc_subject` 时记录额外写入 `userId`（moon-well 内部用户关联）。
-
-## userKey（跨应用用户标识）
-
-`userKey` 是 magicbook 的**跨应用稳定标识 `user_key`**（非自增 `user.id`）：
-
-- Authentik/OIDC 用户：`user_key` = Authentik `sub`（与 moon-well 侧 `app_user.oidc_subject` 一致，两端据此映射为同一人）。
-- 本地用户：`user_key` = 创建时生成的 UUID4。
-- 存量用户由启动迁移回填（OIDC 用户沿用 sub，其余生成 UUID），幂等。
-
-> 历史数据迁移：升级前以 `user.id` 上报的 ES 记录，需用 `docs/temp/scripts/export_user_key_map.py` 导出 `{old_id: user_key}` 映射，交由 moon-well 侧 `migrate_reading_vocabulary_userkey.py` 重写（见 sso-user-unification 设计文档 §7）。
+- 用户身份来自请求 `authorization: Bearer` JWT 的 `UserContext`，客户端不能通过 `userKey` 冒充其他用户。
 
 ## 当前范围
 

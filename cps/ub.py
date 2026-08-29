@@ -242,9 +242,6 @@ class User(UserBase, Base):
     id = Column(Integer, primary_key=True)
     oidc_issuer = Column(String(255), nullable=True)
     oidc_subject = Column(String(255), nullable=True, unique=True)
-    # 跨应用稳定用户标识：OIDC 用户取 Authentik sub，本地用户为 UUID4。
-    # 生成后不可变，作为 moon-well 等外部系统的 userKey（替代脆弱的自增 id）。
-    user_key = Column(String(64), nullable=True, unique=True)
     name = Column(String(64), unique=True)
     email = Column(String(120), unique=True, default="")
     role = Column(SmallInteger, default=constants.ROLE_USER)
@@ -615,8 +612,6 @@ def migrate_Database(_session):
     migrate_registration_table(engine, _session)
     migrate_user_session_table(engine, _session)
     migrate_oidc_user_columns(engine)
-    migrate_user_key_column(engine)
-    backfill_user_keys(_session)
 
 
 def migrate_oidc_user_columns(engine):
@@ -628,33 +623,6 @@ def migrate_oidc_user_columns(engine):
             conn.execute(text("ALTER TABLE user ADD COLUMN oidc_issuer VARCHAR(255)"))
         if 'oidc_subject' not in columns:
             conn.execute(text("ALTER TABLE user ADD COLUMN oidc_subject VARCHAR(255)"))
-
-
-def migrate_user_key_column(engine):
-    """Add the cross-application stable user identifier column (user_key)."""
-    inspector = __import__('sqlalchemy').inspect(engine)
-    columns = {column['name'] for column in inspector.get_columns('user')}
-    if 'user_key' not in columns:
-        with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE user ADD COLUMN user_key VARCHAR(64)"))
-
-
-def backfill_user_keys(_session):
-    """为存量用户填充 user_key：OIDC 用户沿用 Authentik sub，其余生成 UUID4。幂等。
-
-    user_key 是跨应用（moon-well 等）的稳定标识，回填后不可变更；
-    oidc_subject 全局唯一，UUID4 冲突概率可忽略，故回填结果天然唯一。
-    """
-    users = _session.query(User).filter(User.user_key.is_(None)).all()
-    if not users:
-        return
-    from uuid import uuid4
-    for user in users:
-        user.user_key = user.oidc_subject or str(uuid4())
-    try:
-        _session.commit()
-    except Exception:
-        _session.rollback()
 
 
 def clean_database(_session):
@@ -697,7 +665,6 @@ def create_anonymous_user(_session):
     user.email = 'no@email'
     user.role = constants.ROLE_ANONYMOUS
     user.password = ''
-    user.user_key = str(uuid.uuid4())
 
     _session.add(user)
     try:
@@ -713,7 +680,6 @@ def create_admin_user(_session):
     user.email = "admin@example.org"
     user.role = constants.ADMIN_USER_ROLES
     user.sidebar_view = constants.ADMIN_USER_SIDEBAR
-    user.user_key = str(uuid.uuid4())
 
     user.password = generate_password_hash(constants.DEFAULT_PASSWORD)
 
