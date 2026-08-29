@@ -86,6 +86,31 @@
 
 ---
 
+## 🔀 Git 分支管理
+
+> **默认开发分支：`develop`**。`master` 仅用于发布。
+
+- **日常开发**：一律在 `develop` 分支进行（编码、测试、提交、推送）。
+- **发布流程**：仅当需要发布新版本时，才将 `develop` 合并到 `master` 并推送。
+- **禁止**在 `master` 上直接开发或临时提交；非发布场景不得向 `master` 推送。
+- 切换分支前先 `git status` 确认工作区干净，避免运行数据丢失（见下方「不纳入 Git」）。
+
+### 🚫 不纳入 Git 的内容
+
+以下属于运行数据 / 敏感信息，**禁止**提交（`.gitignore` 已覆盖，新增同类文件必须保持忽略）：
+
+| 类别 | 示例 | 原因 |
+|------|------|------|
+| Calibre 书库 | `library/*/`、`library/metadata.db` | 书库索引与书籍为运行数据；git 跟踪会在切分支时被删除，导致图书丢失 |
+| 应用数据库 | `app.db`、`*.db`、`gdrive.db` | 本地运行数据、凭据 |
+| 密钥凭据 | `.env`、`.key`、`gdrive_credentials`、`client_secrets.json`、`gmail.json` | 敏感信息 |
+| 日志 | `*.log` | 运行日志 |
+| 临时文件 | `docs/temp/` | 不跟踪 |
+
+> ⚠️ `library/metadata.db` 曾因被 master 跟踪而在切分支时丢失（BOOK-20260829），已从 git 移除跟踪。新增书库相关文件时必须保持忽略状态。
+
+---
+
 ## 📝 对话记录 (requests.md / response.md)
 
 - **`requests.md`**：仅记录每一次对话用户的需求，除此之外不做任何事情。
