@@ -2,11 +2,14 @@
 
 Covers:
   1. Unauthenticated access is rejected (login required).
-  2. moon-well not configured -> 503 "not configured" (reader stays quiet).
+  2. moon-well not configured -> 401 "not configured" (reader stays quiet).
   3. Configured but no moon-well JWT -> 401 "authorization required".
   4. Configured + upstream success -> passthrough with `authorization: Bearer`
      header set to the moon-well access token.
   5. Configured + upstream failure -> 503 "service unavailable".
+  6. Session JWT rejected with 401 -> refresh token exchanged, request retried.
+  7. Session JWT rejected and refresh fails -> 401 "login expired", tokens dropped.
+  8. Client-supplied authorization header 401 -> passed through without refresh.
 """
 import json
 
@@ -43,6 +46,14 @@ def _post_vocab(client, token=None):
         "cfi": "epubcfi(/6/4!/4/2)",
         "pageText": "A lucky serendipity happened today.",
     }, headers=headers)
+
+
+def _seed_moonwell_session(client, access_token="stale-access-token",
+                           refresh_token="valid-refresh-token"):
+    """Simulate tokens obtained at OIDC login time."""
+    with client.session_transaction() as sess:
+        sess["moonwell_access_token"] = access_token
+        sess["moonwell_refresh_token"] = refresh_token
 
 
 def test_requires_login(app):
@@ -118,6 +129,119 @@ def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured
     body = rv.get_json()
     assert body["success"] is False
     assert "service unavailable" in body["message"]
+
+
+def test_refreshes_session_token_on_401(admin_client, moonwell_configured,
+                                        monkeypatch):
+    """会话 access token 过期（401）时自动用 refresh token 换新并重试一次。
+
+    moon-well access token 有效期 7 天且仅在 OIDC 登录时颁发，不刷新的话
+    阅读词汇功能每 7 天就会静默 401，用户必须重新登录。
+    """
+    import requests
+
+    calls = []
+
+    class FakeUnauthorized:
+        status_code = 401
+        text = json.dumps({"code": 401, "message": "token invalid"})
+        headers = {"Content-Type": "application/json"}
+
+    class FakeRefreshResponse:
+        status_code = 200
+        text = json.dumps({"result": {"accessToken": "fresh-access-token",
+                                      "refreshToken": "fresh-refresh-token"}})
+        headers = {"Content-Type": "application/json"}
+
+        def json(self):
+            return json.loads(self.text)
+
+    class FakeRefreshed:
+        status_code = 200
+        text = json.dumps({"result": [{"word": "serendipity", "unknown": True}]})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        calls.append({"url": url, "json": json, "headers": headers})
+        if url.endswith("/auth/refreshToken"):
+            return FakeRefreshResponse()
+        if len(calls) == 1:
+            return FakeUnauthorized()
+        return FakeRefreshed()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    _seed_moonwell_session(admin_client)
+
+    rv = _post_vocab(admin_client)
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["result"][0]["word"] == "serendipity"
+
+    # 第一次用过期令牌，刷新后用新令牌重试
+    assert calls[0]["headers"]["authorization"] == "Bearer stale-access-token"
+    assert calls[0]["url"].endswith("/reading-vocabulary/analyze")
+    assert calls[1]["url"].endswith("/auth/refreshToken")
+    assert calls[1]["json"] == {"refreshToken": "valid-refresh-token"}
+    assert calls[2]["headers"]["authorization"] == "Bearer fresh-access-token"
+
+    # 会话中的令牌已更新，后续请求无需再刷新
+    with admin_client.session_transaction() as sess:
+        assert sess["moonwell_access_token"] == "fresh-access-token"
+        assert sess["moonwell_refresh_token"] == "fresh-refresh-token"
+
+
+def test_returns_401_when_refresh_fails(admin_client, moonwell_configured,
+                                        monkeypatch):
+    """refresh token 也失效时返回 401 提示重新登录，并清空会话令牌。"""
+    import requests
+
+    class FakeUnauthorized:
+        status_code = 401
+        text = json.dumps({"code": 401, "message": "token invalid"})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        return FakeUnauthorized()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    _seed_moonwell_session(admin_client)
+
+    rv = _post_vocab(admin_client)
+    assert rv.status_code == 401
+    body = rv.get_json()
+    assert body["success"] is False
+    assert "sign in again" in body["message"]
+
+    with admin_client.session_transaction() as sess:
+        assert "moonwell_access_token" not in sess
+        assert "moonwell_refresh_token" not in sess
+
+
+def test_client_token_401_is_passed_through_without_refresh(admin_client,
+                                                            moonwell_configured,
+                                                            monkeypatch):
+    """客户端自带 authorization 头时令牌生命周期由客户端自管，401 原样透传。"""
+    import requests
+
+    calls = []
+
+    class FakeUnauthorized:
+        status_code = 401
+        text = json.dumps({"code": 401, "message": "token invalid"})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        calls.append(url)
+        return FakeUnauthorized()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+    _seed_moonwell_session(admin_client)
+
+    rv = _post_vocab(admin_client, token="client-managed-token")
+    assert rv.status_code == 401
+    # 只有一次上游调用：没有触发 refresh（refresh 会调用 /auth/refreshToken）
+    assert len(calls) == 1
+    assert calls[0].endswith("/reading-vocabulary/analyze")
 
 
 def test_rejects_missing_csrf_when_protection_enabled(app, moonwell_configured):

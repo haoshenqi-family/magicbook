@@ -261,3 +261,23 @@
 - **requests.md**：追加 R15（重启后图书丢失排查恢复 + metadata.db 防复发）。
 - **response.md**：记录根因（git 跟踪书库索引→切换分支被删）、恢复过程（calibredb 重建 42 本）、防复发（master 停止跟踪）。
 - **冲突记录**：无。
+
+### 对 requests 的回应（R16 / R17 401 排查 + CI 重跑与令牌刷新）
+
+- **R16（reading-vocabulary 401 排查）**：已定位根因，非代码缺陷，而是**部署不同步**。
+  - **根因链**：8-29 08:15 推送两侧鉴权切换（moon-well `67e872e` 移除 `/reading-vocabulary/**` 白名单与集成令牌、新增 `/auth/oidc/exchange`；magicbook `6fb461cd` 登录回调换 JWT）→ moon-well 的 GitHub Actions 构建 `33223042837` **失败**（阿里云 Maven 镜像拉 `mapper-extras-client:7.5.0` 返回 502，偶发网络故障），新版镜像从未推送 → FNOS 上 moon-well 仍是 8-22 旧版（无 exchange 接口）→ magicbook OIDC 回调换票失败（仅记 warning，不阻断登录）→ session 无 `moonwell_access_token` → 阅读词汇代理返回 401。
+  - **修复路径**：重跑 CI（见 R17）→ FNOS `docker compose pull moon-well && docker compose up -d` → 确认 `.env` 补充 `AUTHENTIK_MAGICBOOK_ISSUER` / `AUTHENTIK_MAGICBOOK_CLIENT_ID` → 用户重新登录 magicbook（exchange 仅在登录回调执行）。
+
+- **R17（重跑 CI + 修复令牌刷新隐患）**：已完成。
+  - **CI 重跑**：`gh run rerun 33223042837`，构建成功后镜像推至阿里云仓库。
+  - **隐患修复（moon-well access token 7 天过期无刷新）**：
+    - `cps/web.py`：两个代理端点收敛为 `_moonwell_proxy()`；上游返回 401 且使用会话令牌时，自动调 moon-well `POST /auth/refreshToken`（在 `/auth/**` 白名单内）换新并重试一次；刷新失败清空会话令牌并返回 401 提示重新登录。客户端自带 `authorization` 头时 401 原样透传（令牌生命周期由客户端自管）。
+    - 由于 moon-well 每次刷新同时轮换 refresh token（30 天），只要 30 天内至少使用一次阅读器即永续有效，无需重新登录。
+    - **测试**：`tests/test_reading_vocabulary.py` 新增 3 例（401→刷新→重试成功且会话更新；刷新失败→401 清空令牌；客户端令牌 401 透传不刷新），9/9 通过。全量 120 passed；`test_oidc.py` 2 例与 CSRF 顺序用例失败为**改动前已存在**（干净工作区复跑同样失败，系依赖版本/测试顺序问题），与本次无关。
+- **遗留待办**：FNOS 侧需人工执行镜像更新 + `.env` 补变量 + 用户重新登录（内网操作，本机不可达）。
+
+### 总结（R16 / R17）
+
+- **requests.md**：追加 R16（401 排查）、R17（重跑 CI + 令牌自动刷新）。
+- **response.md**：记录 401 根因链（CI 502→镜像未更新→两侧鉴权不匹配）、CI 重跑、刷新逻辑实现与测试结果。
+- **冲突记录**：无。

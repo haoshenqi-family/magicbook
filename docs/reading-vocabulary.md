@@ -35,6 +35,7 @@ EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上
 - moon-well 不可达或超时：后端返回 503「service unavailable」，阅读器静默处理。
 - 代理超时设置 15 秒，容忍 moon-well 冷启动（重启后首连 ES/Nacos）的临时慢响应。
 - 请求必须携带 CSRF token：EPUB 阅读器不加载 `main.js`（无全局 `$.ajaxSetup`），而服务端全局启用 CSRF，故前端显式附带 `X-CSRFToken`，否则生词标注在真实环境静默失效（曾出现 400）。
+- **令牌自动刷新**：moon-well access token 有效期 7 天且仅在 OIDC 登录回调时交换颁发。会话令牌收到 401 时代理自动调 `POST /auth/refreshToken`（refresh token 30 天，每次刷新同时轮换）换新并重试一次；刷新失败（30 天未使用）则清空会话令牌并返回 401「login expired, please sign in again」，用户重新登录即可恢复。客户端请求头自带 `authorization` 时不刷新，401 原样透传。
 
 ## 配置
 

@@ -210,54 +210,88 @@ def update_view():
 @user_login_required
 def reading_vocabulary():
     """Proxy the reader's word context using the caller's moon-well JWT."""
-    authorization = request.headers.get("authorization") or _moonwell_session_authorization()
-    if not constants.MOON_WELL_READING_URL or not authorization:
-        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
-    payload = request.get_json(silent=True) or {}
-    try:
-        response = requests.post(
-            constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/analyze",
-            json=payload,
-            headers={"authorization": authorization},
-            # 15s 超时容忍 moon-well 冷启动（重启后首次连接 ES/Nacos）的临时慢响应
-            timeout=15,
-        )
-        return (response.text, response.status_code,
-                {"Content-Type": response.headers.get("Content-Type", "application/json")})
-    except requests.RequestException as error:
-        log.warning("moon-well reading vocabulary request failed: %s", error)
-        return jsonify({"success": False, "message": "reading vocabulary service unavailable"}), 503
+    # 15s 超时容忍 moon-well 冷启动（重启后首次连接 ES/Nacos）的临时慢响应
+    return _moonwell_proxy("/reading-vocabulary/analyze",
+                           request.get_json(silent=True) or {}, 15,
+                           "reading vocabulary")
 
 
 @web.route("/ajax/reading-translate", methods=["POST"])
 @user_login_required
 def reading_translate():
     """Proxy selected reader text using the caller's moon-well JWT."""
-    authorization = request.headers.get("authorization") or _moonwell_session_authorization()
-    if not constants.MOON_WELL_READING_URL or not authorization:
-        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
     payload = request.get_json(silent=True) or {}
     text = str(payload.get("text", "")).strip()
     if not text or len(text) > 2000:
         return jsonify({"success": False, "message": "selected text must be between 1 and 2000 characters"}), 400
     payload["text"] = text
-    try:
-        response = requests.post(
-            constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/translate",
-            json=payload,
-            headers={"authorization": authorization},
-            timeout=20,
-        )
-        return (response.text, response.status_code,
-                {"Content-Type": response.headers.get("Content-Type", "application/json")})
-    except requests.RequestException as error:
-        log.warning("moon-well reading translation request failed: %s", error)
-        return jsonify({"success": False, "message": "reading translation service unavailable"}), 503
+    return _moonwell_proxy("/reading-vocabulary/translate", payload, 20,
+                           "reading translation")
 
 
 def _moonwell_session_authorization():
     access_token = flask_session.get("moonwell_access_token")
     return "Bearer " + access_token if access_token else None
+
+
+def _moonwell_refresh_session_token():
+    """用会话中的 refresh token 换取新的 moon-well access token。
+
+    moon-well 的 access token 有效期 7 天且刷新只发生在重新登录时，
+    不主动续期会导致阅读词汇功能每隔 7 天静默 401。刷新失败时清空
+    会话中的令牌，让阅读器提示重新登录而不是无限重试过期凭据。
+    """
+    refresh_token = flask_session.get("moonwell_refresh_token")
+    if not refresh_token:
+        return None
+    try:
+        response = requests.post(
+            constants.MOON_WELL_READING_URL.rstrip("/") + "/auth/refreshToken",
+            json={"refreshToken": refresh_token}, timeout=8)
+        if response.status_code != 200:
+            raise requests.RequestException("refresh returned %s" % response.status_code)
+        result = response.json().get("result", {})
+        access_token = result.get("accessToken")
+        if not access_token:
+            raise requests.RequestException("refresh response missing accessToken")
+        flask_session["moonwell_access_token"] = access_token
+        if result.get("refreshToken"):
+            flask_session["moonwell_refresh_token"] = result["refreshToken"]
+        return access_token
+    except (requests.RequestException, ValueError) as error:
+        log.warning("moon-well token refresh failed: %s", error)
+        flask_session.pop("moonwell_access_token", None)
+        flask_session.pop("moonwell_refresh_token", None)
+        return None
+
+
+def _moonwell_proxy(path, payload, timeout, label):
+    """转发阅读相关请求到 moon-well，会话令牌过期时自动刷新重试一次。
+
+    客户端自带 authorization 头时直接透传（令牌生命周期由客户端自管），
+    401 原样返回；使用会话令牌时才走刷新重试。
+    """
+    base = constants.MOON_WELL_READING_URL.rstrip("/")
+    client_authorization = request.headers.get("authorization")
+    authorization = client_authorization or _moonwell_session_authorization()
+    if not base or not authorization:
+        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
+    try:
+        response = requests.post(base + path, json=payload,
+                                 headers={"authorization": authorization}, timeout=timeout)
+        if response.status_code == 401 and not client_authorization:
+            access_token = _moonwell_refresh_session_token()
+            if not access_token:
+                return jsonify({"success": False,
+                                "message": "moon-well login expired, please sign in again"}), 401
+            response = requests.post(base + path, json=payload,
+                                     headers={"authorization": "Bearer " + access_token},
+                                     timeout=timeout)
+        return (response.text, response.status_code,
+                {"Content-Type": response.headers.get("Content-Type", "application/json")})
+    except requests.RequestException as error:
+        log.warning("moon-well %s request failed: %s", path, error)
+        return jsonify({"success": False, "message": label + " service unavailable"}), 503
 
 
 '''

@@ -45,3 +45,5 @@
 13. 合并且部署时确认：library 下的书籍是否不应纳入 git 管理。
 14. 合并中采用 master 分支的鉴权方式（moon-well JWT），抛弃 develop 分支的（user_key / X-Magicbook-Token）。
 15. 重启后图书全部消失 —— 排查并恢复图书。附带：master 分支曾跟踪 library/metadata.db，需移除跟踪防复发。
+16. reading-vocabulary 401 排查：定位为 moon-well CI 构建失败（阿里云 Maven 502）导致新版镜像未部署、两侧鉴权方案不匹配。
+17. 重跑失败的 CI；并修复排查中发现的隐患——moon-well access token 7 天过期后无刷新逻辑，阅读词汇功能会周期性 401。
