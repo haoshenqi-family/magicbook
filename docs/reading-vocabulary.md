@@ -45,11 +45,11 @@ EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上
 MOON_WELL_READING_URL=http://fnos:8082
 ```
 
-调用 `/reading-vocabulary/**` 时使用 moon-well 标准 `authorization: Bearer <token>` 请求头。token 来自 Authentik OIDC 登录回调中经 `POST /auth/oidc/exchange` 交换得到的 moon-well JWT（存于服务端会话 `moonwell_access_token`），或由客户端请求头显式携带。moon-well 通过 JWT 的 `UserContext` 确定用户，客户端不能通过 `userKey` 冒充其他用户。
+调用 `/vocabulary/reading/**` 时使用 moon-well 标准 `authorization: Bearer <token>` 请求头。token 来自 Authentik OIDC 登录回调中经 `POST /auth/oidc/exchange` 交换得到的 moon-well JWT（存于服务端会话 `moonwell_access_token`），或由客户端请求头显式携带。moon-well 通过 JWT 的 `UserContext` 确定用户，客户端不能冒充其他用户。
 
 ## 接口设计
 
-**请求**（magicbook `/ajax/reading-vocabulary` → moon-well `POST /reading-vocabulary/analyze`）：
+**请求**（magicbook `/ajax/reading-vocabulary` → moon-well `POST /vocabulary/reading/analyze`）：
 
 ```jsonc
 {

@@ -337,3 +337,22 @@
 - **moon-well**：`fix(oidc): 兼容 Authentik HS256 对称签名的 id_token 验证`（controller + yml + compose + 测试）。
 - **magicbook**：`fix(reading): 会话 JWT 过期时自动刷新 moon-well access token` + 会话记录合并。
 - **冲突记录**：requests/response.md 两会话编号冲突已合并重排。
+
+---
+
+## 2026-08-29（第五次对话：reading-vocabulary 生词判定重构）
+
+### 对 requests 的回应（R22 单词本判定 + 接口合并）
+
+- **R22（查单词本 + 合并接口）**：已完成设计与实现。
+  - **设计先行**：moon-well `docs/feat/reading-vocabulary/design/reading-vocabulary-lld.md`（LLD，含生产数据调研：单词本 4,111 词 56 已掌握、词典 level 1~7 分布、ES 2.4 万事件全是 UNKNOWN 无一 KNOWN）。三项评审决策：未入库词按词典 `level>=hard_level` 才标；hard_level NULL bug 代码+数据一起修；旧端点立即删除（两服务同批部署）。
+  - **根因**：analyze 只查 ES `reading_vocabulary.status` 判定生词，从不查单词本 `familiarity`；而 ES 判定通道从未生效（前端从未调用 known 接口），导致全词返回。
+  - **moon-well 实现**：生词判定以 `vocabulary_notebook.familiarity` 为单一事实来源（>=FLUENT 不标；<7 标；未入库按词典 level 回退，低于用户档位/词典外不标不写事件）；`/reading-vocabulary/**` 并入 `/vocabulary/reading/**`（旧路径删除），reading known 并入 `/vocabulary/known/{word}`；known/unknown 改 upsert（修 NPE 隐患）；initByUserId 补写 hard_level；ES 事件新增 familiarity 字段、status 改由单词本派生；DTO 移除 userKey（服务端从 JWT 用户生成）。新增回填脚本 `docs/temp/scripts/backfill_notebook_hard_level.py`（默认 dry-run）。
+  - **magicbook 实现**：`/ajax/reading-vocabulary|reading-translate` 代理目标切换至 `/vocabulary/reading/analyze|translate`，前端 epub.js 零改动。
+  - **测试**：moon-well ReadingVocabularyServiceTest 重写为判定矩阵 18/18 通过（全量 62/63，唯一失败为需真实数据库的 contextLoads 集成测试，本机无 MySQL 属环境依赖）；magicbook test_reading_vocabulary.py 9/9 通过。
+
+### 总结（R22）
+
+- **moon-well**：LLD 设计文档 + analyze 判定重构 + 接口合并 + known/unknown upsert + initByUserId hard_level + 回填脚本 + 文档更新。
+- **magicbook**：代理路径切换 + 文档与会话记录更新。
+- **冲突记录**：无。

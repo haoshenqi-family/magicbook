@@ -111,7 +111,7 @@ def test_proxies_successfully(admin_client, moonwell_configured, monkeypatch):
     assert "authorization" not in captured["json"]
     # Token must not leak into the response either.
     assert "moonwell-jwt-abc" not in rv.get_data(as_text=True)
-    assert captured["url"].endswith("/reading-vocabulary/analyze")
+    assert captured["url"].endswith("/vocabulary/reading/analyze")
 
 
 def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured,
@@ -179,7 +179,7 @@ def test_refreshes_session_token_on_401(admin_client, moonwell_configured,
 
     # 第一次用过期令牌，刷新后用新令牌重试
     assert calls[0]["headers"]["authorization"] == "Bearer stale-access-token"
-    assert calls[0]["url"].endswith("/reading-vocabulary/analyze")
+    assert calls[0]["url"].endswith("/vocabulary/reading/analyze")
     assert calls[1]["url"].endswith("/auth/refreshToken")
     assert calls[1]["json"] == {"refreshToken": "valid-refresh-token"}
     assert calls[2]["headers"]["authorization"] == "Bearer fresh-access-token"
@@ -241,7 +241,7 @@ def test_client_token_401_is_passed_through_without_refresh(admin_client,
     assert rv.status_code == 401
     # 只有一次上游调用：没有触发 refresh（refresh 会调用 /auth/refreshToken）
     assert len(calls) == 1
-    assert calls[0].endswith("/reading-vocabulary/analyze")
+    assert calls[0].endswith("/vocabulary/reading/analyze")
 
 
 def test_rejects_missing_csrf_when_protection_enabled(app, moonwell_configured):

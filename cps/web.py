@@ -211,7 +211,7 @@ def update_view():
 def reading_vocabulary():
     """Proxy the reader's word context using the caller's moon-well JWT."""
     # 15s 超时容忍 moon-well 冷启动（重启后首次连接 ES/Nacos）的临时慢响应
-    return _moonwell_proxy("/reading-vocabulary/analyze",
+    return _moonwell_proxy("/vocabulary/reading/analyze",
                            request.get_json(silent=True) or {}, 15,
                            "reading vocabulary")
 
@@ -225,7 +225,7 @@ def reading_translate():
     if not text or len(text) > 2000:
         return jsonify({"success": False, "message": "selected text must be between 1 and 2000 characters"}), 400
     payload["text"] = text
-    return _moonwell_proxy("/reading-vocabulary/translate", payload, 20,
+    return _moonwell_proxy("/vocabulary/reading/translate", payload, 20,
                            "reading translation")
 
 
