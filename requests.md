@@ -44,3 +44,4 @@
 12. 将 master 与 develop 两个分支合并，推送到 develop；之后统一在 develop 分支开发。
 13. 合并且部署时确认：library 下的书籍是否不应纳入 git 管理。
 14. 合并中采用 master 分支的鉴权方式（moon-well JWT），抛弃 develop 分支的（user_key / X-Magicbook-Token）。
+15. 重启后图书全部消失 —— 排查并恢复图书。附带：master 分支曾跟踪 library/metadata.db，需移除跟踪防复发。

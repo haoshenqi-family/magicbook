@@ -244,3 +244,20 @@
 - **requests.md**：追加 R11~R14（拉取部署、分支合并、library 不入库确认、鉴权切换为 master JWT 方案）。
 - **response.md**：记录合并内容、冲突解决、鉴权方案切换范围与验证结果。
 - **冲突记录**：无；master 提交的 `library/metadata.db` 属运行数据，已从合并结果中排除（develop .gitignore 忽略）。
+
+### 对 requests 的回应（R15 图书丢失修复）
+
+- **R15（重启后图书全部消失）**：已定位根因并完全修复。
+  - **根因**：`master` 分支 git 历史跟踪了 `library/metadata.db`（Calibre 书库索引，运行数据）。本次会话先切 master 再合并回 develop，期间 `git checkout` 用 git blob 覆盖/删除了该文件，导致书库索引丢失。重启后 Calibre-Web 读到空索引，首页图书为零（书籍文件本身 un-tracked，仍在磁盘，无损失）。
+  - **修复步骤**：
+    1. 用 `calibredb restore_database --with-library=/apprun/magicbook/library --really-do-it` 从各书的 `metadata.opf` 重建索引，**42 本全部恢复**（books/data 表各 42 行）。
+    2. `master` 分支执行 `git rm --cached library/metadata.db` 并推送（`dc682e4`），彻底停止跟踪该运行数据文件。
+    3. 验证切 master / develop 来回切换后 `metadata.db` 不再被 git 覆盖，books 恒为 42。
+    4. 重启服务，`/login` 200，日志无书库错误。
+  - **遗留说明**：admin 密码非默认 `admin123`（此前已被修改），登录验证脚本未过；与本次图书问题无关，如需改密另行处理。
+
+### 总结（R15）
+
+- **requests.md**：追加 R15（重启后图书丢失排查恢复 + metadata.db 防复发）。
+- **response.md**：记录根因（git 跟踪书库索引→切换分支被删）、恢复过程（calibredb 重建 42 本）、防复发（master 停止跟踪）。
+- **冲突记录**：无。
