@@ -212,6 +212,7 @@ var reader;
             range.commonAncestorContainer.parentElement.textContent || text;
         $.ajax({
             url: calibre.readingTranslationUrl, method: 'POST', contentType: 'application/json',
+            headers: {'X-CSRFToken': readerCsrfToken()},
             data: JSON.stringify({text: text, context: context.slice(0, 2000)})
         }).done(function (response) {
             if (requestId !== translationRequest || !translationPopover) return;

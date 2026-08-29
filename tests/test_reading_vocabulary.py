@@ -285,3 +285,36 @@ def test_rejects_missing_csrf_when_protection_enabled(app, moonwell_configured):
         assert rv.status_code != 400, "request with CSRF token must pass CSRF"
     finally:
         app.config.update(WTF_CSRF_ENABLED=False)
+
+
+def test_translate_rejects_missing_csrf_when_protection_enabled(app, moonwell_configured):
+    """划词翻译同样必须自带 X-CSRFToken：translateSelection 曾漏带头，
+    生产环境 400（epub.js 已修复，本用例固化该接口的 CSRF 契约）。"""
+    import re
+
+    app.config.update(WTF_CSRF_ENABLED=True)
+    try:
+        client = app.test_client()
+
+        html = client.get("/login").get_data(as_text=True)
+        m = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html)
+        assert m, "login page should render a csrf token"
+        token = m.group(1)
+
+        rv = client.post("/login",
+                         data={"username": "admin", "password": "admin123",
+                               "csrf_token": token})
+        assert rv.status_code == 302, f"login with token failed: {rv.status_code}"
+
+        # 无 X-CSRFToken → 必须被 CSRF 拒绝
+        rv = client.post("/ajax/reading-translate",
+                         json={"text": "serendipity", "context": "context"})
+        assert rv.status_code == 400, "missing CSRF token must be rejected"
+
+        # 带 X-CSRFToken → 通过 CSRF 校验
+        rv = client.post("/ajax/reading-translate",
+                         json={"text": "serendipity", "context": "context"},
+                         headers={"X-CSRFToken": token})
+        assert rv.status_code != 400, "request with CSRF token must pass CSRF"
+    finally:
+        app.config.update(WTF_CSRF_ENABLED=False)
