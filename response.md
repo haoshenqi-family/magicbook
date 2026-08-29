@@ -205,3 +205,42 @@
 - **requests.md**：追加 R8（总结划词功能要求到文档）。
 - **response.md**：记录 R8 文档重构内容。
 - **冲突记录**：无。
+
+---
+
+## 2026-08-29
+
+### 对 requests 的回应
+
+- **R11（拉取代码并重新部署服务）**：已完成。
+  - 拉取代码：`develop` 分支已与上游一致；远程 `master` 另有 3 个新提交（Authentik OIDC、GPT Luna 划词翻译、Authentik→moon-well JWT 交换）。经用户确认切换并部署 master 前，先完成合并（见 R12）。
+  - 重新部署：合并完成后执行 `./restart.sh`，旧 PID 1171493 → 新 PID 4033467；`/login` 返回 200；日志确认 `Starting Gevent server on [::]:8085` 且 AI 数据层连接 MySQL 初始化成功。`/oidc/login` → 302 正常。
+
+- **R12（合并 master 进 develop，推送 develop，之后统一在 develop 开发）**：已完成。
+  - 合并提交 `4115cc1 Merge branch 'master' into develop`，已推送 `origin/develop`（`0fd5b35..4115cc1`）。
+  - **冲突解决**：
+    - `cps/web.py`：`reading_vocabulary`/`reading_translate` 改用 master 的 JWT 鉴权（`authorization: Bearer`），保留 develop 的 15s 冷启动超时容错；增补 `_moonwell_session_authorization()`。
+    - `cps/static/js/reading/epub.js`：保留 develop 的 CFI 精确取页 + 签名缓存 + 防重标生词标注（更完善，含历次修复），引入 master 的划词翻译 popover（`translateSelection`/`showTranslationPopover` 等）；丢弃 master 的 `visiblePageText/visibleWords/vocabularySeen` 已被 develop 方案取代的部分。
+    - `docs/reading-vocabulary.md`：配置/接口改为 JWT 鉴权描述；新增划词翻译说明。
+  - 全量测试 **120 passed**。
+
+- **R13（library 下书籍是否应纳入 git 管理）**：**不应**。已确认：
+  - `library/` 下的书籍/metaadata.db 是本地运行数据（书库内容），不属于代码仓库范畴。
+  - `develop` 分支 `.gitignore` 已忽略 `library/*/` 与 `library/metadata.db`；合并后 `git ls-files` 确认 `library` 无任何文件被跟踪。
+  - 注意：`master` 分支曾误提交 `library/metadata.db`（413KB 二进制），本次合并到 develop 后不再跟踪，仓库保持干净。
+
+- **R14（采用 master 鉴权方式，抛弃 develop 的 user_key/X-Magicbook-Token）**：已完成，全面切换到 master 的 moon-well JWT 方案。
+  - **鉴权模型（master）**：OIDC 登录回调里用 Authentik `id_token` 调 moon-well `POST /auth/oidc/exchange` 换取 `moonwell_access_token`（存服务端会话），代理请求以 `authorization: Bearer <token>` 头透传；moon-well 以 JWT `UserContext` 确定用户，杜绝客户端冒充。
+  - **移除 develop 的 user_key / 固定令牌体系**：
+    - `cps/constants.py`：删除 `MOON_WELL_INTEGRATION_TOKEN`。
+    - `cps/ub.py`：删除 `User.user_key` 列、`migrate_user_key_column`、`backfill_user_keys`，及 admin/Guest 创建时的 user_key 赋值（保留 `oidc_issuer`/`oidc_subject`）。
+    - `cps/oidc.py`：回调删除 `user.user_key = subject`。
+    - `cps/admin.py`、`cps/web.py`：建号入口删除 `user_key = uuid4()` 赋值；`web.py` 的 `import uuid` 无用已移除。
+    - `cps/web.py` `reading_vocabulary`：删除 `userKey` 注入，改为 JWT 透传。
+  - **测试**：删除 `tests/test_user_key.py`（针对已废弃功能）；`tests/test_reading_vocabulary.py` 重写为 JWT 鉴权覆盖（401 无 JWT / Bearer 透传 / token 不下发前端）。全量 **120 passed**。
+
+### 总结
+
+- **requests.md**：追加 R11~R14（拉取部署、分支合并、library 不入库确认、鉴权切换为 master JWT 方案）。
+- **response.md**：记录合并内容、冲突解决、鉴权方案切换范围与验证结果。
+- **冲突记录**：无；master 提交的 `library/metadata.db` 属运行数据，已从合并结果中排除（develop .gitignore 忽略）。

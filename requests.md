@@ -37,3 +37,10 @@
 7. 修改划词翻译接口设计：payload 太大，改为只发送这一页的文本，其他逻辑（分词/查词/归档）由 moon-well 完成。
 
 10. 总结划词翻译的功能要求，更新到 reading-vocabulary.md。
+
+## 2026-08-29
+
+11. 拉取代码，并重新部署服务。
+12. 将 master 与 develop 两个分支合并，推送到 develop；之后统一在 develop 分支开发。
+13. 合并且部署时确认：library 下的书籍是否不应纳入 git 管理。
+14. 合并中采用 master 分支的鉴权方式（moon-well JWT），抛弃 develop 分支的（user_key / X-Magicbook-Token）。
