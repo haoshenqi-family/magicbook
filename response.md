@@ -402,3 +402,18 @@
 
 - **magicbook**：`fix(reading): 阅读器 CSRF token 过期 400 修复 + bar-ui 缺 CSRF 头补齐`（__init__.py + epub.js 自愈 + bar-ui.js + 测试 + 文档 + 会话记录）。
 - **冲突记录**：工作区 reset 丢改了 R24/R25 部分改动，本会话已核对重建；translate 修复以 `757c775` 为准。
+
+---
+
+## 2026-08-30（第八次对话：本地/远程 epub.js 冲突检查与合并）
+
+### 对 requests 的回应（R27 冲突检查与合并）
+
+- **检查结果**：本地 `develop` 落后 `origin/develop` 1 个提交（`8a74695` 段落级翻译按钮），该提交与本地上次会话未提交的 CSRF 修复**都改了 `cps/static/js/reading/epub.js`**；三方合并模拟确认 `translateSingleParagraph` / `restoreCachedTranslations` 区域（约 592–642 行）真实冲突，其余文件（read.html、设计文档、bar-ui.js、__init__.py、测试）不重叠。
+- **处理（用户选择「先提交本地再 merge」）**：
+  1. 提交本地 CSRF 修复 → `372dbe5`；
+  2. `git merge origin/develop` → 仅 epub.js 冲突；
+  3. 手动融合：**保留远程段落级翻译结构**（`.always` 移除 is-loading、`translateParagraph`、`restoreCachedTranslations`），**恢复本地 `reloadIfCsrfBlocked` CSRF 自愈**接线（translate/immersive/vocabulary/bookmark/TTS/popover 6 条路径 + 定义，共 7 处）；删除冲突块外残留的多余闭合行修复 SyntaxError；
+  4. 校验：`node --check` 通过，全量 **139 passed**；
+  5. 合并提交 `9973e0e`，develop 领先 origin/develop 2 个提交。
+- **冲突记录**：epub.js 翻译区两边破坏性改动，已融合；reset 时丢失的 bar-ui/README 修复已在本会话上文重建。

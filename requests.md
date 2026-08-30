@@ -56,3 +56,4 @@
 24. magicbook.haoyuhang.top 的 POST /ajax/reading-translate 返回 400 Bad Request（划词翻译失败），排查并修复。
 25. 排查所有调用 moon-well 的接口，排查类似的问题（CSRF / 代理 / 鉴权）。
 26. 日志出现「The CSRF token has expired.」导致阅读功能 400（长时间保持阅读器页面打开时 CSRF token 过期），排查并修复。
+27. 检查本地与远程代码冲突：本地 develop 落后 origin/develop，未提交的 CSRF 修复与远程「段落级翻译」提交都改了 epub.js，先提交本地再 merge 并解决冲突。
