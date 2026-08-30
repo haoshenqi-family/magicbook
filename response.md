@@ -439,3 +439,21 @@
 
 - **moon-well**：`fix(tts): 下载 OSS 签名音频改传 URI 对象，避免 RestTemplate 二次编码致 403`（ReadingTtsService + 测试）。
 - **知识沉淀**：OSS 预签名 URL 走 RestTemplate 必须传 URI 而非 String；`GlobalExceptionHandler` 不落日志、错误在响应体，排查先看响应 `message`。
+
+---
+
+## 2026-08-30（第九次对话：TTS 播放无声——CSP 拦截 blob: 媒体）
+
+### 对 requests 的回应（R30 接口成功但无声）
+
+- **现象**：`/ajax/reading-tts` 返回 200（二进制透传正常），但浏览器无声音。控制台报：
+  `Loading media from 'blob:https://magicbook.haoyuhang.top/...' violates CSP directive "default-src 'self' 'unsafe-inline' 'unsafe-eval'". Note that 'media-src' was not explicitly set, so 'default-src' is used as a fallback.`
+- **根因**：前端用 `URL.createObjectURL(blob)` 生成 `blob:` 音频 URL，`new Audio(url).play()` 属媒体加载，受 CSP `media-src` 管辖。CSP 构造器（`cps/web.py` `add_security_headers`）只给阅读页放行 `font-src blob:` 与 `img-src data: blob:`，**从未设置 `media-src`** → 回退 `default-src 'self'`（不含 `blob:`）→ 播放被拦。接口成功、解码正常，单纯是 CSP 头部不允许 blob 媒体源。
+- **修复**：`cps/web.py` 阅读页分支显式追加 `media-src 'self' blob:`（含 Why 注释）；其他页面 CSP 保持不放行 blob，不扩大攻击面。
+- **测试**：新增 `tests/test_csp_media.py` —— 阅读页必须含 `media-src ... blob:` 且含 `'self'`；非阅读页不排放宽。全量 **149 passed**。
+- **待办**：提交推送 develop 后 Actions 自动部署；部署后浏览器需强制刷新（CSP 头随响应下发，旧缓存页面可能沿用旧头）。
+
+### 总结（R30）
+
+- **magicbook**：`fix(reading): CSP 放行阅读页 blob: 媒体（media-src），修复 TTS 播放无声`（cps/web.py + test_csp_media.py + 会话记录）。
+- **知识沉淀**：HTML5 `Audio` 播放 `blob:` URL 受 CSP `media-src` 管辖，未显式声明时回退 `default-src`；阅读器新增 blob 媒体（音频/视频）须同步放行 `media-src`。

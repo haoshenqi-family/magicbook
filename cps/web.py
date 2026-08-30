@@ -98,6 +98,10 @@ def add_security_headers(resp):
     csp += "; font-src 'self' data:"
     if request.endpoint == "web.read_book":
         csp += " blob: "
+        # 段落朗读经 URL.createObjectURL(blob) 生成 blob: 音频，Audio 播放走
+        # media-src；CSP 未显式声明时回退 default-src（不含 blob:）导致播放被
+        # 拦（控制台 "Loading media from 'blob:...' violates CSP"），必须显式放行
+        csp += "; media-src 'self' blob:"
     csp += "; img-src 'self'"
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"

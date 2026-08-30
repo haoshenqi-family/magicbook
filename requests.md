@@ -62,3 +62,4 @@
 
 28. TTS 应该怎么配置（moonwell 的 tts 配置项、业务空间 base_url 是否需要配置）。
 29. magicbook.haoyuhang.top/ajax/reading-tts 返回 500，为什么——排查并修复（最终定位为 moonwell 下载 OSS 签名音频时 RestTemplate 二次编码导致 SignatureDoesNotMatch）。
+30. /ajax/reading-tts 接口成功但没有声音播放出来——排查并修复（定位为 CSP 未放行 blob: 媒体，media-src 回退 default-src 拦截 Audio 播放）。
