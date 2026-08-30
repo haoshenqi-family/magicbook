@@ -241,7 +241,10 @@
 
           $.ajax(calibre.bookmarkUrl, {
             method: "post",
-            data: { bookmark: this.position }
+            // 同 reading-translate 案例：listenmp3.html 不加载 main.js（无全局
+            // ajaxSetup），服务端全局启用 CSRF，缺 csrf_token 会被 400 拦截，
+            // 导致暂停/停止/结束时的进度保存静默失效，此处显式补充。
+            data: { csrf_token: $("input[name='csrf_token']").val(), bookmark: this.position }
           }).fail(function (xhr, status, error) {
             console.error(error);
           });
@@ -322,7 +325,10 @@
 
           $.ajax(calibre.bookmarkUrl, {
             method: "post",
-            data: { bookmark: this.position }
+            // 同 reading-translate 案例：listenmp3.html 不加载 main.js（无全局
+            // ajaxSetup），服务端全局启用 CSRF，缺 csrf_token 会被 400 拦截，
+            // 导致暂停/停止/结束时的进度保存静默失效，此处显式补充。
+            data: { csrf_token: $("input[name='csrf_token']").val(), bookmark: this.position }
           }).fail(function (xhr, status, error) {
             console.error(error);
           });
@@ -335,7 +341,10 @@
 
           $.ajax(calibre.bookmarkUrl, {
             method: "post",
-            data: { bookmark: this.position }
+            // 同 reading-translate 案例：listenmp3.html 不加载 main.js（无全局
+            // ajaxSetup），服务端全局启用 CSRF，缺 csrf_token 会被 400 拦截，
+            // 导致暂停/停止/结束时的进度保存静默失效，此处显式补充。
+            data: { csrf_token: $("input[name='csrf_token']").val(), bookmark: this.position }
           }).fail(function (xhr, status, error) {
             console.error(error);
           });

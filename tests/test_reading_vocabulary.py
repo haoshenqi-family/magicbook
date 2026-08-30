@@ -318,3 +318,59 @@ def test_translate_rejects_missing_csrf_when_protection_enabled(app, moonwell_co
         assert rv.status_code != 400, "request with CSRF token must pass CSRF"
     finally:
         app.config.update(WTF_CSRF_ENABLED=False)
+
+
+def test_csrf_time_limit_disabled_for_reading_pages(app):
+    """阅读器页面长期保持打开时，模板渲染时嵌入的 CSRF token 不会随页刷新。
+
+    flask-wtf 默认 WTF_CSRF_TIME_LIMIT=3600 会让超过 1 小时后的阅读请求
+    （生词标注/划词翻译/沉浸式翻译/TTS/书签）全部 400。服务端已将其关闭
+    （跟随签名会话 cookie 生效），本用例锁定该配置，防止回归。
+    """
+    assert app.config.get("WTF_CSRF_TIME_LIMIT") is None, \
+        "WTF_CSRF_TIME_LIMIT must be None so long-open reader tokens don't expire"
+
+
+def _reader_js_source(name):
+    import os
+
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "cps", "static", "js",
+                        "libs" if name == "bar-ui.js" else "reading", name)
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def test_epub_js_reloads_on_csrf_failure():
+    """CSRF 失败自愈：token 过期/会话重建导致 reading 请求被 400 时，epub.js
+    应刷新页面拿新 token（借助 localStorage 恢复阅读位置），而不是各功能
+    静默失败。静态检查函数定义与其在翻译/TTS/沉浸式/生词标注/书签各条
+    失败路径的引用。"""
+    import re
+
+    source = _reader_js_source("epub.js")
+    assert 'function reloadIfCsrfBlocked' in source, \
+        "epub.js must define reloadIfCsrfBlocked for CSRF-failure self-healing"
+    assert "/csrf/i.test" in source, "CSRF detection must match response body text"
+    # 定义 1 次 + 5 条 moon-well 相关失败路径（translate/tts/batch x2/vocabulary/bookmark）
+    uses = len(re.findall(r"reloadIfCsrfBlocked\(", source))
+    assert uses >= 6, f"expected reloadIfCsrfBlocked wired into all failure paths, got {uses}"
+    # 每处 POST 都仍显式携带 CSRF 头（新功能接口易遗漏）
+    assert source.count("X-CSRFToken") >= 6, \
+        "all reader POSTs must carry X-CSRFToken"
+
+
+def test_bar_ui_bookmark_requests_carry_csrf_token():
+    """同类 CSRF 防线：音频阅读器 listenmp3.html 同样不加载 main.js（无全局
+    $.ajaxSetup），bar-ui.js 里所有发往 set_bookmark 的 POST 必须携带
+    csrf_token 表单字段，否则服务端全局 CSRF 会以 400 拦截，暂停/停止/
+    结束时进度保存静默失效（曾遗漏 onpause/onstop/onfinish 三处）。"""
+    import re
+
+    source = _reader_js_source("bar-ui.js")
+    total = len(re.findall(r"bookmark:\s*this\.position", source))
+    with_token = len(re.findall(r"csrf_token.{0,80}?bookmark:\s*this\.position",
+                                source, re.S))
+    assert total == 4, f"expected 4 bookmark report points, got {total}"
+    assert with_token == total, \
+        f"{total - with_token} bookmark requests missing csrf_token (would 400)"

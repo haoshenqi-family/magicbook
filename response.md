@@ -374,3 +374,31 @@
 
 - **magicbook**：`fix(reading): moon-well 内网请求绕过环境代理修复 503`（web.py + oidc.py + 测试）。
 - **冲突记录**：无。
+
+---
+
+## 2026-08-30（第七次对话：reading-translate 400 与全量 moon-well 排查）
+
+> 注：本会话开始前工作区曾被 reset 至 `origin/develop`，上一会话（R24/R25）部分未提交改动丢失；其中 translate 的 CSRF 修复已由上游作者提交 `757c775`，bar-ui 修复与部分测试需在本会话重建。
+
+### 对 requests 的回应（R24 划词翻译 400）
+
+- **R24（POST /ajax/reading-translate 400）**：根因为前端 **translateSelection 漏带 `X-CSRFToken`**——服务端全局 CSRFProtect，EPUB 阅读器不加载 main.js（无全局 ajaxSetup），缺 token 返回 400 翻译静默失败。已由上游提交 `757c775` 修复（epub.js 补头 + 契约测试）。
+
+### 对 requests 的回应（R25 排查所有 moon-well 调用点）
+
+- **后端出站（6 处，全部健康 ✅）**：`/vocabulary/reading/analyze`（15s）、`/vocabulary/reading/translate`（20s）、`/vocabulary/reading/translate-batch`（60s，沉浸式）、`/tts/speak`（65s，binary 透传 mp3）、`/auth/refreshToken`（8s）、`/auth/oidc/exchange`（8s）——**均经 `_moonwell_proxy`/刷新/交换统一实现，带 `proxies={"http","https": None}` 内网直连、显式超时、authorization 鉴权**；1.3.0 前无二进制检查。`binary=True` 用 `response.content` 透传音频不破坏字节。
+- **前端 → magicbook 代理（6 处 POST，全部携带 `X-CSRFToken` ✅）**：划词翻译、生词标注、沉浸式翻译（批量 + 段落重试）、段落朗读（TTS fetch）、书签；`ai_chat.js`（AI 面板）均带 token。
+- **发现并修复同类隐患**：`bar-ui.js`（音频阅读器 listenmp3，无 main.js）的 **onpause/onstop/onfinish 3 处 bookmark 上报缺 `csrf_token`**（仅 onposition 带），`set_bookmark` 无 `@csrf.exempt`，服务端 CSRF 会 400 拦截致进度保存静默失效——已显式补带并加静态断言锁定（上一会话修复随工作区 reset 丢失，本会话重建）。
+
+### 对 requests 的回应（R26 CSRF token 过期）
+
+- **R26（`The CSRF token has expired.` 400）**：已完成。
+  - **根因**：flask-wtf `WTF_CSRF_TIME_LIMIT` 默认 3600s，token 经 `URLSafeTimedSerializer` 内嵌时间戳。EPUB 阅读器页面长期保持打开，嵌入隐藏域的 CSRF token 无法随页面刷新，**超过 1 小时后的全部阅读请求 400**（生词/划词/沉浸式/TTS/书签），日志 `{csrf.py:263} The CSRF token has expired.`。
+  - **修复**：① `cps/__init__.py` 设 `WTF_CSRF_TIME_LIMIT=None`——仅验签不校年龄，token 随签名会话 cookie 生效（防护已由 HttpOnly + SameSite=Lax 承载），旧 token 无需刷新页面即恢复（经 `itsdangerous.loads(max_age=None)` 实测）；② 前端 `reloadIfCsrfBlocked()` 自愈——翻译/TTS/沉浸式/生词标注/书签任一 POST 遇 CSRF 类 400 刷新页面拿新 token（localStorage 恢复阅读位置，sessionStorage 防死循环），TTS 非 CSRF 失败仍降级浏览器语音。
+  - **测试**：新增 `test_csrf_time_limit_disabled_for_reading_pages`（配置锁定）、`test_epub_js_reloads_on_csrf_failure`（自愈函数定义 + 6 处失败路径接线 + CSRF 头覆盖）、`test_bar_ui_bookmark_requests_carry_csrf_token`（4 个上报点均带 token）。全量 **139 通过**。
+
+### 总结（R24–R26）
+
+- **magicbook**：`fix(reading): 阅读器 CSRF token 过期 400 修复 + bar-ui 缺 CSRF 头补齐`（__init__.py + epub.js 自愈 + bar-ui.js + 测试 + 文档 + 会话记录）。
+- **冲突记录**：工作区 reset 丢改了 R24/R25 部分改动，本会话已核对重建；translate 修复以 `757c775` 为准。

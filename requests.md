@@ -53,3 +53,6 @@
 21. reading-vocabulary 仍 401（moon-well 在飞牛 192.168.31.9，magicbook 在 ubuntu 192.168.31.11）：排查并部署修复（HS256 验签 bug）。
 22. reading-vocabulary 接口通了，但没有查询单词本——返回所有单词而非用户不认识的词（参考 FamiliarityLevelEnum）。先做设计写文档，再把 reading-vocabulary 接口合并到 /vocabulary。
 23. 部署 reading-vocabulary 新判定后接口 503：排查并修复（moon-well 内网请求被环境代理劫持）。
+24. magicbook.haoyuhang.top 的 POST /ajax/reading-translate 返回 400 Bad Request（划词翻译失败），排查并修复。
+25. 排查所有调用 moon-well 的接口，排查类似的问题（CSRF / 代理 / 鉴权）。
+26. 日志出现「The CSRF token has expired.」导致阅读功能 400（长时间保持阅读器页面打开时 CSRF token 过期），排查并修复。

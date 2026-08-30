@@ -225,7 +225,9 @@ var reader;
                 source.textContent = result.source === 'dictionary' ? '词典' : 'AI 翻译';
                 popover.appendChild(source);
             }
-        }).fail(function () {
+        }).fail(function (xhr) {
+            // CSRF 过期/会话重建：刷新页面拿新 token，避免"翻译失败"误导
+            if (reloadIfCsrfBlocked(xhr)) return;
             if (requestId === translationRequest && translationPopover) {
                 popover.classList.remove('is-loading');
                 popover.textContent = '翻译失败，请稍后重试';
@@ -250,6 +252,23 @@ var reader;
 
     function readerCsrfToken() {
         return $("input[name='csrf_token']").val() || "";
+    }
+
+    // CSRF 失败自愈：页面长期打开（token 过期/会话重建后旧 token 与
+    // session 不匹配）时，服务端会以 400 拒绝而阅读器内多数请求是静默
+    // 失败。检测到 CSRF 类错误即刷新页面——epub.js 会从 localStorage
+    // 恢复原阅读位置，仅一次轻微闪断。sessionStorage 标记防死循环刷新。
+    function reloadIfCsrfBlocked(xhrOrText) {
+        var text = typeof xhrOrText === 'string' ? xhrOrText
+            : (xhrOrText && (xhrOrText.responseText || '')) || '';
+        if (!/csrf/i.test(text)) return false;
+        var key = 'calibre.reader.csrfReloaded';
+        var seen = false;
+        try { seen = sessionStorage.getItem(key) === '1'; } catch (e) {}
+        if (seen) return true;
+        try { sessionStorage.setItem(key, '1'); } catch (e) {}
+        location.reload();
+        return true;
     }
 
     // 注入 iframe 的按钮/译文样式：用 currentColor 跟随阅读主题
@@ -357,9 +376,14 @@ var reader;
         }).then(function (resp) {
             var type = resp.headers.get('Content-Type') || '';
             if (resp.ok && type.indexOf('audio') >= 0) return resp.blob();
-            return resp.json().then(function (data) {
-                // magicbook 代理错误为 {message}，moon-well 原生错误为 {msg}
-                throw new Error(data.error || data.message || data.msg || ('HTTP ' + resp.status));
+            // CSRF 等非 JSON 错误体先用 text 捕获（json() 解析会吞掉原因）
+            return resp.text().then(function (body) {
+                var message = body || ('HTTP ' + resp.status);
+                try {
+                    var data = JSON.parse(body);
+                    message = (data && (data.error || data.message || data.msg)) || message;
+                } catch (e) {}
+                throw new Error(message);
             });
         }).then(function (blob) {
             if (seq !== ttsRequestSeq) return;
@@ -376,6 +400,8 @@ var reader;
         }).catch(function (err) {
             if (seq !== ttsRequestSeq) return;
             btn.classList.remove('is-loading');
+            // CSRF 过期/会话重建：刷新页面拿新 token（AI 朗读才能恢复）
+            if (reloadIfCsrfBlocked(err && err.message)) return;
             readerToast('AI 朗读失败，改用本地语音' + (err && err.message ? '：' + err.message : ''));
             speakWithBrowser(btn, text);
         });
@@ -538,7 +564,10 @@ var reader;
             } else {
                 showTranslationError(el, text);
             }
-        }).fail(function () { showTranslationError(el, text); });
+        }).fail(function (xhr) {
+            if (reloadIfCsrfBlocked(xhr)) return;
+            showTranslationError(el, text);
+        });
     }
 
     function applyImmersiveTranslation() {
@@ -588,7 +617,8 @@ var reader;
                 }
             });
             saveTranslationCache(cache);
-        }).fail(function () {
+        }).fail(function (xhr) {
+            if (reloadIfCsrfBlocked(xhr)) return;
             jobs.forEach(function (job) { showTranslationError(job.el, job.text); });
         }).always(function () {
             translationInFlight = false;
@@ -795,6 +825,9 @@ var reader;
                 });
                 lastPageTextSignature = sign;
                 markVocabulary(records);
+            }).fail(function (xhr) {
+                // CSRF 过期/会话重建：刷新页面拿新 token，恢复生词标注
+                reloadIfCsrfBlocked(xhr);
             }).always(function () {
                 finishVocabularyFlight();
             });
@@ -837,6 +870,8 @@ var reader;
             data: { bookmark: location || "" },
             headers: { "X-CSRFToken": csrftoken },
         }).fail(function (xhr, status, error) {
+            // CSRF 过期/会话重建：刷新页面拿新 token，不要弹「error」误导
+            if (reloadIfCsrfBlocked(xhr)) return;
             alert(error);
         });
     }

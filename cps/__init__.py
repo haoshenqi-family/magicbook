@@ -89,6 +89,12 @@ app.config.update(
     SESSION_COOKIE_SAMESITE='Lax',
     REMEMBER_COOKIE_SAMESITE='Strict',
     WTF_CSRF_SSL_STRICT=False,
+    # EPUB 阅读器页面长期保持打开（生词标注/划词翻译的 CSRF token 嵌入
+    # 页面隐藏域，无法随刷新更新），flask-wtf 默认 1 小时独立超时会让
+    # 超时后所有阅读请求 400。CSRF 防护本质已由 HttpOnly + SameSite=Lax
+    # 的签名会话 cookie 承载，取消此独立时间窗口可让 token 随会话寿命
+    # 生效（仅验签、不校年龄），旧 token 无需刷新页面即恢复有效。
+    WTF_CSRF_TIME_LIMIT=None,
     SESSION_COOKIE_NAME=os.environ.get('COOKIE_PREFIX', "") + "session",
     REMEMBER_COOKIE_NAME=os.environ.get('COOKIE_PREFIX', "") + "remember_token"
 )

@@ -34,7 +34,9 @@ EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上
 - 未配置 moon-well 地址或令牌：阅读器保持原有行为，**不弹错误弹窗**；后端返回 503「not configured」。
 - moon-well 不可达或超时：后端返回 503「service unavailable」，阅读器静默处理。
 - 代理超时设置 15 秒，容忍 moon-well 冷启动（重启后首连 ES/Nacos）的临时慢响应。
-- 请求必须携带 CSRF token：EPUB 阅读器不加载 `main.js`（无全局 `$.ajaxSetup`），而服务端全局启用 CSRF，故前端显式附带 `X-CSRFToken`，否则生词标注在真实环境静默失效（曾出现 400）。
+- 请求必须携带 CSRF token：EPUB 阅读器不加载 `main.js`（无全局 `$.ajaxSetup`），而服务端全局启用 CSRF，故前端显式附带 `X-CSRFToken`，否则生词标注在真实环境静默失效（曾出现 400）。生词标注、划词翻译、沉浸式翻译、段落朗读、书签**所有阅读器 POST 均须携带**；旧版本划词翻译曾遗漏（线上 400），bar-ui（音频阅读器）曾漏 3 处。
+- **CSRF token 不设独立超时**：`WTF_CSRF_TIME_LIMIT=None`（`cps/__init__.py`）。阅读器页面长期保持打开、token 嵌入隐藏域无法刷新，flask-wtf 默认 1 小时会让超时后全部阅读请求 400（日志 `The CSRF token has expired.`）。CSRF 防护已由 HttpOnly + SameSite=Lax 的签名会话 cookie 承载，放宽为仅随会话生效；旧 token 无需刷新页面即恢复。
+- **前端 CSRF 失败自愈**：`reloadIfCsrfBlocked()` 检测到服务端 CSRF 类 400（token 过期/会话重建后 token 不匹配）时刷新页面拿新 token（借助 localStorage 恢复原阅读位置），sessionStorage 标记防死循环；TTS 失败而非 CSRF 时降级浏览器语音。
 - **令牌自动刷新**：moon-well access token 有效期 7 天且仅在 OIDC 登录回调时交换颁发。会话令牌收到 401 时代理自动调 `POST /auth/refreshToken`（refresh token 30 天，每次刷新同时轮换）换新并重试一次；刷新失败（30 天未使用）则清空会话令牌并返回 401「login expired, please sign in again」，用户重新登录即可恢复。客户端请求头自带 `authorization` 时不刷新，401 原样透传。
 
 ## 配置
