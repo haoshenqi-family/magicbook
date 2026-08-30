@@ -254,14 +254,17 @@ var reader;
 
     // 注入 iframe 的按钮/译文样式：用 currentColor 跟随阅读主题
     var READER_TOOLS_STYLE = [
-        '.reading-tts-btn{display:inline-block;margin-left:6px;padding:0 2px;font-size:.8em;line-height:1;opacity:0;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit}',
+        '.reading-para-btn{display:inline-block;margin-left:6px;padding:0 2px;font-size:.8em;line-height:1;opacity:0;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit}',
+        '.reading-para-btn:hover{opacity:1}',
+        '.reading-para-btn.is-loading,.reading-para-btn.is-playing{opacity:.85}',
+        'p:hover>.reading-para-btn,li:hover>.reading-para-btn,blockquote:hover>.reading-para-btn,h1:hover>.reading-para-btn,h2:hover>.reading-para-btn,h3:hover>.reading-para-btn,h4:hover>.reading-para-btn,h5:hover>.reading-para-btn,h6:hover>.reading-para-btn,div:hover>.reading-para-btn{opacity:.5}',
+        '@media (hover:none){.reading-para-btn{opacity:.35}}',
         '.reading-tts-btn::before{content:"▶"}',
         '.reading-tts-btn.is-loading::before{content:"⟳"}',
         '.reading-tts-btn.is-playing::before{content:"■"}',
-        '.reading-tts-btn.is-loading,.reading-tts-btn.is-playing{opacity:.85}',
-        'p:hover>.reading-tts-btn,li:hover>.reading-tts-btn,blockquote:hover>.reading-tts-btn,h1:hover>.reading-tts-btn,h2:hover>.reading-tts-btn,h3:hover>.reading-tts-btn,h4:hover>.reading-tts-btn,h5:hover>.reading-tts-btn,h6:hover>.reading-tts-btn,div:hover>.reading-tts-btn{opacity:.5}',
-        '.reading-tts-btn:hover{opacity:1}',
-        '@media (hover:none){.reading-tts-btn{opacity:.35}}',
+        '.reading-translate-btn::before{content:"译"}',
+        '.reading-translate-btn.is-loading::before{content:"⟳"}',
+        '.reading-translate-btn.is-done{opacity:.5}',
         '.reading-translation{margin:6px 0 14px;font-size:.92em;line-height:1.5;color:inherit;opacity:.72;border-left:2px solid currentColor;padding-left:10px}',
         '.reading-translation.is-loading{opacity:.4;font-style:italic}',
         '.reading-translation.is-error{cursor:pointer;color:#c0392b;opacity:.9;font-style:italic;border-left-color:#c0392b}'
@@ -293,23 +296,34 @@ var reader;
         return text.length > 2000 ? text.slice(0, 2000) : text;
     }
 
-    // --- 朗读按钮注入 ---
+    // --- 朗读/翻译按钮注入 ---
     function injectParagraphTools(content) {
         var doc = content.document;
         if (!doc || !doc.body) return;
         injectReaderToolsStyle(doc);
         collectParagraphElements(doc).forEach(function (el) {
-            var existing = el.querySelector(':scope > .reading-tts-btn');
-            if (existing) return;
-            var btn = doc.createElement('span');
-            btn.className = 'reading-tts-btn';
-            btn.title = '朗读本段';
-            btn.addEventListener('click', function (ev) {
-                ev.preventDefault();
-                ev.stopPropagation();
-                speakParagraph(el, btn);
-            });
-            el.appendChild(btn);
+            if (!el.querySelector(':scope > .reading-tts-btn')) {
+                var ttsBtn = doc.createElement('span');
+                ttsBtn.className = 'reading-para-btn reading-tts-btn';
+                ttsBtn.title = '朗读本段';
+                ttsBtn.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    speakParagraph(el, ttsBtn);
+                });
+                el.appendChild(ttsBtn);
+            }
+            if (!el.querySelector(':scope > .reading-translate-btn')) {
+                var trBtn = doc.createElement('span');
+                trBtn.className = 'reading-para-btn reading-translate-btn';
+                trBtn.title = '翻译本段（再点一次取消）';
+                trBtn.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    translateParagraph(el, trBtn);
+                });
+                el.appendChild(trBtn);
+            }
         });
     }
 
@@ -501,7 +515,14 @@ var reader;
             if (!doc || !doc.body) return;
             Array.prototype.slice.call(doc.querySelectorAll('.reading-translation'))
                 .forEach(function (el) { el.remove(); });
+            Array.prototype.slice.call(doc.querySelectorAll('.reading-translate-btn.is-done'))
+                .forEach(function (el) { el.classList.remove('is-done'); });
         });
+    }
+
+    function setParagraphTranslated(el, on) {
+        var btn = el.querySelector(':scope > .reading-translate-btn');
+        if (btn) btn.classList.toggle('is-done', !!on);
     }
 
     // iframe 内容是 CSS 分栏：与 iframe 视口相交的段落即当前可见页
@@ -514,14 +535,17 @@ var reader;
     }
 
     function showTranslationError(el, text) {
+        setParagraphTranslated(el, false);
         var div = insertTranslation(el, '翻译失败，点击重试', 'is-error');
         div.addEventListener('click', function () {
             div.remove();
-            retryParagraphTranslation(el, text);
+            translateSingleParagraph(el, text);
         });
     }
 
-    function retryParagraphTranslation(el, text) {
+    function translateSingleParagraph(el, text) {
+        var btn = el.querySelector(':scope > .reading-translate-btn');
+        if (btn) btn.classList.add('is-loading');
         insertTranslation(el, '翻译中…', 'is-loading');
         $.ajax({
             url: calibre.readingTranslateBatchUrl,
@@ -532,13 +556,59 @@ var reader;
             var translation = ((response.result || response.data || [])[0] || '').trim();
             if (translation) {
                 insertTranslation(el, translation);
+                setParagraphTranslated(el, true);
                 var cache = loadTranslationCache();
                 cache[paragraphHash(text)] = translation;
                 saveTranslationCache(cache);
             } else {
                 showTranslationError(el, text);
             }
-        }).fail(function () { showTranslationError(el, text); });
+        }).fail(function () {
+            showTranslationError(el, text);
+        }).always(function () {
+            if (btn) btn.classList.remove('is-loading');
+        });
+    }
+
+    // 段落级「译」按钮：单击翻译本段（优先命中缓存），已有译文时再点一次取消
+    function translateParagraph(el, btn) {
+        if (btn.classList.contains('is-loading')) return;
+        var sibling = translationSibling(el);
+        if (sibling && !sibling.classList.contains('is-loading')) {
+            sibling.remove();
+            setParagraphTranslated(el, false);
+            return;
+        }
+        if (sibling) return;
+        var text = paragraphSpeechText(el);
+        if (!text) return;
+        var cached = loadTranslationCache()[paragraphHash(text)];
+        if (typeof cached === 'string' && cached) {
+            insertTranslation(el, cached);
+            setParagraphTranslated(el, true);
+            return;
+        }
+        translateSingleParagraph(el, text);
+    }
+
+    // 翻页/新章节渲染后仅回填已缓存的译文（不发 LLM 请求）；
+    // 翻译由段落按钮或工具栏「译」手动触发，避免整页批量请求卡顿
+    function restoreCachedTranslations() {
+        var cache = loadTranslationCache();
+        reader.rendition.getContents().forEach(function (content) {
+            var doc = content.document;
+            if (!doc || !doc.body) return;
+            collectParagraphElements(doc).forEach(function (el) {
+                if (translationSibling(el)) return;
+                var text = paragraphSpeechText(el);
+                if (!text) return;
+                var cached = cache[paragraphHash(text)];
+                if (typeof cached === 'string' && cached) {
+                    insertTranslation(el, cached);
+                    setParagraphTranslated(el, true);
+                }
+            });
+        });
     }
 
     function applyImmersiveTranslation() {
@@ -546,7 +616,6 @@ var reader;
         if (translationInFlight) { translationRetryPending = true; return; }
         var cache = loadTranslationCache();
         var jobs = [];
-        var cacheChanged = false;
         reader.rendition.getContents().forEach(function (content) {
             var doc = content.document;
             if (!doc || !doc.body) return;
@@ -558,7 +627,7 @@ var reader;
                 var cached = cache[paragraphHash(text)];
                 if (typeof cached === 'string' && cached) {
                     insertTranslation(el, cached);
-                    cacheChanged = true;
+                    setParagraphTranslated(el, true);
                     return;
                 }
                 if (isElementVisible(el, win) && jobs.length < 20) {
@@ -566,7 +635,6 @@ var reader;
                 }
             });
         });
-        if (cacheChanged) saveTranslationCache(cache);
         if (!jobs.length) return;
 
         translationInFlight = true;
@@ -583,6 +651,7 @@ var reader;
                 if (translation) {
                     cache[job.hash] = translation;
                     insertTranslation(job.el, translation);
+                    setParagraphTranslated(job.el, true);
                 } else {
                     showTranslationError(job.el, job.text);
                 }
@@ -599,7 +668,8 @@ var reader;
         });
     }
 
-    // 工具栏翻译开关
+    // 工具栏「译」：开启 = 批量翻译当前可见页（全部翻译），关闭 = 移除所有译文。
+    // 不再随翻页自动触发，避免整页 LLM 请求卡顿。
     var translateToggle = document.getElementById('immersive-translate');
     function updateTranslateToggle() {
         if (translateToggle) translateToggle.classList.toggle('active', translationEnabled());
@@ -613,8 +683,8 @@ var reader;
             else removeAllTranslations();
         });
         updateTranslateToggle();
-        // 打开阅读器时若开关已开启，当前页自动翻译
-        if (translationEnabled()) setTimeout(applyImmersiveTranslation, 200);
+        // 打开阅读器时若开关已开启：只回填已缓存的译文
+        if (translationEnabled()) setTimeout(restoreCachedTranslations, 200);
     }
 
     reader.rendition.on('rendered', function (section, view) {
@@ -623,8 +693,8 @@ var reader;
             bindSelectionTranslation(content);
             injectParagraphTools(content);
         }
-        // 沉浸式翻译：新章节渲染后先回填缓存，再请求当前页缺失译文
-        if (translationEnabled()) setTimeout(applyImmersiveTranslation, 60);
+        // 新章节渲染后仅回填缓存译文，翻译由段落按钮/工具栏手动触发
+        if (translationEnabled()) setTimeout(restoreCachedTranslations, 60);
     });
 
     document.addEventListener('mousedown', function (event) {
