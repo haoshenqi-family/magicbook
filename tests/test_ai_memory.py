@@ -61,6 +61,26 @@ class TestBuildSystemPrompt:
         # Should still produce a valid prompt
         assert "reading companion" in prompt.lower()
 
+    def test_includes_chapter_and_unfamiliar_words(self):
+        prompt = build_system_prompt(
+            book_title="Dune", book_authors=[], book_description="",
+            book_tags=[], page_context="page text", user_memory=[],
+            extra_prompt="",
+            chapter="Chapter 2: The Spice",
+            unfamiliar_words=["arrakis", "spice"],
+        )
+        assert "Chapter 2: The Spice" in prompt
+        assert "- arrakis" in prompt
+        assert "- spice" in prompt
+
+    def test_defaults_when_chapter_and_words_missing(self):
+        prompt = build_system_prompt(
+            book_title="Dune", book_authors=[], book_description="",
+            book_tags=[], page_context="", user_memory=[], extra_prompt="",
+        )
+        assert "(unknown)" in prompt
+        assert "(none marked)" in prompt
+
 
 class TestShouldExtractMemory:
     def test_extracts_at_interval(self):

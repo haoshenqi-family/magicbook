@@ -225,6 +225,21 @@ var reader;
                 source.textContent = result.source === 'dictionary' ? '词典' : 'AI 翻译';
                 popover.appendChild(source);
             }
+            // 划词发音：浏览器语音朗读选中的原文（金山词典无音频字段）
+            if (window.speechSynthesis && window.SpeechSynthesisUtterance) {
+                var speakBtn = document.createElement('span');
+                speakBtn.className = 'translation-speak';
+                speakBtn.textContent = '🔊';
+                speakBtn.title = '朗读原文';
+                speakBtn.addEventListener('click', function (ev) {
+                    ev.stopPropagation();
+                    try {
+                        window.speechSynthesis.cancel();
+                        window.speechSynthesis.speak(buildSpeechUtterance(text));
+                    } catch (e) {}
+                });
+                popover.appendChild(speakBtn);
+            }
         }).fail(function (xhr) {
             // CSRF 过期/会话重建：刷新页面拿新 token，避免"翻译失败"误导
             if (reloadIfCsrfBlocked(xhr)) return;
@@ -426,11 +441,7 @@ var reader;
         return cjk * 4 >= text.length ? 'zh-CN' : 'en-US';
     }
 
-    function speakWithBrowser(btn, text) {
-        if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-            readerToast('当前浏览器不支持语音合成');
-            return;
-        }
+    function buildSpeechUtterance(text) {
         var lang = speechLang(text);
         var utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = lang;
@@ -442,6 +453,15 @@ var reader;
                 break;
             }
         }
+        return utterance;
+    }
+
+    function speakWithBrowser(btn, text) {
+        if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+            readerToast('当前浏览器不支持语音合成');
+            return;
+        }
+        var utterance = buildSpeechUtterance(text);
         btn.classList.add('is-playing');
         activeTts = {utterance: utterance, btn: btn};
         utterance.onend = function () { if (activeTts && activeTts.utterance === utterance) stopTts(); };
@@ -577,7 +597,8 @@ var reader;
             url: calibre.readingTranslateBatchUrl,
             method: 'POST', contentType: 'application/json',
             headers: {'X-CSRFToken': readerCsrfToken()},
-            data: JSON.stringify({paragraphs: [text]})
+            data: JSON.stringify({paragraphs: [text], bookName: calibre.bookName || '',
+                chapter: currentChapterTitle()})
         }).done(function (response) {
             var translation = ((response.result || response.data || [])[0] || '').trim();
             if (translation) {
@@ -638,6 +659,41 @@ var reader;
         });
     }
 
+    // 并发池：同一时刻最多 limit 个任务飞行，每个任务完成后立即启动下一个
+    function runConcurrent(items, limit, worker) {
+        var index = 0;
+        function launch() {
+            if (index >= items.length) return;
+            var item = items[index++];
+            worker(item, launch);
+        }
+        for (var i = 0; i < Math.min(limit, items.length); i++) launch();
+    }
+
+    // 整页翻译的单段任务（复用批量接口，段落数为 1）：带书籍上下文，
+    // 响应到达即渲染并写缓存，失败仅影响该段
+    function translateParagraphJob(job, cache, chapter, onDone) {
+        $.ajax({
+            url: calibre.readingTranslateBatchUrl,
+            method: 'POST', contentType: 'application/json',
+            headers: {'X-CSRFToken': readerCsrfToken()},
+            data: JSON.stringify({paragraphs: [job.text], bookName: calibre.bookName || '',
+                chapter: chapter})
+        }).done(function (response) {
+            var translation = ((response.result || response.data || [])[0] || '').trim();
+            if (translation) {
+                cache[job.hash] = translation;
+                saveTranslationCache(cache);
+                insertTranslation(job.el, translation);
+                setParagraphTranslated(job.el, true);
+            } else {
+                showTranslationError(job.el, job.text);
+            }
+        }).fail(function (xhr) {
+            if (!reloadIfCsrfBlocked(xhr)) showTranslationError(job.el, job.text);
+        }).always(onDone);
+    }
+
     function applyImmersiveTranslation() {
         if (!translationEnabled() || !calibre.readingTranslateBatchUrl) return;
         if (translationInFlight) { translationRetryPending = true; return; }
@@ -665,34 +721,21 @@ var reader;
         if (!jobs.length) return;
 
         translationInFlight = true;
+        var chapter = currentChapterTitle();
+        var remaining = jobs.length;
         jobs.forEach(function (job) { insertTranslation(job.el, '翻译中…', 'is-loading'); });
-        $.ajax({
-            url: calibre.readingTranslateBatchUrl,
-            method: 'POST', contentType: 'application/json',
-            headers: {'X-CSRFToken': readerCsrfToken()},
-            data: JSON.stringify({paragraphs: jobs.map(function (job) { return job.text; })})
-        }).done(function (response) {
-            var translations = response.result || response.data || [];
-            jobs.forEach(function (job, index) {
-                var translation = (translations[index] || '').trim();
-                if (translation) {
-                    cache[job.hash] = translation;
-                    insertTranslation(job.el, translation);
-                    setParagraphTranslated(job.el, true);
-                } else {
-                    showTranslationError(job.el, job.text);
+        // 逐段并发（限 4）：每段一个请求，翻译到达即显示，避免整页单请求的长时间卡顿
+        runConcurrent(jobs, 4, function (job, done) {
+            translateParagraphJob(job, cache, chapter, function () {
+                done();
+                remaining--;
+                if (remaining) return;
+                translationInFlight = false;
+                if (translationRetryPending) {
+                    translationRetryPending = false;
+                    setTimeout(applyImmersiveTranslation, 50);
                 }
             });
-            saveTranslationCache(cache);
-        }).fail(function (xhr) {
-            if (reloadIfCsrfBlocked(xhr)) return;
-            jobs.forEach(function (job) { showTranslationError(job.el, job.text); });
-        }).always(function () {
-            translationInFlight = false;
-            if (translationRetryPending) {
-                translationRetryPending = false;
-                setTimeout(applyImmersiveTranslation, 50);
-            }
         });
     }
 
@@ -784,6 +827,17 @@ var reader;
         }
         return label;
     }
+
+    // AI 伴读桥接：聊天面板经 window.AICompanion 读取当前章节与当前页生词
+    // （注入 /ai/chat 的 system prompt），与 ai_page_extract.js 的桥接模式一致
+    window.AICompanion = window.AICompanion || {};
+    window.AICompanion.getChapter = function () { return currentChapterTitle() || ''; };
+    window.AICompanion.getUnfamiliarWords = function () {
+        return Object.keys(vocabularyRecords).filter(function (word) {
+            var record = vocabularyRecords[word];
+            return record && record.unknown;
+        }).slice(0, 30);
+    };
 
     // 收集当前可见「页」的文本（异步回调）。
     // EPUB.js 的 getContents() 返回整个 section 文档（iframe 内整章内容经 CSS 分栏

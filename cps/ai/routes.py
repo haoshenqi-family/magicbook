@@ -221,8 +221,11 @@ def chat():
     """Stream a chat completion response.
 
     Request JSON: ``{book_id, conversation_id?, book_format, message,
-                     page_context, book_title?, book_authors?,
+                     page_context, chapter?, unfamiliar_words?,
+                     book_title?, book_authors?,
                      book_description?, book_tags?}``
+    ``chapter``/``unfamiliar_words`` come from the reader's AICompanion bridge
+    and are injected into the system prompt as reading context.
     Response: ``text/event-stream`` of content deltas (``data: <chunk>\\n\\n``),
     terminated by ``data: [DONE]``.
 
@@ -258,6 +261,13 @@ def chat():
     page_context = data.get("page_context", "")
     book_format = data.get("book_format", "")
     conversation_id = data.get("conversation_id")
+    # 阅读器桥接的章节与当前页生词（AI 伴读上下文）
+    chapter = str(data.get("chapter") or "").strip()[:200]
+    unfamiliar_raw = data.get("unfamiliar_words")
+    if not isinstance(unfamiliar_raw, list):
+        unfamiliar_raw = []
+    unfamiliar_words = [str(w).strip() for w in unfamiliar_raw
+                        if str(w or "").strip()][:30]
 
     # Load config + memory
     cfg = sess.query(AiConfig).first()
@@ -273,6 +283,8 @@ def chat():
         page_context=page_context,
         user_memory=user_memory,
         extra_prompt=cfg.system_prompt_extra if cfg else "",
+        chapter=chapter,
+        unfamiliar_words=unfamiliar_words,
     )
 
     # Get or create conversation + load history. title is intentionally empty:

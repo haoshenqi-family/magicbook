@@ -240,6 +240,13 @@
     scrollMessages();
     var fullText = "";
 
+    var companion = window.AICompanion || {};
+    var chatContext = {
+      chapter: typeof companion.getChapter === "function" ? (companion.getChapter() || "") : "",
+      unfamiliar_words:
+        typeof companion.getUnfamiliarWords === "function" ? companion.getUnfamiliarWords() : [],
+    };
+
     fetch("/ai/chat", {
       method: "POST",
       headers: {
@@ -252,6 +259,8 @@
         conversation_id: currentConversationId,
         message: message,
         page_context: pageContext,
+        chapter: chatContext.chapter,
+        unfamiliar_words: chatContext.unfamiliar_words,
         book_title: BOOK_META.title,
         book_authors: BOOK_META.authors,
         book_description: BOOK_META.description,

@@ -232,7 +232,8 @@ def reading_translate():
 @web.route("/ajax/reading-translate-batch", methods=["POST"])
 @user_login_required
 def reading_translate_batch():
-    """Proxy immersive paragraph translation (one LLM call per page)."""
+    """Proxy paragraph translation (one paragraph per request; the frontend
+    fans a page out into concurrent single-paragraph calls)."""
     payload = request.get_json(silent=True) or {}
     paragraphs = payload.get("paragraphs")
     if not isinstance(paragraphs, list) or not 1 <= len(paragraphs) <= 20:
@@ -246,8 +247,11 @@ def reading_translate_batch():
                             "message": "each paragraph must be between 1 and 2000 characters"}), 400
         cleaned.append(text)
     payload["paragraphs"] = cleaned
-    # 60s：moon-well 一次 LLM 调用翻译整页，比逐段接口慢得多
-    return _moonwell_proxy("/vocabulary/reading/translate-batch", payload, 60,
+    # 书籍上下文供 LLM 保持全书译法一致（moon-well 提示词模板变量）
+    payload["bookName"] = str(payload.get("bookName") or "").strip()[:200]
+    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
+    # 20s：现在是单段一次 LLM 调用（前端并发），不再需要整页批量的长超时
+    return _moonwell_proxy("/vocabulary/reading/translate-batch", payload, 20,
                            "reading batch translation")
 
 

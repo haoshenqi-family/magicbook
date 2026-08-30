@@ -87,6 +87,17 @@
   color: #777;
   font-size: 11px;
 }
+.reading-translation-popover .translation-speak {
+  float: right;
+  margin-left: 10px;
+  color: #4a90d9;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.reading-translation-popover .translation-speak:hover {
+  opacity: .75;
+}
 .reading-translation-popover.is-loading { opacity: .8; }
 
 #titlebar a#immersive-translate {

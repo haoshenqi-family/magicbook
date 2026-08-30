@@ -320,6 +320,38 @@ def test_translate_rejects_missing_csrf_when_protection_enabled(app, moonwell_co
         app.config.update(WTF_CSRF_ENABLED=False)
 
 
+def test_translate_batch_forwards_book_context(admin_client, moonwell_configured,
+                                               monkeypatch):
+    """整页翻译（前端逐段并发）：代理必须透传书名/章节（moon-well 提示词
+    模板变量，供 LLM 保持全书译法一致），超长值截断到 200 字符。"""
+    import requests
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = json.dumps({"result": ["译文"]})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["json"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = admin_client.post("/ajax/reading-translate-batch", json={
+        "paragraphs": ["One paragraph."],
+        "bookName": "b" * 300,
+        "chapter": "  Chapter 3  ",
+    }, headers={"authorization": "Bearer moonwell-jwt-abc"})
+    assert rv.status_code == 200
+
+    payload = captured["json"]
+    assert payload["paragraphs"] == ["One paragraph."]
+    assert len(payload["bookName"]) == 200
+    assert payload["chapter"] == "Chapter 3"
+
+
 def test_csrf_time_limit_disabled_for_reading_pages(app):
     """阅读器页面长期保持打开时，模板渲染时嵌入的 CSRF token 不会随页刷新。
 

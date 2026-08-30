@@ -13,6 +13,7 @@ from typing import List, Optional
 from cps import logger
 
 from .models import AiUserMemory
+from .prompts import CHAT_SYSTEM, render_prompt
 
 log = logger.create()
 
@@ -34,49 +35,48 @@ def build_system_prompt(book_title: str,
                         book_tags: List[str],
                         page_context: str,
                         user_memory: List[str],
-                        extra_prompt: str = "") -> str:
+                        extra_prompt: str = "",
+                        chapter: str = "",
+                        unfamiliar_words: Optional[List[str]] = None) -> str:
     """Build the system prompt for an AI chat about a book.
 
     The prompt instructs the AI to act as a reading companion, gives it the
-    book's metadata and the current page text, and injects any long-term
-    user memories so the AI has continuity across books.
+    book's metadata, the current chapter, the current page text, the words the
+    user has marked as unfamiliar on this page, and any long-term user memories
+    so the AI has continuity across books. The text comes from the
+    ``chat-system`` template (cps/ai/prompts.py) so it can be edited centrally.
     """
     authors_str = ", ".join(book_authors) if book_authors else "Unknown"
-    tags_str = ", ".join(book_tags) if book_tags else ""
-    memory_str = "\n".join(f"- {m}" for m in user_memory) if user_memory else "(none yet)"
-
-    # Truncate page context to avoid blowing the context window
-    if len(page_context) > _MAX_PAGE_CHARS:
-        page_context = page_context[:_MAX_PAGE_CHARS] + "\n...[truncated]"
-
-    parts = [
-        "You are an AI reading companion helping the user understand a book they are currently reading.",
-        "Answer questions, explain passages, and discuss themes based on the book's metadata and the current page text provided below.",
-        "Be concise and helpful. If the user's question is unrelated to the book, gently redirect.",
-        "",
-        "## Book Metadata",
-        f"Title: {book_title}",
-        f"Author(s): {authors_str}",
-    ]
-    if tags_str:
-        parts.append(f"Tags: {tags_str}")
+    tags_section = "\nTags: %s" % ", ".join(book_tags) if book_tags else ""
+    description_section = ""
     if book_description:
         # Strip HTML from description (calibre stores it as HTML)
         desc = re.sub(r"<[^>]+>", "", book_description).strip()
         if len(desc) > _MAX_DESC_CHARS:
             desc = desc[:_MAX_DESC_CHARS] + "..."
-        parts.append(f"Description: {desc}")
-    parts.extend([
-        "",
-        "## Current Page Text",
-        page_context if page_context else "(no page context provided)",
-        "",
-        "## What you remember about this user (long-term memory)",
-        memory_str,
-    ])
-    if extra_prompt:
-        parts.extend(["", f"## Additional instructions\n{extra_prompt}"])
-    return "\n".join(parts)
+        description_section = "\nDescription: %s" % desc
+    memory_str = "\n".join("- %s" % m for m in user_memory) if user_memory else "(none yet)"
+    unfamiliar_str = ("\n".join("- %s" % w for w in unfamiliar_words)
+                      if unfamiliar_words else "(none marked)")
+
+    # Truncate page context to avoid blowing the context window
+    if len(page_context) > _MAX_PAGE_CHARS:
+        page_context = page_context[:_MAX_PAGE_CHARS] + "\n...[truncated]"
+    if not page_context:
+        page_context = "(no page context provided)"
+
+    return render_prompt(
+        CHAT_SYSTEM,
+        title=book_title,
+        authors=authors_str,
+        tags_section=tags_section,
+        description_section=description_section,
+        chapter=chapter or "(unknown)",
+        page_context=page_context,
+        unfamiliar_words=unfamiliar_str,
+        memory=memory_str,
+        extra_section="\n\n## Additional instructions\n%s" % extra_prompt if extra_prompt else "",
+    )
 
 
 def should_extract_memory(message_count: int, interval: int = 10) -> bool:
