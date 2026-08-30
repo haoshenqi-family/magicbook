@@ -417,3 +417,25 @@
   4. 校验：`node --check` 通过，全量 **139 passed**；
   5. 合并提交 `9973e0e`，develop 领先 origin/develop 2 个提交。
 - **冲突记录**：epub.js 翻译区两边破坏性改动，已融合；reset 时丢失的 bar-ui/README 修复已在本会话上文重建。
+
+---
+
+## 2026-08-30（第八次对话：TTS 配置咨询与 reading-tts 500 排查）
+
+### 对 requests 的回应（R28 TTS 配置）
+
+- TTS 配置在 **moon-well**（Java 后端），不在 magicbook 本地。生效配置在 **Nacos `moon-well.yaml` 的 `tts:` 段**（环境变量 `DASHSCOPE_API_KEY / DASHSCOPE_BASE_URL / TTS_MODEL / TTS_VOICE / TTS_TIMEOUT_MS`，见 `application.yml:159`），已实测两段值均可用。
+- **业务空间 base_url 结论**：不需要。用户提供的 `llm-7t1fnx9dwh5at42z.cn-beijing.maas.aliyuncs.com` 与公共 `https://dashscope.aliyuncs.com` 实测都能 200 合成；走公共端点即可，专属域名可选。
+
+### 对 requests 的回应（R29 reading-tts 500）
+
+- **现象**：magicbook `POST /ajax/reading-tts`（透传 moonwell `POST /tts/speak`）返回 500。
+- **根因**：合成阶段正常（`qwen-audio-3.0-tts-flash` + `longanhuan_v3.6` + Nacos key 200 出 URL），失败在 **第二阶段下载 OSS 音频**。moonwell `ReadingTtsService.download()`（`ReadingTtsService.java:239`）用 `restTemplate.exchange(audioUrl, ...)` 传 **String**，RestTemplate 会把 String 当 URI 模板**二次编码**（实证 `%3D` → `%253D`），破坏百炼返回的 OSS 预签名 URL → OSS `SignatureDoesNotMatch` 403 → moonwell `GlobalException` → 500。`GlobalExceptionHandler` 无日志，错误只出现在响应体 `message`，日志看不到属正常。
+- **修复**：`download()` 改用 `URI.create(audioUrl)` 传 `URI` 对象，RestTemplate 不再 encode，签名 URL 原样直发。用本机 Spring 6.1.10 对照实测：String 传参 `403 SignatureDoesNotMatch`、URI 传参 `200 OK`（mp3 68KB）。
+- **测试**：同步更新 `ReadingTtsServiceTest`（`stubDownload`/下载失败桩/verify 改 `any(URI.class)` + `URI.create`），17 个 TTS 测试全过；moon-well 全量 24 个测试通过；`mvn package` 构建成功（jar 已含修复）。
+- **待办（需用户操作）**：部署新 jar 到 fnos 并重启 moon-well（仓库代码已就绪，未提交）。
+
+### 总结（R28–R29）
+
+- **moon-well**：`fix(tts): 下载 OSS 签名音频改传 URI 对象，避免 RestTemplate 二次编码致 403`（ReadingTtsService + 测试）。
+- **知识沉淀**：OSS 预签名 URL 走 RestTemplate 必须传 URI 而非 String；`GlobalExceptionHandler` 不落日志、错误在响应体，排查先看响应 `message`。

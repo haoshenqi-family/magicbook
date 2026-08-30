@@ -10,6 +10,14 @@
 > 返回 `output.audio.url` OSS 链接需二次下载），且 TTS 仅在百炼北京地域可用，
 > 统一由 moon-well 适配可复用其鉴权与配置体系。原设计中的 TTS 段落已按此更新。
 
+> **变更记录（2026-08-30 v4）**：修复 TTS 500（生产 `/ajax/reading-tts`）。
+> 根因：`ReadingTtsService.download()`（moon-well）下载百炼返回的 OSS 预签名 URL 时
+> 用 `restTemplate.exchange(String, ...)`，RestTemplate 将 String 当 URI 模板二次编码
+> （`%3D`→`%253D`），破坏签名 → OSS `SignatureDoesNotMatch` 403 → GlobalException 500
+> （合成链路正常）。修复：改传 `URI.create(url)`（传 URI 不再 encode），本机实测
+> String=403 / URI=200（mp3 68KB）。TTS 配置（Nacos `tts:` 段）实测无需业务空间专属
+> base_url，公共 `https://dashscope.aliyuncs.com` 即可。
+
 > **变更记录（2026-08-30 v3）**：翻译交互改为**段落级按钮 + 手动整页翻译**。
 > 原实现翻页/新章节自动整页批量翻译，一次 LLM 请求翻译整页导致卡顿。现改为：
 > 每段末位「译」按钮（与朗读按钮并列）单击仅翻译该段（优先命中缓存，瞬时显示）；

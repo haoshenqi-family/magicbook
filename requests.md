@@ -57,3 +57,8 @@
 25. 排查所有调用 moon-well 的接口，排查类似的问题（CSRF / 代理 / 鉴权）。
 26. 日志出现「The CSRF token has expired.」导致阅读功能 400（长时间保持阅读器页面打开时 CSRF token 过期），排查并修复。
 27. 检查本地与远程代码冲突：本地 develop 落后 origin/develop，未提交的 CSRF 修复与远程「段落级翻译」提交都改了 epub.js，先提交本地再 merge 并解决冲突。
+
+## 2026-08-30
+
+28. TTS 应该怎么配置（moonwell 的 tts 配置项、业务空间 base_url 是否需要配置）。
+29. magicbook.haoyuhang.top/ajax/reading-tts 返回 500，为什么——排查并修复（最终定位为 moonwell 下载 OSS 签名音频时 RestTemplate 二次编码导致 SignatureDoesNotMatch）。
