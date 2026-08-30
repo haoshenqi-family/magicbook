@@ -734,13 +734,30 @@ var reader;
         if (event.key === 'Escape') closeTranslationPopover();
     });
 
+    // 取当前渲染位置（含当前页 start/end CFI）。ePubReader 包装器上没有
+    // currentLocation 方法，入口在 rendition 上；本 bundle 的
+    // rendition.currentLocation() 同步返回 location 对象。
+    // 旧代码误用 reader.currentLocation（undefined），导致 CFI 永远为空，
+    // currentPageText 只能退回整章文本上报。
+    function renditionLocation() {
+        try {
+            var fn = reader.rendition && reader.rendition.currentLocation;
+            if (typeof fn !== "function") return null;
+            var location = fn.call(reader.rendition);
+            if (location && typeof location.then === "function") return null;
+            return location && location.start ? location : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
     // 获取当前章节的真实标题。旧实现读取 #chapter-title，但该元素被
     // reader.min.js 的 MetaController 填充为书籍作者而非章节名，
     // 导致上报给 moon-well 的 chapter 字段错误。
     function currentChapterTitle() {
         var label = '';
         try {
-            var location = reader.currentLocation && reader.currentLocation();
+            var location = renditionLocation();
             var cfi = location && location.start && location.start.cfi;
             var nav = reader.book.navigation;
             if (cfi && nav && nav.toc) {
@@ -788,7 +805,7 @@ var reader;
         };
         var startCfi = null, endCfi = null;
         try {
-            var location = reader.currentLocation && reader.currentLocation();
+            var location = renditionLocation();
             startCfi = location && location.start && location.start.cfi;
             endCfi = location && location.end && location.end.cfi;
         } catch (e) {}
@@ -875,7 +892,7 @@ var reader;
                 return;
             }
 
-            var location = reader.currentLocation && reader.currentLocation();
+            var location = renditionLocation();
             $.ajax({
                 url: calibre.readingVocabularyUrl, method: 'POST', contentType: 'application/json',
                 // EPUB 阅读器不加载 main.js，不会自动附带 CSRF 头；而服务端全局启用
