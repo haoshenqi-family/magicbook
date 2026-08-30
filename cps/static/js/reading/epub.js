@@ -738,7 +738,7 @@ var reader;
     // currentLocation 方法，入口在 rendition 上；本 bundle 的
     // rendition.currentLocation() 同步返回 location 对象。
     // 旧代码误用 reader.currentLocation（undefined），导致 CFI 永远为空，
-    // currentPageText 只能退回整章文本上报。
+    // currentPageText 取不到当前页文本。
     function renditionLocation() {
         try {
             var fn = reader.rendition && reader.rendition.currentLocation;
@@ -787,42 +787,29 @@ var reader;
 
     // 收集当前可见「页」的文本（异步回调）。
     // EPUB.js 的 getContents() 返回整个 section 文档（iframe 内整章内容经 CSS 分栏
-    // 分页），直接取 body.innerText 会把整章文本都上报（可达数十 KB）。首选用
-    // currentLocation() 的 start/end CFI 经 book.getRange() 精确取「当前页」文本；
-    // 若 CFI 定位失败或结果为空，退回整 section 文本，保证一定有内容可上报。
+    // 分页），直接取 body.innerText 会把整章文本都上报（可达数十 KB）。
+    // 仅使用 currentLocation() 的 start/end CFI 经 book.getRange() 精确取
+    // 「当前页」文本；CFI 定位失败时返回空串（本轮不上报），绝不退回整章文本。
     function currentPageText(done) {
-        var fallback = function () {
-            var parts = [];
-            try {
-                reader.rendition.getContents().forEach(function (content) {
-                    var doc = content.document;
-                    if (!doc || !doc.body) return;
-                    var text = doc.body.innerText || doc.body.textContent || '';
-                    if (text) parts.push(text.trim());
-                });
-            } catch (e) {}
-            done(parts.join('\n\n').trim());
-        };
         var startCfi = null, endCfi = null;
         try {
             var location = renditionLocation();
             startCfi = location && location.start && location.start.cfi;
             endCfi = location && location.end && location.end.cfi;
         } catch (e) {}
-        if (!startCfi || !endCfi) { fallback(); return; }
+        if (!startCfi || !endCfi) { done(''); return; }
         try {
             Promise.all([reader.book.getRange(startCfi), reader.book.getRange(endCfi)]).then(function (ranges) {
                 var sr = ranges && ranges[0], er = ranges && ranges[1];
-                if (!sr || !er || !sr.startContainer || !er.startContainer) { fallback(); return; }
+                if (!sr || !er || !sr.startContainer || !er.startContainer) { done(''); return; }
                 var doc = sr.startContainer.ownerDocument;
-                if (!doc || !doc.createRange) { fallback(); return; }
+                if (!doc || !doc.createRange) { done(''); return; }
                 var range = doc.createRange();
                 range.setStart(sr.startContainer, sr.startOffset);
                 range.setEnd(er.endContainer, er.endOffset);
-                var text = (range.toString() || '').trim();
-                if (text) done(text); else fallback();
-            }).catch(fallback);
-        } catch (e) { fallback(); }
+                done((range.toString() || '').trim());
+            }).catch(function () { done(''); });
+        } catch (e) { done(''); }
     }
 
     function markVocabulary(records) {
