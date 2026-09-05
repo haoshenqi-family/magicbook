@@ -23,6 +23,7 @@ import json
 import mimetypes
 import chardet  # dependency of requests
 import copy
+import zipfile
 import requests
 from importlib.metadata import metadata
 
@@ -40,7 +41,7 @@ from werkzeug.datastructures import Headers
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import constants, logger, isoLanguages, services, limiter
-from . import db, ub, config, app
+from . import db, ub, config, app, csrf
 from . import calibre_db, kobo_sync_status
 from .search import render_search_results, render_adv_search_results
 from .gdriveutils import getFileFromEbooksFolder, do_gdrive_download
@@ -59,6 +60,7 @@ from .services.worker import WorkerThread
 from .tasks_status import render_task_status
 from .usermanagement import user_login_required
 from .string_helper import strip_whitespaces
+from .reading_translation.service import WholeBookTranslationService
 
 
 feature_support = {
@@ -120,6 +122,8 @@ def add_security_headers(resp):
 
 
 web = Blueprint('web', __name__)
+
+whole_book_translation_service = WholeBookTranslationService()
 
 log = logger.create()
 
@@ -271,6 +275,103 @@ def reading_tts():
     payload["text"] = text
     # 65s：moon-well 调百炼合成并下载音频，比 JSON 接口慢
     return _moonwell_proxy("/tts/speak", payload, 65, "reading tts", binary=True)
+
+
+@web.route("/ajax/reading-translate-book", methods=["POST"])
+@user_login_required
+def reading_translate_book():
+    """Create a durable whole-book translation batch from an EPUB/Kepub."""
+    payload = request.get_json(silent=True) or {}
+    try:
+        book_id = int(payload.get("book_id"))
+        book_format = str(payload.get("book_format") or "epub").lower()
+        force = bool(payload.get("force", False))
+
+        def publish(task_payload):
+            response = _moonwell_proxy("/llm/task/publish", task_payload, 20,
+                                       "whole-book translation")
+            if not isinstance(response, tuple) or len(response) < 2:
+                raise ValueError("moon-well authorization is required")
+            body, status = response[0], response[1]
+            if status < 200 or status >= 300:
+                raise ValueError("moon-well task publish failed")
+            return json.loads(body)
+
+        def lookup(paragraphs):
+            response = _moonwell_proxy("/reading/paragraph-cache/find-translations",
+                                       {"paragraphs": paragraphs}, 20, "translation cache")
+            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
+                return {}
+            payload = json.loads(response[0])
+            return payload.get("result", {}) if isinstance(payload, dict) else {}
+
+        return jsonify(whole_book_translation_service.start(book_id, book_format, force, publish, lookup))
+    except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/reading-translate-book/status", methods=["POST"])
+@user_login_required
+def reading_translate_book_status():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(whole_book_translation_service.get_progress(str(payload.get("job_id"))))
+    except ValueError as error:
+        return jsonify({"success": False, "message": str(error)}), 404
+
+
+@csrf.exempt
+@web.route("/internal/reading-translation/task-completed", methods=["POST"])
+def reading_translation_task_completed():
+    """Receive an authenticated moon-well completion callback and cache output."""
+    if not constants.MOON_WELL_INTERNAL_TOKEN or request.headers.get("X-Internal-Token") != constants.MOON_WELL_INTERNAL_TOKEN:
+        return jsonify({"success": False, "message": "internal authorization required"}), 401
+    payload = request.get_json(silent=True) or {}
+
+    def save_cache(paragraph, translation, book_name, chapter):
+        try:
+            response = requests.post(
+                constants.MOON_WELL_READING_URL.rstrip("/") + "/reading/paragraph-cache/save-translation",
+                json={"paragraph": paragraph, "translation": translation,
+                      "bookName": book_name or "", "chapter": chapter or ""},
+                headers={"X-Internal-Token": constants.MOON_WELL_INTERNAL_TOKEN},
+                timeout=20, proxies=_MOONWELL_NO_PROXY)
+            if response.status_code < 200 or response.status_code >= 300:
+                return False
+            body = response.json()
+            return bool(body.get("result")) if isinstance(body, dict) else False
+        except (requests.RequestException, ValueError):
+            return False
+
+    try:
+        return jsonify(whole_book_translation_service.complete(payload, save_cache))
+    except ValueError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/reading-translate-book/retry", methods=["POST"])
+@user_login_required
+def reading_translate_book_retry():
+    payload = request.get_json(silent=True) or {}
+    try:
+        def publish(task_payload):
+            response = _moonwell_proxy("/llm/task/publish", task_payload, 20, "whole-book translation")
+            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
+                raise ValueError("moon-well task publish failed")
+            return json.loads(response[0])
+        return jsonify(whole_book_translation_service.retry(str(payload.get("job_id")), publish))
+    except ValueError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/reading-translate-book/cancel", methods=["POST"])
+@user_login_required
+def reading_translate_book_cancel():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(whole_book_translation_service.cancel(str(payload.get("job_id"))))
+    except ValueError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
 
 
 def _moonwell_session_authorization():

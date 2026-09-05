@@ -171,6 +171,23 @@ var reader;
     var translationRequest = 0;
     var translationPopover;
 
+    function startWholeBookTranslation() {
+        if (!calibre.wholeBookTranslationUrl || !window.confirm('开始翻译整本书？')) return;
+        var button = document.getElementById('whole-book-translate');
+        if (button) { button.classList.add('active'); button.textContent = '提交中…'; }
+        $.ajax({url: calibre.wholeBookTranslationUrl, method: 'POST', contentType: 'application/json',
+            headers: {'X-CSRFToken': readerCsrfToken()},
+            data: JSON.stringify({book_id: calibre.bookId, book_format: calibre.bookFormat})
+        }).done(function (result) {
+            alert('整本翻译任务已提交：' + (result.publishedCount || 0) + ' 个段落');
+        }).fail(function (xhr) {
+            if (reloadIfCsrfBlocked(xhr)) return;
+            alert((xhr.responseJSON && xhr.responseJSON.message) || '整本翻译提交失败');
+        }).always(function () {
+            if (button) { button.classList.remove('active'); button.textContent = '整本译'; }
+        });
+    }
+
     function closeTranslationPopover() {
         if (translationPopover) {
             translationPopover.remove();
@@ -757,6 +774,8 @@ var reader;
         // 打开阅读器时若开关已开启：只回填已缓存的译文
         if (translationEnabled()) setTimeout(restoreCachedTranslations, 200);
     }
+    var wholeBookToggle = document.getElementById('whole-book-translate');
+    if (wholeBookToggle) wholeBookToggle.addEventListener('click', startWholeBookTranslation);
 
     reader.rendition.on('rendered', function (section, view) {
         var content = view && view.contents;
