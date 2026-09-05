@@ -78,6 +78,11 @@
                         {% endif %}
                     {% endif %}
                     {% if entry.reader_list and current_user.role_viewer() %}
+                        {% if 'epub' in entry.reader_list or 'kepub' in entry.reader_list %}
+                            <button type="button" class="btn btn-primary" id="whole-book-translate"
+                                    data-book-id="{{ entry.id }}" data-book-format="{% if 'epub' in entry.reader_list %}epub{% else %}kepub{% endif %}"
+                                    data-csrf-token="{{ csrf_token() }}">整本翻译</button>
+                        {% endif %}
                         <div class="btn-group" role="group">
                             {% if entry.reader_list|length > 1 %}
                                 <button id="read-in-browser" type="button" class="btn btn-primary dropdown-toggle"
@@ -372,6 +377,21 @@
 <script src="{{ url_for('static', filename='js/details.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
 <script type="text/javascript">
+    $(function () {
+        $('#whole-book-translate').on('click', function () {
+            var button = $(this);
+            if (!window.confirm('开始翻译整本书？')) return;
+            button.prop('disabled', true).text('提交中…');
+            $.ajax({url: '{{ url_for("web.reading_translate_book") }}', method: 'POST',
+                contentType: 'application/json', headers: {'X-CSRFToken': button.data('csrf-token')},
+                data: JSON.stringify({book_id: button.data('book-id'), book_format: button.data('book-format')})
+            }).done(function (result) {
+                alert('整本翻译任务已提交：' + (result.publishedCount || 0) + ' 个段落');
+            }).fail(function (xhr) {
+                alert((xhr.responseJSON && xhr.responseJSON.message) || '整本翻译提交失败');
+            }).always(function () { button.prop('disabled', false).text('整本翻译'); });
+        });
+    });
 </script>
 
 {% endblock %}
