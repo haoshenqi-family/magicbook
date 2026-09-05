@@ -48,6 +48,13 @@
     $("#ai-chat-input").on("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
+    // ESC 关闭 AI 抽屉。EPUB 划词气泡打开时优先只关气泡（epub.js 的
+    // ESC 监听负责），两个面板同开时逐层退出而不是一次全关。
+    $(document).on("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if (window.ReaderTranslation && window.ReaderTranslation.isOpen()) return;
+      if ($("#ai-companion-drawer").hasClass("open")) closeDrawer();
+    });
 
     loadConversations();
   }

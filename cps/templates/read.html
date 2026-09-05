@@ -61,6 +61,7 @@
 	        </div>
 	        <div id="title-controls">
 	            <a id="immersive-translate" title="{{_('Translate this page (click again to hide)')}}">译</a>
+	            <a id="reading-annotations" title="{{_('Annotations of this book')}}">批</a>
 	            <a id="bookmark" class="icon-bookmark-empty">Bookmark</a>
 	            <a id="setting" class="icon-cog">Settings</a>
 	            <a id="fullscreen" class="icon-resize-full">Fullscreen</a>
@@ -160,8 +161,12 @@
             useBookmarks: "{{ current_user.is_authenticated | tojson }}",
             readingVocabularyUrl: "{{ url_for('web.reading_vocabulary') }}",
             readingTranslationUrl: "{{ url_for('web.reading_translate') }}",
+            readingWordMarkUrl: "{{ url_for('web.reading_word_mark') }}",
             readingTranslateBatchUrl: "{{ url_for('web.reading_translate_batch') }}",
             readingTtsUrl: "{{ url_for('web.reading_tts') }}",
+            readingAnnotationCreateUrl: "{{ url_for('web.reading_annotation_create') }}",
+            readingAnnotationListUrl: "{{ url_for('web.reading_annotation_list_by_paragraph') }}",
+            readingAnnotationBookUrl: "{{ url_for('web.reading_annotation_list_by_book') }}",
             ttsConfigured: {{ current_user.is_authenticated | tojson }},
             bookId: {{ bookid }},
             bookName: {{ title|tojson }},

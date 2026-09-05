@@ -98,6 +98,27 @@
 .reading-translation-popover .translation-speak:hover {
   opacity: .75;
 }
+.reading-translation-popover .translation-mark {
+  float: right;
+  margin-left: 8px;
+  color: #4a90d9;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.reading-translation-popover .translation-mark:hover {
+  opacity: .75;
+}
+.reading-translation-popover .translation-mark.is-marked {
+  color: #2e7d32;
+}
+.reading-translation-popover .translation-mark.is-loading {
+  opacity: .5;
+  cursor: wait;
+}
 .reading-translation-popover.is-loading { opacity: .8; }
 
 #titlebar a#immersive-translate {
@@ -160,3 +181,159 @@
   width: fit-content;
   position: absolute;
 }
+
+/* ===== 段落批注（与划词气泡同层级；书批注面板更高一层） ===== */
+.reading-annotation-popover {
+  position: fixed;
+  z-index: 10000;
+  width: min(420px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .18);
+  font: 13px/1.5 sans-serif;
+}
+.annotation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.annotation-title { font-weight: 700; font-size: 13px; }
+.annotation-close {
+  cursor: pointer;
+  color: #888;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  user-select: none;
+}
+.annotation-close:hover { color: #333; }
+.annotation-excerpt {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 8px;
+  max-height: 3.2em;
+  overflow: hidden;
+}
+.annotation-list {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+.annotation-item {
+  padding: 7px 2px 6px;
+  border-bottom: 1px dashed rgba(127, 127, 127, .25);
+}
+.annotation-item:last-child { border-bottom: none; }
+.annotation-meta { color: #999; font-size: 11px; margin-bottom: 2px; }
+.annotation-content {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.annotation-empty {
+  color: #aaa;
+  font-size: 12px;
+  text-align: center;
+  padding: 14px 0;
+}
+.annotation-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 64px;
+  padding: 6px 8px;
+  font: 13px/1.5 sans-serif;
+  border: 1px solid rgba(127, 127, 127, .4);
+  border-radius: 4px;
+  resize: vertical;
+  background: #fafafa;
+  color: #222;
+}
+.annotation-input:focus {
+  outline: none;
+  border-color: #4a90d9;
+  background: #fff;
+}
+.annotation-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.annotation-submit {
+  color: #fff;
+  background: #4a90d9;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.annotation-submit:hover { background: #3a7ec0; }
+.annotation-submit.is-loading { opacity: .6; cursor: wait; }
+.annotation-hint { color: #aaa; font-size: 11px; }
+
+#titlebar a#reading-annotations {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
+#titlebar a#reading-annotations.active {
+  opacity: 1;
+  color: #f5a623;
+  border: 1px solid rgba(245, 166, 35, .6);
+  padding: 3px;
+}
+
+/* 本书批注面板 */
+.reading-annotation-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, .35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.annotation-panel-card {
+  width: min(680px, 100%);
+  max-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #222;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .3);
+  padding: 14px 16px;
+  font: 13px/1.5 sans-serif;
+}
+.annotation-panel-card .annotation-header { margin-bottom: 8px; }
+.annotation-panel-list { overflow-y: auto; }
+.annotation-card {
+  padding: 10px 2px;
+  border-bottom: 1px solid rgba(127, 127, 127, .2);
+}
+.annotation-card:last-child { border-bottom: none; }
+.annotation-card-meta {
+  color: #4a90d9;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.annotation-card-excerpt {
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+.annotation-card-list .annotation-item { padding: 5px 0 4px; }
