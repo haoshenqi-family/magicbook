@@ -418,6 +418,101 @@ def _moonwell_refresh_session_token():
         return None
 
 
+def reading_annotation_create():
+    """Proxy paragraph annotation creation to moon-well.
+
+    批注与段落缓存（翻译/音频）落在 moon-well 同一 ES 文档；paragraph
+    必须与翻译/朗读链路相同的归一化文本（trim + 压缩空白，≤2000），
+    才能命中同一段落文档。署名与时间由 moon-well 从 JWT 用户取，客户端不可传。
+    """
+    payload = request.get_json(silent=True) or {}
+    paragraph_value = payload.get("paragraph")
+    content_value = payload.get("content")
+    # JSON null 不能被 str() 静默转换成 "None"，否则会写入错误的段落文档。
+    if not isinstance(paragraph_value, str) or not isinstance(content_value, str):
+        return jsonify({"success": False,
+                        "message": "paragraph and content must be strings"}), 400
+    paragraph = paragraph_value.strip()
+    content = content_value.strip()
+    if not paragraph or len(paragraph) > 2000 or not content or len(content) > 2000:
+        return jsonify({"success": False,
+                        "message": "paragraph and content must be between 1 and 2000 characters"}), 400
+    payload["paragraph"] = paragraph
+    payload["content"] = content
+    payload["bookName"] = str(payload.get("bookName") or "").strip()[:200]
+    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
+    # 15s：与阅读生词/翻译同量级的 JSON 接口
+    return _moonwell_proxy("/reading/annotation/create", payload, 15,
+                           "reading annotation")
+
+
+@web.route("/ajax/reading-annotation-list-by-paragraph", methods=["POST"])
+@user_login_required
+def reading_annotation_list_by_paragraph():
+    """Proxy per-paragraph annotation listing to moon-well."""
+    payload = request.get_json(silent=True) or {}
+    paragraph_value = payload.get("paragraph")
+    if not isinstance(paragraph_value, str):
+        return jsonify({"success": False, "message": "paragraph must be a string"}), 400
+    paragraph = paragraph_value.strip()
+    if not paragraph or len(paragraph) > 2000:
+        return jsonify({"success": False,
+                        "message": "paragraph must be between 1 and 2000 characters"}), 400
+    payload["paragraph"] = paragraph
+    return _moonwell_proxy("/reading/annotation/list-by-paragraph", payload, 15,
+                           "reading annotation")
+
+
+@web.route("/ajax/reading-annotation-list-by-book", methods=["POST"])
+@user_login_required
+def reading_annotation_list_by_book():
+    """Proxy book-level annotation listing to moon-well (ES search, slower)."""
+    payload = request.get_json(silent=True) or {}
+    book_name = str(payload.get("bookName") or "").strip()
+    if not book_name or len(book_name) > 200:
+        return jsonify({"success": False,
+                        "message": "bookName must be between 1 and 200 characters"}), 400
+    payload["bookName"] = book_name
+    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
+    # 20s：moon-well 侧为 ES exists+term 检索，容忍冷启动慢响应
+    return _moonwell_proxy("/reading/annotation/list-by-book", payload, 20,
+                           "reading annotation")
+
+
+# 划词标记的词形白名单：字母开头/结尾，中间仅字母/撇号/连字符。首尾
+# 必须是字母——与 markVocabulary 分词正则的 \b 边界语义对齐（尾部带
+# 撇号/连字符的 key 在页面标注中永远匹配不上，会存成脏数据）。词会
+# 拼进 moon-well 的请求 path，必须严格防御注入。
+_READING_WORD_RE = re.compile(r"^[A-Za-z](?:[A-Za-z'\u2019-]*[A-Za-z])?$")
+
+
+@web.route("/ajax/reading-word-mark", methods=["POST"])
+@user_login_required
+def reading_word_mark():
+    """Mark a selected word as unknown (+) or known (-) via moon-well.
+
+    划词气泡的 ＋/－ 按钮调用。词形先归一化为小写 + 直撇号（与
+    markVocabulary 及 moon-well ES 索引的词 key 一致），再转发到
+    moon-well 的 GET /vocabulary/unknown|known/{word}。
+    """
+    payload = request.get_json(silent=True) or {}
+    # word 必须是字符串（null 会被 str() 转成 "None" 通过校验，存成脏词）
+    word = payload.get("word")
+    if not isinstance(word, str):
+        return jsonify({"success": False, "message": "invalid word"}), 400
+    # unknown 必须是 JSON boolean（"false" 字符串经 bool() 恒为真，易误标）
+    unknown = payload.get("unknown")
+    if not isinstance(unknown, bool):
+        return jsonify({"success": False, "message": "invalid unknown flag"}), 400
+    # 弯撇号归一化为直撇号、小写：与前端 vocabularyRecords 的 key 保持一致
+    word = word.strip().replace("\u2019", "'").lower()
+    if not _READING_WORD_RE.match(word) or len(word) > 64:
+        return jsonify({"success": False, "message": "invalid word"}), 400
+    path = ("/vocabulary/unknown/" if unknown else "/vocabulary/known/") + quote(word, safe="")
+    # 标记是即时小操作，8s 足够
+    return _moonwell_proxy(path, None, 8, "reading word mark", method="GET")
+
+
 def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST"):
     """转发阅读相关请求到 moon-well，会话令牌过期时自动刷新重试一次。
 
