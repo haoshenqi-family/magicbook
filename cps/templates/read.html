@@ -61,7 +61,7 @@
 	        </div>
 	        <div id="title-controls">
 	            <a id="immersive-translate" title="{{_('Translate this page (click again to hide)')}}">译</a>
-	            <a id="whole-book-translate" title="{{_('Translate this book')}}">整本译</a>
+	            {% if current_user.role_admin() %}<a id="whole-book-translate" title="{{_('Translate this book')}}">整本译</a>{% endif %}
 	            <a id="bookmark" class="icon-bookmark-empty">Bookmark</a>
 	            <a id="setting" class="icon-cog">Settings</a>
 	            <a id="fullscreen" class="icon-resize-full">Fullscreen</a>
@@ -164,9 +164,11 @@
             readingWordMarkUrl: "{{ url_for('web.reading_word_mark') }}",
             readingTranslateBatchUrl: "{{ url_for('web.reading_translate_batch') }}",
             readingTtsUrl: "{{ url_for('web.reading_tts') }}",
+            {% if current_user.role_admin() %}
             wholeBookTranslationUrl: "{{ url_for('web.reading_translate_book') }}",
             wholeBookTranslationStatusUrl: "{{ url_for('web.reading_translate_book_status') }}",
             wholeBookTranslationRetryUrl: "{{ url_for('web.reading_translate_book_retry') }}",
+            {% endif %}
             bookFormat: "{{ book_format }}",
             ttsConfigured: {{ current_user.is_authenticated | tojson }},
             bookId: {{ bookid }},

@@ -63,6 +63,7 @@ from .tasks_status import render_task_status
 from .usermanagement import user_login_required
 from .string_helper import strip_whitespaces
 from .reading_translation.service import WholeBookTranslationService
+from .admin import admin_required
 
 
 feature_support = {
@@ -281,6 +282,7 @@ def reading_tts():
 
 @web.route("/ajax/reading-translate-book", methods=["POST"])
 @user_login_required
+@admin_required
 def reading_translate_book():
     """Create a durable whole-book translation batch from an EPUB/Kepub."""
     payload = request.get_json(silent=True) or {}
@@ -314,6 +316,7 @@ def reading_translate_book():
 
 @web.route("/ajax/reading-translate-book/status", methods=["POST"])
 @user_login_required
+@admin_required
 def reading_translate_book_status():
     payload = request.get_json(silent=True) or {}
     try:
@@ -353,6 +356,7 @@ def reading_translation_task_completed():
 
 @web.route("/ajax/reading-translate-book/retry", methods=["POST"])
 @user_login_required
+@admin_required
 def reading_translate_book_retry():
     payload = request.get_json(silent=True) or {}
     try:
@@ -368,6 +372,7 @@ def reading_translate_book_retry():
 
 @web.route("/ajax/reading-translate-book/cancel", methods=["POST"])
 @user_login_required
+@admin_required
 def reading_translate_book_cancel():
     payload = request.get_json(silent=True) or {}
     try:
