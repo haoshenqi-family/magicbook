@@ -2,6 +2,8 @@
 
 EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上交给 `moon-well`，由其对每个单词分词、查释义、判定陌生词并回传标注所需数据；陌生词在阅读器内以波浪下划线标识，悬停或点击可查看释义与历史学习信息。
 
+划词翻译气泡支持：发音（🔊 浏览器语音朗读原文）、标记生词（＋不认识 / －已认识，仅对单个英文单词显示）、ESC 退出。
+
 ## 功能要求
 
 ### 1. 核心目标
@@ -91,8 +93,50 @@ MOON_WELL_READING_URL=http://fnos:8082
 - 释义缺失时沿用历史释义，避免覆盖为空。
 - 用户身份来自请求 `authorization: Bearer` JWT 的 `UserContext`，客户端不能通过 `userKey` 冒充其他用户。
 
+## 划词标记（＋不认识 / －已认识）
+
+翻译气泡内、发音按钮旁提供 ＋/－ 按钮，仅当选中文本是**单个英文单词**（首尾为字母，与分词 `\b` 边界语义一致）时显示；句子/短语不显示。
+
+- **请求**（magicbook `POST /ajax/reading-word-mark`，`{word, unknown}`，unknown 必须为 JSON boolean）：
+  - 服务端校验：word 必须是字符串且匹配 `^[A-Za-z](?:[A-Za-z'’-]*[A-Za-z])?$`（≤64 字符；null 会被 `str()` 转成 `"none"` 存脏词，必须先查类型）；归一化为小写 + 直撇号后转发。
+  - `unknown: true` → moon-well `GET /vocabulary/unknown/{word}`；`false` → `GET /vocabulary/known/{word}`（word URL 编码拼 path，白名单正则防注入）。
+- **前端生效**（epub.js）：标记成功后更新 `vocabularyRecords` 并同步当前页标注——＋触发 `markVocabulary` 补波浪线；－触发 `unwrapWordSpans` 解包该词全部标注 span（波浪线即时消失）。按钮互斥高亮当前状态，toast 反馈结果。
+- 词形 key 三端一致：前端 `normalizedWord`（小写 + 弯撇号→直撇号）、magicbook 归一化、moon-well ES `reading_vocabulary` 索引。
+
+## 划词气泡的关闭（含自动消失）
+
+EPUB 正文渲染在 iframe 中，**iframe 内事件不冒泡到主文档**——气泡关闭必须在两个 document 上分别处理（曾因此出现「双击查词后点击正文，气泡常驻不消失」）：
+
+| 触发 | 处理位置 |
+|---|---|
+| 主文档区域点击气泡外 | 主文档 `mousedown`（气泡自身点击经 `contains` 豁免） |
+| iframe 正文内按下 | iframe `document` `mousedown`（正文内任何按下都意味着离开气泡） |
+| 单击正文清除选区 / 超长选区 | `translateSelection` 所有「不弹气泡」路径统一 `closeTranslationPopover()` |
+| 翻页 | `relocated` 事件（旧气泡坐标基于已换下的页面） |
+| ESC | 主文档 + iframe `document` 的 `keydown` |
+
+## ESC 快捷键（分层退出）
+
+- **划词气泡**：主文档与 iframe 内按 ESC 均关闭气泡。
+- **AI 伴读抽屉**（ai_chat.js，EPUB/TXT/PDF 三种阅读器通用）：ESC 关闭抽屉。
+- **分层**：气泡与抽屉同开时一次 ESC 只关气泡。epub.js 的 ESC handler 关闭气泡后 `event.stopImmediatePropagation()` 阻断后注册的监听；ai_chat.js 侧另有 `window.ReaderTranslation.isOpen()` 兜底检查——两种注册顺序下分层均成立（`read.html` 中 epub.js 先加载；若顺序颠倒，`isOpen()` 检查仍先于 epub.js 的 handler 生效）。
+
 ## 当前范围
 
 第一版接入 EPUB/KEPUB 阅读器，因为 epub.js 能直接访问当前章节 iframe 的 HTML 文本和 CFI 位置。PDF、TXT、漫画和音频阅读器尚未接入这套识词流程。
 
 如果没有配置 moon-well 地址或令牌，阅读器保持原有行为，不显示错误弹窗。
+
+## 段落批注
+
+EPUB 阅读器为每个可识别段落提供 `✎` 批注按钮，并在阅读器标题栏提供「批」按钮查看本书批注。
+
+- **段落批注**：点击段落旁的 `✎` 打开批注弹层，显示该段落已有批注，并可填写新批注；`Ctrl+Enter` 或 `Cmd+Enter` 提交，`Esc` 关闭。
+- **本书批注**：点击标题栏「批」打开本书批注面板，按章节展示有批注的段落、批注人、批注时间和批注内容，最多展示 200 个段落。
+- **段落键一致性**：前端使用与翻译/TTS 完全相同的 `paragraphSpeechText`（压缩空白、trim、最多 2000 字符）作为 `paragraph`，确保批注、翻译和音频命中 moon-well 的同一 ES 文档。
+- **身份与时间**：magicbook 仅透传批注段落和内容；`nickName` 与 `annotatedAt` 由 moon-well 根据 JWT 用户和服务端时间生成，客户端不能伪造。
+- **接口代理**：
+  - `POST /ajax/reading-annotation-create`
+  - `POST /ajax/reading-annotation-list-by-paragraph`
+  - `POST /ajax/reading-annotation-list-by-book`
+- **安全与降级**：所有批注 POST 显式携带 `X-CSRFToken`；代理沿用 moon-well JWT、401 刷新和 503 服务不可用处理。批注保存失败会提示用户，不静默丢失；浮层请求返回 CSRF 错误时自动刷新页面恢复 token。

@@ -457,3 +457,46 @@
 
 - **magicbook**：`fix(reading): CSP 放行阅读页 blob: 媒体（media-src），修复 TTS 播放无声`（cps/web.py + test_csp_media.py + 会话记录）。
 - **知识沉淀**：HTML5 `Audio` 播放 `blob:` URL 受 CSP `media-src` 管辖，未显式声明时回退 `default-src`；阅读器新增 blob 媒体（音频/视频）须同步放行 `media-src`。
+
+---
+
+## 2026-08-31（第十次对话：划词气泡不消失修复 + ＋/－标记 + ESC 快捷键）
+
+### 对 requests 的回应（R31）
+
+- **Bug 根因（气泡不自动消失）**：EPUB 正文渲染在 iframe 中，**iframe 内事件不冒泡到主文档**；旧实现只在主文档监听 `mousedown`/ESC（epub.js），且 `translateSelection` 在选区为空时直接 `return` 不清理旧气泡。双击查词后点击正文（最常见操作落在 iframe 内）→ 气泡永不关闭。
+- **修复**（`cps/static/js/reading/epub.js`）：① iframe document 绑定 `mousedown`（正文任何按下即关气泡）与 `keydown`（iframe 内 ESC）；② `translateSelection` 所有「不弹气泡」路径（空选区/超长/无尺寸 rect）统一 `closeTranslationPopover()`；③ 翻页 `relocated` 关闭坐标已失效的气泡。
+- **＋/－标记**：moon-well 已有现成接口 `GET /vocabulary/unknown/{word}` / `GET /vocabulary/known/{word}`（从其 OpenAPI 确认），magicbook 新增纯透传代理 `POST /ajax/reading-word-mark`（`_moonwell_proxy` 扩展 GET 转发）。气泡内仅对单个英文单词显示按钮；标记成功即时同步页面标注（＋`markVocabulary` 补波浪线 / －`unwrapWordSpans` 解包消失），按钮互斥高亮 + toast 反馈。
+- **ESC 分层退出**：气泡与 AI 抽屉同开时一次 ESC 只关气泡——epub.js 关闭气泡后 `stopImmediatePropagation()`（先注册可阻断 ai_chat.js 的 jQuery 委托监听），ai_chat.js 另有 `ReaderTranslation.isOpen()` 兜底；气泡未开时 ESC 关 AI 抽屉（EPUB/TXT/PDF 通用）。
+- **交叉审查修复 3 项**：word=null 会被 `str()` 转成 `"none"` 存脏词 → 先查类型；`unknown:"false"` 字符串经 `bool()` 恒真 → 必须 JSON boolean；词形正则收紧为**首尾字母**（尾部撇号/连字符的 key 与页面 `\b` 分词永远匹配不上，标记后无效果且存脏 key）。
+- **测试**：`tests/test_reading_vocabulary.py` 新增 9 个用例（登录/401/词形白名单含 null 与尾撇号边界/归一化透传 unknown+known/503/GET 401 刷新重试/CSRF 契约/气泡关闭与标记按钮静态锁定/ESC 分层锁定），全量 **159 passed**。
+- **文档**：`docs/reading-vocabulary.md` 增补「划词标记」「气泡的关闭」「ESC 分层退出」三节。
+- **部署**：仅 magicbook 侧改动（moon-well 接口现成零改动），推送 develop 后 Actions 自动部署；浏览器需强制刷新（JS/CSS 有缓存）。
+
+### 总结（R31）
+
+- **magicbook**：`fix(reading): 划词气泡 iframe 内不消失；feat: 气泡＋/－生词标记与 ESC 分层退出`（web.py/read.html/epub.js/ai_chat.js/reader.css + 9 测试 + 文档）。
+- **知识沉淀**：iframe 内事件不冒泡到主文档——阅读器所有「点正文关弹层/ESC」交互必须双 document 绑定；`str(payload.get(...))` 会把 JSON null 静默转 `"None"`，代理端点必须先做 isinstance 检查；三端共享词形 key 时正则必须与分词 `\b` 边界语义对齐（首尾字母）。
+
+---
+
+## 2026-09-03（第十一次对话：阅读器段落批注前端接入）
+
+### 对 requests 的回应（R32）
+
+- **代理路由**：magicbook 新增 3 个登录保护的批注代理：创建批注、按段落查询、按书查询；均转发到 moon-well 对应接口，校验段落/内容长度，trim 书名与章节并限制 200 字符。
+- **段落批注 UI**：EPUB 每个段落新增 `✎` 按钮；点击后显示段落原文摘要、已有批注、批注输入框和提交操作。批注提交只发送段落与内容，昵称和时间由 moon-well 服务端生成。
+- **本书批注面板**：标题栏新增「批」入口，按章节显示本书已批注段落及其批注列表，支持关闭和空态/失败态提示。
+- **同文档契约**：前端批注使用与翻译/TTS 相同的 `paragraphSpeechText` 归一化文本，保证批注与翻译、音频落入 moon-well 的同一个 `reading_paragraph_cache` ES 文档。
+- **交互与安全**：批注请求显式携带 `X-CSRFToken`；段落弹层、本书面板、划词气泡和 AI 抽屉支持分层 `Esc` 退出；翻页、点击正文和点击外部区域会关闭失效浮层；CSRF 失败沿用自动刷新恢复机制。
+- **测试**：新增代理校验/透传/503/CSRF 测试与 epub.js 静态契约测试；阅读测试 **32 passed**，magicbook 全量测试 **167 passed**（3 个既有 SAWarning，无失败）。JS `node --check`、Python `py_compile` 均通过。
+- **遗留工作区说明**：本次未修改此前遗留的 `ai_chat.js`、既有阅读文档、既有测试等未提交改动；它们与本次批注功能一并处于当前工作区，但未被撤销或覆盖。
+
+### 总结
+
+- **requests.md**：新增 R32（magicbook 阅读器段落批注）。
+- **response.md**：记录批注代理、段落弹层、本书批注面板、同 ES 文档键契约、安全处理与测试结果。
+
+### 冲突记录
+
+- 无。

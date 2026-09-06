@@ -214,9 +214,11 @@ var reader;
         if (!calibre.readingVocabularyEnabled || !calibre.readingTranslationUrl) return;
         var selection = content.window.getSelection();
         var text = selection && selection.toString().replace(/\s+/g, ' ').trim();
-        if (!text || text.length > 2000) return;
+        // 任何「不再弹出气泡」的路径都必须关掉旧气泡：单击正文清除选区后
+        // 旧实现直接 return，导致气泡常驻不消失（划词翻译不自动关闭的根因之一）
+        if (!text || text.length > 2000) { closeTranslationPopover(); return; }
         var range = selection.getRangeAt(0), rect = range.getBoundingClientRect();
-        if (!rect.width && !rect.height) return;
+        if (!rect.width && !rect.height) { closeTranslationPopover(); return; }
         var frame = content.window.frameElement;
         if (frame) {
             var frameRect = frame.getBoundingClientRect();
@@ -257,6 +259,10 @@ var reader;
                 });
                 popover.appendChild(speakBtn);
             }
+            // 划词标记：仅对单个英文单词显示 ＋（不认识）/ －（已认识）
+            if (calibre.readingWordMarkUrl && SINGLE_WORD_RE.test(text)) {
+                appendWordMarkButtons(popover, text);
+            }
         }).fail(function (xhr) {
             // CSRF 过期/会话重建：刷新页面拿新 token，避免"翻译失败"误导
             if (reloadIfCsrfBlocked(xhr)) return;
@@ -267,12 +273,118 @@ var reader;
         });
     }
 
+    // 单个英文单词：首尾必须是字母（与 markVocabulary 分词的 \b 边界
+    // 语义对齐——尾部带撇号/连字符的选区不会匹配任何页面词形）；
+    // 句子/短语不显示标记按钮
+    var SINGLE_WORD_RE = /^\s*[A-Za-z](?:[A-Za-z'\u2019-]*[A-Za-z])?\s*$/;
+
+    // 词形归一化：小写 + 弯撇号转直撇号，与 vocabularyRecords 的 key 保持一致
+    function normalizedWord(text) {
+        return text.trim().toLowerCase().replace(/[\u2019']/g, "'");
+    }
+
+    // 标记生效：更新会话内记录并同步页面标注
+    // （＋补波浪线；－移除该词全部波浪线 span，即时可见）
+    function applyWordUnknown(word, unknown) {
+        var record = vocabularyRecords[word];
+        if (record) {
+            record.unknown = unknown;
+        } else {
+            vocabularyRecords[word] = {word: word, unknown: unknown};
+        }
+        if (unknown) {
+            markVocabulary(Object.keys(vocabularyRecords)
+                .map(function (w) { return vocabularyRecords[w]; }));
+        } else {
+            unwrapWordSpans(word);
+        }
+    }
+
+    // 移除某词的全部生词标注 span（解包为纯文本，波浪线即时消失）
+    function unwrapWordSpans(word) {
+        reader.rendition.getContents().forEach(function (content) {
+            var doc = content.document;
+            if (!doc || !doc.body) return;
+            Array.prototype.slice.call(
+                doc.querySelectorAll('span.reading-vocabulary-unknown')
+            ).forEach(function (span) {
+                if ((span.dataset.word || '') !== word) return;
+                span.parentNode.replaceChild(doc.createTextNode(span.textContent), span);
+            });
+        });
+    }
+
+    // 构建划词气泡的 ＋/－ 标记按钮：互斥高亮当前状态，点击即调 moon-well
+    function appendWordMarkButtons(popover, text) {
+        var word = normalizedWord(text);
+        var plusBtn = document.createElement('span');
+        plusBtn.className = 'translation-mark translation-mark-plus';
+        plusBtn.textContent = '＋';
+        plusBtn.title = '标记为不认识';
+        var minusBtn = document.createElement('span');
+        minusBtn.className = 'translation-mark translation-mark-minus';
+        minusBtn.textContent = '－';
+        minusBtn.title = '标记为已认识';
+
+        function refreshState() {
+            var record = vocabularyRecords[word];
+            var unknown = !!(record && record.unknown);
+            plusBtn.classList.toggle('is-marked', unknown);
+            // 从未记录过的词两个按钮都保持常态（既非已知也非未知）
+            minusBtn.classList.toggle('is-marked', !!record && !unknown);
+        }
+
+        function mark(unknown, btn) {
+            if (btn.classList.contains('is-loading')) return;
+            btn.classList.add('is-loading');
+            $.ajax({
+                url: calibre.readingWordMarkUrl, method: 'POST', contentType: 'application/json',
+                headers: {'X-CSRFToken': readerCsrfToken()},
+                data: JSON.stringify({word: word, unknown: unknown})
+            }).done(function () {
+                applyWordUnknown(word, unknown);
+                refreshState();
+                readerToast(unknown ? '已标记为不认识：' + word : '已标记为认识：' + word);
+            }).fail(function (xhr) {
+                // CSRF 过期/会话重建：刷新页面拿新 token，避免「标记失败」误导
+                if (reloadIfCsrfBlocked(xhr)) return;
+                readerToast('标记失败，请稍后重试');
+            }).always(function () {
+                btn.classList.remove('is-loading');
+            });
+        }
+
+        plusBtn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            mark(true, plusBtn);
+        });
+        minusBtn.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            mark(false, minusBtn);
+        });
+        refreshState();
+        popover.appendChild(plusBtn);
+        popover.appendChild(minusBtn);
+    }
+
     function bindSelectionTranslation(content) {
+        // iframe 内事件不冒泡到主文档：正文区的按下/ESC 必须在 iframe
+        // document 上处理，否则气泡无法自动消失（双击查词后点击正文
+        // 气泡常驻的根因）。气泡挂在主文档 body 上，iframe 内的任何
+        // mousedown 都意味着用户点击了正文 → 关闭。批注弹层同理。
+        content.document.addEventListener('mousedown', function () {
+            closeTranslationPopover();
+            closeAnnotationPopover();
+        });
         content.document.addEventListener('mouseup', function () {
             setTimeout(function () { translateSelection(content); }, 0);
         });
         content.document.addEventListener('touchend', function () {
             setTimeout(function () { translateSelection(content); }, 80);
+        });
+        // iframe 内按 ESC 同样关闭划词气泡
+        content.document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') closeTranslationPopover();
         });
     }
 
@@ -316,6 +428,7 @@ var reader;
         '.reading-translate-btn::before{content:"译"}',
         '.reading-translate-btn.is-loading::before{content:"⟳"}',
         '.reading-translate-btn.is-done{opacity:.5}',
+        '.reading-annotation-btn::before{content:"✎"}',
         '.reading-translation{margin:6px 0 14px;font-size:.92em;line-height:1.5;color:inherit;opacity:.72;border-left:2px solid currentColor;padding-left:10px}',
         '.reading-translation.is-loading{opacity:.4;font-style:italic}',
         '.reading-translation.is-error{cursor:pointer;color:#c0392b;opacity:.9;font-style:italic;border-left-color:#c0392b}'
@@ -374,6 +487,17 @@ var reader;
                     translateParagraph(el, trBtn);
                 });
                 el.appendChild(trBtn);
+            }
+            if (!el.querySelector(':scope > .reading-annotation-btn')) {
+                var noteBtn = doc.createElement('span');
+                noteBtn.className = 'reading-para-btn reading-annotation-btn';
+                noteBtn.title = '批注本段';
+                noteBtn.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    openAnnotationPopover(el, noteBtn);
+                });
+                el.appendChild(noteBtn);
             }
         });
     }
@@ -777,6 +901,285 @@ var reader;
     var wholeBookToggle = document.getElementById('whole-book-translate');
     if (wholeBookToggle) wholeBookToggle.addEventListener('click', startWholeBookTranslation);
 
+    // ===== 段落批注（与翻译/朗读缓存同 ES 文档） =====
+    // 段落文本用与翻译/朗读一致的 paragraphSpeechText 归一化，moon-well 按
+    // SHA-256(段落) 定位同一份文档：批注自动挂在翻译/音频缓存所在段落上，
+    // 批注署名与时间由 moon-well 从登录用户取，前端不传也不能传。
+
+    var annotationPopover = null;
+    var annotationPanel = null;
+    var annotationRequestSeq = 0;
+
+    function closeAnnotationPopover() {
+        if (annotationPopover) {
+            annotationPopover.remove();
+            annotationPopover = null;
+        }
+    }
+
+    function closeAnnotationPanel() {
+        if (annotationPanel) {
+            annotationPanel.remove();
+            annotationPanel = null;
+            if (annotationPanelToggle) annotationPanelToggle.classList.remove('active');
+        }
+    }
+
+    // ISO 时间 → 可读短格式（2026-09-02T21:30:45 → 2026-09-02 21:30）
+    function formatAnnotationTime(value) {
+        return String(value || '').replace('T', ' ').slice(0, 16);
+    }
+
+    function annotationItem(item) {
+        var el = document.createElement('div');
+        el.className = 'annotation-item';
+        var meta = document.createElement('div');
+        meta.className = 'annotation-meta';
+        meta.textContent = (item.nickName || '匿名') + ' · ' + formatAnnotationTime(item.annotatedAt);
+        var content = document.createElement('div');
+        content.className = 'annotation-content';
+        content.textContent = item.content || '';
+        el.appendChild(meta);
+        el.appendChild(content);
+        return el;
+    }
+
+    function renderAnnotationList(container, items, emptyText) {
+        container.textContent = '';
+        if (!items || !items.length) {
+            var empty = document.createElement('div');
+            empty.className = 'annotation-empty';
+            empty.textContent = emptyText || '暂无批注';
+            container.appendChild(empty);
+            return;
+        }
+        items.forEach(function (item) {
+            container.appendChild(annotationItem(item));
+        });
+    }
+
+    function loadParagraphAnnotations(paragraph, listEl) {
+        var seq = ++annotationRequestSeq;
+        renderAnnotationList(listEl, null, '批注加载中…');
+        $.ajax({
+            url: calibre.readingAnnotationListUrl, method: 'POST', contentType: 'application/json',
+            headers: {'X-CSRFToken': readerCsrfToken()},
+            data: JSON.stringify({paragraph: paragraph})
+        }).done(function (response) {
+            // 请求飞行期间弹层被关闭/换段：丢弃过期响应
+            if (seq !== annotationRequestSeq || !annotationPopover) return;
+            renderAnnotationList(listEl, response.result || response.data || []);
+        }).fail(function (xhr) {
+            if (reloadIfCsrfBlocked(xhr)) return;
+            if (seq !== annotationRequestSeq || !annotationPopover) return;
+            renderAnnotationList(listEl, null, '批注加载失败，请稍后重试');
+        });
+    }
+
+    // 段落批注弹层：挂在主文档 body（与划词气泡同模式），段落按钮在 iframe
+    // 内，坐标需加 iframe 偏移换算到主视口
+    function openAnnotationPopover(el, btn) {
+        closeAnnotationPopover();
+        var paragraph = paragraphSpeechText(el);
+        if (!paragraph) return;
+
+        var rect = btn.getBoundingClientRect();
+        var frame = btn.ownerDocument.defaultView && btn.ownerDocument.defaultView.frameElement;
+        if (frame) {
+            var frameRect = frame.getBoundingClientRect();
+            rect = {top: rect.top + frameRect.top, bottom: rect.bottom + frameRect.top,
+                left: rect.left + frameRect.left, width: rect.width, height: rect.height};
+        }
+
+        var popover = document.createElement('div');
+        popover.className = 'reading-annotation-popover';
+
+        var header = document.createElement('div');
+        header.className = 'annotation-header';
+        var title = document.createElement('span');
+        title.className = 'annotation-title';
+        title.textContent = '段落批注';
+        var closeBtn = document.createElement('span');
+        closeBtn.className = 'annotation-close';
+        closeBtn.textContent = '×';
+        closeBtn.title = '关闭 (Esc)';
+        closeBtn.addEventListener('click', function () { closeAnnotationPopover(); });
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        var excerpt = document.createElement('div');
+        excerpt.className = 'annotation-excerpt';
+        excerpt.textContent = paragraph.length > 80 ? paragraph.slice(0, 80) + '…' : paragraph;
+        excerpt.title = paragraph;
+
+        var list = document.createElement('div');
+        list.className = 'annotation-list';
+
+        var input = document.createElement('textarea');
+        input.className = 'annotation-input';
+        input.placeholder = '写下对本段的批注…（Ctrl+Enter 提交）';
+        input.maxLength = 2000;
+
+        var actions = document.createElement('div');
+        actions.className = 'annotation-actions';
+        var submit = document.createElement('span');
+        submit.className = 'annotation-submit';
+        submit.textContent = '提交批注';
+        var hint = document.createElement('span');
+        hint.className = 'annotation-hint';
+        hint.textContent = 'Esc 关闭';
+        actions.appendChild(submit);
+        actions.appendChild(hint);
+
+        popover.appendChild(header);
+        popover.appendChild(excerpt);
+        popover.appendChild(list);
+        popover.appendChild(input);
+        popover.appendChild(actions);
+        document.body.appendChild(popover);
+
+        // 定位：优先按钮下方，越界翻上方；左右夹紧视口（与划词气泡一致）
+        var top = rect.bottom + 8, left = rect.left;
+        var bounds = popover.getBoundingClientRect();
+        if (top + bounds.height > window.innerHeight) top = Math.max(8, rect.top - bounds.height - 8);
+        left = Math.min(Math.max(8, left), window.innerWidth - bounds.width - 8);
+        popover.style.top = top + 'px';
+        popover.style.left = left + 'px';
+
+        annotationPopover = popover;
+        loadParagraphAnnotations(paragraph, list);
+        setTimeout(function () { input.focus(); }, 0);
+
+        function submitAnnotation() {
+            var content = input.value.trim();
+            if (!content) { input.focus(); return; }
+            if (submit.classList.contains('is-loading')) return;
+            submit.classList.add('is-loading');
+            $.ajax({
+                url: calibre.readingAnnotationCreateUrl, method: 'POST', contentType: 'application/json',
+                headers: {'X-CSRFToken': readerCsrfToken()},
+                data: JSON.stringify({paragraph: paragraph, content: content,
+                    bookName: calibre.bookName || '', chapter: currentChapterTitle()})
+            }).done(function (response) {
+                // 头部插入服务端返回的批注（含署名与时间），不整列表重拉
+                var item = (response && (response.result || response.data)) ||
+                    {nickName: '我', content: content};
+                var empty = list.querySelector('.annotation-empty');
+                if (empty) empty.remove();
+                list.insertBefore(annotationItem(item), list.firstChild);
+                input.value = '';
+                readerToast('批注已保存');
+            }).fail(function (xhr) {
+                // CSRF 过期/会话重建：刷新页面拿新 token
+                if (reloadIfCsrfBlocked(xhr)) return;
+                var message = '批注保存失败，请稍后重试';
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data && data.message) message = data.message;
+                } catch (e) {}
+                readerToast(message);
+            }).always(function () {
+                submit.classList.remove('is-loading');
+            });
+        }
+
+        submit.addEventListener('click', submitAnnotation);
+        // Ctrl/Cmd+Enter 提交，Enter 留给多行批注换行
+        input.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                submitAnnotation();
+            }
+        });
+    }
+
+    // --- 本书批注面板（工具栏「批」）---
+    var annotationPanelToggle = document.getElementById('reading-annotations');
+
+    function annotationPanelCard(item) {
+        var card = document.createElement('div');
+        card.className = 'annotation-card';
+        var meta = document.createElement('div');
+        meta.className = 'annotation-card-meta';
+        meta.textContent = item.chapter || '未知章节';
+        var excerpt = document.createElement('div');
+        excerpt.className = 'annotation-card-excerpt';
+        var text = item.paragraph || '';
+        excerpt.textContent = text.length > 120 ? text.slice(0, 120) + '…' : text;
+        excerpt.title = text;
+        var list = document.createElement('div');
+        list.className = 'annotation-card-list';
+        (item.annotations || []).forEach(function (entry) {
+            list.appendChild(annotationItem(entry));
+        });
+        card.appendChild(meta);
+        card.appendChild(excerpt);
+        card.appendChild(list);
+        return card;
+    }
+
+    function openAnnotationPanel() {
+        closeAnnotationPanel();
+        var overlay = document.createElement('div');
+        overlay.className = 'reading-annotation-panel';
+        var panel = document.createElement('div');
+        panel.className = 'annotation-panel-card';
+
+        var header = document.createElement('div');
+        header.className = 'annotation-header';
+        var title = document.createElement('span');
+        title.className = 'annotation-title';
+        title.textContent = '本书批注';
+        var closeBtn = document.createElement('span');
+        closeBtn.className = 'annotation-close';
+        closeBtn.textContent = '×';
+        closeBtn.title = '关闭 (Esc)';
+        closeBtn.addEventListener('click', closeAnnotationPanel);
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        var list = document.createElement('div');
+        list.className = 'annotation-panel-list';
+        panel.appendChild(header);
+        panel.appendChild(list);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
+        annotationPanel = overlay;
+        if (annotationPanelToggle) annotationPanelToggle.classList.add('active');
+
+        // 点击半透明背景关闭（面板内部点击不关）
+        overlay.addEventListener('mousedown', function (ev) {
+            if (ev.target === overlay) closeAnnotationPanel();
+        });
+
+        renderAnnotationList(list, null, '批注加载中…');
+        $.ajax({
+            url: calibre.readingAnnotationBookUrl, method: 'POST', contentType: 'application/json',
+            headers: {'X-CSRFToken': readerCsrfToken()},
+            data: JSON.stringify({bookName: calibre.bookName || ''})
+        }).done(function (response) {
+            var paragraphs = response.result || response.data || [];
+            list.textContent = '';
+            if (!paragraphs.length) {
+                renderAnnotationList(list, null, '本书暂无批注，点段落旁的 ✎ 添加');
+                return;
+            }
+            paragraphs.forEach(function (item) {
+                list.appendChild(annotationPanelCard(item));
+            });
+        }).fail(function (xhr) {
+            if (reloadIfCsrfBlocked(xhr)) return;
+            renderAnnotationList(list, null, '批注加载失败，请稍后重试');
+        });
+    }
+
+    if (annotationPanelToggle) {
+        annotationPanelToggle.addEventListener('click', function () {
+            if (annotationPanel) closeAnnotationPanel();
+            else openAnnotationPanel();
+        });
+    }
+
     reader.rendition.on('rendered', function (section, view) {
         var content = view && view.contents;
         if (content && content.document) {
@@ -788,13 +1191,48 @@ var reader;
     });
 
     document.addEventListener('mousedown', function (event) {
-        if (!translationPopover || translationPopover.contains(event.target)) return;
-        closeTranslationPopover();
+        // 点击浮层外部一律关闭（划词气泡 / 段落批注弹层 / 书批注面板）
+        if (translationPopover && !translationPopover.contains(event.target)) {
+            closeTranslationPopover();
+        }
+        if (annotationPopover && !annotationPopover.contains(event.target)) {
+            closeAnnotationPopover();
+        }
+        // 工具栏切换按钮不属于面板，但点击它应由 click handler 负责关闭，
+        // 不能被这里的 mousedown 先关后又在 click 中重新打开。
+        var clickedAnnotationToggle = annotationPanelToggle &&
+            (event.target === annotationPanelToggle || annotationPanelToggle.contains(event.target));
+        if (annotationPanel && !annotationPanel.contains(event.target) && !clickedAnnotationToggle) {
+            closeAnnotationPanel();
+        }
     });
 
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') closeTranslationPopover();
+        if (event.key !== 'Escape') return;
+        // 分层退出：书批注面板（最上层）→ 段落批注弹层 → 划词气泡，
+        // 一次 Esc 只关一层并阻断后续监听（本 handler 先于 ai_chat.js
+        // 注册，stopImmediatePropagation 可阻断其 jQuery 委托监听），
+        // 多层面板同开时逐层退出；全部关闭时不阻断，ai_chat.js 正常关抽屉。
+        if (annotationPanel) {
+            closeAnnotationPanel();
+            event.stopImmediatePropagation();
+            return;
+        }
+        if (annotationPopover) {
+            closeAnnotationPopover();
+            event.stopImmediatePropagation();
+            return;
+        }
+        if (!translationPopover) return;
+        closeTranslationPopover();
+        event.stopImmediatePropagation();
     });
+
+    // 供 ai_chat.js 的 ESC 分层关闭：划词气泡打开时 ESC 只关气泡，
+    // 不连带关闭 AI 抽屉（两个面板同时打开时逐层退出）
+    window.ReaderTranslation = {
+        isOpen: function () { return !!translationPopover; }
+    };
 
     // 取当前渲染位置（含当前页 start/end CFI）。ePubReader 包装器上没有
     // currentLocation 方法，入口在 rendition 上；本 bundle 的
@@ -987,7 +1425,12 @@ var reader;
             setTimeout(inspectVocabulary, 50);
         }
     }
-    reader.rendition.on('relocated', function () { setTimeout(inspectVocabulary, 120); });
+    reader.rendition.on('relocated', function () {
+        // 翻页后旧气泡/批注弹层的坐标基于已换下的页面，必须关闭
+        closeTranslationPopover();
+        closeAnnotationPopover();
+        setTimeout(inspectVocabulary, 120);
+    });
 
     /**
      * @param {string} action - Add or remove bookmark

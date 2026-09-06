@@ -63,3 +63,11 @@
 28. TTS 应该怎么配置（moonwell 的 tts 配置项、业务空间 base_url 是否需要配置）。
 29. magicbook.haoyuhang.top/ajax/reading-tts 返回 500，为什么——排查并修复（最终定位为 moonwell 下载 OSS 签名音频时 RestTemplate 二次编码导致 SignatureDoesNotMatch）。
 30. /ajax/reading-tts 接口成功但没有声音播放出来——排查并修复（定位为 CSP 未放行 blob: 媒体，media-src 回退 default-src 拦截 Audio 播放）。
+
+## 2026-08-31
+
+31. 双击单词的划词翻译经常不会自动消失。除了发音功能，增加一个+（标记不认识）一个-（标记已认识这个单词）。增加esc快捷键，可以退出划词翻译，关闭AI弹窗。
+
+## 2026-09-03
+
+32. 更新前端 magicbook，添加阅读器段落批注相关功能。
