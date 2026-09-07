@@ -32,6 +32,39 @@ os.environ["FLASK_DEBUG"] = "1"
 # to connect in the test env. python-dotenv won't override an already-set var.
 os.environ["AI_DATABASE_URL"] = "sqlite:///{0}/ai_companion.db".format(_CFG_DIR)
 
+# --- 测试环境 SQLite 连接池：统一用 StaticPool（单连接共享）-----------------
+# calibre-web / AI 各自在运行期用 scoped_session 创建会话，路由/请求上下文会
+# 在多个 registry 作用域键（线程/greenlet）下各留一个活动会话，而 teardown 的
+# remove_session() 只能回收当前作用域，无法全部归还。于是默认 SQLite QueuePool
+# (5+10) 的 checked-out 连接随测试单调增长，到套件后段某个晚跑的测试（如
+# test_integration）直接超时抛 TimeoutError。强制 sqlite 引擎用 StaticPool 后，
+# 每个引擎只持一个共享连接，无论多少会话都不可能把池耗尽。
+# 注意：必须在 `import cps` 之前包住 create_engine，这样 cps 各模块在导入期
+# `from sqlalchemy import create_engine` 捕获到的就是包装后的函数。
+import sqlalchemy as _sa
+from sqlalchemy.pool import StaticPool as _StaticPool
+_ORIG_CREATE_ENGINE = _sa.engine.create_engine
+
+
+def _staticpool_create_engine(url, *args, **kwargs):
+    if str(url).startswith("sqlite") and "poolclass" not in kwargs:
+        kwargs["poolclass"] = _StaticPool
+    return _ORIG_CREATE_ENGINE(url, *args, **kwargs)
+
+
+_sa.engine.create_engine = _staticpool_create_engine
+_sa.create_engine = _staticpool_create_engine
+
+# Force the AI data layer to use thread (not greenlet) session scope BEFORE
+# create_app() runs init_ai_db(). The CI/test box has gevent installed, so even
+# without any test importing gevent, cps.ai.database picks greenlet scope at its
+# own import time. That makes scoped_session hand a fresh session to every
+# request/greenlet, none of which the main-thread teardown can release. Thread
+# scope keeps one reusable session on the single test thread (with StaticPool
+# above, the session count can no longer drain the pool either).
+from cps.ai import database as ai_database
+ai_database._SCOPEFUNC = None
+
 
 @pytest.fixture(scope="session")
 def _app_instance(tmp_path_factory):
@@ -63,6 +96,8 @@ def _app_instance(tmp_path_factory):
 
     # Initialize the independent AI data layer (lazy by default, but make it
     # deterministic here so seeding + cleanup always have tables available).
+    # Session scope is forced to thread scope at module level above (before
+    # create_app/init_ai_db), so tests share one reusable session.
     from cps.ai.database import init_ai_db, remove_session
     init_ai_db()
     app.teardown_appcontext(lambda exc: remove_session())
@@ -179,6 +214,8 @@ def app(_app_instance):
     except ImportError:
         pass  # cps.ai not yet created (early in test setup)
     yield _app_instance
+    from cps.ai.database import remove_session
+    remove_session()
 
 
 @pytest.fixture

@@ -2,6 +2,13 @@
 {% block body %}
 <div class="well col-sm-6 col-sm-offset-2">
   <h2 style="margin-top: 0">{{_('Login')}}</h2>
+  {% if authentik_oidc_enabled %}
+    {# 统一账户体系：Authentik 启用后隐藏本地密码表单，仅保留 OIDC 登录 #}
+    <p class="text-muted">{{_('Sign in with your Authentik account')}}</p>
+    <a href="{{ url_for('oidc.login', next=next_url) }}" class="btn btn-primary btn-block" style="white-space:normal">
+      {{_('Log in with Authentik')}}
+    </a>
+  {% else %}
   <form method="POST" role="form">
     <input type="hidden" name="next" value="{{next_url}}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

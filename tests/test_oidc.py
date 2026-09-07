@@ -106,7 +106,8 @@ class TestAuthentikOAuth2App:
         """回归对照：默认 FlaskOAuth2App 在 HS256 + 空 JWKS 下必然抛错。"""
         client = _make_client(app, FlaskOAuth2App, ["HS256"], jwk_set={})
         token = _build_id_token("HS256", CLIENT_SECRET)
-        with pytest.raises(ValueError):
+        # 新版 authlib 走 joserfc，空 JWKS 抛 KeyError('keys') 而非 ValueError
+        with pytest.raises((ValueError, KeyError)):
             client.parse_id_token({"id_token": token}, nonce="nonce-123")
 
 
