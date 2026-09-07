@@ -45,7 +45,7 @@ class WholeBookTranslationService:
 
     def start(self, book_id, book_format, force, publish, lookup=None):
         self._ensure_tables()
-        if not constants.MOON_WELL_TRANSLATION_CALLBACK_URL or not constants.MOON_WELL_INTERNAL_TOKEN:
+        if not constants.MOON_WELL_TRANSLATION_CALLBACK_URL or not constants.MAGICBOOK_INTEGRATION_TOKEN:
             raise ValueError("whole-book translation callback is not configured")
         user_id = int(current_user.id)
         book, path = self._book_file(book_id, book_format)
@@ -91,7 +91,7 @@ class WholeBookTranslationService:
             payload = {"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
                        "input": item.text,
                        "callbackUrl": constants.MOON_WELL_TRANSLATION_CALLBACK_URL,
-                       "callbackToken": constants.MOON_WELL_INTERNAL_TOKEN,
+                       "callbackToken": constants.MAGICBOOK_INTEGRATION_TOKEN,
                        "parameters": {"jobId": job.id, "itemId": item.id, "bookId": book_id,
                                       "bookFingerprint": fingerprint, "paragraphIndex": item.paragraph_index,
                                       "textHash": item.text_hash, "bookName": book.title,
@@ -171,7 +171,7 @@ class WholeBookTranslationService:
             try:
                 response = publish({"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
                                     "input": item.text, "callbackUrl": constants.MOON_WELL_TRANSLATION_CALLBACK_URL,
-                                    "callbackToken": constants.MOON_WELL_INTERNAL_TOKEN,
+                       "callbackToken": constants.MAGICBOOK_INTEGRATION_TOKEN,
                                     "parameters": {"jobId": job.id, "itemId": item.id,
                                     "bookId": job.book_id, "bookFingerprint": job.book_fingerprint,
                                     "paragraphIndex": item.paragraph_index, "textHash": item.text_hash,

@@ -329,7 +329,7 @@ def reading_translate_book_status():
 @web.route("/internal/reading-translation/task-completed", methods=["POST"])
 def reading_translation_task_completed():
     """Receive an authenticated moon-well completion callback and cache output."""
-    if not constants.MOON_WELL_INTERNAL_TOKEN or request.headers.get("X-Internal-Token") != constants.MOON_WELL_INTERNAL_TOKEN:
+    if not constants.MAGICBOOK_INTEGRATION_TOKEN or request.headers.get("X-Internal-Token") != constants.MAGICBOOK_INTEGRATION_TOKEN:
         return jsonify({"success": False, "message": "internal authorization required"}), 401
     payload = request.get_json(silent=True) or {}
 
@@ -339,7 +339,7 @@ def reading_translation_task_completed():
                 constants.MOON_WELL_READING_URL.rstrip("/") + "/reading/paragraph-cache/save-translation",
                 json={"paragraph": paragraph, "translation": translation,
                       "bookName": book_name or "", "chapter": chapter or ""},
-                headers={"X-Internal-Token": constants.MOON_WELL_INTERNAL_TOKEN},
+                headers={"X-Internal-Token": constants.MAGICBOOK_INTEGRATION_TOKEN},
                 timeout=20, proxies=_MOONWELL_NO_PROXY)
             if response.status_code < 200 or response.status_code >= 300:
                 return False
