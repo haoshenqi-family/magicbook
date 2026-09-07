@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-from .. import calibre_db, config, constants, ub
+from .. import calibre_db, config, ub
 from ..cw_login import current_user
 from .models import TranslationJob, TranslationJobItem
 from .parser import extract_epub_paragraphs, text_hash
@@ -45,8 +45,6 @@ class WholeBookTranslationService:
 
     def start(self, book_id, book_format, force, publish, lookup=None):
         self._ensure_tables()
-        if not constants.MOON_WELL_TRANSLATION_CALLBACK_URL or not constants.MAGICBOOK_INTEGRATION_TOKEN:
-            raise ValueError("whole-book translation callback is not configured")
         user_id = int(current_user.id)
         book, path = self._book_file(book_id, book_format)
         fingerprint = self._fingerprint(path)
@@ -90,8 +88,6 @@ class WholeBookTranslationService:
                 continue
             payload = {"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
                        "input": item.text,
-                       "callbackUrl": constants.MOON_WELL_TRANSLATION_CALLBACK_URL,
-                       "callbackToken": constants.MAGICBOOK_INTEGRATION_TOKEN,
                        "parameters": {"jobId": job.id, "itemId": item.id, "bookId": book_id,
                                       "bookFingerprint": fingerprint, "paragraphIndex": item.paragraph_index,
                                       "textHash": item.text_hash, "bookName": book.title,
@@ -123,42 +119,30 @@ class WholeBookTranslationService:
                 "publishedCount": job.published_count, "completedCount": job.completed_count,
                 "failedCount": job.failed_count}
 
-    def get_progress(self, job_id):
+    def get_progress(self, job_id, lookup=None):
         self._ensure_tables()
         job = ub.session.query(TranslationJob).filter_by(id=job_id, user_id=int(current_user.id)).one_or_none()
         if not job:
             raise ValueError("translation job is unavailable")
-        return self.progress(job)
-
-    def complete(self, payload, save_cache):
-        self._ensure_tables()
-        item = ub.session.query(TranslationJobItem).filter_by(id=str(payload.get("itemId"))).one_or_none()
-        if not item:
-            raise ValueError("translation item is unavailable")
-        job = ub.session.query(TranslationJob).filter_by(id=item.job_id).one_or_none()
-        if not job or str(payload.get("jobId")) != job.id or str(payload.get("taskId")) != str(item.task_id):
-            raise ValueError("translation task linkage is invalid")
-        if str(payload.get("bookFingerprint")) != job.book_fingerprint or str(payload.get("textHash")) != item.text_hash:
-            raise ValueError("translation task fingerprint is invalid")
-        if item.status == "COMPLETED":
-            return self.progress(job)
-        if not payload.get("success"):
-            item.status = "FAILED"
-            item.error_message = str(payload.get("errorMessage") or "translation task failed")[:1000]
-        else:
-            output = str(payload.get("output") or "").strip()
-            if not output:
-                raise ValueError("translation output is empty")
-            if not save_cache(item.text, output, payload.get("bookName") or job.book_name, item.chapter):
-                raise ValueError("translation cache write failed")
-            same_items = ub.session.query(TranslationJobItem).filter_by(job_id=job.id, text_hash=item.text_hash).all()
-            for same_item in same_items:
-                same_item.status = "COMPLETED"
-                same_item.translation = output
-                same_item.error_message = None
-                same_item.updated_at = _now()
-        self._refresh_counts(job)
-        ub.session.commit()
+        # 去回调化后，本地未完成项仅由缓存命中回收：查询进度时懒刷新，避免引入常驻轮询进程。
+        # moon-well 完成任务自行写入翻译缓存，magicbook 在此单向查缓存即可标记完成。
+        if lookup:
+            pending_items = ub.session.query(TranslationJobItem).filter(
+                TranslationJobItem.job_id == job.id,
+                ~TranslationJobItem.status.in_(("COMPLETED", "FAILED", "SKIPPED"))).all()
+            if pending_items:
+                cached = lookup([item.text for item in pending_items])
+                changed = False
+                for item in pending_items:
+                    if cached.get(item.text):
+                        item.status = "COMPLETED"
+                        item.translation = cached[item.text]
+                        item.error_message = None
+                        item.updated_at = _now()
+                        changed = True
+                if changed:
+                    self._refresh_counts(job)
+                    ub.session.commit()
         return self.progress(job)
 
     def retry(self, job_id, publish):
@@ -170,8 +154,7 @@ class WholeBookTranslationService:
         for item in items:
             try:
                 response = publish({"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
-                                    "input": item.text, "callbackUrl": constants.MOON_WELL_TRANSLATION_CALLBACK_URL,
-                       "callbackToken": constants.MAGICBOOK_INTEGRATION_TOKEN,
+                                    "input": item.text,
                                     "parameters": {"jobId": job.id, "itemId": item.id,
                                     "bookId": job.book_id, "bookFingerprint": job.book_fingerprint,
                                     "paragraphIndex": item.paragraph_index, "textHash": item.text_hash,

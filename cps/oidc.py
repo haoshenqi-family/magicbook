@@ -1,11 +1,18 @@
+import base64
+import json
 import os
 import requests
 from urllib.parse import urljoin
 
 from authlib.integrations.flask_client import OAuth
 from authlib.integrations.flask_client.apps import FlaskOAuth2App
-from authlib.jose import JsonWebKey
+from authlib.jose import jwt as jose_jwt
+from authlib.oidc.core import CodeIDToken, ImplicitIDToken, UserInfo
 from flask import Blueprint, current_app, redirect, request, session, url_for, flash
+from joserfc import jwt as jose_rfc_jwt
+from joserfc.jwk import KeySet
+from joserfc.jws import JWSRegistry
+from sqlalchemy import func
 from . import ub, log, constants
 from .cw_login import login_user
 
@@ -15,26 +22,63 @@ class AuthentikOAuth2App(FlaskOAuth2App):
 
     authentik 若配置 RSA 签名，其 jwks_uri 正常返回公钥，走 authlib 默认的
     JWKS 公钥校验路径即可。但若配置为对称签名（HS256），jwks_uri 返回空对象
-    {}（对称密钥不会通过 JWKS 发布），authlib 的 parse_id_token 会因
-    ``import_key_set({})`` 抛出 ``ValueError: Invalid key set format`` 并导致
-    /oidc/callback 返回 500。此时 id_token 由 client_secret 做 HMAC 对称签名，
-    应以 client_secret 作为校验密钥；RS*/其他算法仍回退到默认 JWKS 路径。
+    {}（对称密钥不会通过 JWKS 发布）。新版 authlib 的 parse_id_token 会在解码
+    前急加载 JWKS（``KeySet.import_key_set``），空对象必然抛 ``KeyError: 'keys'``
+    并导致 /oidc/callback 返回 500。因此这里重写 parse_id_token：当 id_token 的
+    算法是 HS* 对称签名时，直接以 client_secret 作为 HMAC 校验密钥；RS*/其他
+    非对称算法仍走默认 JWKS 路径。
     """
 
-    def create_load_key(self):
-        def load_key(header, payload):
-            alg = (header.get("alg") or "").upper()
-            if alg.startswith("HS"):
-                return self.client_secret
-            jwk_set = JsonWebKey.import_key_set(self.fetch_jwk_set())
-            try:
-                return jwk_set.find_by_kid(header.get("kid"))
-            except ValueError:
-                # 重试强制刷新 JWKS，兼容首次缓存为空等场景
-                jwk_set = JsonWebKey.import_key_set(self.fetch_jwk_set(force=True))
-                return jwk_set.find_by_kid(header.get("kid"))
+    @staticmethod
+    def _id_token_algorithm(id_token):
+        """稳妥解析 id_token 的 JOSE header 中的 alg，失败时回退为 RS256。"""
+        try:
+            header_segment = id_token.split(".")[0]
+            header = json.loads(base64.urlsafe_b64decode(header_segment + "=="))
+            return (header.get("alg") or "").upper()
+        except Exception:
+            return "RS256"
 
-        return load_key
+    def parse_id_token(self, token, nonce=None, claims_options=None,
+                       claims_cls=None, leeway=120):
+        if "id_token" not in token:
+            return None
+
+        claims_params = dict(nonce=nonce, client_id=self.client_id)
+        if claims_cls is None:
+            if "access_token" in token:
+                claims_params["access_token"] = token["access_token"]
+                claims_cls = CodeIDToken
+            else:
+                claims_cls = ImplicitIDToken
+
+        metadata = self.load_server_metadata()
+        if claims_options is None and "issuer" in metadata:
+            claims_options = {"iss": {"values": [metadata["issuer"]]}}
+
+        alg_values = metadata.get("id_token_signing_alg_values_supported")
+        id_token = token["id_token"]
+
+        alg = self._id_token_algorithm(id_token)
+        if alg.startswith("HS") and self.client_secret:
+            # 对称签名（HS256/HS384/HS512）：动作是 HMAC，密钥为 client_secret，
+            # 不能从空的 JWKS 取公钥。authlib.jose 直接接受字符串密钥，且其
+            # decode 返回的就是 claims 对象本身（含 .header）。
+            decoded = jose_jwt.decode(id_token, self.client_secret)
+            claims_data, header = decoded, decoded.header
+        else:
+            key = KeySet.import_key_set(self.fetch_jwk_set())
+            decoded = jose_rfc_jwt.decode(
+                id_token,
+                key=key,
+                registry=JWSRegistry(algorithms=alg_values, strict_check_header=False),
+            )
+            claims_data, header = decoded.claims, decoded.header
+        claims = claims_cls(claims_data, header, claims_options, claims_params)
+        if claims.get("nonce_supported") is False:
+            claims.params["nonce"] = None
+        claims.validate(leeway=leeway)
+        return UserInfo(claims)
 
 
 oidc = Blueprint("oidc", __name__, url_prefix="/oidc")
@@ -81,29 +125,22 @@ def callback():
         return redirect(url_for("web.login"))
     issuer = os.getenv("AUTHENTIK_ISSUER", "").rstrip("/")
     username = userinfo.get("preferred_username") or userinfo.get("email") or "oidc-" + subject
+    email = (userinfo.get("email") or "").strip()
     user = ub.session.query(ub.User).filter(ub.User.oidc_issuer == issuer, ub.User.oidc_subject == subject).first()
     if user is None:
-        # Never merge an existing local account silently by username or email.
-        # An administrator can link accounts explicitly later if required.
-        user = ub.User(name=username, email=userinfo.get("email", ""), role=constants.ADMIN_USER_ROLES)
+        # 兼容存量本地账号：已绑定过该 subject 则复用；否则按 email 精确匹配既有
+        # 本地 Calibre 账号并补绑 OIDC（保留其本地角色/书库权限），与 moon-well 的
+        # upsertUser 合并策略一致，达成真正的同一套账户体系。
+        if email:
+            user = ub.session.query(ub.User).filter(
+                func.lower(ub.User.email) == email.lower()).first()
+        if user is None:
+            user = ub.User(name=username, email=email, role=constants.ADMIN_USER_ROLES)
+            ub.session.add(user)
         user.oidc_issuer = issuer
         user.oidc_subject = subject
-        ub.session.add(user)
         ub.session.commit()
     login_user(user, remember=True)
-    if id_token and constants.MOON_WELL_READING_URL:
-        try:
-            # 内网直连，绕过可能存在的 http_proxy 环境变量（封面下载等功能会设置）
-            response = requests.post(
-                constants.MOON_WELL_READING_URL.rstrip("/") + "/auth/oidc/exchange",
-                json={"idToken": id_token}, timeout=8,
-                proxies={"http": None, "https": None})
-            response.raise_for_status()
-            moonwell_result = response.json().get("result", {})
-            if moonwell_result.get("accessToken"):
-                session["moonwell_access_token"] = moonwell_result["accessToken"]
-            if moonwell_result.get("refreshToken"):
-                session["moonwell_refresh_token"] = moonwell_result["refreshToken"]
-        except requests.RequestException as error:
-            log.warning("moon-well OIDC token exchange failed: %s", error)
+    # 与 moon-well 的互调已改为内网纯信任（web._moonwell_identity_headers
+    # 携带 OIDC subject 定位同一账户），不再在此交换 moon-well token。
     return redirect(session.pop("oidc_next", url_for("web.index")))

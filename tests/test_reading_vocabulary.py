@@ -1,15 +1,16 @@
 """Unit tests for the reading-vocabulary proxy endpoint.
 
+moon-well 互调已改为 Nacos 服务发现 + 内网纯信任，不再依赖/刷新 token。
+出站请求改携 OIDC 用户身份标识（X-User-Subject / X-User-Email），由
+moon-well 按 subject（回退 email）定位同一账户。
+
 Covers:
   1. Unauthenticated access is rejected (login required).
-  2. moon-well not configured -> 401 "not configured" (reader stays quiet).
-  3. Configured but no moon-well JWT -> 401 "authorization required".
-  4. Configured + upstream success -> passthrough with `authorization: Bearer`
-     header set to the moon-well access token.
-  5. Configured + upstream failure -> 503 "service unavailable".
-  6. Session JWT rejected with 401 -> refresh token exchanged, request retried.
-  7. Session JWT rejected and refresh fails -> 401 "login expired", tokens dropped.
-  8. Client-supplied authorization header 401 -> passed through without refresh.
+  2. moon-well not configured -> 503 "not configured" (reader stays quiet).
+  3. Configured + upstream success -> passthrough with identity headers and
+     WITHOUT any `authorization` token.
+  4. Configured + upstream failure -> 503 "service unavailable".
+  5. Configured + logged-in user without oidc_subject -> falls back to email only.
 """
 import json
 
@@ -35,9 +36,8 @@ def moonwell_unconfigured(monkeypatch):
     return constants
 
 
-def _post_vocab(client, token=None):
+def _post_vocab(client):
     """POST a sample page-text payload to the proxy endpoint."""
-    headers = {"authorization": "Bearer " + token} if token else {}
     return client.post("/ajax/reading-vocabulary", json={
         "bookId": 7,
         "bookName": "Sample Book",
@@ -45,15 +45,7 @@ def _post_vocab(client, token=None):
         "page": "3/120",
         "cfi": "epubcfi(/6/4!/4/2)",
         "pageText": "A lucky serendipity happened today.",
-    }, headers=headers)
-
-
-def _seed_moonwell_session(client, access_token="stale-access-token",
-                           refresh_token="valid-refresh-token"):
-    """Simulate tokens obtained at OIDC login time."""
-    with client.session_transaction() as sess:
-        sess["moonwell_access_token"] = access_token
-        sess["moonwell_refresh_token"] = refresh_token
+    })
 
 
 def test_requires_login(app):
@@ -63,26 +55,18 @@ def test_requires_login(app):
     assert rv.status_code == 302
 
 
-def test_returns_401_without_moonwell_jwt(admin_client, moonwell_configured):
-    """No moon-well JWT in session/header -> authorization required."""
+def test_returns_503_when_not_configured(admin_client, moonwell_unconfigured):
+    """Without moon-well config the proxy answers 503 and stays quiet (no token
+    gate anymore — 互调已改内网纯信任)。"""
     rv = _post_vocab(admin_client)
-    assert rv.status_code == 401
+    assert rv.status_code == 503
     body = rv.get_json()
     assert body["success"] is False
-    assert "authorization is required" in body["message"]
-
-
-def test_returns_401_when_not_configured(admin_client, moonwell_unconfigured):
-    """Without moon-well config the proxy answers 401 and stays quiet."""
-    rv = _post_vocab(admin_client, token="session-token")
-    assert rv.status_code == 401
-    body = rv.get_json()
-    assert body["success"] is False
-    assert "authorization is required" in body["message"]
+    assert "moon-well is not configured" in body["message"]
 
 
 def test_proxies_successfully(admin_client, moonwell_configured, monkeypatch):
-    """Happy path: payload is forwarded with authorization header, response passed back."""
+    """Happy path: payload is forwarded over internal trust WITHOUT any token."""
     import requests
 
     captured = {}
@@ -102,19 +86,65 @@ def test_proxies_successfully(admin_client, moonwell_configured, monkeypatch):
 
     monkeypatch.setattr(requests, "post", fake_post)
 
-    rv = _post_vocab(admin_client, token="moonwell-jwt-abc")
+    rv = _post_vocab(admin_client)
     assert rv.status_code == 200
     body = rv.get_json()
     assert body["result"][0]["word"] == "serendipity"
 
-    # JWT 只随 authorization header 传递，绝不出现在请求体中
-    assert captured["headers"]["authorization"] == "Bearer moonwell-jwt-abc"
-    assert "authorization" not in captured["json"]
-    # Token must not leak into the response either.
-    assert "moonwell-jwt-abc" not in rv.get_data(as_text=True)
     assert captured["url"].endswith("/vocabulary/reading/analyze")
+    # 内网纯信任：绝不携带 authorization 头；改携 OIDC 身份标识
+    # （本测试 admin 是无 OIDC 的本地账号，故只有 email 回退头）
+    assert "authorization" not in captured["headers"]
+    assert "X-User-Subject" not in captured["headers"]
+    assert captured["headers"].get("X-User-Email"), "must carry identity email header"
     # moon-well 是内网服务：必须显式绕过环境代理（http_proxy 会让内网请求 503）
     assert captured["proxies"] == {"http": None, "https": None}
+
+
+def test_proxies_forwards_oidc_subject(app, moonwell_configured, monkeypatch):
+    """OIDC 用户：出站同时携带 X-User-Subject，供 moon-well 按 subject 定位同一账户。"""
+    import requests
+
+    from cps import ub
+    from cps import constants
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = json.dumps({"result": [{"word": "serendipity", "unknown": True}]})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["headers"] = headers
+        return FakeResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    # 构造一个带 oidc_subject 的本地账号并通过表单登录（走真实登录链路）
+    from werkzeug.security import generate_password_hash
+    user = ub.session.query(ub.User).filter(ub.User.oidc_subject == "oidc-1").first()
+    if user is None:
+        user = ub.User(name="oidc-tester", email="oidc-1@example.com",
+                       role=constants.ADMIN_USER_ROLES,
+                       password=generate_password_hash("oidc-pass"),
+                       oidc_issuer="https://auth.example", oidc_subject="oidc-1")
+        ub.session.add(user)
+        ub.session.commit()
+    else:
+        user.password = generate_password_hash("oidc-pass")
+        ub.session.commit()
+
+    client = app.test_client()
+    rv = client.post("/login", data={"username": "oidc-tester",
+                                     "password": "oidc-pass"})
+    assert rv.status_code == 302, f"OIDC user login failed: {rv.status_code}"
+
+    rv = _post_vocab(client)
+    assert rv.status_code == 200
+    assert captured["headers"]["X-User-Subject"] == "oidc-1"
+    assert captured["headers"].get("X-User-Email")
+    assert "authorization" not in captured["headers"]
 
 
 def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured,
@@ -127,124 +157,11 @@ def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured
 
     monkeypatch.setattr(requests, "post", fake_post)
 
-    rv = _post_vocab(admin_client, token="moonwell-jwt-abc")
+    rv = _post_vocab(admin_client)
     assert rv.status_code == 503
     body = rv.get_json()
     assert body["success"] is False
     assert "service unavailable" in body["message"]
-
-
-def test_refreshes_session_token_on_401(admin_client, moonwell_configured,
-                                        monkeypatch):
-    """会话 access token 过期（401）时自动用 refresh token 换新并重试一次。
-
-    moon-well access token 有效期 7 天且仅在 OIDC 登录时颁发，不刷新的话
-    阅读词汇功能每 7 天就会静默 401，用户必须重新登录。
-    """
-    import requests
-
-    calls = []
-
-    class FakeUnauthorized:
-        status_code = 401
-        text = json.dumps({"code": 401, "message": "token invalid"})
-        headers = {"Content-Type": "application/json"}
-
-    class FakeRefreshResponse:
-        status_code = 200
-        text = json.dumps({"result": {"accessToken": "fresh-access-token",
-                                      "refreshToken": "fresh-refresh-token"}})
-        headers = {"Content-Type": "application/json"}
-
-        def json(self):
-            return json.loads(self.text)
-
-    class FakeRefreshed:
-        status_code = 200
-        text = json.dumps({"result": [{"word": "serendipity", "unknown": True}]})
-        headers = {"Content-Type": "application/json"}
-
-    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
-        calls.append({"url": url, "json": json, "headers": headers})
-        if url.endswith("/auth/refreshToken"):
-            return FakeRefreshResponse()
-        if len(calls) == 1:
-            return FakeUnauthorized()
-        return FakeRefreshed()
-
-    monkeypatch.setattr(requests, "post", fake_post)
-    _seed_moonwell_session(admin_client)
-
-    rv = _post_vocab(admin_client)
-    assert rv.status_code == 200
-    body = rv.get_json()
-    assert body["result"][0]["word"] == "serendipity"
-
-    # 第一次用过期令牌，刷新后用新令牌重试
-    assert calls[0]["headers"]["authorization"] == "Bearer stale-access-token"
-    assert calls[0]["url"].endswith("/vocabulary/reading/analyze")
-    assert calls[1]["url"].endswith("/auth/refreshToken")
-    assert calls[1]["json"] == {"refreshToken": "valid-refresh-token"}
-    assert calls[2]["headers"]["authorization"] == "Bearer fresh-access-token"
-
-    # 会话中的令牌已更新，后续请求无需再刷新
-    with admin_client.session_transaction() as sess:
-        assert sess["moonwell_access_token"] == "fresh-access-token"
-        assert sess["moonwell_refresh_token"] == "fresh-refresh-token"
-
-
-def test_returns_401_when_refresh_fails(admin_client, moonwell_configured,
-                                        monkeypatch):
-    """refresh token 也失效时返回 401 提示重新登录，并清空会话令牌。"""
-    import requests
-
-    class FakeUnauthorized:
-        status_code = 401
-        text = json.dumps({"code": 401, "message": "token invalid"})
-        headers = {"Content-Type": "application/json"}
-
-    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
-        return FakeUnauthorized()
-
-    monkeypatch.setattr(requests, "post", fake_post)
-    _seed_moonwell_session(admin_client)
-
-    rv = _post_vocab(admin_client)
-    assert rv.status_code == 401
-    body = rv.get_json()
-    assert body["success"] is False
-    assert "sign in again" in body["message"]
-
-    with admin_client.session_transaction() as sess:
-        assert "moonwell_access_token" not in sess
-        assert "moonwell_refresh_token" not in sess
-
-
-def test_client_token_401_is_passed_through_without_refresh(admin_client,
-                                                            moonwell_configured,
-                                                            monkeypatch):
-    """客户端自带 authorization 头时令牌生命周期由客户端自管，401 原样透传。"""
-    import requests
-
-    calls = []
-
-    class FakeUnauthorized:
-        status_code = 401
-        text = json.dumps({"code": 401, "message": "token invalid"})
-        headers = {"Content-Type": "application/json"}
-
-    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
-        calls.append(url)
-        return FakeUnauthorized()
-
-    monkeypatch.setattr(requests, "post", fake_post)
-    _seed_moonwell_session(admin_client)
-
-    rv = _post_vocab(admin_client, token="client-managed-token")
-    assert rv.status_code == 401
-    # 只有一次上游调用：没有触发 refresh（refresh 会调用 /auth/refreshToken）
-    assert len(calls) == 1
-    assert calls[0].endswith("/vocabulary/reading/analyze")
 
 
 def test_rejects_missing_csrf_when_protection_enabled(app, moonwell_configured):
@@ -343,7 +260,7 @@ def test_translate_batch_forwards_book_context(admin_client, moonwell_configured
         "paragraphs": ["One paragraph."],
         "bookName": "b" * 300,
         "chapter": "  Chapter 3  ",
-    }, headers={"authorization": "Bearer moonwell-jwt-abc"})
+    })
     assert rv.status_code == 200
 
     payload = captured["json"]
@@ -410,11 +327,10 @@ def test_bar_ui_bookmark_requests_carry_csrf_token():
 
 # ################################### /ajax/reading-word-mark（划词气泡 ＋/－ 标记） ###
 
-def _post_mark(client, word="serendipity", unknown=True, token=None):
+def _post_mark(client, word="serendipity", unknown=True):
     """POST a word-mark payload to the proxy endpoint."""
-    headers = {"authorization": "Bearer " + token} if token else {}
     return client.post("/ajax/reading-word-mark",
-                       json={"word": word, "unknown": unknown}, headers=headers)
+                       json={"word": word, "unknown": unknown})
 
 
 class _FakeMoonwellGet:
@@ -427,15 +343,6 @@ def test_word_mark_requires_login(app):
     """Anonymous marking requests must be redirected to the login page."""
     rv = _post_mark(app.test_client())
     assert rv.status_code == 302
-
-
-def test_word_mark_returns_401_without_moonwell_jwt(admin_client, moonwell_configured):
-    """No moon-well JWT in session/header -> authorization required."""
-    rv = _post_mark(admin_client)
-    assert rv.status_code == 401
-    body = rv.get_json()
-    assert body["success"] is False
-    assert "authorization is required" in body["message"]
 
 
 def test_word_mark_rejects_invalid_words(admin_client, moonwell_configured):
@@ -463,8 +370,7 @@ def test_word_mark_rejects_invalid_words(admin_client, moonwell_configured):
         {"word": "'apple", "unknown": True},
     ]
     for payload in bad_payloads:
-        rv = admin_client.post("/ajax/reading-word-mark", json=payload,
-                               headers={"authorization": "Bearer moonwell-jwt-abc"})
+        rv = admin_client.post("/ajax/reading-word-mark", json=payload)
         assert rv.status_code == 400, f"{payload!r} must be rejected with 400"
         body = rv.get_json()
         assert body["success"] is False
@@ -487,12 +393,13 @@ def test_word_mark_normalizes_word_and_proxies_unknown(admin_client,
 
     monkeypatch.setattr(requests, "get", fake_get)
 
-    rv = _post_mark(admin_client, word="Apple\u2019s", unknown=True,
-                    token="moonwell-jwt-abc")
+    rv = _post_mark(admin_client, word="Apple\u2019s", unknown=True)
     assert rv.status_code == 200
     # 归一化：弯撇号 → 直撇号，大写 → 小写，再 URL 编码进 path
     assert captured["url"].endswith("/vocabulary/unknown/apple%27s")
-    assert captured["headers"]["authorization"] == "Bearer moonwell-jwt-abc"
+    # 内网纯信任：不携带 authorization，改携身份头
+    assert "authorization" not in captured["headers"]
+    assert captured["headers"].get("X-User-Email")
     # moon-well 是内网服务：必须显式绕过环境代理
     assert captured["proxies"] == {"http": None, "https": None}
 
@@ -509,8 +416,7 @@ def test_word_mark_proxies_known(admin_client, moonwell_configured, monkeypatch)
 
     monkeypatch.setattr(requests, "get", fake_get)
 
-    rv = _post_mark(admin_client, word="serendipity", unknown=False,
-                    token="moonwell-jwt-abc")
+    rv = _post_mark(admin_client, word="serendipity", unknown=False)
     assert rv.status_code == 200
     assert captured["url"].endswith("/vocabulary/known/serendipity")
 
@@ -526,56 +432,11 @@ def test_word_mark_returns_503_when_upstream_unavailable(admin_client,
 
     monkeypatch.setattr(requests, "get", fake_get)
 
-    rv = _post_mark(admin_client, token="moonwell-jwt-abc")
+    rv = _post_mark(admin_client)
     assert rv.status_code == 503
     body = rv.get_json()
     assert body["success"] is False
     assert "service unavailable" in body["message"]
-
-
-def test_word_mark_refreshes_session_token_on_401(admin_client, moonwell_configured,
-                                                  monkeypatch):
-    """GET 转发同样支持会话令牌 401 自动刷新重试（_moonwell_proxy 的 GET 分支）。"""
-    import requests
-
-    calls = []
-
-    class FakeUnauthorized:
-        status_code = 401
-        text = json.dumps({"code": 401, "message": "token invalid"})
-        headers = {"Content-Type": "application/json"}
-
-    class FakeRefreshResponse:
-        status_code = 200
-        text = json.dumps({"result": {"accessToken": "fresh-access-token",
-                                      "refreshToken": "fresh-refresh-token"}})
-        headers = {"Content-Type": "application/json"}
-
-        def json(self):
-            return json.loads(self.text)
-
-    def fake_get(url, headers=None, timeout=None, proxies=None):
-        calls.append({"url": url, "headers": headers})
-        if len(calls) == 1:
-            return FakeUnauthorized()
-        return _FakeMoonwellGet()
-
-    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
-        calls.append({"url": url, "json": json})
-        return FakeRefreshResponse()
-
-    monkeypatch.setattr(requests, "get", fake_get)
-    monkeypatch.setattr(requests, "post", fake_post)
-    _seed_moonwell_session(admin_client)
-
-    rv = _post_mark(admin_client)
-    assert rv.status_code == 200
-
-    # 第一次用过期令牌 GET，刷新后用新令牌重试 GET
-    assert calls[0]["url"].endswith("/vocabulary/unknown/serendipity")
-    assert calls[0]["headers"]["authorization"] == "Bearer stale-access-token"
-    assert calls[1]["url"].endswith("/auth/refreshToken")
-    assert calls[2]["headers"]["authorization"] == "Bearer fresh-access-token"
 
 
 def test_word_mark_request_carries_csrf_token_contract(app, moonwell_configured):
@@ -670,28 +531,23 @@ def test_ai_chat_js_escape_closes_drawer():
 
 def _post_annotation_create(client, paragraph="The moon is a friendless place.",
                             content="这段写得很孤独", book_name="Sample Book",
-                            chapter="Chapter 3", token="moonwell-jwt-abc"):
-    headers = {"authorization": "Bearer " + token} if token else {}
+                            chapter="Chapter 3"):
     return client.post("/ajax/reading-annotation-create", json={
         "paragraph": paragraph, "content": content,
         "bookName": book_name, "chapter": chapter,
-    }, headers=headers)
+    })
 
 
 def _post_annotation_list_by_paragraph(client,
-                                       paragraph="The moon is a friendless place.",
-                                       token="moonwell-jwt-abc"):
-    headers = {"authorization": "Bearer " + token} if token else {}
+                                       paragraph="The moon is a friendless place."):
     return client.post("/ajax/reading-annotation-list-by-paragraph",
-                       json={"paragraph": paragraph}, headers=headers)
+                       json={"paragraph": paragraph})
 
 
-def _post_annotation_list_by_book(client, book_name="Sample Book",
-                                  chapter=None, token="moonwell-jwt-abc"):
-    headers = {"authorization": "Bearer " + token} if token else {}
+def _post_annotation_list_by_book(client, book_name="Sample Book", chapter=None):
     return client.post("/ajax/reading-annotation-list-by-book", json={
         "bookName": book_name, "chapter": chapter,
-    }, headers=headers)
+    })
 
 
 def test_annotation_create_requires_login(app):
@@ -724,7 +580,7 @@ def test_annotation_create_proxies_to_moonwell(admin_client, moonwell_configured
                                                monkeypatch):
     """创建批注：转发 /reading/annotation/create；段落/内容 trim（与翻译/朗读
     链路同归一化，命中同一段落 ES 文档），书名/章节截断 200；署名与批注时间
-    由 moon-well 从 JWT 用户取，代理不注入身份字段。"""
+    由 moon-well 凭 OIDC 身份头取，代理不注入身份字段。"""
     import requests
 
     captured = {}
@@ -756,7 +612,9 @@ def test_annotation_create_proxies_to_moonwell(admin_client, moonwell_configured
     assert payload["content"] == "这段写得很孤独"
     assert len(payload["bookName"]) == 200
     assert payload["chapter"] == "Chapter 3"
-    assert captured["headers"]["authorization"] == "Bearer moonwell-jwt-abc"
+    # 内网纯信任：不携带 authorization，改携 OIDC 身份头
+    assert "authorization" not in captured["headers"]
+    assert captured["headers"].get("X-User-Email")
     # 内网服务绕过环境代理（与其他阅读代理一致）
     assert captured["proxies"] == {"http": None, "https": None}
 

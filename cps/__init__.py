@@ -233,4 +233,11 @@ def create_app():
     register_scheduled_tasks(config.schedule_reconnect)
     register_startup_tasks()
 
+    # Nacos 服务注册/发现（后台 daemon 线程，不阻塞启动）
+    try:
+        from .nacos_client import nacos
+        nacos.start()
+    except Exception as e:
+        log.warning('Nacos discovery start failed: {}'.format(e))
+
     return app

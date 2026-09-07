@@ -320,38 +320,17 @@ def reading_translate_book():
 def reading_translate_book_status():
     payload = request.get_json(silent=True) or {}
     try:
-        return jsonify(whole_book_translation_service.get_progress(str(payload.get("job_id"))))
+        # 去回调化：查询进度时对未完成项单向查 moon-well 缓存，懒回收完成状态。
+        def lookup(paragraphs):
+            response = _moonwell_proxy("/reading/paragraph-cache/find-translations",
+                                       {"paragraphs": paragraphs}, 20, "translation cache")
+            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
+                return {}
+            data = json.loads(response[0])
+            return data.get("result", {}) if isinstance(data, dict) else {}
+        return jsonify(whole_book_translation_service.get_progress(str(payload.get("job_id")), lookup))
     except ValueError as error:
         return jsonify({"success": False, "message": str(error)}), 404
-
-
-@csrf.exempt
-@web.route("/internal/reading-translation/task-completed", methods=["POST"])
-def reading_translation_task_completed():
-    """Receive an authenticated moon-well completion callback and cache output."""
-    if not constants.MAGICBOOK_INTEGRATION_TOKEN or request.headers.get("X-Internal-Token") != constants.MAGICBOOK_INTEGRATION_TOKEN:
-        return jsonify({"success": False, "message": "internal authorization required"}), 401
-    payload = request.get_json(silent=True) or {}
-
-    def save_cache(paragraph, translation, book_name, chapter):
-        try:
-            response = requests.post(
-                constants.MOON_WELL_READING_URL.rstrip("/") + "/reading/paragraph-cache/save-translation",
-                json={"paragraph": paragraph, "translation": translation,
-                      "bookName": book_name or "", "chapter": chapter or ""},
-                headers={"X-Internal-Token": constants.MAGICBOOK_INTEGRATION_TOKEN},
-                timeout=20, proxies=_MOONWELL_NO_PROXY)
-            if response.status_code < 200 or response.status_code >= 300:
-                return False
-            body = response.json()
-            return bool(body.get("result")) if isinstance(body, dict) else False
-        except (requests.RequestException, ValueError):
-            return False
-
-    try:
-        return jsonify(whole_book_translation_service.complete(payload, save_cache))
-    except ValueError as error:
-        return jsonify({"success": False, "message": str(error)}), 400
 
 
 @web.route("/ajax/reading-translate-book/retry", methods=["POST"])
@@ -381,54 +360,61 @@ def reading_translate_book_cancel():
         return jsonify({"success": False, "message": str(error)}), 400
 
 
-def _moonwell_session_authorization():
-    access_token = flask_session.get("moonwell_access_token")
-    return "Bearer " + access_token if access_token else None
-
-
 # moon-well 走内网直连（fnos:8082）。进程可能因封面下载等功能携带 http_proxy
 # 环境变量，requests 默认信任它，内网域名会被代理断连导致 503，必须显式绕过。
 _MOONWELL_NO_PROXY = {"http": None, "https": None}
 
 
-def _moonwell_refresh_session_token():
-    """用会话中的 refresh token 换取新的 moon-well access token。
-
-    moon-well 的 access token 有效期 7 天且刷新只发生在重新登录时，
-    不主动续期会导致阅读词汇功能每隔 7 天静默 401。刷新失败时清空
-    会话中的令牌，让阅读器提示重新登录而不是无限重试过期凭据。
-    """
-    refresh_token = flask_session.get("moonwell_refresh_token")
-    if not refresh_token:
-        return None
+def _moonwell_base_url():
+    """moon-well 内网地址：优先 Nacos 发现的实例，回退硬编码 MOON_WELL_READING_URL。"""
     try:
-        response = requests.post(
-            constants.MOON_WELL_READING_URL.rstrip("/") + "/auth/refreshToken",
-            json={"refreshToken": refresh_token}, timeout=8,
-            proxies=_MOONWELL_NO_PROXY)
-        if response.status_code != 200:
-            raise requests.RequestException("refresh returned %s" % response.status_code)
-        result = response.json().get("result", {})
-        access_token = result.get("accessToken")
-        if not access_token:
-            raise requests.RequestException("refresh response missing accessToken")
-        flask_session["moonwell_access_token"] = access_token
-        if result.get("refreshToken"):
-            flask_session["moonwell_refresh_token"] = result["refreshToken"]
-        return access_token
-    except (requests.RequestException, ValueError) as error:
-        log.warning("moon-well token refresh failed: %s", error)
-        flask_session.pop("moonwell_access_token", None)
-        flask_session.pop("moonwell_refresh_token", None)
-        return None
+        from .nacos_client import nacos
+        base = nacos.moonwell_base
+        if base:
+            return base.rstrip("/")
+    except Exception:
+        pass
+    url = constants.MOON_WELL_READING_URL
+    return url.rstrip("/") if url else None
 
 
+def _moonwell_identity_headers():
+    """内网纯信任：携带当前登录用户的 OIDC 身份信息，供 moon-well 定位（或兜底自动建号）同一账户。
+
+    身份头来自 Authentik 认证（本地登录已隐藏），moon-well 可信任：
+      X-User-Subject   —— OIDC subject（主定位键）
+      X-User-Email     —— 按 email 合并存量账号的兜底
+      X-User-Username  —— 自动建号时的首选用户名
+      X-User-Nickname  —— 自动建号时的昵称
+      X-User-Issuer    —— Authentik issuer
+    """
+    headers = {}
+    subject = getattr(current_user, "oidc_subject", None)
+    if subject:
+        headers["X-User-Subject"] = subject
+    email = getattr(current_user, "email", None)
+    if email:
+        headers["X-User-Email"] = email
+    username = getattr(current_user, "name", None)
+    if username:
+        headers["X-User-Username"] = username
+    nickname = getattr(current_user, "nickname", None)
+    if nickname:
+        headers["X-User-Nickname"] = nickname
+    issuer = os.environ.get("AUTHENTIK_ISSUER", "")
+    if issuer:
+        headers["X-User-Issuer"] = issuer.rstrip("/")
+    return headers
+
+
+@web.route("/ajax/reading-annotation-create", methods=["POST"])
+@user_login_required
 def reading_annotation_create():
     """Proxy paragraph annotation creation to moon-well.
 
     批注与段落缓存（翻译/音频）落在 moon-well 同一 ES 文档；paragraph
     必须与翻译/朗读链路相同的归一化文本（trim + 压缩空白，≤2000），
-    才能命中同一段落文档。署名与时间由 moon-well 从 JWT 用户取，客户端不可传。
+    才能命中同一段落文档。署名与时间由 moon-well 凭 OIDC 身份头取，客户端不可传。
     """
     payload = request.get_json(silent=True) or {}
     paragraph_value = payload.get("paragraph")
@@ -519,37 +505,30 @@ def reading_word_mark():
 
 
 def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST"):
-    """转发阅读相关请求到 moon-well，会话令牌过期时自动刷新重试一次。
+    """转发阅读相关请求到 moon-well（内网纯信任，不带鉴权 token）。
 
-    客户端自带 authorization 头时直接透传（令牌生命周期由客户端自管），
-    401 原样返回；使用会话令牌时才走刷新重试。
+    通过 X-User-Subject / X-User-Email 携带当前用户身份标识，供 moon-well
+    定位同一账户；不再依赖/刷新任何 moon-well token。
     binary=True 时按原始字节透传响应体（音频），而非解码为文本。
     method="GET" 时以 GET 转发且不带请求体（moon-well 的 known/unknown
     标记接口是 path 参数式 GET，无 JSON body）。
     """
-    base = constants.MOON_WELL_READING_URL.rstrip("/")
-    client_authorization = request.headers.get("authorization")
-    authorization = client_authorization or _moonwell_session_authorization()
-    if not base or not authorization:
-        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
+    base = _moonwell_base_url()
+    if not base:
+        return jsonify({"success": False, "message": "moon-well is not configured"}), 503
 
-    def _send(auth):
+    headers = _moonwell_identity_headers()
+
+    def _send():
         # GET 路径（标记接口）无请求体；POST 保持 json payload
         if method == "GET":
-            return requests.get(base + path, headers={"authorization": auth},
+            return requests.get(base + path, headers=headers,
                                 timeout=timeout, proxies=_MOONWELL_NO_PROXY)
-        return requests.post(base + path, json=payload,
-                             headers={"authorization": auth}, timeout=timeout,
-                             proxies=_MOONWELL_NO_PROXY)
+        return requests.post(base + path, json=payload, headers=headers,
+                             timeout=timeout, proxies=_MOONWELL_NO_PROXY)
 
     try:
-        response = _send(authorization)
-        if response.status_code == 401 and not client_authorization:
-            access_token = _moonwell_refresh_session_token()
-            if not access_token:
-                return jsonify({"success": False,
-                                "message": "moon-well login expired, please sign in again"}), 401
-            response = _send("Bearer " + access_token)
+        response = _send()
         body = response.content if binary else response.text
         return (body, response.status_code,
                 {"Content-Type": response.headers.get("Content-Type", "application/json")})
@@ -1710,14 +1689,16 @@ def render_login(username="", password=""):
     next_url = request.args.get('next', default=url_for("web.index"), type=str)
     if url_for("web.logout") == next_url:
         next_url = url_for("web.index")
+    oidc_enabled = current_app.config.get("AUTHENTIK_OIDC_ENABLED", False)
     return render_title_template('login.html',
                                  title=_("Login"),
                                  next_url=next_url,
-                                 config=config,
                                  username=username,
                                  password=password,
                                  oauth_check=oauth_check,
-                                 authentik_oidc_enabled=current_app.config.get("AUTHENTIK_OIDC_ENABLED", False),
+                                 authentik_oidc_enabled=oidc_enabled,
+                                 # 统一账户体系：Authentik 启用时隐藏本地密码表单，仅保留 OIDC 登录
+                                 hide_local_login=oidc_enabled,
                                  mail=config.get_mail_server_configured(), page="login")
 
 
@@ -1742,6 +1723,12 @@ def login_post():
     if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
         log.error(u"Cannot activate LDAP authentication")
         flash(_(u"Cannot activate LDAP authentication"), category="error")
+    # 统一账户体系：Authentik 启用后本地密码登录被禁用（含 forgot 找回），仅走 OIDC。
+    # 关闭 OIDC 配置（AUTHENTIK_* 环境变量）即降级回本地登录，保留管理员恢复通道。
+    if current_app.config.get("AUTHENTIK_OIDC_ENABLED", False):
+        log.info('Local login disabled (Authentik OIDC enabled), redirecting user "%s" to OIDC', username)
+        flash(_(u"Local password login is disabled; please log in with Authentik"), category="info")
+        return redirect(url_for("oidc.login", next=request.form.get("next", "")))
     user = ub.session.query(ub.User).filter(func.lower(ub.User.name) == username).first()
     remember_me = bool(form.get('remember_me'))
     if config.config_login_type == constants.LOGIN_LDAP and services.ldap and user and form['password'] != "":
