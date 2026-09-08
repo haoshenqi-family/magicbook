@@ -37,6 +37,7 @@
       <a class="btn btn-default" href="{{url_for('web.index')}}">{{ _('Home') }}</a>
       {% endif %}
     {%endif%}
+    {% endif %}
     {% if config.config_remote_login %}
     <a href="{{url_for('remotelogin.remote_login')}}" id="remote_login" class="pull-right">{{_('Log in with Magic Link')}}</a>
     {% endif %}
