@@ -141,6 +141,29 @@ def callback():
         user.oidc_subject = subject
         ub.session.commit()
     login_user(user, remember=True)
-    # 与 moon-well 的互调已改为内网纯信任（web._moonwell_identity_headers
-    # 携带 OIDC subject 定位同一账户），不再在此交换 moon-well token。
+
+    # 用 Authentik id_token 向 moon-well 换取 access_token，
+    # 存入 session 供阅读器代理接口透传 Authorization: Bearer。
+    if id_token:
+        moonwell_url = os.getenv("MOON_WELL_READING_URL", "").rstrip("/")
+        if moonwell_url:
+            try:
+                resp = requests.post(
+                    moonwell_url + "/auth/oidc/exchange",
+                    json={"id_token": id_token},
+                    timeout=8,
+                    proxies={"http": None, "https": None},
+                )
+                if resp.ok:
+                    data = resp.json()
+                    result = data.get("result") or {}
+                    access_token = result.get("accessToken") or result.get("access_token")
+                    refresh_token = result.get("refreshToken") or result.get("refresh_token")
+                    if access_token:
+                        session["moonwell_access_token"] = access_token
+                    if refresh_token:
+                        session["moonwell_refresh_token"] = refresh_token
+            except Exception:
+                pass  # 交换失败不阻断登录，阅读功能降级为不可用
+
     return redirect(session.pop("oidc_next", url_for("web.index")))

@@ -498,10 +498,10 @@ def reading_word_mark():
 
 
 def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST"):
-    """转发阅读相关请求到 moon-well（内网纯信任，不带鉴权 token）。
+    """转发阅读相关请求到 moon-well。
 
-    通过 X-User-Subject / X-User-Email 携带当前用户身份标识，供 moon-well
-    定位同一账户；不再依赖/刷新任何 moon-well token。
+    鉴权方式：session 中的 moonwell_access_token 透传为 Authorization: Bearer，
+    同时携带 OIDC 身份头供 moon-well 定位（或兜底自动建号）同一账户。
     binary=True 时按原始字节透传响应体（音频），而非解码为文本。
     method="GET" 时以 GET 转发且不带请求体（moon-well 的 known/unknown
     标记接口是 path 参数式 GET，无 JSON body）。
@@ -511,9 +511,11 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST"):
         return jsonify({"success": False, "message": "moon-well is not configured"}), 503
 
     headers = _moonwell_identity_headers()
+    token = flask_session.get("moonwell_access_token")
+    if token:
+        headers["authorization"] = "Bearer " + token
 
     def _send():
-        # GET 路径（标记接口）无请求体；POST 保持 json payload
         if method == "GET":
             return requests.get(base + path, headers=headers,
                                 timeout=timeout, proxies=_MOONWELL_NO_PROXY)
@@ -522,12 +524,50 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST"):
 
     try:
         response = _send()
+        # 会话令牌过期时自动刷新并重试一次
+        if response.status_code == 401 and token:
+            refreshed = _moonwell_refresh_session_token()
+            if refreshed:
+                headers["authorization"] = "Bearer " + refreshed
+                response = _send()
         body = response.content if binary else response.text
         return (body, response.status_code,
                 {"Content-Type": response.headers.get("Content-Type", "application/json")})
     except requests.RequestException as error:
         log.warning("moon-well %s request failed: %s", path, error)
         return jsonify({"success": False, "message": label + " service unavailable"}), 503
+
+
+def _moonwell_refresh_session_token():
+    """用 session 中的 refresh_token 换取新的 access_token，失败则清空。"""
+    refresh_token = flask_session.get("moonwell_refresh_token")
+    if not refresh_token:
+        return None
+    base = _moonwell_base_url()
+    if not base:
+        return None
+    try:
+        resp = requests.post(
+            base + "/auth/refreshToken",
+            json={"refreshToken": refresh_token},
+            timeout=8,
+            proxies=_MOONWELL_NO_PROXY,
+        )
+        if resp.ok:
+            data = resp.json()
+            result = data.get("result") or {}
+            new_access = result.get("accessToken") or result.get("access_token")
+            new_refresh = result.get("refreshToken") or result.get("refresh_token")
+            if new_access:
+                flask_session["moonwell_access_token"] = new_access
+                if new_refresh:
+                    flask_session["moonwell_refresh_token"] = new_refresh
+                return new_access
+    except Exception:
+        pass
+    flask_session.pop("moonwell_access_token", None)
+    flask_session.pop("moonwell_refresh_token", None)
+    return None
 
 
 '''

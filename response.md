@@ -526,3 +526,25 @@
 ### 冲突记录
 
 - 无。
+
+---
+
+## 2026-09-08（第三次对话）
+
+### 对 requests 的回应
+
+- **R35（修复登录后 /ajax/reading-vocabulary 返回 401）**：已完成。
+  - **根因**：moon-well 要求 `Authorization: Bearer <JWT>` 鉴权，但 `oidc.py` callback 中 token 交换已被移除（注释"不再在此交换 moon-well token"），`_moonwell_proxy` 也不携带 `authorization` 头。moon-well 返回 401「未登录」。
+  - **修复**：
+    - `oidc.py` callback：登录成功后用 Authentik `id_token` 调 moon-well `POST /auth/oidc/exchange` 换取 `access_token` + `refresh_token`，存入 Flask session。
+    - `web.py` `_moonwell_proxy`：从 session 读取 token 携带 `Authorization: Bearer` 头；收到 401 时自动调 `/auth/refreshToken` 刷新并重试一次。
+  - **验证**：`py_compile` 通过；`test_oidc.py` **6/6 通过**；服务正常启动，`/login` 返回 200。
+
+### 总结
+
+- **requests.md**：新增 R35，记录 reading-vocabulary 401 问题。
+- **response.md**：记录根因（token 交换被移除 + proxy 无 Bearer 头）与修复方案。
+
+### 冲突记录
+
+- 无。
