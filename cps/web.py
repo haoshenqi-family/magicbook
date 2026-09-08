@@ -221,7 +221,7 @@ def update_view():
 @user_login_required
 def reading_vocabulary():
     """Proxy the reader's word context using the caller's moon-well JWT."""
-    # 15s 超时容忍 moon-well 冷启动（重启后首次连接 ES/Nacos）的临时慢响应
+    # 15s 超时容忍 moon-well 重启后首次连接 ES 的临时慢响应
     return _moonwell_proxy("/vocabulary/reading/analyze",
                            request.get_json(silent=True) or {}, 15,
                            "reading vocabulary")
@@ -366,14 +366,7 @@ _MOONWELL_NO_PROXY = {"http": None, "https": None}
 
 
 def _moonwell_base_url():
-    """moon-well 内网地址：优先 Nacos 发现的实例，回退硬编码 MOON_WELL_READING_URL。"""
-    try:
-        from .nacos_client import nacos
-        base = nacos.moonwell_base
-        if base:
-            return base.rstrip("/")
-    except Exception:
-        pass
+    """Return the configured moon-well internal endpoint."""
     url = constants.MOON_WELL_READING_URL
     return url.rstrip("/") if url else None
 

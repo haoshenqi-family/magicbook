@@ -140,18 +140,6 @@ DEFAULT_MAIL_SERVER = "mail.example.org"
 DEFAULT_PASSWORD    = "admin123"  # nosec
 DEFAULT_PORT        = 8083
 MOON_WELL_READING_URL = os.environ.get('MOON_WELL_READING_URL', '')
-
-# Nacos 服务注册/发现：与 moon-well 互调时替代硬编码地址
-NACOS_SERVER_ADDR     = os.environ.get('NACOS_SERVER_ADDR', '')
-NACOS_USERNAME        = os.environ.get('NACOS_USERNAME', '')
-NACOS_PASSWORD        = os.environ.get('NACOS_PASSWORD', '')
-NACOS_NAMESPACE       = os.environ.get('NACOS_NAMESPACE', '')
-NACOS_SERVICE_NAME    = os.environ.get('NACOS_SERVICE_NAME', 'magicbook')
-NACOS_REGISTER_IP     = os.environ.get('NACOS_REGISTER_IP', '')
-NACOS_REGISTER_PORT   = os.environ.get('NACOS_REGISTER_PORT', '8083')
-NACOS_REFRESH_SECONDS = os.environ.get('NACOS_REFRESH_SECONDS', '15')
-NACOS_DISCOVERY_ENABLED = os.environ.get('NACOS_DISCOVERY_ENABLED', 'true')
-MOON_WELL_DISCOVERY_SCHEME = os.environ.get('MOON_WELL_DISCOVERY_SCHEME', 'http')
 env_CALIBRE_PORT = os.environ.get("CALIBRE_PORT", DEFAULT_PORT)
 try:
     DEFAULT_PORT = int(env_CALIBRE_PORT)

@@ -71,3 +71,8 @@
 ## 2026-09-03
 
 32. 更新前端 magicbook，添加阅读器段落批注相关功能。
+
+## 2026-09-08
+
+33. 移除 magicbook 对 Nacos 的依赖。
+34. 修复 joserfc 与 cryptography 依赖问题，使服务正常启动。

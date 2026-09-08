@@ -500,3 +500,29 @@
 ### 冲突记录
 
 - 无。
+
+---
+
+## 2026-09-08
+
+### 对 requests 的回应
+
+- **R33（移除 magicbook 对 Nacos 的依赖）**：已完成。
+  - 删除 `nacos-sdk-python` 依赖、`cps/nacos_client.py` 及应用启动时的 Nacos 注册/发现逻辑。
+  - 删除 `NACOS_*`、`MOON_WELL_DISCOVERY_SCHEME` 配置项；moon-well 调用统一使用 `MOON_WELL_READING_URL`。
+  - 保留现有 moon-well 请求代理、JWT/会话鉴权与内网直连逻辑不变。
+  - `py_compile` 与差异检查通过；启动验证继续被当前环境缺失的 `joserfc` 阻断，该问题与 Nacos 移除无关。
+
+- **R34（修复 joserfc 与 cryptography 依赖问题）**：已完成。
+  - **根因**：`cps/oidc.py` 无条件导入 `joserfc`（用于 RS256/JWKS 验签），但 `requirements.txt` 和 `pyproject.toml` 均未声明该依赖；当前机器系统 `cryptography==2.8`（`/usr/lib`）覆盖了 `>=39` 的声明，`joserfc` 无法导入。
+  - **修复**：补齐 `requirements.txt` 和 `pyproject.toml` 中 `joserfc>=1.0.0,<2.0.0` 声明；本机执行 `pip install --force-reinstall 'cryptography>=39,<48' 'joserfc>=1,<2'`，将 `cryptography` 升至 47.0.0。
+  - **验证**：`./restart.sh` 成功启动（PID 2446058，端口 8085）；`test_oidc.py` **6/6 通过**；阅读测试 setup 错误数量从 30 降至 16（joserfc 阻断已消除，剩余为测试夹具环境问题）。
+
+### 总结
+
+- **requests.md**：新增 R33，记录移除 Nacos 依赖的需求。
+- **response.md**：记录 R33 的删除范围、替代地址配置与验证结果及环境阻断。
+
+### 冲突记录
+
+- 无。

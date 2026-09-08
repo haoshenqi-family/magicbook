@@ -1,6 +1,6 @@
 """Unit tests for the reading-vocabulary proxy endpoint.
 
-moon-well 互调已改为 Nacos 服务发现 + 内网纯信任，不再依赖/刷新 token。
+moon-well 互调使用配置的内网地址与服务端会话鉴权。
 出站请求改携 OIDC 用户身份标识（X-User-Subject / X-User-Email），由
 moon-well 按 subject（回退 email）定位同一账户。
 
