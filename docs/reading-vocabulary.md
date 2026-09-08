@@ -10,6 +10,23 @@ EPUB 阅读器支持在当前可见页面识别英文单词，并将学习上下
 - 每次遇到单词都会保存：单词、句子、用户、书籍 ID/名称、章节、页码、EPUB CFI、学习时间和次数。
 - 历史记录使用 Elasticsearch 的 `reading_vocabulary` 索引保存；原有 `vocabulary` 索引继续提供词汇释义。
 
+## 章节（chapter）正确性
+
+`analyze` 请求中的 `chapter` 取自阅读器标题栏的 `#chapter-title`。曾存在缺陷：epubjs 自带
+`MetaController` 会把作者（creator）一次性写入 `#chapter-title` 且翻页时不更新，导致发送的
+`chapter` 与实际视口章节错位（例如第一章的文本被标记为第三章）。
+
+已修复（`cps/static/js/reading/epub.js`）：
+
+- 初始化时加载书籍 navigation TOC 并递归展平。
+- 在 epubjs `rendered` 事件中，根据当前渲染 section 的 `href` 匹配 TOC 条目，动态更新
+  `#chapter-title` 为真实章节标题；TOC 匹配不到时回退用章节文件名。
+- 初始化时清空 `MetaController` 写入的错误值。
+
+> 2026-09-08 修复后，曾写入错误章节的历史数据已备份并删除
+> （`reading_vocabulary` / `reading_paragraph_cache` 备份至 `*_bak_20260908`），
+> 由前端修复后重新生成。
+
 ## 配置
 
 在 magicbook 进程配置：

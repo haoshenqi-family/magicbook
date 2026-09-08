@@ -66,6 +66,69 @@ var reader;
         } catch (e) {}
     })();
 
+    // Resolve the book's navigation TOC (flattened) so we can map a rendered
+    // section back to its real chapter title. Why: the stock epubjs MetaController
+    // writes the *creator* into #chapter-title and never updates it on paging, which
+    // caused analyze() to send a stale/wrong chapter (e.g. ch.1 text tagged ch.3).
+    let tocItems = [];
+    try {
+        reader.book.loaded.navigation.then(function (nav) {
+            if (nav && nav.toc) {
+                tocItems = flattenToc(nav.toc);
+            }
+        });
+    } catch (e) {}
+
+    // Clear the incorrect value the stock MetaController put into #chapter-title.
+    var chapterTitleEl = document.getElementById('chapter-title');
+    if (chapterTitleEl) {
+        chapterTitleEl.textContent = '';
+    }
+
+    function flattenToc(items) {
+        var out = [];
+        (items || []).forEach(function (item) {
+            if (item && item.href) out.push(item);
+            if (item && item.subitems && item.subitems.length) {
+                out = out.concat(flattenToc(item.subitems));
+            }
+        });
+        return out;
+    }
+
+    // Normalize a section/toc href for reliable matching: drop query/fragment and
+    // strip any leading base path so both sides compare on the same relative path.
+    function normalizeHref(href) {
+        if (!href) return '';
+        return String(href)
+            .replace(/#.*$/, '')
+            .replace(/\?.*$/, '')
+            .replace(/\\/g, '/')
+            .replace(/^[a-z]+:[^/]*\//i, ''); // strip absolute scheme+host base
+    }
+
+    // Update #chapter-title to the label of the section currently being rendered.
+    // Falls back to the section file name when the TOC has no matching entry.
+    function updateChapterTitle(section) {
+        if (!chapterTitleEl || !section) return;
+        var title = '';
+        var href = normalizeHref(section.href);
+        if (href && tocItems.length) {
+            for (var i = 0; i < tocItems.length; i++) {
+                if (normalizeHref(tocItems[i].href) === href) {
+                    title = tocItems[i].label || '';
+                    break;
+                }
+            }
+        }
+        if (!title && href) {
+            // Strip path/extension for a readable fallback (e.g. "chapter01").
+            var name = href.split('/').pop();
+            title = (name || '').replace(/\.[a-zA-Z0-9]+$/, '');
+        }
+        chapterTitleEl.textContent = title || '';
+    }
+
     reader.book.ready.then(() => {
         let locations_key = reader.book.key() + "-locations";
         // Key to persist last-read position for this book in localStorage
@@ -218,6 +281,7 @@ var reader;
     }
 
     reader.rendition.on('rendered', function (section, view) {
+        updateChapterTitle(section);
         var content = view && view.contents;
         if (content && content.document) bindSelectionTranslation(content);
     });
