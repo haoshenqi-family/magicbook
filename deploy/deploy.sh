@@ -34,6 +34,19 @@ check_env() {
     source .env
     set +a
 
+    # ACR 镜像仓库登录（fnOS 面板会重写 ~/.docker/config.json 清掉登录态，
+    # 因此将 docker 配置目录指到独立位置，登录凭据不被覆盖）
+    if [ -n "${ACR_USERNAME:-}" ] && [ -n "${ACR_PASSWORD:-}" ]; then
+        export DOCKER_CONFIG="${ACR_DOCKER_CONFIG:-/etc/docker-acr}"
+        mkdir -p "$DOCKER_CONFIG"
+        log "登录 ACR..."
+        docker login registry.cn-hangzhou.aliyuncs.com \
+            --username "$ACR_USERNAME" --password "$ACR_PASSWORD" >/dev/null 2>&1 \
+            || { error "ACR 登录失败，请检查 .env 中的 ACR_USERNAME / ACR_PASSWORD"; exit 1; }
+    else
+        warn "警告: .env 缺少 ACR_USERNAME / ACR_PASSWORD，跳过自动登录"
+    fi
+
     # 校验书库路径
     if [ ! -d "${CALIBRE_LIBRARY_PATH:-./calibre-library}" ]; then
         warn "书库目录 ${CALIBRE_LIBRARY_PATH:-./calibre-library} 不存在，将自动创建（首次启动需在 /admin/dbconfig 配置）"
