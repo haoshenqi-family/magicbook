@@ -144,26 +144,32 @@ def callback():
 
     # 用 Authentik id_token 向 moon-well 换取 access_token，
     # 存入 session 供阅读器代理接口透传 Authorization: Bearer。
+    log.info("OIDC callback: id_token present=%s, moonwell_url=%s",
+             bool(id_token), os.getenv("MOON_WELL_READING_URL", ""))
     if id_token:
         moonwell_url = os.getenv("MOON_WELL_READING_URL", "").rstrip("/")
         if moonwell_url:
             try:
                 resp = requests.post(
                     moonwell_url + "/auth/oidc/exchange",
-                    json={"id_token": id_token},
+                    json={"idToken": id_token},
                     timeout=8,
                     proxies={"http": None, "https": None},
                 )
-                if resp.ok:
-                    data = resp.json()
-                    result = data.get("result") or {}
-                    access_token = result.get("accessToken") or result.get("access_token")
-                    refresh_token = result.get("refreshToken") or result.get("refresh_token")
-                    if access_token:
-                        session["moonwell_access_token"] = access_token
-                    if refresh_token:
-                        session["moonwell_refresh_token"] = refresh_token
-            except Exception:
-                pass  # 交换失败不阻断登录，阅读功能降级为不可用
+                data = resp.json() if resp.ok else {}
+                result = data.get("result") or {}
+                access_token = result.get("accessToken") or result.get("access_token")
+                refresh_token = result.get("refreshToken") or result.get("refresh_token")
+                if access_token:
+                    session["moonwell_access_token"] = access_token
+                if refresh_token:
+                    session["moonwell_refresh_token"] = refresh_token
+                if not resp.ok or not access_token:
+                    log.warning("moon-well token exchange failed: status=%s body=%s",
+                                resp.status_code, resp.text[:300])
+                else:
+                    log.info("moon-well token exchange OK: token_len=%d", len(access_token))
+            except Exception as exc:
+                log.warning("moon-well token exchange error: %s", exc)
 
     return redirect(session.pop("oidc_next", url_for("web.index")))
