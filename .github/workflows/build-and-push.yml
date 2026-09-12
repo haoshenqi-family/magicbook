@@ -63,6 +63,8 @@ jobs:
             ${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=registry,ref=${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
           cache-to: type=inline
+          provenance: false
+          sbom: false
 
       # 部署与通知步骤暂时停用（secrets 未配置），仅构建并推送镜像
       # - name: Deploy via SSH
