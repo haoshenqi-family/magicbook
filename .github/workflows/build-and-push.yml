@@ -28,6 +28,20 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "==> 构建版本: $VERSION"
 
+      - name: Debug credentials
+        run: |
+          echo "==> Debugging credentials..."
+          echo "Username: ${{ secrets.ALIYUN_USERNAME }}"
+          echo "Password length: ${#{{ secrets.ALIYUN_PASSWORD }} }"
+          if [ -z "${{ secrets.ALIYUN_USERNAME }}" ]; then
+            echo "::error::ALIYUN_USERNAME secret is empty or not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.ALIYUN_PASSWORD }}" ]; then
+            echo "::error::ALIYUN_PASSWORD secret is empty or not set"
+            exit 1
+          fi
+
       - name: Login to Aliyun Registry
         uses: docker/login-action@v4
         with:
