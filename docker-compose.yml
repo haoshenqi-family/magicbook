@@ -1,5 +1,5 @@
 services:
-  calibre-web:
+  magicbook:
     image: registry.cn-hangzhou.aliyuncs.com/magichouse/magicbook:latest
     container_name: magicbook
     restart: unless-stopped

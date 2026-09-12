@@ -47,7 +47,7 @@ cp -r /vol2/Books/* /vol1/docker/magicbook/calibre-library/
 
 ```yaml
 services:
-  calibre-web:
+  magicbook:
     image: registry.cn-hangzhou.aliyuncs.com/magichouse/magicbook:latest
     container_name: magicbook
     restart: unless-stopped
@@ -188,7 +188,7 @@ CALIBRE_PORT=18083
 ### 4. 查看日志
 
 ```bash
-docker-compose logs calibre-web
+docker-compose logs magicbook
 ```
 
 ## 数据备份
