@@ -5,6 +5,18 @@ FROM python:3.11-slim-bookworm AS builder
 RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
     && pip config set global.trusted-host mirrors.aliyun.com
 
+# 安装编译依赖（某些 Python 包需要编译）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    python3-dev \
+    libffi-dev \
+    libssl-dev \
+    libxml2-dev \
+    libxslt1-dev \
+    libldap2-dev \
+    libsasl2-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # 先复制依赖文件，利用 Docker 缓存层
