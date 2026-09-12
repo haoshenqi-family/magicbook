@@ -8,7 +8,7 @@ on:
 env:
   ALIYUN_REGISTRY: registry.cn-hangzhou.aliyuncs.com
   ALIYUN_NAMESPACE: magichouse
-  IMAGE_NAME: calibre-web-ai
+  IMAGE_NAME: magicbook
 
 jobs:
   build:

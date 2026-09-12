@@ -1,7 +1,7 @@
 services:
   calibre-web:
-    image: registry.cn-hangzhou.aliyuncs.com/magichouse/calibre-web-ai:latest
-    container_name: calibre-web-ai
+    image: registry.cn-hangzhou.aliyuncs.com/magichouse/magicbook:latest
+    container_name: magicbook
     restart: unless-stopped
     network_mode: host
     environment:
