@@ -57,7 +57,7 @@ LOG_PATH=./logs
 ```
 宿主机
   └─ docker-compose
-       └─ calibre-web-ai 容器 (:8083)
+       └─ magicbook 容器 (:8083)
             ├─ /calibre-library  ← 挂载 Calibre 书库
             ├─ /config           ← 挂载应用配置 (app.db 等)
             └─ /app/logs         ← 挂载日志
@@ -103,15 +103,15 @@ echo "0.2.0-$(TZ=Asia/Shanghai date '+%Y%m%d.%H%M%S')" > deploy/.snapshot-versio
 
 ```bash
 # 构建镜像
-docker build -t calibre-web-ai:local .
+docker build -t magicbook:local .
 
 # 运行
 docker run -d \
-  --name calibre-web-ai \
+  --name magicbook \
   -p 8083:8083 \
   -v /path/to/calibre-library:/calibre-library \
   -v ./config:/config \
-  calibre-web-ai:local
+  magicbook:local
 ```
 
 ## 与 Traefik 集成（可选）
@@ -132,5 +132,5 @@ http:
     calibre:
       loadBalancer:
         servers:
-          - url: http://calibre-web-ai:8083
+          - url: http://magicbook:8083
 ```
