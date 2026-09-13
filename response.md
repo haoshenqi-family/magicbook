@@ -642,3 +642,17 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **requests.md**：追加 R41（部署后复测仍偶发 500）。
 - **response.md**：记录 R40 修复的部署验证结果（ES 多批落库证据）与偶发 500 的根因（moon-well 被并行操作反复重建、窗口期失败），四条改进建议。未改动代码。
 - **冲突记录**：无。
+
+### R42：reading-vocabulary 偶发 500 真根因——Nacos 覆盖 ES 为公网环回链路，间歇 IOException（moon-well 侧修复）
+
+- **决定性证据（用户提供 500 响应体）**：`{"message":"save reading vocabulary failed","code":500}`——即 `ReadingVocabularyService.analyze` 中 `client.index()` 抛 IOException 被 `catch (IOException)` 包装的异常。同页其他 analyze 成功、ES 落库正常，故障为间歇性。
+- **排查路径**：moon-well 日志成功调用（07:19/07:20/07:32/33 共 8 次全部 201 落库，HP 每页仅 1-2 个超档词，单条写入属正常）与用户稳定 500 矛盾 → `GlobalExceptionHandler` 不打日志吞异常 → 用 magicbook 代理日志改进（R41 建议落地：非 2xx 记录状态码+响应体）拿到响应体 → 定位 ES 写入链路 → **发现容器环境变量（`ELASTICSEARCH_HOST=192.168.31.9` 直连）与运行时行为（`https://es.haoshenqi.top:443`）矛盾** → Nacos 配置中心 `moon-well.yaml`（spring.config.import，优先级高于环境变量）硬编码 `elasticsearch.host: es.haoshenqi.top`。
+- **根因**：moon-well 在 fnos 上访问**同机的 ES**，却经 `fnos → Server2 Traefik(443) → Tailscale → fnos:9200` 的公网环回链路（延迟 165ms vs 直连 0.7ms，且受 Traefik keep-alive/Tailscale 抖动影响）。链路间歇失败时：`findPrevious`/`dictionaryEntry` 等查询类调用被 catch 静默（日志中 `nextWord doesn't exists` 频发即征兆），**唯独 index 写入的 IOException 被包装为 500**——表现为「生词标注偶发失败、翻页/翻译正常」。
+- **修复**：经 Nacos v3 API 更新 `moon-well.yaml` 的 `elasticsearch` 段为直连（`host: 192.168.31.9, port: 9200, scheme: http`），重启 moon-well。验证：重启后 healthy，RestClient 日志已显示 `GET http://192.168.31.9:9200/_cluster/health` 200。修改前配置已备份至 fnos `/vol1/1000/app/moon-well/nacos-moon-well.yaml.bak-es-roundtrip-20260914`。
+- **遗留**：① moon-well `internalUri` 互信路径实测未生效（无 token + X-User-Subject 仍 401），配置绑定待查（Nacos 优先级/绑定问题），不影响主链路（用户走 session token）；② `Result.error` 的 success 恒 true、全局异常处理器无日志，均已列 R41 建议待修；③ Nacos 侧改配置后需重启才对非 @RefreshScope 的 ES client bean 生效。
+
+### 总结（R42 后更新）
+
+- **requests.md**：R41 追加「部署完成后仍 500」。
+- **response.md**：记录 R42 真根因（Nacos 覆盖 ES 为公网环回 → index 间歇 IOException → 500）与修复（Nacos ES 段改直连 + 重启验证），含配置备份位置与三条遗留。
+- **冲突记录**：R41 曾将偶发 500 归因于并行重建窗口期，R42 以响应体证据修正为 Nacos ES 公网环回链路的间歇 IOException；窗口期失败与链路抖动两类 500 并存，R42 修复后者（主因）。
