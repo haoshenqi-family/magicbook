@@ -629,3 +629,16 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **requests.md**：追加 R40（打开 book 50 无法翻页的 IndexSizeError）。
 - **response.md**：记录根因（旧 CFI 越界 → epub.js 显示队列毒化 → 翻页卡死 → 生词标注伴生失效）、三级修复（两级恢复/位置缓存加 index/全局兜底）与本地实测结果。
 - **冲突记录**：无；R39 中「9/9 中断现场不可追溯」的遗留疑问由 R40 的机制解释补齐。
+
+### R41：复测期偶发 500 定位——moon-well 被并行操作反复重建，窗口期请求必然失败（未改动代码）
+
+- **R40 修复部署验证（成功）**：20:34 CI 构建（1m11s）→ app-manager 自动更新 fnos magicbook 容器 → 线上 epub.js 已含修复。用户强刷后翻页恢复正常，多次复测的生词事件在 ES `reading_vocabulary` 全部落库：20:36 目录页 `chapter`×3、20:49 正文 `half`/`edge`、23:13 正文 `edge`/`open`/`back`/`wide`、23:14 正文 `tiny`/`straight`；21:17 用户在 book 16 上也成功标注 19 词。**生词功能修复确认生效。**
+- **「仍然 500」的定位**：用户复测期 `/ajax/reading-vocabulary` 偶发 500。排查发现 fnos 的 moon-well 容器在 23:13:49 与 23:15:24 被 docker compose 连续 replace（`com.docker.compose.replace` 事件，working_dir=/host/app/moon-well），同时 `/book/import-ted` 持续有调用——**有并行会话/自动化正在执行 moon-well 部署与 TED 重导入**。重建窗口期（容器停止→启动→Spring 初始化，约 90 秒）所有代理请求失败，表现为 500/503。窗口外的请求全部成功（23:14:38/40 两次 analyze 成功且事件落库）。moon-well 的 GlobalExceptionHandler 不打日志，故失败实例侧无痕迹。
+- **当前状态**：moon-well 现实例 healthy，无 token analyze 正确返回 401；功能链路完整可用。若并行侧（TED 导入/部署）仍在进行，建议待其完成后再复测，避免撞上下一次重建窗口。
+- **改进建议（另行安排）**：① magicbook `_moonwell_proxy` 对 502/503/504 增加一次短重试（analyze 幂等可安全重试），跨越部署窗口；② moon-well 侧部署如需零中断，走健康检查就绪后再切流量；③ moon-well `GlobalExceptionHandler` 补异常日志（当前吞异常无痕迹，本次排查显著受阻）；④ `Result.error` 生成的 `success` 字段恒为 true（body `"success":true` 但 code 500），前端无法凭 success 判错，一并修正。
+
+### 总结（R41 后更新）
+
+- **requests.md**：追加 R41（部署后复测仍偶发 500）。
+- **response.md**：记录 R40 修复的部署验证结果（ES 多批落库证据）与偶发 500 的根因（moon-well 被并行操作反复重建、窗口期失败），四条改进建议。未改动代码。
+- **冲突记录**：无。
