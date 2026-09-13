@@ -531,6 +531,12 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST"):
                 headers["authorization"] = "Bearer " + refreshed
                 response = _send()
         body = response.content if binary else response.text
+        # Why: moon-well 的全局异常处理器不落日志，业务异常（HTTP 500）在服务端
+        # 无任何痕迹；代理透传失败响应时必须在此留痕（状态码 + 响应体摘要），
+        # 否则线上偶发 500 只能靠猜。
+        if response.status_code >= 400:
+            log.warning("moon-well %s -> HTTP %s: %s",
+                        path, response.status_code, body[:300])
         return (body, response.status_code,
                 {"Content-Type": response.headers.get("Content-Type", "application/json")})
     except requests.RequestException as error:
