@@ -548,3 +548,30 @@
 ### 冲突记录
 
 - 无。
+
+## 2026-09-13
+
+### R36：TXT 阅读器预排版文本乱版修复
+
+- **原因**：`readtxt.html` + `txt_reader.js` + `text.css` 的 TXT 阅读器用 `<pre>`（pre-wrap）+ 双栏（column-count:2）+ 水平翻页渲染。Project Gutenberg 类 TXT 保留纸质书排版：行尾硬换行、行首不规则缩进（起句 4 空格、续行 2 空格）。这些硬换行被原样保留，被双栏分页任意切割，一行起句与续行落入不同栏/页，形成交错乱版（用户截图中 Harper's Young People, January 27, 1880 即此问题）。
+- **方案**：在 `cps/static/js/reading/txt_reader.js` 加载文本后增加预排版检测与重排：
+  - `isHardWrappedText`：非空行 ≥20 且长行（>72 字符）占比 <30% 判定为预排版（流式 TXT/TED 字幕不受影响）；
+  - `reflowHardWrappedText`：空行为段落边界，段内硬换行合并为流式段落——行尾连字符按断词直接拼接（保留连字符，tea- + kettle → tea-kettle），CJK 字符间不插空格，其余以单空格连接；标题行因空行分隔保留为独立段。
+  - 已知取舍：诗行会被并入段落（换取整体可读性）。
+- **验证**：无 JS 测试基建，用 node 直接加载修改后文件中的真实函数验证：PG #28318 全文判定为预排版并重排成功（诗节成段、标题独立、断词正确）；30 段流式 TED 字幕样本判定为非预排版、原样保留；中文句合并不插空格。部署后建议用截图书目视复核。
+- **部署**：develop 分支，需在 Ubuntu（192.168.31.11）重新构建/重启 magicbook 生效（静态资源无缓存版本号，浏览器需强刷）。
+
+### R37：reading-vocabulary「疑似弃用」排查（未改动代码）
+
+- **结论：功能没有被弃用，两侧均在正常服役。**
+  - moon-well：`ReadingVocabularyController`（`/vocabulary/reading/analyze|translate|translate-batch`）与 `ReadingVocabularyService` 无任何 `@Deprecated`/开关/下线逻辑；2026-09-12 `f73fc6f` 还把其 ES 索引收编进 `EsIndexEnum.READING_VOCABULARY`（`reading_vocabulary`）统一管理。
+  - magicbook：EPUB 阅读器（read.html + epub.js，1483 行）生词标注/划词翻译/标记认识全在，开关 `readingVocabularyEnabled = current_user.is_authenticated`；9/8 刚修复 401（21c93189）。
+- **「被弃用」错觉的真实原因（按可能性排序）**：
+  1. **TXT 阅读器从未实现过该功能**：`readtxt.html` + `txt_reader.js`（仅 137 行，只有翻页与 R36 排版重排）没有任何 `readingVocabularyUrl`/标注/划词/TTS/批注代码。最近阅读的书恰好全是 TXT（TED 导入书、PG TXT），在 TXT 书里自然看不到生词波浪线——不是功能被弃用，而是功能只存在于 EPUB 阅读器。
+  2. **旧接口路径确实删除过**：2026-08-29 `aca377e` 将 `/reading-vocabulary/**` 并入 `/vocabulary/reading/**`（原路径已删除），直接调旧路径会 404，易误判为弃用。
+- **验证**：grep 全仓无弃用标记；git log 两项目均无下线提交；requests/response 记录无弃用计划；`web.py:1963` 确认 TXT 书渲染 `readtxt.html`。
+- **如需 TXT 阅读器也支持生词标注**：需把 epub.js 的词汇链路（取页文本、CSRF、标注、缓存签名）移植到 txt_reader.js，属新功能开发，另行安排。
+
+### 总结
+
+R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-well 同步的流式字幕 TXT）不受影响。R37 为排查类任务，未改动任何代码。

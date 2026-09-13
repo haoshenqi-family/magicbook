@@ -77,3 +77,8 @@
 33. 移除 magicbook 对 Nacos 的依赖。
 34. 修复 joserfc 与 cryptography 依赖问题，使服务正常启动。
 35. 修复登录后 /ajax/reading-vocabulary 返回 401。
+
+## 2026-09-13
+
+36. 修复 TXT 阅读器对预排版文本（Project Gutenberg 类硬换行 TXT，如 Harper's Young People）的排版问题：硬换行 + 不规则缩进在 pre-wrap 双栏分页下渲染成左右交错的乱版。
+37. reading-vocabulary 功能现在是不是被弃用了？排查一下为什么（阅读器里看不到生词标注）。
