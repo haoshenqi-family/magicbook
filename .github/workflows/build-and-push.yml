@@ -66,7 +66,14 @@ jobs:
           provenance: false
           sbom: false
 
-      # 部署与通知步骤暂时停用（secrets 未配置），仅构建并推送镜像
+      - name: Trigger app-manager update
+        run: |
+          curl --fail-with-body -sS -m 600 -X POST https://ctl.haoshenqi.top/api/webhooks/project-update \
+            -H 'Content-Type: application/json' \
+            -H "X-Webhook-Token: ${{ secrets.APP_MANAGER_WEBHOOK_TOKEN }}" \
+            -d '{"projectName": "magicbook"}'
+
+      # SSH 直连部署已停用（部署已由 app-manager webhook 统一接管）
       # - name: Deploy via SSH
       #   if: success() && github.ref == 'refs/heads/develop'
       #   uses: appleboy/ssh-action@v1
@@ -86,19 +93,19 @@ jobs:
       #       docker image prune -f
       #       echo "==> Deployment completed"
       #       docker compose ps
-      #
-      # - name: Send Bark Notification on Success
-      #   if: success()
-      #   env:
-      #     BARK_KEY: ${{ secrets.BARK_KEY }}
-      #     PROJECT_NAME: ${{ github.event.repository.name }}
-      #   run: |
-      #     curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建成功"
-      #
-      # - name: Send Bark Notification on Failure
-      #   if: failure()
-      #   env:
-      #     BARK_KEY: ${{ secrets.BARK_KEY }}
-      #     PROJECT_NAME: ${{ github.event.repository.name }}
-      #   run: |
-      #     curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建失败"
+
+      - name: Send Bark Notification on Success
+        if: success()
+        env:
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          PROJECT_NAME: ${{ github.event.repository.name }}
+        run: |
+          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建成功"
+
+      - name: Send Bark Notification on Failure
+        if: failure()
+        env:
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          PROJECT_NAME: ${{ github.event.repository.name }}
+        run: |
+          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建失败"
