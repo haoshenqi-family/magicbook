@@ -170,6 +170,7 @@ var reader;
     // 划词翻译：选中文本弹出翻译气泡（来自 master 分支功能）。
     var translationRequest = 0;
     var translationPopover;
+    var popoverHideTimer = null;
 
     function startWholeBookTranslation() {
         if (!calibre.wholeBookTranslationUrl || !window.confirm('开始翻译整本书？')) return;
@@ -189,10 +190,23 @@ var reader;
     }
 
     function closeTranslationPopover() {
+        if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
         if (translationPopover) {
             translationPopover.remove();
             translationPopover = null;
         }
+    }
+
+    // 划词气泡的自动隐藏：与段落译文共用 translationDisplaySeconds 配置；
+    // 气泡内点击（发音/标记按钮）会重新调度，避免操作中途被收走
+    function schedulePopoverHide() {
+        if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
+        var seconds = translationDisplaySeconds();
+        if (!seconds) return;
+        popoverHideTimer = setTimeout(function () {
+            popoverHideTimer = null;
+            closeTranslationPopover();
+        }, seconds * 1000);
     }
 
     function showTranslationPopover(text, rect, loading) {
@@ -200,6 +214,10 @@ var reader;
         translationPopover = document.createElement('div');
         translationPopover.className = 'reading-translation-popover' + (loading ? ' is-loading' : '');
         translationPopover.textContent = loading ? '翻译中…' : text;
+        // 气泡内任何点击（朗读/生词标记等）都视为正在使用：重置自动隐藏计时。
+        // 用捕获阶段监听——按钮自身的 click 处理器会 stopPropagation，
+        // 冒泡阶段的监听收不到，捕获先于目标处理器执行不受影响。
+        translationPopover.addEventListener('click', function () { schedulePopoverHide(); }, true);
         document.body.appendChild(translationPopover);
         var top = rect.bottom + 8, left = rect.left;
         var bounds = translationPopover.getBoundingClientRect();
@@ -263,6 +281,8 @@ var reader;
             if (calibre.readingWordMarkUrl && SINGLE_WORD_RE.test(text)) {
                 appendWordMarkButtons(popover, text);
             }
+            // 译文渲染完成才开始计时（loading 中间态不占显示时长）
+            schedulePopoverHide();
         }).fail(function (xhr) {
             // CSRF 过期/会话重建：刷新页面拿新 token，避免"翻译失败"误导
             if (reloadIfCsrfBlocked(xhr)) return;
@@ -393,6 +413,18 @@ var reader;
     var TRANSLATE_ENABLED_KEY = "calibre.reader.immersiveTranslate";
     var TTS_ENGINE_KEY = "calibre.reader.ttsEngine";
     var TRANSLATION_CACHE_MAX = 500;
+
+    // 翻译内容自动隐藏时长（秒）：译文/划词气泡显示超过该时长自动消失，
+    // 供「看一眼译文继续读原文」的使用方式；0 = 一直显示（关闭自动隐藏）。
+    var TRANSLATION_DISPLAY_KEY = 'calibre.reader.translationDisplaySeconds';
+    var TRANSLATION_DISPLAY_DEFAULT = 5;
+
+    function translationDisplaySeconds() {
+        var raw = null;
+        try { raw = localStorage.getItem(TRANSLATION_DISPLAY_KEY); } catch (e) {}
+        var value = parseInt(raw, 10);
+        return (isNaN(value) || value < 0) ? TRANSLATION_DISPLAY_DEFAULT : value;
+    }
 
     function readerCsrfToken() {
         return $("input[name='csrf_token']").val() || "";
@@ -645,6 +677,19 @@ var reader;
         });
     }
 
+    // --- 翻译显示时长设置：改动即时保存，已显示的译文按新时长重新计时 ---
+    var translationDisplayInput = document.getElementById('translationDisplaySeconds');
+    if (translationDisplayInput) {
+        translationDisplayInput.value = String(translationDisplaySeconds());
+        translationDisplayInput.addEventListener('change', function () {
+            var value = parseInt(translationDisplayInput.value, 10);
+            if (isNaN(value) || value < 0) value = TRANSLATION_DISPLAY_DEFAULT;
+            translationDisplayInput.value = String(value);
+            try { localStorage.setItem(TRANSLATION_DISPLAY_KEY, String(value)); } catch (e) {}
+            rescheduleVisibleTranslations();
+        });
+    }
+
     // --- 沉浸式翻译 ---
     var translationInFlight = false;
     var translationRetryPending = false;
@@ -693,7 +738,38 @@ var reader;
         div.className = 'reading-translation' + (extraClass ? ' ' + extraClass : '');
         div.textContent = text;
         el.parentNode.insertBefore(div, el.nextSibling);
+        // 仅对最终译文计时自动隐藏；loading/error 中间态会被替换或需点击重试，不计时
+        if (extraClass !== 'is-loading' && extraClass !== 'is-error') scheduleTranslationHide(div, el);
         return div;
+    }
+
+    // 译文块按配置时长自动消失：到点移除并复位段落「译」按钮（可再点重出，
+    // 命中缓存即时显示）。定时器挂在块自身，配置修改时可清除重排；
+    // 块已被动删除（手动取消/被替换）时触发为 no-op。
+    function scheduleTranslationHide(div, el) {
+        if (div._hideTimer) { clearTimeout(div._hideTimer); div._hideTimer = null; }
+        var seconds = translationDisplaySeconds();
+        if (!seconds) return;
+        div._hideTimer = setTimeout(function () {
+            div._hideTimer = null;
+            if (!div.isConnected) return;
+            div.remove();
+            if (el) setParagraphTranslated(el, false);
+        }, seconds * 1000);
+    }
+
+    // 配置修改后：已显示的译文（含划词气泡）立即按新时长重新计时
+    function rescheduleVisibleTranslations() {
+        reader.rendition.getContents().forEach(function (content) {
+            var doc = content.document;
+            if (!doc || !doc.body) return;
+            Array.prototype.slice.call(doc.querySelectorAll('.reading-translation'))
+                .forEach(function (div) {
+                    if (div.classList.contains('is-loading') || div.classList.contains('is-error')) return;
+                    scheduleTranslationHide(div, div.previousElementSibling);
+                });
+        });
+        if (translationPopover) schedulePopoverHide();
     }
 
     function removeAllTranslations() {
