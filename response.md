@@ -590,3 +590,42 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **requests.md**：追加 R38（翻译显示时长配置）。
 - **response.md**：记录 R38 的实现范围（段落译文块 + 划词气泡）、配置入口（设置弹窗，localStorage 持久化，0 = 不自动消失）与验证结果。
 - **冲突记录**：无；R31 曾要求划词气泡可通过 ESC/点击关闭——本次自动隐藏与该需求方向一致（多一种消失途径），配置为 0 时保留原有纯手动关闭行为。
+
+### R39：哈利波特 EPUB（book 50）生词标注失效定位（R37 补充，未改动代码）
+
+- **结论：功能链路健康，9/9 那次 HP 阅读会话的生词上报在目录页之后静默中断，且仅中断在那一次会话。**
+  - book 50（Sorcerer's Stone）在 ES `reading_vocabulary` 只有 9/9 07:59:02-03 的 2 条 `"chapter"` 事件——该词只出现在目录页（"CHAPTER ONE…"），说明 analyze 当时只处理了目录页。
+  - 同一会话 45 秒后（07:59:48）整页翻译缓存仍在正常写入（`magicbook-read-paragraph`，同一鉴权/同一代理），排除 401/CSRF/代理问题。
+  - **全链路今天验证正常**：9/13 12:36 读 book 5 时 analyze 成功调用 10 次、写事件 12 条；用户 hard_level=6、单词本 8499 词（8403 个 familiarity=0），任何 HP 正文页都必然命中生词——9/9 正文页从未发出过 analyze 请求（moon-well 无对应 requestURI 记录）。
+  - **书本身无问题**：把 book 50 EPUB 拉到本地，用线上同款 `epub.min.js` 复现「目录页→盲文说明页→第一章正文」逐页取文，全部成功（每页 1600~2200 字符）；`index_split_*` 分章结构与 CSS 均无异常。
+  - 9/9 中断的直接现场已不可追溯（moon-well 容器 9/13 重启，日志丢失；magicbook 访问日志随容器重建丢失）。关联背景：`reading_vocabulary` 索引 9/8 22:01 被备份为 `reading_vocabulary_bak_20260908` 后删除，9/9 07:59:02 由该书的第一条请求隐式重建——当时正处于索引迁移窗口。
+  - **建议**：环境恢复后在 book 50 上翻一页正文即可验证恢复；若再现中断，浏览器 DevTools Network 看 `/ajax/reading-vocabulary` 是否发出及响应码（最可能：请求未发出=前端取文/翻页事件问题，或 401/503=会话令牌）。
+- **顺带发现（建议处理）**：
+  1. 公网 `moonwell.haoshenqi.top` 的 Traefik 路由（Server 2 `/app/app-manager/traefik-dynamic/moonwell.yml`）指向 Ubuntu .11 上 8/12 启动的旧 moon-well 裸进程（旧 API 路径、`/auth/refreshToken` 抛 `NoClassDefFoundError`），应改指 fnos:8082 或删除。
+  2. book 50 整书翻译任务（9/8 13:22）`PARTIAL_FAILED`：224 段仅完成 1 段。
+  3. magicbook `bookmark` 表为空：阅读器书签从未落库，位置恢复仅靠浏览器 localStorage。
+- **环境突发（排查尾声，与本问题无关）**：9/13 13:15 前后 PVE 宿主机（192.168.31.5）连同其上的 fnos（.9，magicbook/moon-well 所在）与群晖（.10）全部失联，公网 `magicbook.haoyuhang.top`/`moonwell.haoshenqi.top` 因此整体不可用；13:12 前 SSH/服务均正常。待宿主机恢复后再做实时复现验证。
+
+### 总结（R39 后更新）
+
+- **requests.md**：追加 R39（R37 补充：问题发生在 HP book 50 EPUB）。
+- **response.md**：记录 book 50 的定位结论（9/9 单次会话中断、链路今天验证健康、书无问题）、三个顺带发现与 PVE 宿主机宕机事件。未改动任何代码。
+- **冲突记录**：R37 初判主因为「TXT 阅读器无此功能」，R39 依据用户补充（HP 为 EPUB）修正为「9/9 那次会话静默中断」；TXT 阅读器无词汇功能的事实不变，作为背景保留。
+
+### R40：哈利波特 EPUB 打开即卡死无法翻页（IndexSizeError 毒化 epub.js 显示队列）修复
+
+- **现象（用户实测复现）**：打开 book 50 后无法翻页，DevTools 报 `Uncaught IndexSizeError: Failed to execute 'setStart' on 'Range': There is no child at offset 309`（epub.min.js 内部 `display → locationOf → toRange` 链）。
+- **根因**：阅读器位置恢复逻辑（`cps/static/js/reading/epub.js`）在启动时 `rendition.display(localStorage 保存的 CFI)`。书内容更新（Calibre 重新转换/元数据刷新等）后旧 CFI 的字符 offset 越界，epub.js 内部 `toRange` 抛 IndexSizeError。该异常：① 同步 try/catch 接不住（异步 promise 链）；② rejection 被 epub.js 内部链吞掉，`display()` 返回的 promise 永远 pending、调用方 `.catch` 也不会触发；③ 显示队列（promise 链式 enqueue）被 rejection 毒死——此后所有 `display/next/prev` 永不执行，整本书无法翻页。**生词标注失效（R37/R39）正是此卡死的伴生症状**：翻页不动 → `relocated` 不触发 → `inspectVocabulary` 不跑 → 无 analyze 请求；而划词/段落翻译作用于当前可见页，不受队列影响，仍能工作（与 9/9 现场完全吻合）。
+- **本地复现与验证**（/tmp harness + 线上同款 epub.min.js + book50.epub）：现状写法 display(坏CFI) 后 next 两次均 4s 无响应（队列死亡，100% 复现）；`.catch` 与 catch 内的恢复调用均无法挽救（promise 永远 pending）——修复必须让坏 CFI 进不了队列。
+- **修复**（纯 `cps/static/js/reading/epub.js`，~100 行）：
+  1. **两级位置恢复**：先经 `book.spine.get(savedCfi)` 得到 spine 序号 `display(index)` 安全落位（整数路径不走 CFI Range，无此雷，新老位置缓存统一支持）；随后用 `cfiSafeForCurrentDocument` 轻量校验（解析 CFI 末段 id 断言 + 字符 offset，在当前渲染文档累计该元素文本总长，offset 超界判不安全），通过才 `display(cfi)` 章内精调，不通过丢弃保存的位置并停留在章开头。
+  2. **保存端**：位置缓存（localStorage `calibre.reader.position.<bookKey>`）增加 `index`（spine 序号）字段。
+  3. **全局兜底**：window error 监听捕获 epub.min.js 的 IndexSizeError（覆盖其他潜在 display(CFI) 调用点，如未来功能），清掉坏位置后刷新重建；sessionStorage 标记防「保存→崩→刷」死循环，阅读器成功初始化后重置标记。
+- **验证**：`node --check` 通过；本地 harness 用线上同款 epub.min.js + book50.epub 实测：坏 CFI 判定 `safe=false`、好 CFI `safe=true`；两级恢复落位正确章（index=3, index_split_002.html）；坏 CFI 被拦截未进队列；连续两次 next 均 resolve 且页面切换（对照现状代码为双卡死）。校验与兜底均以「放行+兜底」为缺省，不误伤正常书。
+- **部署**：develop 分支提交推送后由 GitHub Actions 构建镜像并经 app-manager 自动更新部署；静态资源无版本号，浏览器需强刷。存量受影响用户（localStorage 中的坏 CFI）部署后首次打开会自动走兜底刷新或两级恢复，无需手动清缓存。
+
+### 总结（R40 后更新）
+
+- **requests.md**：追加 R40（打开 book 50 无法翻页的 IndexSizeError）。
+- **response.md**：记录根因（旧 CFI 越界 → epub.js 显示队列毒化 → 翻页卡死 → 生词标注伴生失效）、三级修复（两级恢复/位置缓存加 index/全局兜底）与本地实测结果。
+- **冲突记录**：无；R39 中「9/9 中断现场不可追溯」的遗留疑问由 R40 的机制解释补齐。

@@ -83,3 +83,5 @@
 36. 修复 TXT 阅读器对预排版文本（Project Gutenberg 类硬换行 TXT，如 Harper's Young People）的排版问题：硬换行 + 不规则缩进在 pre-wrap 双栏分页下渲染成左右交错的乱版。
 37. reading-vocabulary 功能现在是不是被弃用了？排查一下为什么（阅读器里看不到生词标注）。
 38. 翻译功能增加一个显示时间的配置，默认 5 秒；超过这个时间后翻译内容自动消失；可以随时在页面上配置修改。
+39. 补充 R37：生词标注问题发生在哈利波特 EPUB（book 50，/read/50/epub）上，继续定位。
+40. 实测复现：打开 book 50 后无法翻页，DevTools 报 Uncaught IndexSizeError（epub.min.js toRange setStart），定位并修复。

@@ -8,6 +8,32 @@ var reader;
     EPUBJS.filePath = calibre.filePath;
     EPUBJS.cssPath = calibre.cssPath;
 
+    // epub.js 显示队列毒化兜底：display(CFI) 内部 toRange 抛 IndexSizeError 时
+    // （书内容更新导致旧保存的 CFI 越界），rejection 被 epub.js 内部 promise 链吞掉，
+    // 显示队列永久卡死、整本书无法翻页，且调用方 catch 不到。此处全局捕获该类
+    // 未捕获错误，清掉坏位置后刷新页面重建渲染；sessionStorage 标记防止
+    // 「位置再次保存 → 再崩 → 再刷」死循环。
+    window.addEventListener("error", function (ev) {
+        if (!ev || !/IndexSizeError/.test(String(ev.message || ""))) return;
+        if (!/epub\.min\.js/.test(String(ev.filename || ""))) return;
+        try {
+            var crashKey = "calibre.reader.cfiCrashReload";
+            if (sessionStorage.getItem(crashKey)) {
+                sessionStorage.removeItem(crashKey);
+                return;
+            }
+            sessionStorage.setItem(crashKey, "1");
+            if (window.reader && reader && reader.book) {
+                localStorage.removeItem(
+                    "calibre.reader.position." + reader.book.key()
+                );
+            }
+        } catch (e) {}
+        setTimeout(function () {
+            location.reload();
+        }, 50);
+    });
+
     reader = ePubReader(calibre.bookUrl, {
         restore: true,
         bookmarks: calibre.bookmark ? [calibre.bookmark] : [],
@@ -66,6 +92,36 @@ var reader;
         } catch (e) {}
     })();
 
+    // Why: epub.js 的 display(CFI) 对「越界字符 offset」的 CFI 会在内部 toRange 抛
+    // IndexSizeError 并毒死显示队列（无法翻页），且异常对调用方不可见。恢复保存的
+    // 位置前必须用此轻量校验拦住可疑 CFI：解析 CFI 末段的元素 id 断言与字符 offset，
+    // 在当前渲染文档里累计该元素下的文本总长，offset 超界即判为不安全。
+    // 校验器自身不认识的 CFI 形态一律放行，交给 window error 兜底刷新处理。
+    function cfiSafeForCurrentDocument(readerInst, cfi) {
+        try {
+            var contents = readerInst.rendition.getContents();
+            if (!contents || !contents.length || !contents[0].document) return true;
+            var doc = contents[0].document;
+            var offMatch = String(cfi).match(/\/1:(\d+)\)?\s*$/);
+            if (!offMatch) return true;
+            var offset = parseInt(offMatch[1], 10);
+            var idMatches = String(cfi).match(/\[([^\]]+)\]/g);
+            if (!idMatches || !idMatches.length) return true;
+            var target = doc.getElementById(
+                idMatches[idMatches.length - 1].slice(1, -1)
+            );
+            if (!target) return true;
+            var total = 0;
+            var walker = doc.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+            while (walker.nextNode()) {
+                total += (walker.currentNode.textContent || "").length;
+            }
+            return offset <= total;
+        } catch (e) {
+            return true;
+        }
+    }
+
     reader.book.ready.then(() => {
         let locations_key = reader.book.key() + "-locations";
         // Key to persist last-read position for this book in localStorage
@@ -89,17 +145,42 @@ var reader;
         }
         make_locations
             .then(() => {
-                // Try to restore last position (CFI) from localStorage if present
+                // Try to restore last position from localStorage if present.
+                // Why: 直接 display(保存的 CFI) 在「书内容更新导致旧 CFI 越界」时会在
+                // epub.js 内部 toRange 抛 IndexSizeError，且该 rejection 被内部 promise
+                // 链吞掉——调用方 catch 不到、返回 promise 永远 pending，显示队列从此
+                // 卡死，整本书无法翻页（BOOK-20260913，哈利波特 EPUB 复现）。
+                // 因此恢复必须两级：先按 spine 序号 display（整数路径不走 CFI Range，
+                // 无此雷）安全落位，再用 cfiSafeForCurrentDocument 校验通过的 CFI 做
+                // 章内精调；校验不过则丢弃保存的位置，绝不让可疑 CFI 进入显示队列。
                 try {
                     var _savedPos = localStorage.getItem(position_key);
                     if (_savedPos) {
                         try {
                             var _posObj = JSON.parse(_savedPos);
                             if (_posObj && _posObj.cfi) {
-                                // Display the saved CFI location
-                                try {
-                                    reader.rendition.display(_posObj.cfi);
-                                } catch (e) {}
+                                var _section = null;
+                                try { _section = reader.book.spine.get(_posObj.cfi); } catch (eS) {}
+                                var _startIndex = _section && typeof _section.index === "number"
+                                    ? _section.index : null;
+                                if (_startIndex !== null) {
+                                    var _p = reader.rendition.display(_startIndex);
+                                    if (_p && typeof _p.then === "function") {
+                                        _p.then(function () {
+                                            if (cfiSafeForCurrentDocument(reader, _posObj.cfi)) {
+                                                try {
+                                                    var _p2 = reader.rendition.display(_posObj.cfi);
+                                                    if (_p2 && typeof _p2.catch === "function") _p2.catch(function () {});
+                                                } catch (e2) {}
+                                            } else {
+                                                try { localStorage.removeItem(position_key); } catch (e3) {}
+                                            }
+                                        });
+                                    }
+                                } else {
+                                    // CFI 连 spine 都定位不到（书结构大改/损坏）：丢弃
+                                    try { localStorage.removeItem(position_key); } catch (e4) {}
+                                }
                             }
                         } catch (e) {}
                     }
@@ -124,10 +205,13 @@ var reader;
                     }
 
                     // Persist last position (CFI + percentage) to localStorage so reader can restore on next open
+                    // index 为 spine 序号：恢复时先按它安全落位（见上方恢复逻辑），
+                    // 避免书更新后旧 CFI 越界毒化 epub.js 显示队列。
                     try {
                         var posObj = {
                             cfi: location.start.cfi,
                             percentage: location.start.percentage,
+                            index: typeof location.start.index === "number" ? location.start.index : undefined,
                         };
                         localStorage.setItem(
                             position_key,
@@ -138,7 +222,12 @@ var reader;
                 reader.rendition.reportLocation();
                 progressDiv.style.visibility = "visible";
             })
-            .then(save_locations);
+            .then(save_locations)
+            .then(() => {
+                // 阅读器成功初始化后重置崩溃兜底标记：本次会话若再遇坏 CFI 崩溃
+                // （其他 display(CFI) 调用点），仍可再触发一次兜底刷新
+                try { sessionStorage.removeItem("calibre.reader.cfiCrashReload"); } catch (e) {}
+            });
     });
 
     // Mark unfamiliar words in the currently visible EPUB document and show their history.
