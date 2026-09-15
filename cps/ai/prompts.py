@@ -26,6 +26,8 @@ DEFAULT_PROMPTS = {
         "{{page_context}}\n"
         "\n"
         "## Unfamiliar words on this page\n"
+        "{{unfamiliar_words}}\n"
+        "\n"
         "以下是用户暂时还未掌握的词汇：{{unfamiliar_words}}\n"
         "\n"
         "## What you remember about this user (long-term memory)\n"

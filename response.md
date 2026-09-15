@@ -695,3 +695,7 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - 数据无需改动：前端 getUnfamiliarWords() 返回的 vocabularyRecords.unknown=true 集合已包含 reading-vocabulary（/analyze 按档位判定）的生词与用户手动 +/− 标记，经 /ai/chat → build_system_prompt 注入提示词。
 - 测试：test_ai_memory 断言更新 + 新增句子存在性断言；pytest 164 全过。
 
+**R44 修正：原提示词保留，中文句作为新增段**
+
+- chat-system 模板恢复原「Unfamiliar words on this page」英文段（列表原样），中文句「以下是用户暂时还未掌握的词汇：…」作为单独一段追加在其后——同一数据源（unfamiliar_words）渲染两处，原提示词语义完整保留。
+
