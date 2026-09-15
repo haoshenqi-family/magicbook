@@ -79,7 +79,8 @@ class TestBuildSystemPrompt:
             book_tags=[], page_context="", user_memory=[], extra_prompt="",
         )
         assert "(unknown)" in prompt
-        assert "(none marked)" in prompt
+        assert "（本页暂无）" in prompt
+        assert "以下是用户暂时还未掌握的词汇" in prompt
 
 
 class TestShouldExtractMemory:

@@ -687,3 +687,11 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - 修复：表单加 hidden csrf_token input，JS 改从 DOM 读取（与 epub.js/ai_chat.js 项目惯例一致）；400 响应体含 csrf 时自动刷新页面取新 token（sessionStorage 防死循环，与 epub.js reloadIfCsrfBlocked 同策略）；错误提示带上 HTTP 状态码。
 - 测试：新增 CSRF 400 透传用例，pytest 164 全过；已提交推送。
 
+## 2026-09-15（续）
+
+**R44：AI 伴读提示词增加未掌握词汇**
+
+- chat-system 模板生词段落改为「以下是用户暂时还未掌握的词汇：{{unfamiliar_words}}」，空态文案统一为「（本页暂无）」（原 "(none marked)" 中英混杂）。
+- 数据无需改动：前端 getUnfamiliarWords() 返回的 vocabularyRecords.unknown=true 集合已包含 reading-vocabulary（/analyze 按档位判定）的生词与用户手动 +/− 标记，经 /ai/chat → build_system_prompt 注入提示词。
+- 测试：test_ai_memory 断言更新 + 新增句子存在性断言；pytest 164 全过。
+

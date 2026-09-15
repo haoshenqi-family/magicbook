@@ -57,7 +57,7 @@ def build_system_prompt(book_title: str,
         description_section = "\nDescription: %s" % desc
     memory_str = "\n".join("- %s" % m for m in user_memory) if user_memory else "(none yet)"
     unfamiliar_str = ("\n".join("- %s" % w for w in unfamiliar_words)
-                      if unfamiliar_words else "(none marked)")
+                      if unfamiliar_words else "（本页暂无）")
 
     # Truncate page context to avoid blowing the context window
     if len(page_context) > _MAX_PAGE_CHARS:
