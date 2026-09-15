@@ -167,7 +167,7 @@ class TestEndToEnd:
             rv = admin_client.post("/ai/chat", json={
                 "book_id": 7,
                 "conversation_id": conv.id,
-                "message": "Tell me more about chapter 2.",
+                "message": "I really like how this chapter explains things. Tell me more about chapter 2.",
                 "page_context": "Chapter 2: Neural networks.",
                 "book_title": "Machine Learning Basics",
             })

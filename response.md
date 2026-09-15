@@ -711,3 +711,12 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - 模板回到本次需求前的原始版本；memory.py 的空态「（本页暂无）」保留（替代原 "(none marked)"，纯文案优化）。
 - 测试：test_ai_memory 断言同步，pytest 164 全过。
 
+## 2026-09-15（续2）
+
+**R45：记忆系统三项借鉴落地**
+
+- ①信号门控：`has_memory_signal(recent_messages)` 零成本正则扫描（偏好/纠正/背景信号 + 噪音快答识别 + 长文兜底），`/ai/chat` 提取点改为「间隔门控 + 信号门控」双闸，无信号跳过 LLM 提取。
+- ②去重/合并：`find_duplicate_memory()` 落库前与现有记忆比对——token 集合 overlap 系数（连字符归一化 world-building=worldbuilding，系数 = 交集/较小集合），阈值 0.5；近重复跳过写入仅刷新原条目时间戳，防重复行挤占注入窗口。
+- ③相关性注入：`select_relevant_memories(user_id, book_id, book_keywords, limit)` 排序规则——本书记忆（source_book_id 匹配）优先 → 文本提到本书关键词（书名/作者/标签）的次之 → 近期记忆补位，注入上限不变。
+- 测试：新增 tests/test_memory_gating.py 13 用例；集成测试对话改为含偏好信号的消息（门控预期行为）；pytest 177 全过。
+

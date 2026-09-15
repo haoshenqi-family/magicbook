@@ -36,7 +36,8 @@ from .crypto import encrypt_value, decrypt_value
 from .database import get_session
 from .timezone import now as now_cn
 from .memory import (build_system_prompt, extract_user_memory,
-                     get_user_memory_strings, should_extract_memory)
+                     get_user_memory_strings, has_memory_signal,
+                     select_relevant_memories, should_extract_memory)
 
 log = logger.create()
 
@@ -273,7 +274,11 @@ def chat():
     cfg = sess.query(AiConfig).first()
     user_memory = []
     if cfg and cfg.memory_enabled:
-        user_memory = get_user_memory_strings(current_user.id, limit=10)
+        # 相关性注入: 本书记忆优先, 提到本书关键词(书名/作者/标签)的次之, 近期记忆补位
+        user_memory = select_relevant_memories(
+            current_user.id, book_id=book_id,
+            book_keywords=[book_title] + list(book_authors) + list(book_tags),
+            limit=10)
 
     system_prompt = build_system_prompt(
         book_title=book_title or "Unknown",
@@ -350,7 +355,8 @@ def chat():
                 conv_row.updated_at = now_cn()
             sess.commit()
 
-            # Maybe extract memory
+            # Maybe extract memory — 间隔门控 + 信号门控双闸:
+            # 间隔到了先零成本扫最近消息, 无偏好/纠正/背景信号则跳过本次 LLM 提取
             if memory_enabled:
                 msg_count = sess.query(AiMessage).filter_by(
                     conversation_id=conv_id).count()
@@ -359,11 +365,14 @@ def chat():
                                 sess.query(AiMessage).filter_by(
                                     conversation_id=conv_id).order_by(
                                     AiMessage.created_at.asc()).all()]
-                    try:
-                        extract_user_memory(provider, model, all_msgs,
-                                            user_id, book_id)
-                    except Exception as e:
-                        log.warning("memory extraction failed: %s", e)
+                    if not has_memory_signal(all_msgs):
+                        log.info("memory extraction skipped: no signal in recent messages")
+                    else:
+                        try:
+                            extract_user_memory(provider, model, all_msgs,
+                                                user_id, book_id)
+                        except Exception as e:
+                            log.warning("memory extraction failed: %s", e)
         except Exception as e:
             log.error("failed to save assistant message: %s", e)
             try:
