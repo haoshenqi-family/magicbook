@@ -154,3 +154,53 @@ def test_publish_payload_carries_prompt_template_and_progress_reports_pending(tm
     assert published[0]["parameters"]["bookName"] == "Test Book"
     # 核心断言 2：progress 返回 pendingCount（前端区分未完成与失败）
     assert "pendingCount" in result
+
+
+def test_extract_is_deterministic_and_counts_all_paragraphs(tmp_path):
+    """R47 回归：lxml 元素代理被 GC 后 id() 复用，曾导致同一本书三次抽取
+    分别得到 759/78/78 段（生产 3177 个 <p> 只剩 128 段）。修复后必须：
+    ① 抽取结果确定（多次运行一致）；② 所有顶层块级节点都被保留。"""
+    body = "".join(f"<p>Paragraph {i} content.</p>" for i in range(300))
+    container = """<container xmlns='urn:oasis:names:tc:opendocument:xmlns:container'><rootfiles><rootfile full-path='OPS/content.opf'/></rootfiles></container>"""
+    opf = """<package xmlns='http://www.idpf.org/2007/opf'><manifest>
+      <item id='one' href='one.xhtml' media-type='application/xhtml+xml'/>
+    </manifest><spine><itemref idref='one'/></spine></package>"""
+    # h1 优先作为章节名（Calibre 转换书的 <title> 恒为书名，不能作为章节）
+    page = ("<html xmlns='http://www.w3.org/1999/xhtml'><head><title>Book Title</title></head>"
+            f"<body><h1>Chapter One</h1>{body}</body></html>")
+    path = tmp_path / "big.epub"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("META-INF/container.xml", container)
+        archive.writestr("OPS/content.opf", opf)
+        archive.writestr("OPS/one.xhtml", page)
+
+    runs = [extract_epub_paragraphs(path) for _ in range(3)]
+    counts = {len(r) for r in runs}
+    assert len(counts) == 1, f"抽取结果不确定: {counts}"
+    assert counts == {300}
+    bad = sorted({chapter for chapter, _ in runs[0]})[:3]
+    assert bad == ["Chapter One"], f"unexpected chapters: {bad}"
+    assert runs[0][0][1] == "Paragraph 0 content."
+
+
+def test_extract_skips_nested_blocks_and_empty_paragraphs(tmp_path):
+    """blockquote 内的 p 不重复处理；全角空格空段不产出；script 内容不出现。"""
+    container = """<container xmlns='urn:oasis:names:tc:opendocument:xmlns:container'><rootfiles><rootfile full-path='OPS/content.opf'/></rootfiles></container>"""
+    opf = """<package xmlns='http://www.idpf.org/2007/opf'><manifest>
+      <item id='one' href='one.xhtml' media-type='application/xhtml+xml'/>
+    </manifest><spine><itemref idref='one'/></spine></package>"""
+    page = ("<html xmlns='http://www.w3.org/1999/xhtml'><head><title>T</title></head><body>"
+            "<blockquote><p>quoted line.</p></blockquote>"
+            "<p>\u3000</p>"
+            "<p>after empty.</p>"
+            "<script>var x = 'nope';</script>"
+            "</body></html>")
+    path = tmp_path / "nested.epub"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("META-INF/container.xml", container)
+        archive.writestr("OPS/content.opf", opf)
+        archive.writestr("OPS/one.xhtml", page)
+
+    paragraphs = extract_epub_paragraphs(path)
+    texts = [text for _, text in paragraphs]
+    assert texts == ["quoted line.", "after empty."]

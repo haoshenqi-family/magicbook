@@ -40,6 +40,45 @@ def split_long_text(value, max_length=MAX_TEXT_LENGTH):
     return [chunk for chunk in chunks if chunk]
 
 
+def _local_tag(node):
+    """Element local tag name in lowercase (None for comments/PIs)."""
+    return node.tag.split("}")[-1].lower() if isinstance(node.tag, str) else ""
+
+
+def _block_ancestor_kind(node):
+    """Walk parents via getparent() and report first BLOCK/SKIP ancestor tag.
+
+    Why getparent() instead of iterancestors()/id(): lxml element proxies are
+    created on demand and garbage collected — id(node) is NOT stable and
+    iterancestors() yields ephemeral proxies. Materializing through the
+    parent chain keeps real references alive for the duration of the checks.
+    """
+    parent = node.getparent()
+    while parent is not None:
+        tag = _local_tag(parent)
+        if tag in BLOCK_TAGS:
+            return "block"
+        if tag in SKIP_TAGS:
+            return "skip"
+        parent = parent.getparent()
+    return None
+
+
+def _chapter_title(root):
+    """Chapter heading: h1 first (real chapter name), <title> as fallback.
+
+    Why: Calibre-converted books carry the book name in every split file's
+    <title>, so title-first collapsed all chapters into the book title.
+    """
+    for xpath in ("//*[local-name()='h1']", "//*[local-name()='title']"):
+        nodes = root.xpath(xpath)
+        for node in nodes[:1]:
+            title = normalize_text(" ".join(node.itertext()))
+            if title:
+                return title
+    return ""
+
+
 def extract_epub_paragraphs(file_path):
     """Return paragraphs in OPF spine order as ``(chapter, text)`` tuples."""
     tree, opf_name = get_content_opf(file_path, default_ns)
@@ -59,23 +98,23 @@ def extract_epub_paragraphs(file_path):
                 root = etree.fromstring(archive.read(resource), parser=etree.XMLParser(resolve_entities=False, no_network=True))
             except (KeyError, etree.XMLSyntaxError):
                 continue
-            title_nodes = root.xpath("//*[local-name()='title']/text()")
-            if not title_nodes:
-                title_nodes = root.xpath("//*[local-name()='h1']/text()")
-            chapter = normalize_text(" ".join(title_nodes[:1]))
-            seen_nodes = set()
-            for node in root.iter():
-                tag = etree.QName(node).localname.lower() if isinstance(node.tag, str) else ""
-                if tag not in BLOCK_TAGS or id(node) in seen_nodes:
+            chapter = _chapter_title(root)
+            # Why: 物化成强引用列表再遍历。root.iter() 逐个产生的元素代理是
+            # 临时对象，循环内 id(node) 存入 seen_nodes 后代理可能被 GC，后续
+            # 元素复用同一地址，导致大量段落被误判「已见」而随机跳过（实测
+            # 同一本书三次抽取分别得到 759/78/78 段，生产 3177 个 <p> 只剩
+            # 128 段）。列表持有真实引用后地址稳定，嵌套去重才可靠。
+            nodes = [node for node in root.iter() if _local_tag(node) in BLOCK_TAGS]
+            for node in nodes:
+                tag = _local_tag(node)
+                if tag not in BLOCK_TAGS:
                     continue
-                if any((ancestor.tag if isinstance(ancestor.tag, str) else "").split("}")[-1].lower() in BLOCK_TAGS
-                       for ancestor in node.iterancestors()):
+                ancestor_kind = _block_ancestor_kind(node)
+                if ancestor_kind is not None:
                     continue
-                if any((ancestor.tag if isinstance(ancestor.tag, str) else "").split("}")[-1].lower() in SKIP_TAGS
-                       for ancestor in node.iterancestors()):
-                    continue
-                seen_nodes.add(id(node))
                 text = normalize_text(" ".join(node.itertext()))
+                if not text:
+                    continue
                 for chunk in split_long_text(text):
                     paragraphs.append((chapter, chunk))
     return paragraphs
