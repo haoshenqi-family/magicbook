@@ -86,8 +86,11 @@ class WholeBookTranslationService:
                 job.completed_count += 1
                 ub.session.commit()
                 continue
+            # Why: moon-well 执行器按 promptTemplate 渲染完整提示词（携带书名/章节，
+            # 保持全书译法一致）；不带模板时 LLM 只会复述英文原文，不会产出中文译文。
             payload = {"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
                        "input": item.text,
+                       "promptTemplate": "reading-paragraph-translate-plain",
                        "parameters": {"jobId": job.id, "itemId": item.id, "bookId": book_id,
                                       "bookFingerprint": fingerprint, "paragraphIndex": item.paragraph_index,
                                       "textHash": item.text_hash, "bookName": book.title,
@@ -114,10 +117,15 @@ class WholeBookTranslationService:
         return self.progress(job)
 
     def progress(self, job):
+        pending = sum(1 for _ in ub.session.query(TranslationJobItem.id).filter(
+            TranslationJobItem.job_id == job.id,
+            ~TranslationJobItem.status.in_(("COMPLETED", "FAILED", "SKIPPED"))))
+        # Why: 去回调化后 moon-well 完成任务自行写缓存，进度按缓存懒回收；
+        # pendingCount 单独暴露，前端可区分「已发布未完成」与「彻底失败」。
         return {"jobId": job.id, "bookId": job.book_id, "status": job.status,
                 "totalCount": job.total_count, "cachedCount": job.cached_count,
                 "publishedCount": job.published_count, "completedCount": job.completed_count,
-                "failedCount": job.failed_count}
+                "failedCount": job.failed_count, "pendingCount": pending}
 
     def get_progress(self, job_id, lookup=None):
         self._ensure_tables()
@@ -155,9 +163,11 @@ class WholeBookTranslationService:
             try:
                 response = publish({"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
                                     "input": item.text,
+                                    "promptTemplate": "reading-paragraph-translate-plain",
                                     "parameters": {"jobId": job.id, "itemId": item.id,
                                     "bookId": job.book_id, "bookFingerprint": job.book_fingerprint,
                                     "paragraphIndex": item.paragraph_index, "textHash": item.text_hash,
+                                    "bookName": job.book_name,
                                     "chapter": item.chapter}})
                 result = response.get("result", response)
                 item.task_id = str(result["taskId"])

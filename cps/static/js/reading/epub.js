@@ -256,6 +256,32 @@ var reader;
         return '';
     }
 
+    // 整书翻译进度轮询：提交后每 30s 查一次批次进度（懒回收：moon-well 完成
+    // 任务即写缓存，进度接口查缓存回收完成数），全部完成后提示一次并停止轮询。
+    var wholeBookPollTimer = null;
+    function startWholeBookProgressPolling() {
+        if (wholeBookPollTimer || !calibre.wholeBookTranslationStatusUrl) return;
+        wholeBookPollTimer = setInterval(function () {
+            var jobId = null;
+            try { jobId = localStorage.getItem('calibre.reader.translation.job.' + calibre.bookId); } catch (e) {}
+            if (!jobId) return;
+            $.ajax({url: calibre.wholeBookTranslationStatusUrl, method: 'POST',
+                contentType: 'application/json', headers: {'X-CSRFToken': readerCsrfToken()},
+                data: JSON.stringify({job_id: jobId})
+            }).done(function (result) {
+                if (result && (result.status === 'COMPLETED' || result.status === 'PARTIAL_FAILED')) {
+                    clearInterval(wholeBookPollTimer);
+                    wholeBookPollTimer = null;
+                    readerToast('整本翻译' + (result.status === 'COMPLETED' ? '完成' : '部分段落失败') +
+                        '：' + result.completedCount + '/' + result.totalCount +
+                        (result.failedCount ? '（失败 ' + result.failedCount + ' 段）' : ''));
+                }
+            }).fail(function () {
+                // 查询失败静默：下次轮询继续；会话过期时后端返回 401，轮询仍无害
+            });
+        }, 30000);
+    }
+
     // 划词翻译：选中文本弹出翻译气泡（来自 master 分支功能）。
     var translationRequest = 0;
     var translationPopover;
@@ -269,7 +295,14 @@ var reader;
             headers: {'X-CSRFToken': readerCsrfToken()},
             data: JSON.stringify({book_id: calibre.bookId, book_format: calibre.bookFormat})
         }).done(function (result) {
-            alert('整本翻译任务已提交：' + (result.publishedCount || 0) + ' 个段落');
+            // 译文不是同步返回：任务由 moon-well 后台逐段执行并写入缓存，
+            // 完成后本阅读器翻页时经 restoreCachedTranslations 自动回填。
+            try { localStorage.setItem('calibre.reader.translation.job.' + calibre.bookId, result.jobId); } catch (e) {}
+            alert('整本翻译已提交\n总段落：' + (result.totalCount || 0) +
+                '\n已缓存：' + (result.cachedCount || 0) +
+                '\n新发布：' + (result.publishedCount || 0) +
+                '\n\n译文会在后台逐段生成，完成后阅读时自动显示。');
+            startWholeBookProgressPolling();
         }).fail(function (xhr) {
             if (reloadIfCsrfBlocked(xhr)) return;
             alert((xhr.responseJSON && xhr.responseJSON.message) || '整本翻译提交失败');

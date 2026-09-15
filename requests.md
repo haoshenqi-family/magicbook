@@ -99,3 +99,5 @@
 
 45. 借鉴 AutoClaw 记忆系统改造 magicbook 记忆：①提取前加信号门控（省 token）②写入前去重/合并（防堆积）③注入按相关性过滤（跨书精准）。
 
+
+46. magicbook 的整本翻译功能还是不行：排查修复（moon-well 侧配套：任务发布即入队执行 + PENDING 积压恢复 + 模板渲染；本仓库：发布带 promptTemplate、进度 pendingCount、前端进度轮询与提交反馈）。

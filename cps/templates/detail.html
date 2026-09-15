@@ -386,7 +386,12 @@
                 contentType: 'application/json', headers: {'X-CSRFToken': button.data('csrf-token')},
                 data: JSON.stringify({book_id: button.data('book-id'), book_format: button.data('book-format')})
             }).done(function (result) {
-                alert('整本翻译任务已提交：' + (result.publishedCount || 0) + ' 个段落');
+                // 译文不是同步返回：任务由 moon-well 后台逐段执行并写入缓存，
+                // 阅读时自动回读；此处只报批次规模，进度经 status 接口查询。
+                alert('整本翻译已提交\n总段落：' + (result.totalCount || 0) +
+                    '\n已缓存：' + (result.cachedCount || 0) +
+                    '\n新发布：' + (result.publishedCount || 0) +
+                    '\n\n译文会在后台逐段生成，完成后阅读时自动显示。');
             }).fail(function (xhr) {
                 alert((xhr.responseJSON && xhr.responseJSON.message) || '整本翻译提交失败');
             }).always(function () { button.prop('disabled', false).text('整本翻译'); });

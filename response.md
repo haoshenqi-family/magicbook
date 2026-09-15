@@ -720,3 +720,26 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - ③相关性注入：`select_relevant_memories(user_id, book_id, book_keywords, limit)` 排序规则——本书记忆（source_book_id 匹配）优先 → 文本提到本书关键词（书名/作者/标签）的次之 → 近期记忆补位，注入上限不变。
 - 测试：新增 tests/test_memory_gating.py 13 用例；集成测试对话改为含偏好信号的消息（门控预期行为）；pytest 177 全过。
 
+
+
+---
+
+## 2026-09-15（第二次对话）
+
+### R46（整本翻译还是不行：跨仓库三断点修复）
+
+- **排查结论（跨 magicbook + moon-well 全链路）**：设计为「magicbook 发布任务 → moon-well 任务队列 → 外部执行器执行 → moon-well 自写段落缓存 → magicbook 单向查缓存」。但部署内**没有外部执行器**（fnos compose 仅 moon-well 单服务，全仓库无 /llm/task/accept 消费方），发布的任务只是 PENDING 记录，永不执行；payload 未带 promptTemplate，即使执行也不会产出中文译文；前端提交后无进度反馈，用户感知即「整本翻译不行」。
+- **moon-well 侧修复**（见 moon-well 仓库 R30 记录）：发布即入进程内优先级调度器、启动恢复历史 PENDING 积压、执行前按模板渲染提示词。全量 267 passed。
+- **magicbook 侧修复**：
+  - `cps/reading_translation/service.py`：发布/重试 payload 增加 `promptTemplate: reading-paragraph-translate-plain`（不依赖书名/章节变量，渲染稳妥）；`progress()` 增加 `pendingCount`（区分「发布未完成」与「失败」）。
+  - `cps/static/js/reading/epub.js`：提交成功后持久化 jobId（localStorage）并每 30s 轮询 status 接口，COMPLETED / PARTIAL_FAILED 时 toast 提示并停止；提交弹窗展示 总段落/已缓存/新发布 三项规模，说明译文后台逐段生成、阅读时自动回填。
+  - `cps/templates/detail.html`：提交反馈同步为批次规模弹窗。
+  - 新增测试 `test_publish_payload_carries_prompt_template_and_progress_reports_pending`（断言发布 payload 带模板键 + progress 含 pendingCount）；全量 **181 passed**。
+- **生效条件**：两侧镜像均需重新构建部署；moon-well 重启后自动恢复此前卡住的 PENDING 任务（含 9/8 之前发布的旧批次）。
+- **阅读器回填说明**：已读段落的译文优先走 localStorage 本地缓存；未读段落经 status 轮询触发懒回收后，翻页由 `restoreCachedTranslations` 回填（ES 缓存保证跨设备不丢）。
+
+### 总结
+
+- **requests.md**：追加 R46（整本翻译排查修复）。
+- **response.md**：记录三断点根因、两侧修复、测试与部署要求。
+- **冲突记录**：无；功能为 R46 新增排查，未与既有需求冲突。
