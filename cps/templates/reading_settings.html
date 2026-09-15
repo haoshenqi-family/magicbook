@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+{% block body %}
+<div class="discover">
+  <h1>{{_('Reading Settings')}}</h1>
+  <div class="col-md-10 col-lg-8">
+
+    {% if load_error %}
+    <div class="alert alert-danger" role="alert">
+      {{_('Failed to load reading settings')}}: {{load_error}}
+      <button id="rs-retry" class="btn btn-default btn-xs" style="margin-left:10px">{{_('Retry')}}</button>
+    </div>
+    {% endif %}
+
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Vocabulary Difficulty Level')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted">
+          {{_('Words harder than this level are marked as unknown while reading. Default: CET4.')}}
+        </p>
+
+        <form id="reading-settings-form" role="form">
+          <div class="form-group">
+            <label for="hard-level-select">{{_('Hard level')}}</label>
+            <select class="form-control" id="hard-level-select" name="hardLevel"
+                    {% if not settings %}disabled{% endif %}>
+              {% if settings %}
+                {% for opt in settings.options %}
+                <option value="{{ opt.code }}" {% if settings.hardLevel == opt.code %}selected{% endif %}>
+                  {{ opt.code }} - {{ opt.name }}{% if settings.usingDefault and settings.hardLevel == opt.code %} ({{_('default')}}){% endif %}
+                </option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+          <div class="form-group">
+            <button type="submit" id="rs-save" class="btn btn-primary"
+                    {% if not settings %}disabled{% endif %}>{{_('Save')}}</button>
+            <span id="rs-status" class="text-muted" style="margin-left:10px"></span>
+          </div>
+        </form>
+
+        {% if settings %}
+        <p class="help-block">
+          {{_('Current level')}}: <strong>{{ settings.hardLevel }} - {{ settings.hardLevelName }}</strong>
+          {% if settings.usingDefault %}<span class="label label-info">{{_('default (not saved)')}}</span>{% endif %}
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+    var form = document.getElementById('reading-settings-form');
+    var select = document.getElementById('hard-level-select');
+    var status = document.getElementById('rs-status');
+    var saveBtn = document.getElementById('rs-save');
+    var retry = document.getElementById('rs-retry');
+
+    function setStatus(text, isError) {
+        status.textContent = text;
+        status.className = isError ? 'text-danger' : 'text-muted';
+    }
+
+    function csrfToken() {
+        var match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    if (retry) {
+        retry.addEventListener('click', function () { window.location.reload(); });
+    }
+
+    if (!form || !select) return;
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var level = parseInt(select.value, 10);
+        if (isNaN(level) || level < 0 || level > 9) {
+            setStatus('{{_('Invalid level')}}', true);
+            return;
+        }
+        saveBtn.disabled = true;
+        setStatus('{{_('Saving...')}}');
+        fetch('{{ url_for("web.reading_settings_update_hard_level") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken()
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({hardLevel: level})
+        }).then(function (response) {
+            return response.json().then(function (data) { return {ok: response.ok, data: data}; });
+        }).then(function (wrap) {
+            var data = wrap.data || {};
+            if (wrap.ok && data.success !== false) {
+                setStatus('{{_('Saved')}} ✓');
+                // 更新底部当前级别提示并去掉"默认未保存"状态需要刷新, 保持简单: 提示成功即可
+            } else {
+                setStatus((data && data.message) || '{{_('Save failed')}}', true);
+            }
+        }).catch(function () {
+            setStatus('{{_('Save failed')}}', true);
+        }).finally(function () {
+            saveBtn.disabled = false;
+        });
+    });
+})();
+</script>
+{% endblock %}

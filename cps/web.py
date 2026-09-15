@@ -280,6 +280,36 @@ def reading_tts():
     return _moonwell_proxy("/tts/speak", payload, 65, "reading tts", binary=True)
 
 
+@web.route("/reading/settings", methods=["GET"])
+@user_login_required
+def reading_settings():
+    """阅读设置独立页：用户难度档位等 per-user 阅读偏好（后续配置统一挂这里）。"""
+    settings, error = _moonwell_settings_fetch()
+    return render_title_template("reading_settings.html", title=_("Reading Settings"),
+                                 settings=settings, load_error=error)
+
+
+@web.route("/ajax/reading-settings", methods=["GET"])
+@user_login_required
+def reading_settings_get():
+    """Proxy the user's reading settings (currently hard level only)."""
+    body, status, headers = _moonwell_proxy("/vocabulary/reading/settings", None, 10,
+                                            "reading settings", method="GET")
+    return body, status, headers
+
+
+@web.route("/ajax/reading-settings/hard-level", methods=["POST"])
+@user_login_required
+def reading_settings_update_hard_level():
+    """Proxy the hard level update; payload {"hardLevel": 0-9}."""
+    payload = request.get_json(silent=True) or {}
+    level = payload.get("hardLevel")
+    if level is None:
+        return jsonify({"success": False, "message": "hardLevel is required"}), 400
+    return _moonwell_proxy("/vocabulary/reading/settings/hard-level", payload, 10,
+                           "reading settings update")
+
+
 @web.route("/ajax/reading-translate-book", methods=["POST"])
 @user_login_required
 @admin_required
@@ -495,6 +525,23 @@ def reading_word_mark():
     path = ("/vocabulary/unknown/" if unknown else "/vocabulary/known/") + quote(word, safe="")
     # 标记是即时小操作，8s 足够
     return _moonwell_proxy(path, None, 8, "reading word mark", method="GET")
+
+
+def _moonwell_settings_fetch():
+    """服务端拉取阅读设置（reading_settings 页面首屏渲染）；失败返回 (None, 提示文案)。"""
+    try:
+        body, status, _headers = _moonwell_proxy("/vocabulary/reading/settings", None, 10,
+                                                 "reading settings", method="GET")
+        if 200 <= status < 300:
+            data = json.loads(body)
+            # moon-well Result 包装: {"success": bool, "result": {...}}
+            if data.get("success") and data.get("result") is not None:
+                return data["result"], None
+            return None, (data.get("message") or "settings unavailable")
+        return None, "reading settings service unavailable (HTTP %d)" % status
+    except (ValueError, TypeError) as error:
+        log.warning("reading settings parse failed: %s", error)
+        return None, "reading settings service unavailable"
 
 
 def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST"):
