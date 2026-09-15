@@ -705,3 +705,9 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - 现模板结构：原英文 AI Reading Companion 提示词逐字不动（含 Book Metadata 书名段），末尾在 memory 段之后追加独立段落「以下是用户暂时还未掌握的词汇：{{unfamiliar_words}}」，与 {{extra_section}}（管理员附加指令）共存。
 - 书名说明：用户发送消息时前端已带 book_title/book_authors（ai_chat.js POST body），服务端渲染进 Book Metadata 的 Title 行，本就满足「带上当前正在阅读的书名」，无需改动。
 
+**R44 最终态：撤销新增段，chat-system 模板恢复原样**
+
+- 「## Unfamiliar words on this page」原生词段本就承担该职责（reading-vocabulary 判定的生词 + 手动标记都渲染在这里），追加中文句属重复注入，全部撤销。
+- 模板回到本次需求前的原始版本；memory.py 的空态「（本页暂无）」保留（替代原 "(none marked)"，纯文案优化）。
+- 测试：test_ai_memory 断言同步，pytest 164 全过。
+

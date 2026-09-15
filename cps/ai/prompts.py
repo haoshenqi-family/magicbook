@@ -29,10 +29,7 @@ DEFAULT_PROMPTS = {
         "{{unfamiliar_words}}\n"
         "\n"
         "## What you remember about this user (long-term memory)\n"
-        "{{memory}}\n"
-        "\n"
-        "以下是用户暂时还未掌握的词汇：{{unfamiliar_words}}\n"
-        "{{extra_section}}"
+        "{{memory}}{{extra_section}}"
     ),
 }
 
