@@ -656,3 +656,28 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **requests.md**：R41 追加「部署完成后仍 500」。
 - **response.md**：记录 R42 真根因（Nacos 覆盖 ES 为公网环回 → index 间歇 IOException → 500）与修复（Nacos ES 段改直连 + 重启验证），含配置备份位置与三条遗留。
 - **冲突记录**：R41 曾将偶发 500 归因于并行重建窗口期，R42 以响应体证据修正为 Nacos ES 公网环回链路的间歇 IOException；窗口期失败与链路抖动两类 500 并存，R42 修复后者（主因）。
+
+### 对 requests 的回应（R43 生词两种展示临时下线，requests #42）
+
+- **改动**：`cps/static/js/reading/epub.js` `markVocabulary` 注释掉生词的两种信息展示——① 悬停 tooltip（`span.title`：释义 + 「上次：书 · 章节」）；② 点击 `alert` 弹窗。两者内容相同且过长，仅保留波浪线标注与 `dataset.word`；划词气泡（翻译/发音/＋－标记）不受影响。
+- **配合（moon-well 侧）**：analyze 接口同步暂停查词典释义、仅返回生词本身（`word` + `unknown`），响应体积大幅缩小；连带超纲词（词典 level）判定暂停，仅单词本内未掌握词会返回，详见 moon-well response.md R25 与其 `docs/readme/reading-vocabulary.md` 临时调整说明。
+- **验证**：`pytest tests/test_reading_vocabulary.py` 27/27 通过；`node --check epub.js` 语法通过；全仓测试无其它断言依赖被注释代码。
+- **恢复方式**：取消 `markVocabulary` 内两处注释即可（moon-well 侧需同步恢复 VO 字段）。
+
+### 总结（R43 后更新）
+
+- **requests.md**：2026-09-14 新增 #42。
+- **response.md**：记录 R43 前端展示下线范围、moon-well 配套改动、测试结果与恢复方式。
+- **冲突记录**：无。
+
+## 2026-09-15
+
+**R43：默认档位 CET4 + 阅读设置独立页**
+
+- moon-well：DEFAULT_HARD_LEVEL 6→3（CET4），未配置 hard_level 的用户按 CET4 判生词；新增 ReadingSettingsService/Controller（GET /vocabulary/reading/settings 返回当前档位+0-9 档全集，POST /vocabulary/reading/settings/hard-level 校验并落库 app_user.hard_level）；路径复用 /vocabulary/reading/** 的 internalUri 放行规则，无需改拦截器。
+- magicbook：新增独立页面 /reading/settings（模板 reading_settings.html，不动 calibre 原有 profile/admin 功能）；web.py 增加页面路由与 /ajax/reading-settings、/ajax/reading-settings/hard-level 两个代理（与现有 reading-* 代理同模式：内网信任 + 身份头透传 + 401 自动刷新）；layout.html 两套主题的用户菜单加「Reading Settings」入口。
+- 后续扩展：新的用户级阅读配置统一加到 ReadingSettingsService + reading_settings.html 页面，不再散落。
+- 测试：moon-well 259/260（MagicbookApplicationTests 为 contextLoads 冒烟，依赖真实 DB，非内网环境连不上，存量问题）；magicbook pytest 163+6=169 全过（新增 tests/test_reading_settings.py）。
+
+**总结**：requests.md 与 response.md 已同步更新；R43 无与既有需求冲突项。
+

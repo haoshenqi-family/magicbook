@@ -86,3 +86,12 @@
 39. 补充 R37：生词标注问题发生在哈利波特 EPUB（book 50，/read/50/epub）上，继续定位。
 40. 实测复现：打开 book 50 后无法翻页，DevTools 报 Uncaught IndexSizeError（epub.min.js toRange setStart），定位并修复。
 41. R40 修复部署后复测 /ajax/reading-vocabulary 仍偶发 500，继续排查（已部署完成仍复现，响应体 "save reading vocabulary failed"）。
+
+## 2026-09-14
+
+42. 生词显示的两种展示形式（悬停提示 / 点击弹窗）都太长，暂时都注释掉（配合 moon-well analyze 仅返回生词本身）。
+
+## 2026-09-15
+
+43. 用户默认难度级别定为 3（CET4）；新增一个配置页面允许用户自己修改级别，之后的阅读相关配置修改都放到这个页面；不要改动 calibre 原有功能，新建独立页面。
+
