@@ -1514,12 +1514,15 @@ var reader;
                     var span = doc.createElement('span');
                     span.className = 'reading-vocabulary-unknown';
                     span.textContent = match[0];
-                    span.title = (record.translation || '点击查看学习记录') +
-                        (record.lastBookName ? '\n上次：' + record.lastBookName + ' · ' + (record.lastChapter || '') : '');
+                    // Why: 暂时下线生词信息的两种展示（悬停 tooltip / 点击 alert）——
+                    // 「释义 + 上次：书 · 章节」文本太长干扰阅读，仅保留波浪线标注；
+                    // 恢复时连同取消注释即可（moon-well analyze 也已暂停返回 translation）。
+                    // span.title = (record.translation || '点击查看学习记录') +
+                    //     (record.lastBookName ? '\n上次：' + record.lastBookName + ' · ' + (record.lastChapter || '') : '');
                     span.dataset.word = word;
-                    span.addEventListener('click', function () {
-                        alert(this.title);
-                    });
+                    // span.addEventListener('click', function () {
+                    //     alert(this.title);
+                    // });
                     fragment.appendChild(span); last = regex.lastIndex;
                 }
                 if (last > 0) {
