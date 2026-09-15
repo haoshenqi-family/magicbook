@@ -699,3 +699,9 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 
 - chat-system 模板恢复原「Unfamiliar words on this page」英文段（列表原样），中文句「以下是用户暂时还未掌握的词汇：…」作为单独一段追加在其后——同一数据源（unfamiliar_words）渲染两处，原提示词语义完整保留。
 
+**R44 再修正：原 chat-system 模板原样保留，中文句作为独立段追加在末尾**
+
+- 之前两次把中文句插进了模板中间（原英文生词段内/其后），不符合「保留原先的系统提示词」的本意。
+- 现模板结构：原英文 AI Reading Companion 提示词逐字不动（含 Book Metadata 书名段），末尾在 memory 段之后追加独立段落「以下是用户暂时还未掌握的词汇：{{unfamiliar_words}}」，与 {{extra_section}}（管理员附加指令）共存。
+- 书名说明：用户发送消息时前端已带 book_title/book_authors（ai_chat.js POST body），服务端渲染进 Book Metadata 的 Title 行，本就满足「带上当前正在阅读的书名」，无需改动。
+
