@@ -100,7 +100,9 @@ jobs:
           BARK_KEY: ${{ secrets.BARK_KEY }}
           PROJECT_NAME: ${{ github.event.repository.name }}
         run: |
-          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建成功"
+          COMMITS=$(git log -3 --pretty=format:'%h %s' | python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))')
+          if [ -z "$COMMITS" ]; then COMMITS="%E6%97%A0%E6%8F%90%E4%BA%A4%E8%AE%B0%E5%BD%95"; fi
+          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20%E6%9E%84%E5%BB%BA%E6%88%90%E5%8A%9F/${COMMITS}"
 
       - name: Send Bark Notification on Failure
         if: failure()
@@ -108,4 +110,6 @@ jobs:
           BARK_KEY: ${{ secrets.BARK_KEY }}
           PROJECT_NAME: ${{ github.event.repository.name }}
         run: |
-          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20AI镜像构建失败"
+          COMMITS=$(git log -3 --pretty=format:'%h %s' | python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))' || true)
+          if [ -z "$COMMITS" ]; then COMMITS="%E6%97%A0%E6%8F%90%E4%BA%A4%E8%AE%B0%E5%BD%95"; fi
+          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20%E6%9E%84%E5%BB%BA%E5%A4%B1%E8%B4%A5/${COMMITS}"
