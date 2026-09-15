@@ -116,3 +116,19 @@ def test_ajax_post_rejects_missing_level(admin_client, moonwell_configured):
     rv = admin_client.post("/ajax/reading-settings/hard-level", json={})
     assert rv.status_code == 400
     assert rv.get_json()["success"] is False
+
+def test_ajax_post_passes_through_csrf_400(admin_client, moonwell_configured, monkeypatch):
+    """CSRF 校验失败时 moon-well 代理返回非 JSON 的 400(HTML), 前端据 'csrf' 关键词自愈刷新;
+    服务端侧验证 400 原样透传不抛异常。"""
+    import cps.web as w
+
+    def csrf_reject(path, payload, timeout, label, binary=False, method="POST"):
+        return ("<html>The CSRF token is invalid.</html>", 400,
+                {"Content-Type": "text/html"})
+
+    monkeypatch.setattr(w, "_moonwell_proxy", csrf_reject)
+
+    rv = admin_client.post("/ajax/reading-settings/hard-level", json={"hardLevel": 4})
+    assert rv.status_code == 400
+    assert b"CSRF" in rv.data
+

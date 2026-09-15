@@ -681,3 +681,9 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 
 **总结**：requests.md 与 response.md 已同步更新；R43 无与既有需求冲突项。
 
+**R43 修复：保存档位 400**
+
+- 根因：CSRFProtect 全局启用，设置页 JS 从 cookie 读 CSRF token（项目 token 不写 cookie），X-CSRFToken 为空被 400 拒绝。
+- 修复：表单加 hidden csrf_token input，JS 改从 DOM 读取（与 epub.js/ai_chat.js 项目惯例一致）；400 响应体含 csrf 时自动刷新页面取新 token（sessionStorage 防死循环，与 epub.js reloadIfCsrfBlocked 同策略）；错误提示带上 HTTP 状态码。
+- 测试：新增 CSRF 400 透传用例，pytest 164 全过；已提交推送。
+

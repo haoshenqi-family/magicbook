@@ -21,6 +21,7 @@
         </p>
 
         <form id="reading-settings-form" role="form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="form-group">
             <label for="hard-level-select">{{_('Hard level')}}</label>
             <select class="form-control" id="hard-level-select" name="hardLevel"
@@ -68,9 +69,22 @@
         status.className = isError ? 'text-danger' : 'text-muted';
     }
 
+    // Why: CSRFProtect 的 token 不放 cookie, 项目惯例是渲染进 hidden input 后由 JS 读取
+    //（与 epub.js readerCsrfToken / ai_chat.js getCsrfToken 一致）
     function csrfToken() {
-        var match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/);
-        return match ? decodeURIComponent(match[1]) : '';
+        var input = form.querySelector("input[name='csrf_token']");
+        return input ? input.value : '';
+    }
+
+    // CSRF 失败自愈: token 过期/会话重建后服务端 400, 刷新取新 token（防死循环标记）
+    function reloadIfCsrfBlocked(text) {
+        if (!/csrf/i.test(text || '')) return false;
+        try {
+            if (sessionStorage.getItem('readingSettingsCsrfReloaded') === '1') return true;
+            sessionStorage.setItem('readingSettingsCsrfReloaded', '1');
+        } catch (e) { /* 隐私模式等场景忽略 */ }
+        location.reload();
+        return true;
     }
 
     if (retry) {
@@ -97,14 +111,19 @@
             credentials: 'same-origin',
             body: JSON.stringify({hardLevel: level})
         }).then(function (response) {
-            return response.json().then(function (data) { return {ok: response.ok, data: data}; });
+            return response.text().then(function (text) {
+                var data = null;
+                try { data = JSON.parse(text); } catch (e) { /* 非 JSON 响应体 */ }
+                return {ok: response.ok, status: response.status, text: text, data: data};
+            });
         }).then(function (wrap) {
             var data = wrap.data || {};
             if (wrap.ok && data.success !== false) {
                 setStatus('{{_('Saved')}} ✓');
-                // 更新底部当前级别提示并去掉"默认未保存"状态需要刷新, 保持简单: 提示成功即可
+            } else if (reloadIfCsrfBlocked(wrap.text)) {
+                return; // CSRF 失败: 页面正在刷新取新 token
             } else {
-                setStatus((data && data.message) || '{{_('Save failed')}}', true);
+                setStatus((data && data.message) || ('{{_('Save failed')}} (HTTP ' + wrap.status + ')'), true);
             }
         }).catch(function () {
             setStatus('{{_('Save failed')}}', true);
