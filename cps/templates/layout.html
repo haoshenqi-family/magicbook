@@ -70,6 +70,7 @@
                     {% endif %}
                     {% if not current_user.is_anonymous %}
                     <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> <span class="hidden-sm">{{_('Reading Settings')}}</span></a></li>
+                    <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> <span class="hidden-sm">{{_('Achievements')}}</span></a></li>
                     <li><a id="logout" href="{{url_for('web.logout', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}"><span class="glyphicon glyphicon-log-out"></span> <span class="hidden-sm">{{_('Logout')}}</span></a></li>
                     {% endif %}
                 </ul>
@@ -98,6 +99,7 @@
               <li><a id="top_user" data-text="{{_('Account')}}" href="{% if not current_user.is_anonymous %}{{url_for('web.profile')}}{% else %}{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}{% endif %}"><span class="glyphicon glyphicon-user"></span> <span class="hidden-sm">{{current_user.name}}</span></a></li>
                 {% if not current_user.is_anonymous %}
                 <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> <span class="hidden-sm">{{_('Reading Settings')}}</span></a></li>
+                    <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> <span class="hidden-sm">{{_('Achievements')}}</span></a></li>
                 <li><a id="logout" href="{{url_for('web.logout', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}"><span class="glyphicon glyphicon-log-out"></span> <span class="hidden-sm">{{_('Logout')}}</span></a></li>
                 {% endif %}
               {% endif %}

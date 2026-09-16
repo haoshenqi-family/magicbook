@@ -289,6 +289,54 @@ def reading_settings():
                                  settings=settings, load_error=error)
 
 
+@web.route("/achievements", methods=["GET"])
+@user_login_required
+def achievements_page():
+    """成就中心页：等级/XP/徽章墙，数据经 /ajax/achievements-* 异步加载。"""
+    return render_title_template("achievements.html", title=_("Achievements"))
+
+
+@web.route("/ajax/achievements-summary", methods=["GET"])
+@user_login_required
+def achievements_summary():
+    """Proxy the achievement summary (level / XP / badge counts / streak)."""
+    body, status, headers = _moonwell_proxy("/achievements/summary", None, 10,
+                                            "achievements summary", method="POST")
+    return body, status, headers
+
+
+@web.route("/ajax/achievements-detail", methods=["GET"])
+@user_login_required
+def achievements_detail():
+    """Proxy the achievement detail list; query param category=READ|VOCAB|STREAK."""
+    category = request.args.get("category", "")
+    payload = {"category": category} if category else {}
+    body, status, headers = _moonwell_proxy("/achievements/detail", payload, 10,
+                                            "achievements detail")
+    return body, status, headers
+
+
+@web.route("/ajax/achievements-pending", methods=["GET"])
+@user_login_required
+def achievements_pending():
+    """Proxy the pending (unlocked but unclaimed) achievements for polling."""
+    body, status, headers = _moonwell_proxy("/achievements/pending", None, 10,
+                                            "achievements pending", method="POST")
+    return body, status, headers
+
+
+@web.route("/ajax/achievements-claim", methods=["POST"])
+@user_login_required
+def achievements_claim():
+    """Proxy the achievement claim; payload {"code": "..."}."""
+    payload = request.get_json(silent=True) or {}
+    code = payload.get("code")
+    if not code:
+        return jsonify({"success": False, "message": "code is required"}), 400
+    return _moonwell_proxy("/achievements/claim", {"code": code}, 10,
+                           "achievements claim")
+
+
 @web.route("/ajax/reading-settings", methods=["GET"])
 @user_login_required
 def reading_settings_get():

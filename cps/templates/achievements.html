@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+{% block header %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/achievements.css') }}">
+{% endblock %}
+{% block body %}
+<div class="discover">
+  <h1>{{_('Achievements')}}</h1>
+  <div class="col-md-12">
+
+    <div id="ach-error" class="alert alert-danger hidden" role="alert">
+      <span id="ach-error-text"></span>
+      <button id="ach-retry" class="btn btn-default btn-xs" style="margin-left:10px">{{_('Retry')}}</button>
+    </div>
+
+    <!-- 总览头：等级 / XP / 徽章 / streak -->
+    <div id="ach-summary" class="panel panel-default" hidden>
+      <div class="panel-body ach-summary-body">
+        <div class="ach-level-block">
+          <div class="ach-level-ring">
+            <span class="ach-level-num" id="ach-level-num">1</span>
+            <span class="ach-level-label">{{_('Level')}}</span>
+          </div>
+        </div>
+        <div class="ach-stat-block">
+          <div class="row">
+            <div class="col-xs-3 ach-stat"><span class="ach-stat-value" id="ach-total-points">0</span><span class="ach-stat-label">XP</span></div>
+            <div class="col-xs-3 ach-stat"><span class="ach-stat-value" id="ach-unlocked-count">0</span><span class="ach-stat-label">{{_('Unlocked')}}</span></div>
+            <div class="col-xs-3 ach-stat"><span class="ach-stat-value" id="ach-streak">0</span><span class="ach-stat-label">{{_('Day streak')}}</span></div>
+            <div class="col-xs-3 ach-stat"><span class="ach-stat-value" id="ach-pending-count">0</span><span class="ach-stat-label">{{_('New')}}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分类页签 -->
+    <ul class="nav nav-tabs" id="ach-tabs" hidden>
+      <li role="presentation" class="active" data-category=""><a href="#">{{_('All')}} <span class="badge" id="ach-tab-all"></span></a></li>
+      <li role="presentation" data-category="READ"><a href="#">{{_('Reading')}} <span class="badge" id="ach-tab-read"></span></a></li>
+      <li role="presentation" data-category="VOCAB"><a href="#">{{_('Vocabulary')}} <span class="badge" id="ach-tab-vocab"></span></a></li>
+      <li role="presentation" data-category="STREAK"><a href="#">{{_('Streak')}} <span class="badge" id="ach-tab-streak"></span></a></li>
+    </ul>
+
+    <!-- 成就列表 -->
+    <div id="ach-list" class="ach-list"></div>
+
+    <!-- 解锁弹层 -->
+    <div id="ach-unlock-modal" class="ach-unlock-modal hidden">
+      <div class="ach-unlock-card">
+        <div class="ach-unlock-icon" id="ach-unlock-icon">&#9733;</div>
+        <div class="ach-unlock-title">{{_('Achievement Unlocked!')}}</div>
+        <div class="ach-unlock-name" id="ach-unlock-name"></div>
+        <div class="ach-unlock-desc" id="ach-unlock-desc"></div>
+        <div class="ach-unlock-points" id="ach-unlock-points"></div>
+        <button class="btn btn-primary" id="ach-unlock-claim">{{_('Claim')}}</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/achievements.js') }}"></script>
+{% endblock %}
