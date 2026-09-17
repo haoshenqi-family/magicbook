@@ -120,7 +120,9 @@ def test_publish_payload_carries_prompt_template_and_progress_reports_pending(tm
         def commit(self):
             self.committed += 1
 
-        def query(self, *a, **k):
+        def query(self, model, *a, **k):
+            state = self
+
             class _Q:
                 def filter(self, *a, **k):
                     return self
@@ -131,20 +133,69 @@ def test_publish_payload_carries_prompt_template_and_progress_reports_pending(tm
                             return None
                     return _First()
 
-                def filter_by(self, *a, **k):
+                def filter_by(self, **kw):
+                    self._kw = kw
                     return self
+
+                def one(self):
+                    # 后台发布线程：按模型区分——job 查询返回匹配的 job，
+                    # item 查询返回该 job 的全部 item
+                    jobs = [o for o in state.adds if isinstance(o, TranslationJob)]
+                    job_id = getattr(self, "_kw", {}).get("id")
+                    if job_id:
+                        for job in jobs:
+                            if job.id == job_id:
+                                return job
+                    return jobs[0] if jobs else None
+
+                def all(self):
+                    job_id = getattr(self, "_kw", {}).get("job_id")
+                    if job_id:
+                        return [o for o in state.adds
+                                if isinstance(o, TranslationJobItem) and o.job_id == job_id]
+                    return [o for o in state.adds if isinstance(o, TranslationJobItem)]
 
                 def one_or_none(self):
                     return None
 
                 def all(self):
+                    job_id = getattr(self, "_kw", {}).get("job_id")
+                    if job_id:
+                        return [o for o in state.adds
+                                if isinstance(o, TranslationJobItem) and o.job_id == job_id]
                     return []
 
                 def __iter__(self):
                     return iter([])
             return _Q()
 
-    monkeypatch.setattr(svc.ub, "session", _Session(), raising=False)
+    # start() 现在把发布交给后台线程：测试里把 Thread 换成同步执行，便于断言
+    class _SyncThread:
+        def __init__(self, target=None, args=None, name=None, daemon=None):
+            self._target = target
+            self._args = args or ()
+
+        def start(self):
+            self._target(*self._args)
+
+    monkeypatch.setattr(svc.threading, "Thread", _SyncThread)
+
+    class _ScopedSession:
+        """模拟 scoped_session：方法转发到共享 inner，调用返回同一会话，remove() 清理。"""
+        def __init__(self, inner):
+            self._inner = inner
+
+        def __call__(self):
+            return self._inner
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+        def remove(self):
+            pass
+
+    inner = _Session()
+    monkeypatch.setattr(svc.ub, "session", _ScopedSession(inner), raising=False)
 
     result = svc.WholeBookTranslationService().start(1, "EPUB", False, _publish, {})
 
@@ -204,3 +255,141 @@ def test_extract_skips_nested_blocks_and_empty_paragraphs(tmp_path):
     paragraphs = extract_epub_paragraphs(path)
     texts = [text for _, text in paragraphs]
     assert texts == ["quoted line.", "after empty."]
+
+
+def test_publish_survives_single_segment_failure(tmp_path, monkeypatch):
+    """R48 后台发布线程：单段发布失败只标 FAILED，不中断整批发布。"""
+    import sys, os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from cps.reading_translation import service as svc
+    from cps.reading_translation.models import TranslationJob, TranslationJobItem
+
+    path = tmp_path / "book.epub"
+    _write_epub(path)
+
+    monkeypatch.setattr(svc.WholeBookTranslationService, "_ensure_tables", lambda self: None)
+    monkeypatch.setattr(svc, "extract_epub_paragraphs",
+                        lambda p: [("Ch.1", "first."), ("Ch.1", "second."), ("Ch.1", "third.")])
+
+    class _Book:
+        title = "Test Book"
+        path = "."
+
+    class _CalibreDB:
+        @staticmethod
+        def get_filtered_book(book_id):
+            return _Book()
+
+        @staticmethod
+        def get_book_format(book_id, fmt):
+            class _F:
+                name = "book"
+            return _F()
+
+    class _Config:
+        @staticmethod
+        def get_book_path():
+            return str(tmp_path)
+
+    class _User:
+        id = 1
+
+    class _Session:
+        def __init__(self):
+            self.adds = []
+
+        def add(self, obj):
+            self.adds.append(obj)
+            if isinstance(obj, TranslationJob):
+                for f in ("total_count", "cached_count", "published_count",
+                          "completed_count", "failed_count"):
+                    if getattr(obj, f) is None:
+                        setattr(obj, f, 0)
+            if isinstance(obj, TranslationJobItem) and obj.attempt_count is None:
+                obj.attempt_count = 0
+
+        def commit(self):
+            pass
+
+        def query(self, model, *a, **k):
+            state = self
+
+            class _Q:
+                def __init__(self):
+                    self._kw = {}
+
+                def filter(self, *a, **k):
+                    return self
+
+                def order_by(self, *a, **k):
+                    class _First:
+                        def first(self):
+                            return None
+                    return _First()
+
+                def filter_by(self, **kw):
+                    self._kw.update(kw)
+                    return self
+
+                def one(self):
+                    jobs = [o for o in state.adds if isinstance(o, TranslationJob)]
+                    job_id = self._kw.get("id")
+                    for job in jobs:
+                        if job.id == job_id:
+                            return job
+                    return jobs[0]
+
+                def one_or_none(self):
+                    return None
+
+                def all(self):
+                    job_id = self._kw.get("job_id")
+                    if job_id:
+                        return [o for o in state.adds
+                                if isinstance(o, TranslationJobItem) and o.job_id == job_id]
+                    return []
+
+                def __iter__(self):
+                    return iter([])
+            return _Q()
+
+    class _SyncThread:
+        def __init__(self, target=None, args=None, name=None, daemon=None):
+            self._target, self._args = target, args or ()
+
+        def start(self):
+            self._target(*self._args)
+
+    class _ScopedSession:
+        def __init__(self, inner):
+            self._inner = inner
+
+        def __call__(self):
+            return self._inner
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+        def remove(self):
+            pass
+
+    monkeypatch.setattr(svc, "calibre_db", _CalibreDB)
+    monkeypatch.setattr(svc, "config", _Config)
+    monkeypatch.setattr(svc, "current_user", _User, raising=False)
+    monkeypatch.setattr(svc.threading, "Thread", _SyncThread)
+    monkeypatch.setattr(svc.ub, "session", _ScopedSession(_Session()), raising=False)
+
+    # 中间那次发布抛异常，前后两次成功
+    published = []
+
+    def _publish(payload):
+        published.append(payload["parameters"]["paragraphIndex"])
+        if len(published) == 2:
+            raise ValueError("simulated publish failure")
+        return {"result": {"taskId": 7}}
+
+    result = svc.WholeBookTranslationService().start(1, "EPUB", False, _publish, {})
+
+    assert sorted(published) == [0, 1, 2]          # 3 段全部尝试发布，失败不中断
+    assert result["failedCount"] == 1              # 第 2 段失败
+    assert result["publishedCount"] == 2           # 第 1、3 段发布成功
