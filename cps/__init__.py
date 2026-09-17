@@ -21,9 +21,11 @@
 #  along with this program. If not, see <http://www.gnu.org/licenses/>.
 __package__ = "cps"
 
-import sys
+import json
 import os
+import sys
 import mimetypes
+import threading
 
 from flask import Flask
 from flask.sessions import SecureCookieSessionInterface
@@ -199,6 +201,41 @@ def create_app():
         app.register_blueprint(oidc)
 
     web_server.init_app(app, config)
+
+    # 整书翻译启动恢复：daemon 发布线程可能被容器重启杀死，遗留 PENDING 项的
+    # 活动批次在此重新拉起（断点续作，设计文档 §9）。内部调用用系统身份：
+    # 无请求上下文，直接以「内部信任头」形式向 moon-well 发布，不依赖用户会话。
+    def _recover_whole_book_translation():
+        from .reading_translation.service import whole_book_translation_service
+
+        def _system_publish(task_payload):
+            response = _moonwell_proxy("/llm/task/publish", task_payload, 20,
+                                       "whole-book translation recovery",
+                                       system_identity=True)
+            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
+                raise ValueError("moon-well task publish failed")
+            return json.loads(response[0])
+
+        def _system_lookup(paragraphs):
+            response = _moonwell_proxy("/reading/paragraph-cache/find-translations",
+                                       {"paragraphs": paragraphs}, 20,
+                                       "translation cache recovery", system_identity=True)
+            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
+                return {}
+            data = json.loads(response[0])
+            return data.get("result", {}) if isinstance(data, dict) else {}
+
+        threading.Thread(
+            target=whole_book_translation_service.recover_active_jobs,
+            args=(_system_publish, _system_lookup),
+            name="whole-book-recovery", daemon=True).start()
+
+    if os.environ.get("WHOLE_BOOK_RECOVERY", "1") != "0":
+        try:
+            _recover_whole_book_translation()
+        except Exception:
+            log.exception("whole-book translation recovery failed to start")
+
     from .cw_babel import babel, get_locale
     if hasattr(babel, "localeselector"):
         babel.init_app(app)

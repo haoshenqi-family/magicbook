@@ -592,7 +592,8 @@ def _moonwell_settings_fetch():
         return None, "reading settings service unavailable"
 
 
-def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST"):
+def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
+                    system_identity=None):
     """转发阅读相关请求到 moon-well。
 
     鉴权方式：session 中的 moonwell_access_token 透传为 Authorization: Bearer，
@@ -600,12 +601,25 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST"):
     binary=True 时按原始字节透传响应体（音频），而非解码为文本。
     method="GET" 时以 GET 转发且不带请求体（moon-well 的 known/unknown
     标记接口是 path 参数式 GET，无 JSON body）。
+    system_identity=True：无用户请求上下文的内部调用（如启动恢复线程），
+    以「系统身份」X-User-* 头调用（moon-well 内网信任模式按 subject 兜底建号），
+    任务归属系统账号，不依赖任何用户会话。
     """
     base = _moonwell_base_url()
     if not base:
         return jsonify({"success": False, "message": "moon-well is not configured"}), 503
 
-    headers = _moonwell_identity_headers()
+    if system_identity:
+        subject = os.environ.get("SYSTEM_IDENTITY_SUBJECT", "magicbook-system")
+        headers = {
+            "X-User-Subject": subject,
+            "X-User-Username": subject,
+            "X-User-Email": subject + "@internal.magicbook",
+            "X-User-Nickname": "magicbook-system",
+            "X-User-Issuer": os.environ.get("AUTHENTIK_ISSUER", ""),
+        }
+    else:
+        headers = _moonwell_identity_headers()
     token = flask_session.get("moonwell_access_token")
     if token:
         headers["authorization"] = "Bearer " + token

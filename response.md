@@ -788,3 +788,22 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **requests.md**：追加 R48（109 段排查修复）。
 - **response.md**：记录同步发布循环被网关超时杀死的根因与后台化改造。
 - **冲突记录**：无。
+
+
+---
+
+## 2026-09-17（第二次对话）
+
+### R49（彻底解决：启动恢复 + 系统身份内部调用，断点续作闭环）
+
+- **补充修复**：后台发布线程是 daemon，容器重启/更新会杀死它，遗留 PENDING 段落既不发布也不失败，批次永久卡死。
+  - `service.py` 新增 `recover_active_jobs(publish, lookup)`：应用启动时扫描存在 PENDING 项的活动批次并重新拉起发布线程（设计文档 §9 断点续作落地）。
+  - `web.py` `_moonwell_proxy` 新增 `system_identity=True` 内部调用模式：以系统身份 X-User-* 头（moon-well 内网信任自动建号）发布任务，启动恢复不依赖用户会话。
+  - `__init__.py` `create_app` 挂启动钩子（WHOLE_BOOK_RECOVERY=0 可关闭）。
+- **验证**：全量 184 passed。
+- **e2e 环境约束**：调用 API 翻译整本书需要 magicbook 登录态；Authentik OIDC 启用后本地密码登录前后端均禁用，密码模式/设备流均需 client_secret（存于服务器 .env，当前 fnos SSH 不可达），自动化登录暂不可行。部署完成后由用户在页面发起（或提供可编程凭据）即可完成验证。
+
+### 总结
+
+- **requests.md**：追加 R49。
+- **response.md**：记录启动恢复机制与 e2e 约束。

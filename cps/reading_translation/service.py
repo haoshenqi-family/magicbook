@@ -88,12 +88,47 @@ class WholeBookTranslationService:
 
         # Why: scoped_session 绑定 greenlet/线程作用域，后台线程不能复用请求
         # 线程的 session；线程内自建会话操作，HTTP 响应无需等待发布完成。
+        self._spawn_publish_worker(job.id, book.title, book_id, fingerprint, publish, lookup)
+        return self.progress(job)
+
+    def _spawn_publish_worker(self, job_id, book_title, book_id, fingerprint, publish, lookup=None):
+        """拉起后台发布线程（start 与启动恢复共用同一入口）。"""
         worker = threading.Thread(
             target=self._publish_pending,
-            args=(job.id, book.title, book_id, fingerprint, publish, lookup),
-            name="whole-book-publish-" + job.id[:8], daemon=True)
+            args=(job_id, book_title, book_id, fingerprint, publish, lookup),
+            name="whole-book-publish-" + str(job_id)[:8], daemon=True)
         worker.start()
-        return self.progress(job)
+        return worker
+
+    def recover_active_jobs(self, publish, lookup=None):
+        """应用启动恢复：为存在 PENDING 项的活动批次重新拉起发布线程。
+
+        Why: 发布线程是 daemon，容器重启/更新会直接杀死它，剩余 PENDING
+        段落既不会发布也不会失败，批次从此卡死（设计文档 §9 断点续作要求）。
+        How: 由 web app 启动钩子调用一次；publish/lookup 闭包由调用方注入
+        （无 Flask 请求上下文，需用内部身份头构造 moon-well 调用）。
+        """
+        self._ensure_tables()
+        try:
+            active = ub.session.query(TranslationJob).filter(
+                TranslationJob.status.in_(ACTIVE_STATUSES)).all()
+        except Exception:
+            # 表可能尚未创建（首次部署），静默跳过
+            return 0
+        recovered = 0
+        for job in active:
+            pending = ub.session.query(TranslationJobItem.id).filter(
+                TranslationJobItem.job_id == job.id,
+                TranslationJobItem.status == "PENDING").count()
+            if not pending:
+                continue
+            recovered += 1
+            self._spawn_publish_worker(job.id, job.book_name, job.book_id,
+                                       job.book_fingerprint, publish, lookup)
+        if recovered:
+            import logging
+            logging.getLogger(__name__).info("whole-book translation: recovered %d active jobs", recovered)
+        return recovered
 
     def _publish_pending(self, job_id, book_title, book_id, fingerprint, publish, lookup=None):
         """后台发布线程：缓存命中回收 + 未发布段落逐条发布。
