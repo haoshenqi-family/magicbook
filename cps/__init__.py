@@ -206,7 +206,9 @@ def create_app():
     # 活动批次在此重新拉起（断点续作，设计文档 §9）。内部调用用系统身份：
     # 无请求上下文，直接以「内部信任头」形式向 moon-well 发布，不依赖用户会话。
     def _recover_whole_book_translation():
-        from .reading_translation.service import whole_book_translation_service
+        from .reading_translation.service import WholeBookTranslationService
+
+        service = WholeBookTranslationService()
 
         def _system_publish(task_payload):
             response = _moonwell_proxy("/llm/task/publish", task_payload, 20,
@@ -226,7 +228,7 @@ def create_app():
             return data.get("result", {}) if isinstance(data, dict) else {}
 
         threading.Thread(
-            target=whole_book_translation_service.recover_active_jobs,
+            target=service.recover_active_jobs,
             args=(_system_publish, _system_lookup),
             name="whole-book-recovery", daemon=True).start()
 
