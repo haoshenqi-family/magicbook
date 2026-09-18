@@ -113,3 +113,5 @@
 50. 整本翻译功能前端拆分后，后端完全没有收到 `/ajax/reading-translate-book` 的请求。检查该接口的完整逻辑并说明，先不做 debug、不修改代码。
 
 51. 生产 magicbook 报错：`Exception in thread whole-book-publish-xxx ... service.py:141 session = ub.session() TypeError: 'Session' object is not callable`。修复整本翻译发布线程崩溃。
+
+52. 部署修复后点击整本翻译，docker logs 里没有任何日志。排查并让整本翻译链路可观测。

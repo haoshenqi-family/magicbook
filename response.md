@@ -846,3 +846,23 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **requests.md**：追加 R51。
 - **response.md**：记录双根因与修复。
 - **冲突记录**：无。
+
+---
+
+## 2026-09-18（第三次对话）
+
+### R52（「点击无日志」判定：成功路径零日志，补观测点）
+
+- **排查结论**：docker logs 看不到请求不能证明请求没到——① access log 默认关闭且写文件不进容器日志（server.py:76 依赖 config_access_log）；② 整本翻译成功路径（受理/发布）此前一行日志都不打，唯一可见日志是线程崩溃逃逸的 traceback（R51 修复后不再出现）。「点击没日志」与「后端静默成功」外部表现相同。
+- **修复（观测点）**：service.py 统一 `log = logger.create()`（走项目 logger，线程异常日志同样迁移）：
+  - `start()`：受理 `job %s accepted (book/user/paragraphs/force)` + 幂等复用 `reuse active job`；
+  - `_publish_pending`：完成摘要 `publish finished, job=… total/cached/published/failed/status`；
+  - `_retry_failed`：完成摘要 `retry finished, …`。
+- **测试**：R51 回归测试加 caplog 断言 publish finished 摘要；全量 **186 passed**。
+- **验证方法**：部署后点击整本译——出现 `accepted` 即请求已到后端（之后 `publish finished` 收尾）；仍零日志则请求未离开浏览器，查前端（F12 Network / confirm 弹窗是否出现）。
+
+### 总结
+
+- **requests.md**：追加 R52。
+- **response.md**：记录无日志判定逻辑与观测点。
+- **冲突记录**：无。

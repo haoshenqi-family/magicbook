@@ -400,12 +400,14 @@ def test_publish_survives_single_segment_failure(tmp_path, monkeypatch):
     assert result["publishedCount"] == 2           # 第 1、3 段发布成功
 
 
-def test_publish_thread_uses_own_session_when_ub_session_is_plain_instance(monkeypatch):
+def test_publish_thread_uses_own_session_when_ub_session_is_plain_instance(monkeypatch, caplog):
     """R51 回归：生产 init_db 里 `session = Session()`，ub.session 是普通 Session
     实例（不可调用）。旧实现在线程里按 scoped_session 语义调 `ub.session()`，
     抛 'Session' object is not callable，发布线程启动即崩溃（异常被 except 吞掉
     只落日志，段落一个都没发布）。修复后线程必须经 get_new_session_instance()
-    自建会话，与全局 ub.session 完全解耦。"""
+    自建会话，与全局 ub.session 完全解耦。同时断言发布完成摘要日志——受理/完成
+    观测点是「点击无反应」类问题的唯一判据。"""
+    import logging
     import os
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -438,12 +440,16 @@ def test_publish_thread_uses_own_session_when_ub_session_is_plain_instance(monke
         published.append(payload)
         return {"result": {"taskId": "task-r51"}}
 
-    svc.WholeBookTranslationService()._publish_pending(
-        "job-r51", "T", 1, "fp", _publish, lookup=None)
+    with caplog.at_level(logging.INFO, logger="cps.reading_translation.service"):
+        svc.WholeBookTranslationService()._publish_pending(
+            "job-r51", "T", 1, "fp", _publish, lookup=None)
 
     # 旧代码在线程内调 ub.session() 抛 TypeError 后静默退出：published 必为空。
     assert len(published) == 1
     assert published[0]["promptTemplate"] == "reading-paragraph-translate-plain"
+    # 观测点：发布完成必须留摘要日志（「点击无日志」问题的判定依据）
+    assert "publish finished" in caplog.text
+    assert "job-r51" in caplog.text
     with factory() as verify:
         row = verify.query(TranslationJobItem).filter_by(id="item-r51").one()
         assert row.task_id == "task-r51"

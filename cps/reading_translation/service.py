@@ -5,10 +5,12 @@ import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
-from .. import calibre_db, config, ub
+from .. import calibre_db, config, logger, ub
 from ..cw_login import current_user
 from .models import TranslationJob, TranslationJobItem
 from .parser import extract_epub_paragraphs, text_hash
+
+log = logger.create()
 
 
 ACTIVE_STATUSES = ("PENDING", "RUNNING", "PARTIAL_FAILED")
@@ -83,6 +85,9 @@ class WholeBookTranslationService:
         if not force:
             existing = query.order_by(TranslationJob.created_at.desc()).first()
             if existing:
+                # 复用是静默成功：无此日志时线上无从区分「没收到请求」与「命中幂等」
+                log.info("whole-book translation: reuse active job %s (book=%s status=%s)",
+                         existing.id, book_id, existing.status)
                 return self.progress(existing)
 
         paragraphs = extract_epub_paragraphs(path)
@@ -104,6 +109,11 @@ class WholeBookTranslationService:
             ub.session.add(item)
         job.total_count = len(unique)
         ub.session.commit()
+
+        # 受理观测点：整本翻译的 HTTP 成功路径此前零日志，「点击没反应」
+        # 类问题无从区分前端没发请求还是后端静默成功，必须在此留痕。
+        log.info("whole-book translation: job %s accepted (book=%s user=%s paragraphs=%s force=%s)",
+                 job.id, book_id, user_id, job.total_count, force)
 
         # Why: scoped_session 绑定 greenlet/线程作用域，后台线程不能复用请求
         # 线程的 session；线程内自建会话操作，HTTP 响应无需等待发布完成。
@@ -207,10 +217,13 @@ class WholeBookTranslationService:
                     session.commit()
                 self._refresh_counts_session(job, session)
                 session.commit()
+                log.info("whole-book translation: publish finished, job=%s total=%s cached=%s "
+                         "published=%s failed=%s status=%s",
+                         job.id, job.total_count, job.cached_count,
+                         job.published_count, job.failed_count, job.status)
             except Exception:
                 # 后台线程无 HTTP 上下文：异常只能落日志，批次状态由下次轮询/重试接管
-                import logging
-                logging.getLogger(__name__).exception("whole-book publish thread crashed for job %s", job_id)
+                log.exception("whole-book publish thread crashed for job %s", job_id)
 
     @staticmethod
     def _batches(items, size):
@@ -310,10 +323,13 @@ class WholeBookTranslationService:
                     session.commit()
                 self._refresh_counts_session(job, session)
                 session.commit()
+                log.info("whole-book translation: retry finished, job=%s items=%s "
+                         "published=%s failed=%s status=%s",
+                         job.id, len(item_ids), job.published_count,
+                         job.failed_count, job.status)
             except Exception:
                 # 后台线程无 HTTP 上下文：异常只落日志，批次状态由下次轮询/重试接管
-                import logging
-                logging.getLogger(__name__).exception("whole-book retry thread crashed for job %s", job_id)
+                log.exception("whole-book retry thread crashed for job %s", job_id)
 
     def cancel(self, job_id):
         self._ensure_tables()
