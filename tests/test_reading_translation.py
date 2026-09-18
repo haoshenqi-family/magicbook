@@ -196,6 +196,9 @@ def test_publish_payload_carries_prompt_template_and_progress_reports_pending(tm
 
     inner = _Session()
     monkeypatch.setattr(svc.ub, "session", _ScopedSession(inner), raising=False)
+    # R51：后台线程改走 get_new_session_instance()（生产 ub.session 是普通
+    # Session 实例、不可调用）；测试同样返回共享假会话，便于断言
+    monkeypatch.setattr(svc.ub, "get_new_session_instance", lambda: _ScopedSession(inner))
 
     result = svc.WholeBookTranslationService().start(1, "EPUB", False, _publish, {})
 
@@ -377,7 +380,9 @@ def test_publish_survives_single_segment_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(svc, "config", _Config)
     monkeypatch.setattr(svc, "current_user", _User, raising=False)
     monkeypatch.setattr(svc.threading, "Thread", _SyncThread)
-    monkeypatch.setattr(svc.ub, "session", _ScopedSession(_Session()), raising=False)
+    inner = _Session()
+    monkeypatch.setattr(svc.ub, "session", _ScopedSession(inner), raising=False)
+    monkeypatch.setattr(svc.ub, "get_new_session_instance", lambda: _ScopedSession(inner))
 
     # 中间那次发布抛异常，前后两次成功
     published = []
@@ -393,3 +398,98 @@ def test_publish_survives_single_segment_failure(tmp_path, monkeypatch):
     assert sorted(published) == [0, 1, 2]          # 3 段全部尝试发布，失败不中断
     assert result["failedCount"] == 1              # 第 2 段失败
     assert result["publishedCount"] == 2           # 第 1、3 段发布成功
+
+
+def test_publish_thread_uses_own_session_when_ub_session_is_plain_instance(monkeypatch):
+    """R51 回归：生产 init_db 里 `session = Session()`，ub.session 是普通 Session
+    实例（不可调用）。旧实现在线程里按 scoped_session 语义调 `ub.session()`，
+    抛 'Session' object is not callable，发布线程启动即崩溃（异常被 except 吞掉
+    只落日志，段落一个都没发布）。修复后线程必须经 get_new_session_instance()
+    自建会话，与全局 ub.session 完全解耦。"""
+    import os
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import scoped_session, sessionmaker
+    from cps import ub as ub_module
+    from cps.reading_translation import service as svc
+    from cps.reading_translation.models import TranslationJob, TranslationJobItem
+
+    engine = create_engine("sqlite:///:memory:")
+    ub_module.Base.metadata.create_all(
+        engine, tables=[TranslationJob.__table__, TranslationJobItem.__table__])
+
+    # 生产形态：全局 ub.session 是 sessionmaker 产出的普通 Session 实例
+    plain = sessionmaker(bind=engine)()
+    factory = scoped_session(sessionmaker(bind=engine))
+    monkeypatch.setattr(ub_module, "session", plain)
+    monkeypatch.setattr(ub_module, "get_new_session_instance", lambda: factory)
+
+    job = TranslationJob(id="job-r51", user_id=1, book_id=1, book_format="EPUB",
+                         book_fingerprint="fp", book_name="T", status="RUNNING", total_count=1)
+    item = TranslationJobItem(id="item-r51", job_id="job-r51", paragraph_index=0,
+                              chapter="c", text="Hello world.", text_hash="h", status="PENDING")
+    plain.add_all([job, item])
+    plain.commit()
+
+    published = []
+
+    def _publish(payload):
+        published.append(payload)
+        return {"result": {"taskId": "task-r51"}}
+
+    svc.WholeBookTranslationService()._publish_pending(
+        "job-r51", "T", 1, "fp", _publish, lookup=None)
+
+    # 旧代码在线程内调 ub.session() 抛 TypeError 后静默退出：published 必为空。
+    assert len(published) == 1
+    assert published[0]["promptTemplate"] == "reading-paragraph-translate-plain"
+    with factory() as verify:
+        row = verify.query(TranslationJobItem).filter_by(id="item-r51").one()
+        assert row.task_id == "task-r51"
+        assert row.status == "PUBLISHED"
+        job_row = verify.query(TranslationJob).filter_by(id="job-r51").one()
+        assert job_row.published_count == 1
+
+
+def test_moonwell_proxy_snapshot_identity_works_without_flask_context(app, monkeypatch):
+    """R51 回归：整本翻译发布在 daemon 线程执行，线程内没有 Flask 请求上下文。
+    _moonwell_proxy 必须支持请求线程定格的身份快照（identity_headers +
+    bearer_token）完成调用：任何对 current_user / flask_session 的触碰在本测试
+    环境下都会抛 RuntimeError，正好构成断言。"""
+    import os
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # 依赖 app fixture：cps.web 的导入链需要 cli_param 已初始化（gdrive 路径）
+    from cps import web as web_module
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("background thread must not resolve identity lazily")
+
+    monkeypatch.setattr(web_module, "_moonwell_identity_headers", _boom)
+    monkeypatch.setattr(web_module.constants, "MOON_WELL_READING_URL",
+                        "http://127.0.0.1:18082")
+
+    class _Resp:
+        status_code = 200
+        content = b'{"result": {"taskId": "t-snap"}}'
+        text = '{"result": {"taskId": "t-snap"}}'
+        headers = {"Content-Type": "application/json"}
+
+    captured = {}
+
+    def _post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured.update(url=url, json=json, headers=headers)
+        return _Resp()
+
+    monkeypatch.setattr(web_module.requests, "post", _post)
+
+    body, status, _ = web_module._moonwell_proxy(
+        "/llm/task/publish", {"input": "hi"}, 20, "whole-book translation",
+        identity_headers={"X-User-Subject": "sub-r51"}, bearer_token="tok-r51")
+
+    assert status == 200
+    assert "t-snap" in body
+    assert captured["url"].endswith("/llm/task/publish")
+    assert captured["headers"]["X-User-Subject"] == "sub-r51"
+    assert captured["headers"]["authorization"] == "Bearer tok-r51"

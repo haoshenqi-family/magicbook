@@ -807,3 +807,42 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 
 - **requests.md**：追加 R49。
 - **response.md**：记录启动恢复机制与 e2e 约束。
+
+---
+
+## 2026-09-18
+
+### R50（整本翻译接口逻辑检查，只读分析，未改代码）
+
+- **接口链路**（`web.py:361` → `cps/reading_translation/service.py`）：POST + `user_login_required` + `admin_required`（非登录 302/401、非管理员 403）；JSON 取 `book_id`（必填）、`book_format`（默认 epub，仅 epub/kepub）、`force`。`start()` 同步段完成校验/指纹/幂等复用/建批次落库，随后拉 daemon 线程后台发布（缓存回收 + 逐段 publish moon-well `/llm/task/publish`），HTTP 立即返回进度。
+- **前端两个触发入口**：① 阅读器工具栏「整本译」（`read.html:64` 按钮、`read.html:174-178` 注入 `wholeBookTranslationUrl`，均仅 `role_admin()`；`epub.js:1099` 绑定 → `epub.js:290` 发请求）；② 书籍详情页按钮（`detail.html:82` + 内联 handler `detail.html:381`）。
+- **关键静默点**：`epub.js:291` `if (!calibre.wholeBookTranslationUrl || !window.confirm(...)) return;`——URL 变量缺失或 confirm 取消时点击零反应、零报错、零请求。`wholeBookTranslationUrl` 只在管理员渲染的 `read.html` 中注入。
+- **缓存隐患**：`read.html:524` 加载 `js/reading/epub.js` 无版本号 cache-busting，前端拆分后浏览器可能新旧 JS/HTML 配对错配。
+- 结论：本地 develop 代码链路自洽；「后端完全没收到请求」与浏览器侧从未发出（上述静默点/缓存/非管理员）最吻合，属后续 debug 方向，本次未执行。
+
+### 总结
+
+- **requests.md**：追加 R50。
+- **response.md**：记录接口逻辑检查结论。
+- **冲突记录**：无。
+
+---
+
+## 2026-09-18（第二次对话）
+
+### R51（发布线程启动即崩：ub.session 非 scoped_session + 后台线程 Flask 上下文依赖）
+
+- **根因 1（直接崩溃）**：`ub.py:711` `session = Session()`——全局 `ub.session` 是普通 Session 实例；`service.py` 的 `_publish_pending`/`_retry_failed` 按 scoped_session 语义调 `ub.session()`，线程启动即抛 `TypeError: 'Session' object is not callable`（异常被外层 except 吞掉只落日志，段落一个都没发布）。启动恢复线程同路径同样崩溃。
+- **根因 2（修完 1 必踩）**：后台线程内 publish/lookup 闭包调 `_moonwell_proxy` → `_moonwell_identity_headers()`（读 `current_user`）与 `flask_session.get()`（读请求会话），线程内无 Flask 请求上下文会 RuntimeError，全部段落将被标 FAILED。
+- **修复**：
+  - `service.py` 新增 `_thread_db_session()` 上下文管理器（沿用 `tasks/clean.py` 跨线程范式 `ub.get_new_session_instance()`，退出 `remove()` 归还），`_publish_pending`/`_retry_failed` 改用它自建会话。
+  - `web.py` `_moonwell_proxy` 新增 `identity_headers`/`bearer_token` 快照参数（`_MOONWELL_UNSET` 哨兵区分「未传」与「显式无 token」）；新增 `_whole_book_closures()` 在请求线程内定格身份+令牌，start/retry/status 三个路由共用；401 自动刷新仅限请求线程调用方。
+  - `__init__.py` 启动恢复钩子无需改动（system_identity 本就无上下文依赖），其线程经 service 修复同步受益。
+- **测试**：既有 2 个后台线程测试补 `get_new_session_instance` patch；新增 2 个回归测试（真实内存 SQLite + 生产形态普通 Session 实例验证发布线程；无 Flask 上下文验证快照调用）。全量 **186 passed**。
+- **AC**：`docs/feat/whole-book-translation/` 无 ac/ 目录，无既有 AC 可更新；以设计文档 §9 断点续作语义 + 全量测试为验收依据。
+
+### 总结
+
+- **requests.md**：追加 R51。
+- **response.md**：记录双根因与修复。
+- **冲突记录**：无。

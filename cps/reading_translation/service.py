@@ -2,6 +2,7 @@ import hashlib
 import os
 import threading
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from .. import calibre_db, config, ub
@@ -15,6 +16,24 @@ ACTIVE_STATUSES = ("PENDING", "RUNNING", "PARTIAL_FAILED")
 
 def _now():
     return datetime.now(timezone.utc)
+
+
+@contextmanager
+def _thread_db_session():
+    """后台线程专用 ub 会话（沿用 tasks/clean.py 的跨线程范式）。
+
+    Why: ub.session 是 init_db 在主线程构造的普通 Session 实例——不可调用
+    （按 scoped_session 语义调 ub.session() 直接抛 'Session' object is not
+    callable，生产发布线程启动即崩溃），也不可跨线程共享。
+    How: get_new_session_instance() 建独立 engine + 线程作用域会话，
+    退出时 remove 归还，防线程会话泄漏。
+    """
+    factory = ub.get_new_session_instance()
+    session = factory()
+    try:
+        yield session
+    finally:
+        factory.remove()
 
 
 class WholeBookTranslationService:
@@ -135,69 +154,63 @@ class WholeBookTranslationService:
 
         Why: 与请求线程解耦后，网关断连/客户端超时都不再影响发布进度；
         单段失败只标 FAILED 可重试，不中断整批。
-        How: 自建 scoped session（线程作用域），finally 里 remove 归还；
+        How: 会话走 _thread_db_session（独立 engine、线程作用域）；
         lookup 分批查询，避免一次性把全书文本塞进单次 HTTP。
         """
-        session = ub.session()
-        try:
-            job = session.query(TranslationJob).filter_by(id=job_id).one()
-            items = session.query(TranslationJobItem).filter_by(job_id=job.id).all()
-            # 缓存命中回收：分批查，命中直接标记 COMPLETED（译文冗余存本地）
-            if lookup:
-                for batch in self._batches(items, 200):
-                    try:
-                        cached = lookup([item.text for item in batch]) or {}
-                    except Exception as lookup_error:
-                        session.rollback()
-                        continue
-                    for item in batch:
-                        if cached.get(item.text):
-                            item.status = "COMPLETED"
-                            item.translation = cached[item.text]
-                            job.cached_count += 1
-                            job.completed_count += 1
-                    session.commit()
-            for item in items:
-                if item.status != "PENDING":
-                    continue
-                # Why: moon-well 执行器按 promptTemplate 渲染完整提示词（携带书名/章节，
-                # 保持全书译法一致）；不带模板时 LLM 只会复述英文原文，不会产出中文译文。
-                payload = {"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
-                           "input": item.text,
-                           "promptTemplate": "reading-paragraph-translate-plain",
-                           "parameters": {"jobId": job.id, "itemId": item.id, "bookId": book_id,
-                                          "bookFingerprint": fingerprint, "paragraphIndex": item.paragraph_index,
-                                          "textHash": item.text_hash, "bookName": book_title,
-                                          "chapter": item.chapter}}
-                try:
-                    response = publish(payload)
-                    result = response.get("result", response) if isinstance(response, dict) else {}
-                    task_id = result.get("taskId")
-                    if not task_id:
-                        raise ValueError("moon-well did not return taskId")
-                    item.task_id = str(task_id)
-                    item.status = "PUBLISHED"
-                    item.attempt_count = 1
-                    job.published_count += 1
-                except Exception as error:
-                    item.status = "FAILED"
-                    item.error_message = str(error)[:1000]
-                    item.attempt_count = 1
-                    job.failed_count += 1
-                item.updated_at = _now()
-                session.commit()
-            self._refresh_counts_session(job, session)
-            session.commit()
-        except Exception:
-            # 后台线程无 HTTP 上下文：异常只能落日志，批次状态由下次轮询/重试接管
-            import logging
-            logging.getLogger(__name__).exception("whole-book publish thread crashed for job %s", job_id)
-        finally:
-            # scoped_session：归还当前线程绑定的会话，防线程会话泄漏
+        with _thread_db_session() as session:
             try:
-                ub.session.remove()
+                job = session.query(TranslationJob).filter_by(id=job_id).one()
+                items = session.query(TranslationJobItem).filter_by(job_id=job.id).all()
+                # 缓存命中回收：分批查，命中直接标记 COMPLETED（译文冗余存本地）
+                if lookup:
+                    for batch in self._batches(items, 200):
+                        try:
+                            cached = lookup([item.text for item in batch]) or {}
+                        except Exception:
+                            session.rollback()
+                            continue
+                        for item in batch:
+                            if cached.get(item.text):
+                                item.status = "COMPLETED"
+                                item.translation = cached[item.text]
+                                job.cached_count += 1
+                                job.completed_count += 1
+                        session.commit()
+                for item in items:
+                    if item.status != "PENDING":
+                        continue
+                    # Why: moon-well 执行器按 promptTemplate 渲染完整提示词（携带书名/章节，
+                    # 保持全书译法一致）；不带模板时 LLM 只会复述英文原文，不会产出中文译文。
+                    payload = {"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
+                               "input": item.text,
+                               "promptTemplate": "reading-paragraph-translate-plain",
+                               "parameters": {"jobId": job.id, "itemId": item.id, "bookId": book_id,
+                                              "bookFingerprint": fingerprint, "paragraphIndex": item.paragraph_index,
+                                              "textHash": item.text_hash, "bookName": book_title,
+                                              "chapter": item.chapter}}
+                    try:
+                        response = publish(payload)
+                        result = response.get("result", response) if isinstance(response, dict) else {}
+                        task_id = result.get("taskId")
+                        if not task_id:
+                            raise ValueError("moon-well did not return taskId")
+                        item.task_id = str(task_id)
+                        item.status = "PUBLISHED"
+                        item.attempt_count = 1
+                        job.published_count += 1
+                    except Exception as error:
+                        item.status = "FAILED"
+                        item.error_message = str(error)[:1000]
+                        item.attempt_count = 1
+                        job.failed_count += 1
+                    item.updated_at = _now()
+                    session.commit()
+                self._refresh_counts_session(job, session)
+                session.commit()
             except Exception:
-                pass
+                # 后台线程无 HTTP 上下文：异常只能落日志，批次状态由下次轮询/重试接管
+                import logging
+                logging.getLogger(__name__).exception("whole-book publish thread crashed for job %s", job_id)
 
     @staticmethod
     def _batches(items, size):
@@ -270,43 +283,37 @@ class WholeBookTranslationService:
 
     def _retry_failed(self, job_id, item_ids, publish):
         """后台重发布线程：只处理传入的 item_id，用线程自建 session 操作。"""
-        session = ub.session()
-        try:
-            job = session.query(TranslationJob).filter_by(id=job_id).one()
-            items = session.query(TranslationJobItem).filter(
-                TranslationJobItem.id.in_(item_ids)).all()
-            for item in items:
-                try:
-                    response = publish({"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
-                                        "input": item.text,
-                                        "promptTemplate": "reading-paragraph-translate-plain",
-                                        "parameters": {"jobId": job.id, "itemId": item.id,
-                                        "bookId": job.book_id, "bookFingerprint": job.book_fingerprint,
-                                        "paragraphIndex": item.paragraph_index, "textHash": item.text_hash,
-                                        "bookName": job.book_name,
-                                        "chapter": item.chapter}})
-                    result = response.get("result", response)
-                    item.task_id = str(result["taskId"])
-                    item.status = "PUBLISHED"
-                    item.attempt_count += 1
-                    item.error_message = None
-                except Exception as error:
-                    item.attempt_count += 1
-                    item.error_message = str(error)[:1000]
-                item.updated_at = _now()
-                session.commit()
-            self._refresh_counts_session(job, session)
-            session.commit()
-        except Exception:
-            # 后台线程无 HTTP 上下文：异常只落日志，批次状态由下次轮询/重试接管
-            import logging
-            logging.getLogger(__name__).exception("whole-book retry thread crashed for job %s", job_id)
-        finally:
-            # scoped_session：归还当前线程绑定的会话，防线程会话泄漏
+        with _thread_db_session() as session:
             try:
-                ub.session.remove()
+                job = session.query(TranslationJob).filter_by(id=job_id).one()
+                items = session.query(TranslationJobItem).filter(
+                    TranslationJobItem.id.in_(item_ids)).all()
+                for item in items:
+                    try:
+                        response = publish({"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
+                                            "input": item.text,
+                                            "promptTemplate": "reading-paragraph-translate-plain",
+                                            "parameters": {"jobId": job.id, "itemId": item.id,
+                                            "bookId": job.book_id, "bookFingerprint": job.book_fingerprint,
+                                            "paragraphIndex": item.paragraph_index, "textHash": item.text_hash,
+                                            "bookName": job.book_name,
+                                            "chapter": item.chapter}})
+                        result = response.get("result", response)
+                        item.task_id = str(result["taskId"])
+                        item.status = "PUBLISHED"
+                        item.attempt_count += 1
+                        item.error_message = None
+                    except Exception as error:
+                        item.attempt_count += 1
+                        item.error_message = str(error)[:1000]
+                    item.updated_at = _now()
+                    session.commit()
+                self._refresh_counts_session(job, session)
+                session.commit()
             except Exception:
-                pass
+                # 后台线程无 HTTP 上下文：异常只落日志，批次状态由下次轮询/重试接管
+                import logging
+                logging.getLogger(__name__).exception("whole-book retry thread crashed for job %s", job_id)
 
     def cancel(self, job_id):
         self._ensure_tables()

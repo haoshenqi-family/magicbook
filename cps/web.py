@@ -358,6 +358,41 @@ def reading_settings_update_hard_level():
                            "reading settings update")
 
 
+def _whole_book_closures():
+    """构造整本翻译的 publish/lookup 闭包（start/retry/status 共用）。
+
+    Why: 发布/重发布在 daemon 后台线程执行，线程内没有 Flask 请求上下文，
+    闭包若在此时才解析身份（current_user / flask_session）会 RuntimeError，
+    全部段落被标 FAILED。身份与令牌必须在请求线程内先定格为纯数据快照，
+    经 _moonwell_proxy 的 identity_headers/bearer_token 传入。
+    status 接口的 lookup 虽在请求线程同步执行，复用同一闭包保持行为一致。
+    """
+    identity = _moonwell_identity_headers()
+    token = flask_session.get("moonwell_access_token")
+
+    def publish(task_payload):
+        response = _moonwell_proxy("/llm/task/publish", task_payload, 20,
+                                   "whole-book translation",
+                                   identity_headers=identity, bearer_token=token)
+        if not isinstance(response, tuple) or len(response) < 2:
+            raise ValueError("moon-well authorization is required")
+        body, status = response[0], response[1]
+        if status < 200 or status >= 300:
+            raise ValueError("moon-well task publish failed")
+        return json.loads(body)
+
+    def lookup(paragraphs):
+        response = _moonwell_proxy("/reading/paragraph-cache/find-translations",
+                                   {"paragraphs": paragraphs}, 20, "translation cache",
+                                   identity_headers=identity, bearer_token=token)
+        if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
+            return {}
+        data = json.loads(response[0])
+        return data.get("result", {}) if isinstance(data, dict) else {}
+
+    return publish, lookup
+
+
 @web.route("/ajax/reading-translate-book", methods=["POST"])
 @user_login_required
 @admin_required
@@ -369,24 +404,7 @@ def reading_translate_book():
         book_format = str(payload.get("book_format") or "epub").lower()
         force = bool(payload.get("force", False))
 
-        def publish(task_payload):
-            response = _moonwell_proxy("/llm/task/publish", task_payload, 20,
-                                       "whole-book translation")
-            if not isinstance(response, tuple) or len(response) < 2:
-                raise ValueError("moon-well authorization is required")
-            body, status = response[0], response[1]
-            if status < 200 or status >= 300:
-                raise ValueError("moon-well task publish failed")
-            return json.loads(body)
-
-        def lookup(paragraphs):
-            response = _moonwell_proxy("/reading/paragraph-cache/find-translations",
-                                       {"paragraphs": paragraphs}, 20, "translation cache")
-            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
-                return {}
-            payload = json.loads(response[0])
-            return payload.get("result", {}) if isinstance(payload, dict) else {}
-
+        publish, lookup = _whole_book_closures()
         return jsonify(whole_book_translation_service.start(book_id, book_format, force, publish, lookup))
     except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
         return jsonify({"success": False, "message": str(error)}), 400
@@ -399,13 +417,7 @@ def reading_translate_book_status():
     payload = request.get_json(silent=True) or {}
     try:
         # 去回调化：查询进度时对未完成项单向查 moon-well 缓存，懒回收完成状态。
-        def lookup(paragraphs):
-            response = _moonwell_proxy("/reading/paragraph-cache/find-translations",
-                                       {"paragraphs": paragraphs}, 20, "translation cache")
-            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
-                return {}
-            data = json.loads(response[0])
-            return data.get("result", {}) if isinstance(data, dict) else {}
+        _, lookup = _whole_book_closures()
         return jsonify(whole_book_translation_service.get_progress(str(payload.get("job_id")), lookup))
     except ValueError as error:
         return jsonify({"success": False, "message": str(error)}), 404
@@ -417,11 +429,7 @@ def reading_translate_book_status():
 def reading_translate_book_retry():
     payload = request.get_json(silent=True) or {}
     try:
-        def publish(task_payload):
-            response = _moonwell_proxy("/llm/task/publish", task_payload, 20, "whole-book translation")
-            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
-                raise ValueError("moon-well task publish failed")
-            return json.loads(response[0])
+        publish, _ = _whole_book_closures()
         return jsonify(whole_book_translation_service.retry(str(payload.get("job_id")), publish))
     except ValueError as error:
         return jsonify({"success": False, "message": str(error)}), 400
@@ -441,6 +449,10 @@ def reading_translate_book_cancel():
 # moon-well 走内网直连（fnos:8082）。进程可能因封面下载等功能携带 http_proxy
 # 环境变量，requests 默认信任它，内网域名会被代理断连导致 503，必须显式绕过。
 _MOONWELL_NO_PROXY = {"http": None, "https": None}
+
+# bearer_token 参数的「未传」哨兵：区分「调用方没传（读请求会话）」与
+# 「调用方明确传入无 token 的快照」（后台线程不能再触碰 flask_session）。
+_MOONWELL_UNSET = object()
 
 
 def _moonwell_base_url():
@@ -593,7 +605,7 @@ def _moonwell_settings_fetch():
 
 
 def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
-                    system_identity=None):
+                    system_identity=None, identity_headers=None, bearer_token=_MOONWELL_UNSET):
     """转发阅读相关请求到 moon-well。
 
     鉴权方式：session 中的 moonwell_access_token 透传为 Authorization: Bearer，
@@ -604,6 +616,10 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
     system_identity=True：无用户请求上下文的内部调用（如启动恢复线程），
     以「系统身份」X-User-* 头调用（moon-well 内网信任模式按 subject 兜底建号），
     任务归属系统账号，不依赖任何用户会话。
+    identity_headers/bearer_token：请求线程定格的身份快照，供整本翻译等
+    daemon 后台线程使用——线程内没有 Flask 上下文，读 current_user /
+    flask_session 会 RuntimeError；传入快照后本函数不再触碰任何请求态，
+    401 自动刷新也跳过（刷新依赖请求会话，只有请求线程调用方才做）。
     """
     base = _moonwell_base_url()
     if not base:
@@ -618,9 +634,14 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
             "X-User-Nickname": "magicbook-system",
             "X-User-Issuer": os.environ.get("AUTHENTIK_ISSUER", ""),
         }
+    elif identity_headers is not None:
+        headers = dict(identity_headers)
     else:
         headers = _moonwell_identity_headers()
-    token = flask_session.get("moonwell_access_token")
+    if bearer_token is _MOONWELL_UNSET:
+        token = flask_session.get("moonwell_access_token")
+    else:
+        token = bearer_token
     if token:
         headers["authorization"] = "Bearer " + token
 
@@ -633,8 +654,8 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
 
     try:
         response = _send()
-        # 会话令牌过期时自动刷新并重试一次
-        if response.status_code == 401 and token:
+        # 会话令牌过期时自动刷新并重试一次（仅请求线程调用方：刷新要读请求会话）
+        if response.status_code == 401 and token and bearer_token is _MOONWELL_UNSET:
             refreshed = _moonwell_refresh_session_token()
             if refreshed:
                 headers["authorization"] = "Bearer " + refreshed

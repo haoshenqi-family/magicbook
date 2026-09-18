@@ -107,3 +107,9 @@
 48. 部署后整本翻译仍不对：HP2 只提交了 109 个段落（上次 128，每次数字都不一样）。排查修复。
 
 49. 彻底解决整本翻译问题：修完代码推送，等 CI 构建重新部署后以哈利波特 1 为例调用 API 翻译整本书，直到正确的提交了全部任务。
+
+## 2026-09-18
+
+50. 整本翻译功能前端拆分后，后端完全没有收到 `/ajax/reading-translate-book` 的请求。检查该接口的完整逻辑并说明，先不做 debug、不修改代码。
+
+51. 生产 magicbook 报错：`Exception in thread whole-book-publish-xxx ... service.py:141 session = ub.session() TypeError: 'Session' object is not callable`。修复整本翻译发布线程崩溃。
