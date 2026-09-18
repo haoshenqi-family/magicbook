@@ -866,3 +866,38 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **requests.md**：追加 R52。
 - **response.md**：记录无日志判定逻辑与观测点。
 - **冲突记录**：无。
+
+---
+
+## 2026-09-18（日志接入 ES）
+
+### R53（moon-well 与 magicbook 日志接入 ES，索引名 app-log-{module}）
+
+- **方案（部署层接入，不改应用代码）**：Calibre-Web 日志默认已落配置目录（`cps/logger.py`：`DEFAULT_LOG_FILE = CONFIG_DIR/calibre-web.log`，即容器内 `/config/calibre-web.log`；`access.log` 同目录；仅 DEBUG 级别改走 stdout）。compose 新增 filebeat sidecar（`docker.elastic.co/beats/filebeat:8.11.3`，与 ES 8.11.3 同版本）只读挂载 `CONFIG_PATH`，采集两份日志写入索引 **`app-log-magicbook`**（文档带 `module: magicbook`）；`.env` 新增 `LOG_ES_HOSTS`（默认 `https://es.haoshenqi.top:443`）/`LOG_ES_USERNAME`/`LOG_ES_PASSWORD`。
+- **ES 侧**：新增 `deploy/init-app-log-es.sh`（与 moon-well 侧同一份，幂等可重跑）创建 `app-log-*` 统一索引模板（1 分片 0 副本）+ ILM 策略（默认保留 30 天自动删除）。
+- **改动文件**：`docker-compose.yml`、`deploy/filebeat.yml`（新）、`deploy/init-app-log-es.sh`（新）、`.env.example`、`deploy/DEPLOY.md`。
+- **验证**：`docker compose config` 通过；filebeat.yml 经真实 filebeat 8.11.3 `test config` 为 **Config OK**；init 脚本 JSON 载荷 + mock ES 全流程通过。生产落地：服务器 `.env` 补 `LOG_ES_PASSWORD` 后 `docker compose up -d`（注意 CI 自动部署时若未配置该变量，filebeat 以空密码启动，会在其日志中报 401，不影响 magicbook 本体）。
+- **冲突记录**：无。
+
+### 总结
+
+- **requests.md**：追加 R53。
+- **response.md**：记录接入方案、验证结果与生产落地步骤。
+
+---
+
+## 2026-09-18（第四次对话）
+
+### R53（4477/4477 全失败：system_identity 分支仍读 flask_session）
+
+- **判定链**：jobId 与第二轮崩溃 traceback 同源（57b763d）→ 批次由**启动恢复线程**（system_identity 路径）处理而非新提交；failed==total 且 pending=0 → R51 会话修复生效、发布线程完整跑完，但每段 publish 都抛异常。
+- **根因**：`_moonwell_proxy` 的 `system_identity=True` 分支只定制了身份头，token 读取仍走 `flask_session.get()`——恢复线程无 Flask 请求上下文，抛 `RuntimeError: Working outside of request context`，被逐段 except 捕获后全部标 FAILED（item.error_message 可证）。
+- **修复**：三分支重排——system_identity → env 头 + token=None；identity_headers 快照 → 显式 bearer_token；仅请求线程分支读 current_user/flask_session。401 自动刷新仅请求线程（`from_request_session` 门控）。移除 `_MOONWELL_UNSET` 哨兵（不再需要）。
+- **测试**：新增 system_identity 无上下文回归测试（旧代码此测试抛 RuntimeError）；全量 **187 passed**。
+- **遗留批次处置**：job 57b763d 已无 PENDING 项，重启恢复不会再接手——部署修复后需管理员调 `POST /ajax/reading-translate-book/retry {"job_id": "57b…"}`（重发 FAILED 段）或带 `force=true` 重新提交建新批次。
+
+### 总结
+
+- **requests.md**：追加 R53。
+- **response.md**：记录全失败根因与处置。
+- **冲突记录**：无。

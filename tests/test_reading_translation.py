@@ -499,3 +499,46 @@ def test_moonwell_proxy_snapshot_identity_works_without_flask_context(app, monke
     assert captured["url"].endswith("/llm/task/publish")
     assert captured["headers"]["X-User-Subject"] == "sub-r51"
     assert captured["headers"]["authorization"] == "Bearer tok-r51"
+
+
+def test_moonwell_proxy_system_identity_works_without_flask_context(app, monkeypatch):
+    """R52 回归：启动恢复线程以 system_identity 调用 _moonwell_proxy，线程内
+    没有 Flask 请求上下文。旧实现无条件读 flask_session.get(...) 抛
+    RuntimeError: Working outside of request context，被逐段 except 捕获后
+    整批段落全部 FAILED（生产 job 57b763d：4477/4477 失败、pending=0）。"""
+    import os
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # 依赖 app fixture：cps.web 的导入链需要 cli_param 已初始化（gdrive 路径）
+    from cps import web as web_module
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("system identity must not resolve user context lazily")
+
+    monkeypatch.setattr(web_module, "_moonwell_identity_headers", _boom)
+    monkeypatch.setattr(web_module.constants, "MOON_WELL_READING_URL",
+                        "http://127.0.0.1:18082")
+
+    class _Resp:
+        status_code = 200
+        content = b'{"result": {"taskId": "t-sys"}}'
+        text = '{"result": {"taskId": "t-sys"}}'
+        headers = {"Content-Type": "application/json"}
+
+    captured = {}
+
+    def _post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured.update(url=url, json=json, headers=headers)
+        return _Resp()
+
+    monkeypatch.setattr(web_module.requests, "post", _post)
+
+    body, status, _ = web_module._moonwell_proxy(
+        "/llm/task/publish", {"input": "hi"}, 20, "whole-book translation recovery",
+        system_identity=True)
+
+    assert status == 200
+    assert "t-sys" in body
+    # 系统身份头来自环境变量默认值，且不携带任何用户 Bearer 令牌
+    assert captured["headers"]["X-User-Subject"] == "magicbook-system"
+    assert "authorization" not in captured["headers"]

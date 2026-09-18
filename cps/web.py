@@ -450,10 +450,6 @@ def reading_translate_book_cancel():
 # 环境变量，requests 默认信任它，内网域名会被代理断连导致 503，必须显式绕过。
 _MOONWELL_NO_PROXY = {"http": None, "https": None}
 
-# bearer_token 参数的「未传」哨兵：区分「调用方没传（读请求会话）」与
-# 「调用方明确传入无 token 的快照」（后台线程不能再触碰 flask_session）。
-_MOONWELL_UNSET = object()
-
 
 def _moonwell_base_url():
     """Return the configured moon-well internal endpoint."""
@@ -605,7 +601,7 @@ def _moonwell_settings_fetch():
 
 
 def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
-                    system_identity=None, identity_headers=None, bearer_token=_MOONWELL_UNSET):
+                    system_identity=None, identity_headers=None, bearer_token=None):
     """转发阅读相关请求到 moon-well。
 
     鉴权方式：session 中的 moonwell_access_token 透传为 Authorization: Bearer，
@@ -615,7 +611,7 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
     标记接口是 path 参数式 GET，无 JSON body）。
     system_identity=True：无用户请求上下文的内部调用（如启动恢复线程），
     以「系统身份」X-User-* 头调用（moon-well 内网信任模式按 subject 兜底建号），
-    任务归属系统账号，不依赖任何用户会话。
+    任务归属系统账号，不依赖任何用户会话——此分支绝不触碰 flask_session。
     identity_headers/bearer_token：请求线程定格的身份快照，供整本翻译等
     daemon 后台线程使用——线程内没有 Flask 上下文，读 current_user /
     flask_session 会 RuntimeError；传入快照后本函数不再触碰任何请求态，
@@ -634,14 +630,19 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
             "X-User-Nickname": "magicbook-system",
             "X-User-Issuer": os.environ.get("AUTHENTIK_ISSUER", ""),
         }
+        # 系统身份调用方（启动恢复线程）没有任何 Flask 上下文：绝不能读
+        # flask_session（会抛 RuntimeError，曾导致整批段落全部 FAILED）
+        token = None
+        from_request_session = False
     elif identity_headers is not None:
+        # 后台线程快照：调用线程同样没有 Flask 上下文，令牌只认显式传入值
         headers = dict(identity_headers)
+        token = bearer_token
+        from_request_session = False
     else:
         headers = _moonwell_identity_headers()
-    if bearer_token is _MOONWELL_UNSET:
         token = flask_session.get("moonwell_access_token")
-    else:
-        token = bearer_token
+        from_request_session = True
     if token:
         headers["authorization"] = "Bearer " + token
 
@@ -654,8 +655,9 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
 
     try:
         response = _send()
-        # 会话令牌过期时自动刷新并重试一次（仅请求线程调用方：刷新要读请求会话）
-        if response.status_code == 401 and token and bearer_token is _MOONWELL_UNSET:
+        # 会话令牌过期时自动刷新并重试一次（仅请求线程调用方：刷新要读请求会话，
+        # 恢复线程/后台快照调用方没有上下文，也不该持有可刷新的用户令牌）
+        if response.status_code == 401 and token and from_request_session:
             refreshed = _moonwell_refresh_session_token()
             if refreshed:
                 headers["authorization"] = "Bearer " + refreshed

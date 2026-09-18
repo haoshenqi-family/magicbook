@@ -115,3 +115,6 @@
 51. 生产 magicbook 报错：`Exception in thread whole-book-publish-xxx ... service.py:141 session = ub.session() TypeError: 'Session' object is not callable`。修复整本翻译发布线程崩溃。
 
 52. 部署修复后点击整本翻译，docker logs 里没有任何日志。排查并让整本翻译链路可观测。
+53. 把 moon-well 和 magicbook 的日志接入 ES，索引名 app-log-{module}。
+
+53. status 返回 job 57b763d：failedCount=4477=totalCount、pendingCount=0、publishedCount=0、PARTIAL_FAILED——发布线程跑完全程但每段都失败。修复。
