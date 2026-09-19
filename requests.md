@@ -118,3 +118,10 @@
 53. 把 moon-well 和 magicbook 的日志接入 ES，索引名 app-log-{module}。
 
 53. status 返回 job 57b763d：failedCount=4477=totalCount、pendingCount=0、publishedCount=0、PARTIAL_FAILED——发布线程跑完全程但每段都失败。修复。
+
+## 2026-09-19
+
+54. magicbook 的单词发音很奇怪，是有道 API 的发音吗？（只排查发音来源并说明，不修改代码）
+
+55. 把单词发音改为免费的单词发音 API（R54 结论：现状是浏览器合成音）。
+

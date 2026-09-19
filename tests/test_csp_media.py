@@ -73,6 +73,31 @@ def test_reader_page_allows_blob_media(app, make_response_headers):
     assert "'self'" in media_directive[0]
 
 
+def test_reader_page_allows_youdao_word_audio(app, make_response_headers):
+    """Reader must allow media-src https://dict.youdao.com for word pronunciation.
+
+    The selection popover plays single-word pronunciation directly from
+    Youdao's free dictvoice mp3 (browser speechSynthesis sounds robotic).
+    That is a cross-origin media load, so the reader CSP must explicitly
+    allow the origin or playback is blocked (fallback would silently degrade
+    every word back to synthetic speech).
+    """
+    with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):
+        resp = make_response_headers("web.read_book")
+
+    csp = resp.headers.get("Content-Security-Policy")
+    assert csp, "reader page must set a Content-Security-Policy"
+
+    media_directive = [d.strip() for d in csp.split(";") if d.strip().startswith("media-src")]
+    assert media_directive, (
+        "reader page CSP must explicitly set media-src; CSP was: " + csp
+    )
+    assert "https://dict.youdao.com" in media_directive[0], (
+        "media-src must allow https://dict.youdao.com for word audio; "
+        "directive was: " + media_directive[0]
+    )
+
+
 def test_non_reader_pages_still_block_blob_media(app, make_response_headers):
     """Any non-reader page keeps the stricter (no blob) CSP default.
 

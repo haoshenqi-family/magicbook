@@ -901,3 +901,37 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **requests.md**：追加 R53。
 - **response.md**：记录全失败根因与处置。
 - **冲突记录**：无。
+
+---
+
+## 2026-09-19
+
+### R54（单词发音来源：不是有道 API）
+
+- **结论**：划词弹窗的 🔊 发音**不是有道 API**，整个 magicbook 代码里没有任何 youdao 引用（已全库 grep 证实）。
+- **实际来源**：浏览器内置 Web Speech API（`window.speechSynthesis` 本地合成），见 `cps/static/js/reading/epub.js:387-401`（划词发音）与 `buildSpeechUtterance`（`epub.js:739-752`）。代码注释已写明：「划词发音：浏览器语音朗读选中的原文（金山词典无音频字段）」——词典释义走 moon-well `/vocabulary/reading/translate`（金山词源，无音频），所以发音只能用浏览器 TTS 兜底。
+- **发音奇怪的常见原因**：`buildSpeechUtterance` 只取 `getVoices()` 中**第一个**语言前缀匹配（`en*` / `zh*`）的音色，不区分本地/增强/网络音色；首次调用时 voices 可能尚未异步加载完成（返回空数组→落到系统默认音色）。不同浏览器/OS 的默认音色质量差异大， robotic 音色即由此而来。语速固定 0.95。
+- **段落朗读（▶ 按钮是另一条链路）**：配置了 AI TTS 时走 moon-well `/tts/speak`（`cps/web.py:269-280` 代理），未配置或失败时回退同一个浏览器 `speechSynthesis`。单词发音从不走 AI TTS。
+- **可选改进方向（未实施）**：① 优先选 premium/enhanced 音色并监听 `voiceschanged`；② 单词发音也走 moon-well AI TTS；③ 接入真人词库音频（如有道/金山 mp3 直链）。
+
+### 总结
+
+- **requests.md**：追加 R54。
+- **response.md**：记录发音来源结论与改进方向。
+- **冲突记录**：无。
+
+---
+
+### R55（单词发音改为有道 dictvoice 免费词库音频）
+
+- **方案**：单个英文单词（复用 `SINGLE_WORD_RE` 判定，与"标记不认识"按钮同一标准）直连有道 dictvoice `https://dict.youdao.com/dictvoice?type=2&audio={word}`（免费、免 key、真人音色；type=2 美式，1 英式）；短语/句子仍走浏览器 `speechSynthesis`；外链音频加载/播放失败自动回退浏览器合成，发音始终可用。
+- **改动文件**：`cps/static/js/reading/epub.js`（新增 `speakSelection`，🔊 按钮改走该函数；连点不同词先停上一段避免重叠）、`cps/web.py`（阅读页 `media-src` 增加 `https://dict.youdao.com`，其余页面 CSP 不变）、`tests/test_csp_media.py`（新增 `test_reader_page_allows_youdao_word_audio`）。
+- **验证**：全量 pytest **188 passed**（原 187 + 新增 1）；`node --check` JS 语法通过；curl 实测 dictvoice 对 `hello`、`don't`（含撇号）均返回 200 `audio/mpeg`。
+- **隐私提示**：所查单词会以 URL 参数形式发给有道服务器（免 key 服务的固有代价）。
+- **冲突记录**：无。
+
+### 总结
+
+- **requests.md**：追加 R55。
+- **response.md**：记录实现方案、CSP 放行与验证结果。
+- **冲突记录**：无。

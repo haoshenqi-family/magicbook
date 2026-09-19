@@ -384,18 +384,16 @@ var reader;
                 source.textContent = result.source === 'dictionary' ? '词典' : 'AI 翻译';
                 popover.appendChild(source);
             }
-            // 划词发音：浏览器语音朗读选中的原文（金山词典无音频字段）
-            if (window.speechSynthesis && window.SpeechSynthesisUtterance) {
+            // 划词发音：单词走有道词库真人音频，短语/句子走浏览器合成（speakSelection）
+            if ((window.speechSynthesis && window.SpeechSynthesisUtterance) ||
+                SINGLE_WORD_RE.test(text)) {
                 var speakBtn = document.createElement('span');
                 speakBtn.className = 'translation-speak';
                 speakBtn.textContent = '🔊';
                 speakBtn.title = '朗读原文';
                 speakBtn.addEventListener('click', function (ev) {
                     ev.stopPropagation();
-                    try {
-                        window.speechSynthesis.cancel();
-                        window.speechSynthesis.speak(buildSpeechUtterance(text));
-                    } catch (e) {}
+                    speakSelection(text);
                 });
                 popover.appendChild(speakBtn);
             }
@@ -423,6 +421,38 @@ var reader;
     // 词形归一化：小写 + 弯撇号转直撇号，与 vocabularyRecords 的 key 保持一致
     function normalizedWord(text) {
         return text.trim().toLowerCase().replace(/[\u2019']/g, "'");
+    }
+
+    // ===== 划词发音 =====
+    // 单个英文单词用有道 dictvoice 词库音频（免费、无需 key、真人音色），
+    // 替代 speechSynthesis「取第一个匹配语言的系统音色」的机械声（金山词典
+    // 释义无音频字段，此前单词也只能用合成音）；短语/句子仍走浏览器合成。
+    // type=2 美式发音（1 为英式）
+    var YOUDAO_DICT_VOICE = 'https://dict.youdao.com/dictvoice?type=2&audio=';
+    // 正在播放的词库音频：再次发音前先停掉上一段，避免重叠
+    var selectionAudio = null;
+
+    function speakSelection(text) {
+        if (selectionAudio) {
+            selectionAudio.pause();
+            selectionAudio = null;
+        }
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+        if (!SINGLE_WORD_RE.test(text)) {
+            try { window.speechSynthesis.speak(buildSpeechUtterance(text)); } catch (e) {}
+            return;
+        }
+        var audio = new Audio(YOUDAO_DICT_VOICE + encodeURIComponent(text.trim()));
+        selectionAudio = audio;
+        // 外链音频加载/播放失败（断网、词库无该词）回退浏览器合成，发音始终可用；
+        // onerror 与 play() 拒绝可能都触发，靠 selectionAudio 引用判重只回退一次
+        var fallback = function () {
+            if (selectionAudio !== audio) return;
+            selectionAudio = null;
+            try { window.speechSynthesis.speak(buildSpeechUtterance(text)); } catch (e) {}
+        };
+        audio.onerror = fallback;
+        audio.play().catch(fallback);
     }
 
     // 标记生效：更新会话内记录并同步页面标注

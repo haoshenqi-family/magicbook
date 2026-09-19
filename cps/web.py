@@ -105,8 +105,10 @@ def add_security_headers(resp):
         csp += " blob: "
         # 段落朗读经 URL.createObjectURL(blob) 生成 blob: 音频，Audio 播放走
         # media-src；CSP 未显式声明时回退 default-src（不含 blob:）导致播放被
-        # 拦（控制台 "Loading media from 'blob:...' violates CSP"），必须显式放行
-        csp += "; media-src 'self' blob:"
+        # 拦（控制台 "Loading media from 'blob:...' violates CSP"），必须显式放行。
+        # 划词单词发音直连有道 dictvoice 词库 mp3（免费免 key），同样属 media
+        # 加载，需一并放行该源（仅阅读页，其余页面不受影响）
+        csp += "; media-src 'self' blob: https://dict.youdao.com"
     csp += "; img-src 'self'"
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"
