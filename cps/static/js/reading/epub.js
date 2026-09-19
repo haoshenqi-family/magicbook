@@ -286,6 +286,7 @@ var reader;
     var translationRequest = 0;
     var translationPopover;
     var popoverHideTimer = null;
+    var popoverHideText = '';
 
     function startWholeBookTranslation() {
         if (!calibre.wholeBookTranslationUrl || !window.confirm('开始翻译整本书？')) return;
@@ -313,17 +314,22 @@ var reader;
 
     function closeTranslationPopover() {
         if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
+        popoverHideText = '';
         if (translationPopover) {
             translationPopover.remove();
             translationPopover = null;
         }
     }
 
-    // 划词气泡的自动隐藏：与段落译文共用 translationDisplaySeconds 配置；
-    // 气泡内点击（发音/标记按钮）会重新调度，避免操作中途被收走
-    function schedulePopoverHide() {
+    // 划词气泡的自动隐藏：时长按选中原文的词数折算（与段落译文共用
+    // 「每 100 词秒数」配置）；气泡内点击（发音/标记按钮）会重新调度，
+    // 避免操作中途被收走
+    function schedulePopoverHide(text) {
+        if (text !== undefined) popoverHideText = text;
+        // 译文结果未到达（loading 态点击）：没有可计时的内容
+        if (!popoverHideText) return;
         if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
-        var seconds = translationDisplaySeconds();
+        var seconds = translationDisplaySecondsFor(popoverHideText);
         if (!seconds) return;
         popoverHideTimer = setTimeout(function () {
             popoverHideTimer = null;
@@ -401,8 +407,9 @@ var reader;
             if (calibre.readingWordMarkUrl && SINGLE_WORD_RE.test(text)) {
                 appendWordMarkButtons(popover, text);
             }
-            // 译文渲染完成才开始计时（loading 中间态不占显示时长）
-            schedulePopoverHide();
+            // 译文渲染完成才开始计时（loading 中间态不占显示时长）；
+            // 词数以选中原文为基数
+            schedulePopoverHide(text);
         }).fail(function (xhr) {
             // CSRF 过期/会话重建：刷新页面拿新 token，避免"翻译失败"误导
             if (reloadIfCsrfBlocked(xhr)) return;
@@ -539,6 +546,88 @@ var reader;
         popover.appendChild(minusBtn);
     }
 
+    // ===== 划词右键快捷菜单：引用选中内容到 AI 伴读输入框 =====
+    // 有选区时右键用自定义菜单替换原生菜单（原生菜单被拦截后「复制」入口
+    // 没了，作为第二个菜单项补回）；无选区时放行原生菜单。
+    var SELECTION_QUOTE_MAX = 2000;
+    var selectionMenu = null;
+
+    function closeSelectionMenu() {
+        if (selectionMenu) {
+            selectionMenu.remove();
+            selectionMenu = null;
+        }
+    }
+
+    function currentSelectionText(content) {
+        var selection = content.window.getSelection();
+        return selection ? String(selection.toString()).replace(/\s+/g, ' ').trim() : '';
+    }
+
+    function copySelectionText(content, text) {
+        var done = function () { readerToast('已复制'); };
+        var legacy = function () {
+            try { content.document.execCommand('copy'); done(); } catch (e) {}
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, legacy);
+        } else {
+            legacy();
+        }
+    }
+
+    // 引用到 AI 伴读：只填入输入框不发送，用户接着补提示词自己发；
+    // 超长选区截断，与段落翻译/批注的 2000 字符上限保持一致
+    function quoteSelectionToAi(text) {
+        var trimmed = text.length > SELECTION_QUOTE_MAX ? text.slice(0, SELECTION_QUOTE_MAX) + '…' : text;
+        if (window.AICompanion && typeof window.AICompanion.insertIntoInput === 'function' &&
+            window.AICompanion.insertIntoInput(trimmed)) {
+            readerToast('已引用到 AI 伴读，补充提示词后发送');
+        }
+    }
+
+    function showSelectionMenu(content, event) {
+        closeSelectionMenu();
+        var text = currentSelectionText(content);
+        if (!text) return;
+        selectionMenu = document.createElement('div');
+        selectionMenu.className = 'reading-selection-menu';
+
+        function addItem(label, action) {
+            var item = document.createElement('div');
+            item.className = 'selection-menu-item';
+            item.textContent = label;
+            item.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                closeSelectionMenu();
+                action();
+            });
+            selectionMenu.appendChild(item);
+        }
+
+        if (window.AICompanion && typeof window.AICompanion.insertIntoInput === 'function') {
+            addItem('引用到 AI 伴读', function () { quoteSelectionToAi(text); });
+        }
+        addItem('复制', function () { copySelectionText(content, text); });
+
+        document.body.appendChild(selectionMenu);
+
+        // contextmenu 坐标是 iframe 内坐标，换算到主视口（与划词气泡一致）
+        var x = event.clientX, y = event.clientY;
+        var frame = content.window.frameElement;
+        if (frame) {
+            var frameRect = frame.getBoundingClientRect();
+            x += frameRect.left;
+            y += frameRect.top;
+        }
+        var bounds = selectionMenu.getBoundingClientRect();
+        x = Math.min(Math.max(8, x), window.innerWidth - bounds.width - 8);
+        y = Math.min(Math.max(8, y), window.innerHeight - bounds.height - 8);
+        selectionMenu.style.left = x + 'px';
+        selectionMenu.style.top = y + 'px';
+    }
+
     function bindSelectionTranslation(content) {
         // iframe 内事件不冒泡到主文档：正文区的按下/ESC 必须在 iframe
         // document 上处理，否则气泡无法自动消失（双击查词后点击正文
@@ -547,6 +636,7 @@ var reader;
         content.document.addEventListener('mousedown', function () {
             closeTranslationPopover();
             closeAnnotationPopover();
+            closeSelectionMenu();
         });
         content.document.addEventListener('mouseup', function () {
             setTimeout(function () { translateSelection(content); }, 0);
@@ -554,9 +644,18 @@ var reader;
         content.document.addEventListener('touchend', function () {
             setTimeout(function () { translateSelection(content); }, 80);
         });
-        // iframe 内按 ESC 同样关闭划词气泡
+        // iframe 内按 ESC 同样关闭划词气泡与右键菜单
         content.document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape') closeTranslationPopover();
+            if (event.key === 'Escape') {
+                closeTranslationPopover();
+                closeSelectionMenu();
+            }
+        });
+        // 有选区的右键替换为快捷菜单（引用到 AI 伴读/复制）；无选区放行原生菜单
+        content.document.addEventListener('contextmenu', function (event) {
+            if (!currentSelectionText(content)) return;
+            event.preventDefault();
+            showSelectionMenu(content, event);
         });
     }
 
@@ -566,16 +665,36 @@ var reader;
     var TTS_ENGINE_KEY = "calibre.reader.ttsEngine";
     var TRANSLATION_CACHE_MAX = 500;
 
-    // 翻译内容自动隐藏时长（秒）：译文/划词气泡显示超过该时长自动消失，
-    // 供「看一眼译文继续读原文」的使用方式；0 = 一直显示（关闭自动隐藏）。
-    var TRANSLATION_DISPLAY_KEY = 'calibre.reader.translationDisplaySeconds';
+    // 翻译内容自动隐藏时长：按原文词数动态折算——配置值是「每 100 词显示的
+    // 秒数」，段落/选区越长显示越久，供「看一眼译文继续读原文」的使用方式；
+    // 0 = 一直显示（关闭自动隐藏）。新 key 与旧的固定秒数语义区分，
+    // 旧值不会被误读为每 100 词秒数。
+    var TRANSLATION_DISPLAY_KEY = 'calibre.reader.translationDisplaySecondsPer100';
     var TRANSLATION_DISPLAY_DEFAULT = 5;
+    var TRANSLATION_DISPLAY_MIN_SECONDS = 1;
 
-    function translationDisplaySeconds() {
+    function translationDisplaySecondsPer100() {
         var raw = null;
         try { raw = localStorage.getItem(TRANSLATION_DISPLAY_KEY); } catch (e) {}
         var value = parseInt(raw, 10);
         return (isNaN(value) || value < 0) ? TRANSLATION_DISPLAY_DEFAULT : value;
+    }
+
+    // 词数统计：中文每字算一词，连续拉丁字母/数字串算一词（英文段落按单词
+    // 计、中文段落按字计），作为显示时长的折算基数
+    function countWords(text) {
+        var normalized = String(text || '').replace(/\s+/g, ' ').trim();
+        if (!normalized) return 0;
+        var cjk = (normalized.match(/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g) || []).length;
+        var latin = (normalized.match(/[A-Za-z0-9]+(?:['\u2019-][A-Za-z0-9]+)*/g) || []).length;
+        return cjk + latin;
+    }
+
+    // 显示秒数 = 原文词数 × 每 100 词秒数 ÷ 100；1 秒下限保证短句也看得见
+    function translationDisplaySecondsFor(sourceText) {
+        var per100 = translationDisplaySecondsPer100();
+        if (!per100) return 0;
+        return Math.max(TRANSLATION_DISPLAY_MIN_SECONDS, countWords(sourceText) * per100 / 100);
     }
 
     function readerCsrfToken() {
@@ -829,10 +948,10 @@ var reader;
         });
     }
 
-    // --- 翻译显示时长设置：改动即时保存，已显示的译文按新时长重新计时 ---
-    var translationDisplayInput = document.getElementById('translationDisplaySeconds');
+    // --- 翻译显示时长设置（每 100 词秒数）：改动即时保存，已显示的译文重新计时 ---
+    var translationDisplayInput = document.getElementById('translationDisplaySecondsPer100');
     if (translationDisplayInput) {
-        translationDisplayInput.value = String(translationDisplaySeconds());
+        translationDisplayInput.value = String(translationDisplaySecondsPer100());
         translationDisplayInput.addEventListener('change', function () {
             var value = parseInt(translationDisplayInput.value, 10);
             if (isNaN(value) || value < 0) value = TRANSLATION_DISPLAY_DEFAULT;
@@ -895,12 +1014,12 @@ var reader;
         return div;
     }
 
-    // 译文块按配置时长自动消失：到点移除并复位段落「译」按钮（可再点重出，
-    // 命中缓存即时显示）。定时器挂在块自身，配置修改时可清除重排；
-    // 块已被动删除（手动取消/被替换）时触发为 no-op。
+    // 译文块自动消失：显示时长按所在段落原文的词数折算，到点移除并复位段落
+    // 「译」按钮（可再点重出，命中缓存即时显示）。定时器挂在块自身，配置修改
+    // 时可清除重排；块已被动删除（手动取消/被替换）时触发为 no-op。
     function scheduleTranslationHide(div, el) {
         if (div._hideTimer) { clearTimeout(div._hideTimer); div._hideTimer = null; }
-        var seconds = translationDisplaySeconds();
+        var seconds = el ? translationDisplaySecondsFor(paragraphSpeechText(el)) : 0;
         if (!seconds) return;
         div._hideTimer = setTimeout(function () {
             div._hideTimer = null;
@@ -1419,7 +1538,11 @@ var reader;
     });
 
     document.addEventListener('mousedown', function (event) {
-        // 点击浮层外部一律关闭（划词气泡 / 段落批注弹层 / 书批注面板）
+        // 点击浮层外部一律关闭（划词气泡 / 右键菜单 / 段落批注弹层 / 书批注面板）；
+        // 菜单项自身不能在 mousedown 被关掉，否则 click 到不了菜单项
+        if (selectionMenu && !selectionMenu.contains(event.target)) {
+            closeSelectionMenu();
+        }
         if (translationPopover && !translationPopover.contains(event.target)) {
             closeTranslationPopover();
         }
@@ -1437,10 +1560,15 @@ var reader;
 
     document.addEventListener('keydown', function (event) {
         if (event.key !== 'Escape') return;
-        // 分层退出：书批注面板（最上层）→ 段落批注弹层 → 划词气泡，
-        // 一次 Esc 只关一层并阻断后续监听（本 handler 先于 ai_chat.js
-        // 注册，stopImmediatePropagation 可阻断其 jQuery 委托监听），
+        // 分层退出：划词右键菜单（最表层）→ 书批注面板 → 段落批注弹层 →
+        // 划词气泡，一次 Esc 只关一层并阻断后续监听（本 handler 先于
+        // ai_chat.js 注册，stopImmediatePropagation 可阻断其 jQuery 委托监听），
         // 多层面板同开时逐层退出；全部关闭时不阻断，ai_chat.js 正常关抽屉。
+        if (selectionMenu) {
+            closeSelectionMenu();
+            event.stopImmediatePropagation();
+            return;
+        }
         if (annotationPanel) {
             closeAnnotationPanel();
             event.stopImmediatePropagation();
@@ -1657,9 +1785,10 @@ var reader;
         }
     }
     reader.rendition.on('relocated', function () {
-        // 翻页后旧气泡/批注弹层的坐标基于已换下的页面，必须关闭
+        // 翻页后旧气泡/批注弹层/右键菜单的坐标基于已换下的页面，必须关闭
         closeTranslationPopover();
         closeAnnotationPopover();
+        closeSelectionMenu();
         setTimeout(inspectVocabulary, 120);
     });
 

@@ -36,3 +36,31 @@ services:
     #   - traefik.http.routers.calibre.entrypoints=websecure
     #   - traefik.http.routers.calibre.tls.certresolver=letsencrypt
     #   - traefik.http.services.calibre.loadbalancer.server.port=8083
+
+  # 日志采集 sidecar：Calibre-Web 日志默认落在配置目录（容器内 /config）下的
+  # calibre-web.log / access.log，采集后写入 ES 索引 app-log-magicbook
+  # 需在 .env 配置 LOG_ES_PASSWORD；索引模板与保留策略见 deploy/init-app-log-es.sh
+  filebeat:
+    image: ${FILEBEAT_IMAGE:-docker.elastic.co/beats/filebeat:8.11.3}
+    container_name: magicbook-filebeat
+    restart: unless-stopped
+    # 挂载的 filebeat.yml 属主非 root 时 strict.perms 会拒绝启动
+    command: ["-e", "--strict.perms=false"]
+    environment:
+      LOG_ES_HOSTS: ${LOG_ES_HOSTS:-https://es.haoshenqi.top:443}
+      LOG_ES_USERNAME: ${LOG_ES_USERNAME:-elastic}
+      LOG_ES_PASSWORD: ${LOG_ES_PASSWORD:-}
+    volumes:
+      - ./deploy/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      # 与 magicbook 共享配置目录（含 calibre-web.log / access.log），只读
+      - ${CONFIG_PATH:-./config}:/var/log/magicbook:ro
+      # filebeat registry：记录采集位点，容器重建不重复投递
+      - filebeat-data:/usr/share/filebeat/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  filebeat-data:

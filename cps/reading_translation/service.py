@@ -15,6 +15,20 @@ log = logger.create()
 
 ACTIVE_STATUSES = ("PENDING", "RUNNING", "PARTIAL_FAILED")
 
+# 整书翻译单段提示词：与 moon-well PromptDefinitions.reading-paragraph-translate-plain
+# 语义一致。Why: 发布时即填充为完整提示词（prompt 字段），任务记录自包含可审计，
+# 执行器不再按模板键二次渲染；改提示词需改此处并重新部署 magicbook。
+TRANSLATE_PROMPT = (
+    "你是一位专业译者。将下面段落翻译成简洁、自然的中文："
+    "人名、地名、专有名词的译法保持与全书一致。"
+    "只返回一个 JSON 字符串数组：数组第 1 项是段落的中文翻译，"
+    "不要解释，不要 markdown 代码块。\n段落：\n{paragraph}"
+)
+
+
+def build_paragraph_prompt(paragraph: str) -> str:
+    return TRANSLATE_PROMPT.format(paragraph=paragraph)
+
 
 def _now():
     return datetime.now(timezone.utc)
@@ -189,15 +203,15 @@ class WholeBookTranslationService:
                 for item in items:
                     if item.status != "PENDING":
                         continue
-                    # Why: moon-well 执行器按 promptTemplate 渲染完整提示词（携带书名/章节，
-                    # 保持全书译法一致）；不带模板时 LLM 只会复述英文原文，不会产出中文译文。
+                    # Why: 发布时即填充完整提示词(prompt),任务记录自包含可审计,
+                    # 执行器直接使用;paragraph 裸原文供 moon-well 写缓存时作键。
                     payload = {"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
                                "input": item.text,
-                               "promptTemplate": "reading-paragraph-translate-plain",
+                               "prompt": build_paragraph_prompt(item.text),
                                "parameters": {"jobId": job.id, "itemId": item.id, "bookId": book_id,
                                               "bookFingerprint": fingerprint, "paragraphIndex": item.paragraph_index,
                                               "textHash": item.text_hash, "bookName": book_title,
-                                              "chapter": item.chapter}}
+                                              "chapter": item.chapter, "paragraph": item.text}}
                     try:
                         response = publish(payload)
                         result = response.get("result", response) if isinstance(response, dict) else {}
@@ -305,12 +319,12 @@ class WholeBookTranslationService:
                     try:
                         response = publish({"taskType": "TEXT", "caller": "magicbook-whole-book-translation",
                                             "input": item.text,
-                                            "promptTemplate": "reading-paragraph-translate-plain",
+                                            "prompt": build_paragraph_prompt(item.text),
                                             "parameters": {"jobId": job.id, "itemId": item.id,
                                             "bookId": job.book_id, "bookFingerprint": job.book_fingerprint,
                                             "paragraphIndex": item.paragraph_index, "textHash": item.text_hash,
                                             "bookName": job.book_name,
-                                            "chapter": item.chapter}})
+                                            "chapter": item.chapter, "paragraph": item.text}})
                         result = response.get("result", response)
                         item.task_id = str(result["taskId"])
                         item.status = "PUBLISHED"

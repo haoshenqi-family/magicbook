@@ -935,3 +935,32 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **requests.md**：追加 R55。
 - **response.md**：记录实现方案、CSP 放行与验证结果。
 - **冲突记录**：无。
+
+## 2026-09-19（翻译显示时长动态折算）
+
+### R56：显示时长按词数动态调整（每 100 词秒数）
+
+- **语义变更**（`cps/static/js/reading/epub.js` + `cps/templates/read.html`，develop 工作区）：
+  - 配置含义从「固定秒数」改为「每 100 词显示的秒数」：显示时长 = 原文词数 × 每 100 词秒数 ÷ 100，1 秒下限保证短句可见；默认 5 秒/100 词；0 仍为不自动消失。
+  - 词数基数取原文（段落译文块取所在段落、划词气泡取选中选区）：中文每字计 1、连续拉丁字母/数字串计 1（`countWords`），撇号/连字符连写词（it's、book-don't）算一个词。
+  - localStorage 换新 key `calibre.reader.translationDisplaySecondsPer100`：与旧固定秒数语义隔离，旧值不会被误读为每 100 词秒数（默认回落 5）。
+  - 设置弹窗文案改为「Translation display time per 100 words / seconds / 100 words (0 = keep displayed)」，输入框 id 同步改为 `translationDisplaySecondsPer100`；改动即时保存并对已显示译文（含气泡）重新计时，逻辑与 R38 相同。
+- **验证**：`node --check` 通过；全量 pytest **188 passed**；node 受控时钟 21 用例全过（词数统计、100/200/150 词折算与下限、改配置重排、0 不隐藏、非法回退、手动取消 no-op）；临时渲染测试确认 `read.html` 输出新输入框且旧 id 已移除。
+- **部署**：develop 分支；静态资源无版本号，部署后需强刷浏览器。
+
+### 总结（R56 后更新）
+
+- **requests.md**：追加 R56（显示时长按词数动态折算）。
+- **response.md**：记录 R56 的折算公式、词数口径、新 localStorage key 与验证结果。
+- **冲突记录**：无；与 R38 的固定秒数语义不冲突——key 与输入框 id 均已更换，旧配置自然回落默认值。
+
+### R57：划词右键快捷菜单——引用选中文本到 AI 伴读（不发送）
+
+- **交互**（`cps/static/js/reading/epub.js` + `cps/static/js/ai_chat.js` + `cps/static/css/reader.css`，develop 工作区）：
+  - EPUB 正文 iframe 内 `contextmenu`：有选区时拦截原生菜单，在光标处弹自定义菜单「引用到 AI 伴读」+「复制」（原生菜单被拦后复制入口丢失，故补回）；无选区放行原生菜单。
+  - 「引用到 AI 伴读」：选中文本以「」引用格式追加进 `#ai-chat-input`（**不发送**），自动打开 AI 抽屉、聚焦并把光标放到末尾——用户接着补提示词，写完自己按发送/回车。超长选区截断到 2000 字符（与段落翻译/批注上限一致）。
+  - 「复制」：navigator.clipboard 优先，失败回退 iframe 内 execCommand。
+  - 菜单挂主文档（坐标含 iframe 偏移换算，与划词气泡一致）；关闭时机：点击菜单项/外部 mousedown、ESC（分层退出的最表层）、翻页、iframe 内 mousedown。
+- **接口**：`ai_chat.js` 暴露 `window.AICompanion.insertIntoInput(text)`（ai_chat.js 归口管理输入框与抽屉状态，epub.js 只调用）；epub.js 侧检测到该方法存在才显示 AI 菜单项。
+- **验证**：`node --check` 两个 JS 通过；全量 pytest **188 passed**；node 模拟拼接格式（空输入 → 「text」\n；已有内容 → 空行分隔后追加；空白文本拒绝）。
+- **限制**：仅 EPUB 阅读器（右键菜单绑定在 epub.js）；触屏长按菜单兼容性不定，移动端仍走划词气泡。

@@ -203,8 +203,11 @@ def test_publish_payload_carries_prompt_template_and_progress_reports_pending(tm
     result = svc.WholeBookTranslationService().start(1, "EPUB", False, _publish, {})
 
     assert len(published) == 1
-    # 核心断言 1：发布 payload 必须带翻译模板键
-    assert published[0]["promptTemplate"] == "reading-paragraph-translate-plain"
+    # 核心断言 1：发布 payload 必须带填充好的完整提示词(prompt)与裸原文(paragraph)
+    assert "promptTemplate" not in published[0]
+    assert "Hello paragraph." in published[0]["prompt"]
+    assert "翻译" in published[0]["prompt"]
+    assert published[0]["parameters"]["paragraph"] == "Hello paragraph."
     assert published[0]["parameters"]["bookName"] == "Test Book"
     # 核心断言 2：progress 返回 pendingCount（前端区分未完成与失败）
     assert "pendingCount" in result
@@ -446,7 +449,10 @@ def test_publish_thread_uses_own_session_when_ub_session_is_plain_instance(monke
 
     # 旧代码在线程内调 ub.session() 抛 TypeError 后静默退出：published 必为空。
     assert len(published) == 1
-    assert published[0]["promptTemplate"] == "reading-paragraph-translate-plain"
+    # 填充式提示词:prompt 必含指令+段落原文;paragraph 裸原文供缓存键
+    assert "Hello world." in published[0]["prompt"]
+    assert published[0]["parameters"]["paragraph"] == "Hello world."
+    assert "promptTemplate" not in published[0]
     # 观测点：发布完成必须留摘要日志（「点击无日志」问题的判定依据）
     assert "publish finished" in caplog.text
     assert "job-r51" in caplog.text

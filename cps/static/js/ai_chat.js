@@ -66,6 +66,24 @@
     $("#ai-companion-drawer").removeClass("open");
   }
 
+  // 阅读器划词右键菜单入口：把选中文本以「」引用形式追加到输入框（不发送），
+  // 打开抽屉并把光标放到末尾——用户接着补提示词，写完自己按发送
+  function insertIntoInput(text) {
+    var quoted = String(text || "").trim();
+    if (!quoted) return false;
+    var $input = $("#ai-chat-input");
+    if (!$input.length) return false;
+    var current = $input.val();
+    $input.val(current ? current.replace(/\s+$/, "") + "\n\n「" + quoted + "」\n" : "「" + quoted + "」\n");
+    $("#ai-companion-drawer").addClass("open");
+    var el = $input.get(0);
+    el.focus();
+    var end = el.value.length;
+    try { el.setSelectionRange(end, end); } catch (e) {}
+    return true;
+  }
+  window.AICompanion.insertIntoInput = insertIntoInput;
+
   function loadConversations() {
     if (!BOOK_ID) return;
     $.getJSON("/ai/conversations/" + BOOK_ID, function (data) {

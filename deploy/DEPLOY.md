@@ -67,6 +67,30 @@ LOG_PATH=./logs
 - 以 root 启动 → entrypoint 自动修正挂载卷权限 → `gosu` 降权到非 root 用户运行
 - `tini` 作为 PID 1，正确转发 SIGTERM 信号实现优雅停止
 
+## 日志接入 Elasticsearch（app-log-magicbook）
+
+应用日志通过 filebeat sidecar 采集进 ES（与 moon-well 统一为 `app-log-*` 索引）：
+
+- **日志位置**：Calibre-Web 默认把日志写在配置目录（容器内 `/config`，即 `.env` 的 `CONFIG_PATH`）：`calibre-web.log`（应用日志）与 `access.log`（访问日志，管理后台开启后生成）。注意日志级别设为 DEBUG 时应用改走容器 stdout，不落盘。
+- **采集**：compose 内 `filebeat` 服务只读挂载配置目录，写入索引 **`app-log-magicbook`**，文档带 `module: magicbook` 字段。
+- **配置**：`.env` 中设置 `LOG_ES_HOSTS`（默认 `https://es.haoshenqi.top:443`）、`LOG_ES_USERNAME`、`LOG_ES_PASSWORD`；文件见 `deploy/filebeat.yml`。
+- **模板与保留**：`app-log-*` 统一索引模板（1 分片 0 副本）+ ILM 策略（默认保留 30 天自动删除），由 `deploy/init-app-log-es.sh` 一次性初始化（幂等，可重跑更新保留天数）：
+
+  ```bash
+  cd deploy
+  ES_PASSWORD=<你的 ES 密码> ./init-app-log-es.sh
+  # 调整保留天数：RETENTION_DAYS=60 ./init-app-log-es.sh
+  ```
+
+- **验证**：
+
+  ```bash
+  docker compose logs -f filebeat                                    # 采集是否正常
+  curl -u elastic:<密码> https://es.haoshenqi.top/app-log-magicbook/_count
+  ```
+
+- **注意**：filebeat 镜像默认 `docker.elastic.co/beats/filebeat:8.11.3`（与 ES 8.11.3 同版本）；Ubuntu 拉取慢时在 `.env` 配置 `FILEBEAT_IMAGE` 指向国内镜像代理地址。
+
 ## CI/CD
 
 推送到 `develop` 或 `main` 分支后，GitHub Actions 自动：
