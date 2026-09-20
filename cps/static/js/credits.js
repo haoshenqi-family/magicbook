@@ -274,10 +274,146 @@
         });
     }
 
+    // ---------- 消耗明细（R64） ----------
+    var CONSUME_PAGE_SIZE = 10;
+    var consumePageNo = 1;
+    var consumeTotal = 0;
+
+    function consumeFilters() {
+        return {
+            caller: $('#credit-consume-caller').val() || undefined,
+            model: $('#credit-consume-model').val() || undefined,
+            startDate: $('#credit-consume-start').val() || undefined,
+            endDate: $('#credit-consume-end').val() || undefined
+        };
+    }
+
+    function buildConsumePayload() {
+        return $.extend({ pageNo: consumePageNo, pageSize: CONSUME_PAGE_SIZE }, consumeFilters());
+    }
+
+    function formatTime(iso) {
+        if (!iso) { return '-'; }
+        return String(iso).replace('T', ' ').slice(0, 19);
+    }
+
+    function renderConsumeGroups(groups) {
+        var container = $('#credit-consume-groups').empty();
+        if (!groups || !groups.length) { return; }
+        var max = groups[0].amount || 1;
+        groups.forEach(function (g) {
+            var row = $('<div>').addClass('credit-consume-group');
+            row.append($('<span>').addClass('label').attr('title', g.name).text(g.name));
+            row.append($('<span>').addClass('bar').css('width', Math.max(2, Math.round((g.amount / max) * 260)) + 'px'));
+            row.append($('<span>').addClass('value')
+                .text(g.amount + ' ' + 'credits · ' + (g.count || 0) + ' times · ' + (g.percent || 0) + '%'));
+            container.append(row);
+        });
+    }
+
+    function renderConsumeSummary(summary) {
+        var box = $('#credit-consume-summary').empty();
+        if (!summary) {
+            box.append($('<p>').addClass('text-muted').text('No consumption data.'));
+            return;
+        }
+        var stats = [
+            { strong: summary.totalAmount || 0, span: 'Credits Spent' },
+            { strong: summary.totalCount || 0, span: 'AI Calls' },
+            { strong: summary.totalTokens || 0, span: 'Total Tokens' }
+        ];
+        stats.forEach(function (st) {
+            var item = $('<div>').addClass('stat');
+            item.append($('<strong>').text(st.strong));
+            item.append($('<span>').text(st.span));
+            box.append(item);
+        });
+        renderConsumeGroups(summary.byCaller);
+        // 用汇总结果填充功能/模型过滤下拉（保留当前选择）
+        ['caller', 'model'].forEach(function (key) {
+            var select = $('#credit-consume-' + key);
+            var current = select.val();
+            var list = key === 'caller' ? summary.byCaller : summary.byModel;
+            select.find('option:not(:first)').remove();
+            (list || []).forEach(function (g) {
+                select.append($('<option>').val(g.key).text(g.name));
+            });
+            if (current) { select.val(current); }
+        });
+    }
+
+    function renderConsumeRows(records) {
+        var tbody = $('#credit-consume-rows').empty();
+        if (!records || !records.length) {
+            tbody.html('<tr><td colspan="5" class="text-muted">No consumption records in this range.</td></tr>');
+            return;
+        }
+        records.forEach(function (r) {
+            var row = $('<tr>');
+            row.append($('<td>').text(formatTime(r.createdAt)));
+            row.append($('<td>').text(r.callerName || r.caller || '未知来源'));
+            row.append($('<td>').text(r.model || '-'));
+            row.append($('<td>').addClass('text-right').text(r.totalTokens !== null && r.totalTokens !== undefined ? r.totalTokens : '-'));
+            row.append($('<td>').addClass('text-right').text('-' + (r.amount || 0)));
+            tbody.append(row);
+        });
+    }
+
+    function renderConsumePager() {
+        var pager = $('#credit-consume-pager').empty();
+        var totalPages = Math.max(1, Math.ceil(consumeTotal / CONSUME_PAGE_SIZE));
+        if (totalPages <= 1) { return; }
+        var prev = $('<button>').addClass('btn btn-default btn-sm').text('< Prev')
+            .prop('disabled', consumePageNo <= 1);
+        var next = $('<button>').addClass('btn btn-default btn-sm').text('Next >')
+            .prop('disabled', consumePageNo >= totalPages);
+        var info = $('<span>').addClass('text-muted').css('margin', '0 10px')
+            .text(consumePageNo + ' / ' + totalPages);
+        prev.on('click', function () { consumePageNo -= 1; loadConsumeDetail(); });
+        next.on('click', function () { consumePageNo += 1; loadConsumeDetail(); });
+        pager.append(prev, info, next);
+    }
+
+    function loadConsumeDetail() {
+        var payload = buildConsumePayload();
+        ajax('/ajax/credit/consume-summary', 'POST', payload).then(function (response) {
+            renderConsumeSummary(unwrap(response));
+        }).catch(function (error) {
+            $('#credit-consume-summary').html('<p class="text-danger" style="margin:0">Failed to load summary: ' +
+                $('<span>').text(error.message).html() + '</p>');
+        });
+        ajax('/ajax/credit/consume-page', 'POST', payload).then(function (response) {
+            var page = unwrap(response);
+            consumeTotal = page.total || 0;
+            renderConsumeRows(page.records);
+            renderConsumePager();
+        }).catch(function (error) {
+            $('#credit-consume-rows').html('<tr><td colspan="5" class="text-danger">Failed to load records: ' +
+                $('<span>').text(error.message).html() + '</td></tr>');
+        });
+    }
+
+    function resetConsumePage() {
+        consumePageNo = 1;
+        consumeTotal = 0;
+    }
+
     $(function () {
         sessionStorage.removeItem(CSRF_RELOAD_FLAG);
         loadBalance();
         loadPackages();
+        loadConsumeDetail();
+
+        $('#credit-consume-apply').on('click', resetConsumePage);
+        $('#credit-consume-apply').on('click', loadConsumeDetail);
+        $('#credit-consume-reset').on('click', function () {
+            $('#credit-consume-caller').val('');
+            $('#credit-consume-model').val('');
+            $('#credit-consume-start').val('');
+            $('#credit-consume-end').val('');
+            resetConsumePage();
+            loadConsumeDetail();
+        });
 
         $(document).on('click', '.pkg-buy-btn', function () {
             buy($(this).attr('data-package-id'));

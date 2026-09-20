@@ -10,6 +10,16 @@
   .credit-package-card .pkg-desc { color: #777; font-size: 12px; margin: 8px 0; }
   .credit-package-card .btn { margin-top: auto; }
   #credit-qr img, #credit-qr canvas { margin: 0 auto; }
+  /* 消耗明细（R64） */
+  .credit-consume-summary { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 10px; }
+  .credit-consume-summary .stat strong { display: block; font-size: 20px; }
+  .credit-consume-summary .stat span { color: #777; font-size: 12px; }
+  .credit-consume-group { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
+  .credit-consume-group .bar { height: 8px; border-radius: 4px; background: #337ab7; min-width: 2px; }
+  .credit-consume-group .label { width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .credit-consume-group .value { color: #777; white-space: nowrap; }
+  #credit-consume-table td, #credit-consume-table th { font-size: 13px; }
+  .credit-consume-filters select, .credit-consume-filters input { margin-right: 6px; margin-bottom: 5px; }
 </style>
 {% endblock %}
 
@@ -30,6 +40,45 @@
   </div>
 
   <div id="credit-alert" style="display:none" class="alert" role="alert"></div>
+
+  <h3>{{_('Credit Consumption Detail')}}</h3>
+  <div class="panel panel-default">
+    <div class="panel-body">
+      <div id="credit-consume-summary" class="credit-consume-summary">
+        <p class="text-muted" style="margin:0">{{_('Loading...')}}</p>
+      </div>
+      <div id="credit-consume-groups"></div>
+      <div class="credit-consume-filters" style="margin-top:12px">
+        <select id="credit-consume-caller" class="form-control" style="display:inline-block;width:auto">
+          <option value="">{{_('All Features')}}</option>
+        </select>
+        <select id="credit-consume-model" class="form-control" style="display:inline-block;width:auto">
+          <option value="">{{_('All Models')}}</option>
+        </select>
+        <input type="date" id="credit-consume-start" class="form-control" style="display:inline-block;width:auto">
+        <input type="date" id="credit-consume-end" class="form-control" style="display:inline-block;width:auto">
+        <button id="credit-consume-apply" class="btn btn-default btn-sm">{{_('Apply')}}</button>
+        <button id="credit-consume-reset" class="btn btn-link btn-sm">{{_('Reset')}}</button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-striped" id="credit-consume-table">
+          <thead>
+            <tr>
+              <th>{{_('Time')}}</th>
+              <th>{{_('Feature')}}</th>
+              <th>{{_('Model')}}</th>
+              <th class="text-right">{{_('Tokens')}}</th>
+              <th class="text-right">{{_('Credits')}}</th>
+            </tr>
+          </thead>
+          <tbody id="credit-consume-rows">
+            <tr><td colspan="5" class="text-muted">{{_('Loading...')}}</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="credit-consume-pager" class="text-center"></div>
+    </div>
+  </div>
 
   <h3>{{_('Choose a Recharge Package')}}</h3>
   <div id="credit-packages" class="credit-packages">
