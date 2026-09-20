@@ -290,3 +290,17 @@
   2. 或把本书第七章第 2 题改为"在 moon-well 侧登记/标记"，避免书内承诺与系统行为不符；
   3. 若读者实际使用 hz 等其他账号阅读，需按对应账号重新补偿（本次按 user_id=1 hsq 发放）。
 - **冲突记录**：无。
+
+## 2026-09-21（toggleread 桥接实施 + 内网信任打开）
+
+### R65：① 打开 moon-well INTERNAL_TRUST_ENABLED；② toggleread 桥接 moon-well
+
+- **magicbook 侧（4c2d879b）**：新增 `_moonwell_book_finished_bridge`——置已读后 daemon 线程异步执行 `/book/page`（书名查重）→ `/book/create`（未登记则登记）→ `/book/update` 置 FINISHED 触发 BOOKS_FINISHED 事件；身份头在请求线程快照（后台线程无 request 上下文，测试发现并修复 UnboundLocalError 闭包陷阱）；失败只记日志；取消已读不回退成就；`toggle_read` 与 `editbooks`（单本+批量）三处接入。tests/test_book_finished_bridge.py 7 用例，全量 203 passed。
+- **moon-well 侧（44de1c3 + fd1da1c + b85ac94）**：
+  1. internalUri 白名单加 `/book/create|page|update`；
+  2. **存量 bug 修复**：`isInternalUri`/optionalUri 按 startsWith 匹配而配置写 `/xxx/**`——带尾通配条目永远 false，内网信任白名单整体失效；现剥尾通配再前缀匹配（stripTrailingWildcard 共用），新增 4 单测；
+  3. **schema 修复**：app_user.user_id 补 AUTO_INCREMENT、snapshot_user 补默认值（ddl-auto=update 不管存量列），hz 身份头自动建号成功（user_id=4）。
+- **部署（fnOS）**：moon-well compose 注入 `INTERNAL_TRUST_ENABLED: true`（备份 docker-compose.yml.bak-internal-trust-20260921）；两镜像经 GitHub Actions 构建成功后 force-recreate 上线；身份头 /book/page、/vocabulary/reading/settings 实测 200。
+- **效果**：现在在 magicbook 里把任意书标记"已读"（详情页/列表批量），后台自动同步 moon-well 书架并触发成就判定；读完《魔法书使用指南》即可领"开卷有益"。
+- **冲突记录**：无。
+
