@@ -21,10 +21,17 @@
 
     function showError(message) {
         var alertBox = $('#credit-alert');
-        alertBox.text(message).show();
+        alertBox.removeClass('alert-success').addClass('alert-danger')
+            .text(message).show();
     }
 
-    function hideError() {
+    function showSuccess(message) {
+        var alertBox = $('#credit-alert');
+        alertBox.removeClass('alert-danger').addClass('alert-success')
+            .text(message).show();
+    }
+
+    function hideMessages() {
         $('#credit-alert').hide();
     }
 
@@ -133,10 +140,19 @@
 
     function markPaid() {
         stopAllTimers();
-        $('#credit-status').text('Payment received! Credits granted.')
-            .removeClass().addClass('text-success');
-        $('#credit-countdown').text('');
-        loadBalance(); // Why: 充值成功即刻发放，余额立即刷新
+        // Why: 支付完成后二维码即失效，收起收银台并给出明确的到账结果与新余额，
+        // 避免页面停留在"扫码中"的观感（用户感知为"没有正确跳转"）
+        $('#credit-checkout').hide();
+        var grantedCredits = currentOrder ? currentOrder.credits : null;
+        ajax('/ajax/credit/account', 'POST').then(function (response) {
+            var account = unwrap(response);
+            renderBalance(account);
+            showSuccess('充值成功：' + (grantedCredits ? grantedCredits + ' 积分已到账，' : '积分已到账，') +
+                '当前余额 ' + (account && account.balance !== undefined ? account.balance : '-') + '。');
+        }).catch(function () {
+            // 余额刷新失败不掩盖到账事实
+            showSuccess('充值成功，积分已到账（余额刷新失败，可刷新页面查看）。');
+        });
     }
 
     function markExpired() {
@@ -229,7 +245,7 @@
     }
 
     function buy(packageId) {
-        hideError();
+        hideMessages();
         stopAllTimers(); // 入口统一清场：旧订单的轮询/倒计时不再存活
         var buyButtons = $('.pkg-buy-btn').prop('disabled', true);
         var createdOrder = null;
