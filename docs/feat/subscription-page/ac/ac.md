@@ -33,3 +33,14 @@
 3. 观察页面 3~10s 内自动变为 "Payment received! Subscription is active."
 4. 回到页面顶部确认当前订阅面板已更新；moon-well 侧 `GET /api/saas/order/detail` 确认 status=1、pay_type=alipay，`saas_subscription` 出现/续期记录
 5. 异常路径：等订单过期（或调小有效期）后确认倒计时归零 → 重新生成订单可用
+
+---
+
+## v2 积分充值 AC（R61）
+
+- [ ] **AC-5.1**: `/credits` 展示余额（AI 扣费说明），`/subscription` 重定向到 `/credits`
+- [ ] **AC-5.2**: 普通用户见 ¥99/¥10 两档；管理员另见 ¥0.01 测试档
+- [ ] **AC-5.3**: 充值扫码支付成功后页面自动确认且余额立即刷新（+档位积分数）
+- [ ] **AC-5.4**: moon-well `credit_transaction` 出现 RECHARGE GRANT 流水，金额/积分与档位一致
+- [ ] **AC-5.5**: 重复通知/轮询并发下积分只发放一次；金额不符不发（上游幂等与校验，moon-well AC 覆盖）
+- [ ] **AC-5.6**: 订阅套餐不出现在页面；订阅后端代理保留（恢复开关）

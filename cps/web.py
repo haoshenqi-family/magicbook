@@ -342,8 +342,8 @@ def achievements_claim():
 @web.route("/subscription", methods=["GET"])
 @user_login_required
 def subscription_page():
-    """订阅充值页：套餐列表 + 支付宝扫码收银台，数据经 /ajax/subscription-* 异步加载。"""
-    return render_title_template("subscription.html", title=_("Subscription"))
+    """Deprecated: 订阅页已由积分充值页取代（套餐暂时隐藏），重定向保兼容。"""
+    return redirect(url_for("web.credits_page"))
 
 
 @web.route("/ajax/subscription/plans", methods=["GET"])
@@ -404,6 +404,76 @@ def subscription_order_status():
         return jsonify({"success": False, "message": "orderNo is required"}), 400
     return _moonwell_proxy("/api/saas/payment/alipay/query", {"orderNo": order_no}, 15,
                            "subscription order status")
+
+
+# ---------- 积分充值（moon-well credit 模块代理） ----------
+# Why: 订阅套餐暂时隐藏（R61），页面仅提供积分充值；subscription 代理保留以便随时恢复
+
+@web.route("/credits", methods=["GET"])
+@user_login_required
+def credits_page():
+    """积分充值页：余额 + 档位 + 支付宝扫码收银台，数据经 /ajax/credit-* 异步加载。"""
+    return render_title_template("credits.html", title=_("Credits"))
+
+
+@web.route("/ajax/credit/account", methods=["POST"])
+@user_login_required
+def credit_account():
+    """Proxy the user's credit balance (moon-well POST /credit/account)."""
+    body, status, headers = _moonwell_proxy("/credit/account", None, 10,
+                                            "credit account", method="POST")
+    return body, status, headers
+
+
+@web.route("/ajax/credit/packages", methods=["GET"])
+@user_login_required
+def credit_packages():
+    """Proxy the recharge package list (moon-well GET /credit/recharge/packages)."""
+    body, status, headers = _moonwell_proxy("/credit/recharge/packages", None, 10,
+                                            "credit packages", method="GET")
+    return body, status, headers
+
+
+@web.route("/ajax/credit/recharge-order", methods=["POST"])
+@user_login_required
+@limiter.limit("10/minute", key_func=get_remote_address)
+def credit_recharge_order():
+    """Proxy recharge order creation (moon-well POST /credit/recharge/order);
+    payload {"packageId": "..."}，金额/积分由 moon-well 按档位决定。"""
+    payload = request.get_json(silent=True) or {}
+    package_id = payload.get("packageId")
+    if not package_id:
+        return jsonify({"success": False, "message": "packageId is required"}), 400
+    return _moonwell_proxy("/credit/recharge/order", {"packageId": package_id}, 10,
+                           "credit recharge order")
+
+
+@web.route("/ajax/credit/recharge-pay", methods=["POST"])
+@user_login_required
+@limiter.limit("10/minute", key_func=get_remote_address)
+def credit_recharge_pay():
+    """Proxy Alipay precreate (moon-well POST /credit/recharge/pay);
+    payload {"orderNo": "..."} -> result.qrCode 为二维码内容串。"""
+    payload = request.get_json(silent=True) or {}
+    order_no = payload.get("orderNo")
+    if not order_no:
+        return jsonify({"success": False, "message": "orderNo is required"}), 400
+    # Why: 预下单在 moon-well 侧同步调用支付宝网关，超时给足外呼预算
+    return _moonwell_proxy("/credit/recharge/pay", {"orderNo": order_no}, 15,
+                           "credit recharge payment")
+
+
+@web.route("/ajax/credit/recharge-status", methods=["POST"])
+@user_login_required
+def credit_recharge_status():
+    """Proxy recharge polling (moon-well POST /credit/recharge/status);
+    moon-well 侧对待支付充值单主动查支付宝补偿发放，返回最新充值单体。"""
+    payload = request.get_json(silent=True) or {}
+    order_no = payload.get("orderNo")
+    if not order_no:
+        return jsonify({"success": False, "message": "orderNo is required"}), 400
+    return _moonwell_proxy("/credit/recharge/status", {"orderNo": order_no}, 15,
+                           "credit recharge status")
 
 
 @web.route("/ajax/reading-settings", methods=["GET"])

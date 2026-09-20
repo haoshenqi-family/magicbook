@@ -59,3 +59,14 @@
 
 - 静态：`python3 -m compileall cps/web.py`；6 个路由 AST 检查；Jinja 解析（subscription.html / layout.html）。
 - E2E（需部署环境，见 ac/ac.md）：登录 → 页面选套餐 → 扫码支付 → 状态自动变已开通。
+
+---
+
+## v2：积分充值改造（R61，2026-09-20）
+
+- **变更**：订阅套餐暂时隐藏，页面语义改为「Credits 积分充值」：余额面板 + 三档充值（¥99→2000 分 / ¥10→100 分 / ¥0.01→1 分测试档）+ 原收银台/轮询组件复用。
+- **路由**：页面 `/credits`（`credits_page`），旧 `/subscription` 重定向；导航两处主题入口改名 Credits（id top_credits）。subscription 的 5 个 `/ajax/subscription-*` 代理**保留不动**，恢复订阅仅需前端改回。
+- **新增代理**：`POST /ajax/credit/account`（余额）、`GET /ajax/credit/packages`、`POST /ajax/credit/recharge-order|pay|status` → moon-well `/credit/*`（上游设计见 moon-well `docs/feat/credit-recharge/design/lld.md`）。
+- **测试档可见性**：moon-well 无角色概念，模板注入 `data-is-admin`（`current_user.role_admin()`），JS 过滤 `adminOnly` 档位——纯 UI 约束（0.01 元=1 积分无套利）。
+- **文件**：`templates/credits.html`（新）+ `static/js/credits.js`（新）；subscription.html/js 删除。
+- **发放语义**：moon-well 在支付落账（通知或查单补偿）同事务内调用 `CreditService.grant` 即刻发放，前端 status=1 后刷新余额面板。

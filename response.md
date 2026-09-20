@@ -240,3 +240,12 @@
   2. `achievements.js`：新增 `getCsrfToken()` 读取 `#ach-csrf`，claim 请求 headers 增加 `"X-CSRFToken"`。
 - **验证**：新增 `tests/test_achievements.py` 4 用例：未登录 302；页面渲染含 `#ach-csrf` 与 `achievements.js` script 标签；临时开启 CSRF 后无 token claim → 400（复现线上行为）；带页面 token claim → 200 且 `code` 正确转发 moon-well（proxy 被 mock 断言）。4 用例全过，全量 `pytest tests/` 192 passed 无回归；`node --check` JS 语法通过。
 - **AC 说明**：成就功能无既有 AC 文档（docs/feat 下无 achievements 目录），验证记录以本条为准，未新造文档结构。
+
+## 2026-09-20（订阅页 → 积分充值页改造）
+
+### R62：Credits 积分充值页面
+
+- **产出**：页面改造为 `/credits`（导航 Credits）：余额面板 + 三档充值卡片 + 支付宝扫码收银台（复用二维码/轮询/倒计时/重新生成组件）；订阅套餐隐藏，旧 `/subscription` 重定向，5 个订阅代理路由保留可随时恢复。
+- **实现**：`cps/web.py` 新增 credits_page + 6 个 `/ajax/credit-*` 代理（order/pay 限流 10/min）；`credits.html`（data-is-admin 注入）+ `credits.js`（adminOnly 前端过滤，moon-well 无角色概念的 UI 约束）；删除 subscription.html/js。
+- **验证**：compileall/6 路由 AST 检查/Jinja 解析/node --check 全过；E2E 按 ac.md v2 手工步骤（0.01 元档即测即验）。
+- **冲突记录**：无。
