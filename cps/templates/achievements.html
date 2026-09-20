@@ -3,6 +3,9 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/achievements.css') }}">
 {% endblock %}
 {% block body %}
+<!-- Why: CSRFProtect 全局启用，claim POST 必须带 token 否则 400；layout 里的 csrf_token
+     input 挂在有上传权限才渲染的 form-upload 中，普通读者页面取不到，故本页自带一份 -->
+<input type="hidden" id="ach-csrf" value="{{ csrf_token() }}">
 <div class="discover">
   <h1>{{_('Achievements')}}</h1>
   <div class="col-md-12">
@@ -58,6 +61,6 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}
+{% block js %}
 <script src="{{ url_for('static', filename='js/achievements.js') }}"></script>
 {% endblock %}

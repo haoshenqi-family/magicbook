@@ -37,6 +37,13 @@
     });
   }
 
+  function getCsrfToken() {
+    // Why: CSRFProtect 全局校验 POST；main.js 的 $.ajaxPrefilter 只兜底 jQuery，
+    // 原生 fetch 必须自带 X-CSRFToken，否则 claim 一直 400
+    var el = document.getElementById("ach-csrf");
+    return el ? el.value : "";
+  }
+
   // ---- 渲染 ----
 
   function renderSummary(summary) {
@@ -131,7 +138,8 @@
     $("ach-unlock-claim").onclick = function () {
       fetchJson("/ajax/achievements-claim", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest" },
+        headers: { "Content-Type": "application/json", "X-Requested-With": "XMLHttpRequest",
+                   "X-CSRFToken": getCsrfToken() },
         body: JSON.stringify({ code: ach.code })
       }).catch(function () { /* claim 失败下次轮询还会出现，不阻塞 */ })
         .finally(function () {
