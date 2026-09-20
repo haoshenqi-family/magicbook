@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+
+{% block header %}
+<style>
+  .sub-plans { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
+  .sub-plan-card { flex: 1 1 220px; max-width: 320px; border: 1px solid #ddd;
+                   border-radius: 6px; padding: 15px; display: flex; flex-direction: column; }
+  .sub-plan-card .sub-plan-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
+  .sub-plan-card .sub-plan-price { font-size: 24px; font-weight: bold; }
+  .sub-plan-card .sub-plan-desc { color: #777; font-size: 12px; margin: 8px 0; min-height: 30px; }
+  .sub-plan-card .sub-plan-features { margin: 0 0 10px 16px; padding: 0; font-size: 12px; color: #555; }
+  .sub-plan-card .btn { margin-top: auto; }
+  #sub-qr img, #sub-qr canvas { margin: 0 auto; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="discover">
+  <h1>{{_('Subscription')}}</h1>
+
+  <div id="sub-current" class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title">{{_('Current Subscription')}}</h3>
+    </div>
+    <div class="panel-body">
+      <p id="sub-current-info" class="text-muted" style="margin:0">{{_('Loading...')}}</p>
+    </div>
+  </div>
+
+  <div id="sub-alert" style="display:none" class="alert alert-danger" role="alert"></div>
+
+  <h3>{{_('Choose a Plan')}}</h3>
+  <div id="sub-plans" class="sub-plans">
+    <p class="text-muted">{{_('Loading...')}}</p>
+  </div>
+
+  <div id="sub-checkout" class="panel panel-default" style="display:none; margin-top:20px;">
+    <div class="panel-heading">
+      <h3 class="panel-title">{{_('Alipay Scan to Pay')}}</h3>
+    </div>
+    <div class="panel-body">
+      <div class="row">
+        <div class="col-sm-4 text-center">
+          <div id="sub-qr"></div>
+        </div>
+        <div class="col-sm-8">
+          <p id="sub-checkout-info" class="lead"></p>
+          <p id="sub-countdown" class="text-muted"></p>
+          <p id="sub-status"></p>
+          <button id="sub-regenerate" class="btn btn-default btn-sm" style="display:none">
+            {{_('Regenerate Order')}}
+          </button>
+          <p class="help-block" style="margin-top:10px">
+            {{_('Open Alipay app and scan the QR code. The page refreshes automatically after payment.')}}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <input type="hidden" id="subscription-csrf" value="{{ csrf_token() }}">
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/libs/qrcode.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/subscription.js') }}"></script>
+{% endblock %}

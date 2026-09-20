@@ -339,6 +339,73 @@ def achievements_claim():
                            "achievements claim")
 
 
+@web.route("/subscription", methods=["GET"])
+@user_login_required
+def subscription_page():
+    """订阅充值页：套餐列表 + 支付宝扫码收银台，数据经 /ajax/subscription-* 异步加载。"""
+    return render_title_template("subscription.html", title=_("Subscription"))
+
+
+@web.route("/ajax/subscription/plans", methods=["GET"])
+@user_login_required
+def subscription_plans():
+    """Proxy the purchasable plan list (moon-well /api/saas/plan/list)."""
+    body, status, headers = _moonwell_proxy("/api/saas/plan/list", None, 10,
+                                            "subscription plans", method="GET")
+    return body, status, headers
+
+
+@web.route("/ajax/subscription/current", methods=["GET"])
+@user_login_required
+def subscription_current():
+    """Proxy the user's current subscription (moon-well /api/saas/subscription/current)."""
+    body, status, headers = _moonwell_proxy("/api/saas/subscription/current", None, 10,
+                                            "subscription status", method="GET")
+    return body, status, headers
+
+
+@web.route("/ajax/subscription/order", methods=["POST"])
+@user_login_required
+@limiter.limit("10/minute", key_func=get_remote_address)
+def subscription_create_order():
+    """Proxy order creation (moon-well /api/saas/order/create); payload {"planId": N}."""
+    payload = request.get_json(silent=True) or {}
+    plan_id = payload.get("planId")
+    # Why: 上游 CreateOrderRequest.planId 是 Long，非正整数直接拒绝，避免打到 moon-well 才报错
+    if not isinstance(plan_id, int) or isinstance(plan_id, bool) or plan_id <= 0:
+        return jsonify({"success": False, "message": "planId is required"}), 400
+    return _moonwell_proxy("/api/saas/order/create", {"planId": plan_id}, 10,
+                           "subscription order")
+
+
+@web.route("/ajax/subscription/pay", methods=["POST"])
+@user_login_required
+@limiter.limit("10/minute", key_func=get_remote_address)
+def subscription_pay():
+    """Proxy Alipay precreate (moon-well /api/saas/payment/alipay/precreate);
+    payload {"orderNo": "..."} -> result.qrCode 为二维码内容串。"""
+    payload = request.get_json(silent=True) or {}
+    order_no = payload.get("orderNo")
+    if not order_no:
+        return jsonify({"success": False, "message": "orderNo is required"}), 400
+    # Why: 预下单在 moon-well 侧同步调用支付宝网关，超时给足外呼预算
+    return _moonwell_proxy("/api/saas/payment/alipay/precreate", {"orderNo": order_no}, 15,
+                           "subscription payment")
+
+
+@web.route("/ajax/subscription/order-status", methods=["POST"])
+@user_login_required
+def subscription_order_status():
+    """Proxy order polling (moon-well /api/saas/payment/alipay/query);
+    moon-well 侧对待支付订单主动查支付宝补偿落账，返回最新订单体。"""
+    payload = request.get_json(silent=True) or {}
+    order_no = payload.get("orderNo")
+    if not order_no:
+        return jsonify({"success": False, "message": "orderNo is required"}), 400
+    return _moonwell_proxy("/api/saas/payment/alipay/query", {"orderNo": order_no}, 15,
+                           "subscription order status")
+
+
 @web.route("/ajax/reading-settings", methods=["GET"])
 @user_login_required
 def reading_settings_get():
