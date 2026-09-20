@@ -81,8 +81,9 @@
 | `docs/kb/sql/`              | SQL 相关文档                                                    |
 | `docs/temp/`               | 临时文件目录（脚本、临时文档等），**不跟踪 Git**                        |
 | `docs/temp/scripts/`               | 临时脚本 **不跟踪 Git**                        |
-| `requests.md` (根目录)     | 对话需求记录，仅记录用户需求                              |
-| `response.md` (根目录)     | 对话回应记录，含每个需求回应、冲突说明及两文件总结                 |
+| `requests.md` (根目录)     | 对话需求记录，接到任务立即占号追加（只追加，永不归档）                |
+| `response.md` (根目录)     | 对话回应记录，任务完成后写入；仅保留最近 10 个 request 的回应，更早归档至 `response-archive/` |
+| `response-archive/` (根目录) | `response.md` 历史归档，按 request 区间分文件（如 `response-R01-R10.md`），只读不改 |
 
 ---
 
@@ -129,11 +130,14 @@
 
 ## 📝 对话记录 (requests.md / response.md)
 
-- **`requests.md`**：仅记录每一次对话用户的需求，除此之外不做任何事情。
-- **`response.md`**：每次任务完成后检查需求列表，更新功能说明，包括：
+- **`requests.md`**：仅记录每一次对话用户的需求，除此之外不做任何事情。**接到任务后立即追加编号占位**：读文件取当前最大编号 +1，随即写入需求原文；编号在任务开始即锁定，避免并行会话争用同一编号。
+- **`response.md`**：任务**完成后**再写入回应（编号对应 requests.md 开始时占用的条目），包括：
   - 对每个 request 的回应；
   - 对 requests.md 与 response.md 两个文件的总结。
+- **编号纪律**：编号只追加、不回改、不重排；并行会话若仍出现重复编号，不修改既有记录，续编下一个空号，并在 response.md 冲突记录中说明。
 - **冲突记录**：若 request 之间存在冲突，必须在 response.md 中记录。
+- **归档**：`response.md` 只保留最近 10 个 request 的回应。每当编号为 10 的整数倍的 request 完成回应（第 10、20、30…条），将最早一批超出保留窗口的回应**原样搬移**到 `response-archive/response-R<起>-R<止>.md`（如 `response-R11-R20.md`），并在 `response.md` 顶部归档索引登记；只搬移原文，不总结、不改写。`requests.md` 永不归档。
+- **查历史**：需要更早的回应细节时，按 request 编号到 `response-archive/` 对应文件检索，不要把全量历史读进上下文。
 - **原则**：尽量简单。
 
 ---
