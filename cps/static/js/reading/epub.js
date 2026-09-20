@@ -732,6 +732,8 @@ var reader;
         '.reading-translate-btn.is-loading::before{content:"⟳"}',
         '.reading-translate-btn.is-done{opacity:.5}',
         '.reading-annotation-btn::before{content:"✎"}',
+        '.reading-companion-btn::before{content:"✨"}',
+        '.reading-companion-btn.is-loading::before{content:"⟳"}',
         '.reading-translation{margin:6px 0 14px;font-size:.92em;line-height:1.5;color:inherit;opacity:.72;border-left:2px solid currentColor;padding-left:10px}',
         '.reading-translation.is-loading{opacity:.4;font-style:italic}',
         '.reading-translation.is-error{cursor:pointer;color:#c0392b;opacity:.9;font-style:italic;border-left-color:#c0392b}'
@@ -801,6 +803,17 @@ var reader;
                     openAnnotationPopover(el, noteBtn);
                 });
                 el.appendChild(noteBtn);
+            }
+            if (!el.querySelector(':scope > .reading-companion-btn')) {
+                var aiBtn = doc.createElement('span');
+                aiBtn.className = 'reading-para-btn reading-companion-btn';
+                aiBtn.title = 'AI 伴读批注';
+                aiBtn.addEventListener('click', function (ev) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    openAnnotationPopover(el, aiBtn);
+                });
+                el.appendChild(aiBtn);
             }
         });
     }
@@ -1257,11 +1270,24 @@ var reader;
     var annotationPanel = null;
     var annotationRequestSeq = 0;
 
+    // --- AI 伴读批注状态（与批注弹层同生命周期：弹层单例，模块级状态即可） ---
+    var companionRoles = null;         // 角色清单缓存（仅 LLM_ANNOTATION 角色）
+    var companionRolesPromise = null;  // 防并发重复拉取
+    var companionRequestSeq = 0;       // 飞行中弹层关闭/换段时丢弃过期响应
+    var companionParagraph = '';       // 当前弹层段落（生成/再生成请求体用）
+    var companionChipsEl = null;       // 当前弹层的角色 chips 容器
+    var companionListEl = null;        // 当前弹层的 AI 批注列表容器
+    var companionEntries = {};         // 当前段落的 AI 批注（roleId → 条目）
+
     function closeAnnotationPopover() {
         if (annotationPopover) {
             annotationPopover.remove();
             annotationPopover = null;
         }
+        companionChipsEl = null;
+        companionListEl = null;
+        companionEntries = {};
+        companionParagraph = '';
     }
 
     function closeAnnotationPanel() {
@@ -1323,6 +1349,168 @@ var reader;
         });
     }
 
+    // --- AI 伴读批注：角色清单（页面级缓存一次）、按角色生成、条目渲染 ---
+
+    function loadCompanionRoles() {
+        if (companionRoles) return Promise.resolve(companionRoles);
+        if (!calibre.readingCompanionRolesUrl) return Promise.reject(new Error('companion roles unavailable'));
+        if (!companionRolesPromise) {
+            companionRolesPromise = $.ajax({
+                url: calibre.readingCompanionRolesUrl, method: 'POST', contentType: 'application/json',
+                headers: {'X-CSRFToken': readerCsrfToken()},
+                data: JSON.stringify({})
+            }).then(function (response) {
+                // 只保留 LLM 生成类角色作 chips；翻译/朗读（TRANSLATION/TTS）
+                // 走既有 ▶/译 按钮，不并入 AI 批注区
+                companionRoles = ((response && (response.result || response.data)) || []).filter(function (role) {
+                    return role && role.kind === 'LLM_ANNOTATION';
+                });
+                return companionRoles;
+            }).catch(function (error) {
+                // 失败允许下次弹层重试
+                companionRolesPromise = null;
+                throw error;
+            });
+        }
+        return companionRolesPromise;
+    }
+
+    function companionRoleOf(roleId) {
+        var match = (companionRoles || []).filter(function (role) {
+            return role.roleId === roleId;
+        })[0];
+        return match || null;
+    }
+
+    function companionEmpty(text) {
+        var el = document.createElement('div');
+        el.className = 'annotation-empty';
+        el.textContent = text;
+        return el;
+    }
+
+    function renderCompanionList() {
+        if (!companionListEl) return;
+        companionListEl.textContent = '';
+        var roleIds = Object.keys(companionEntries);
+        if (!roleIds.length) {
+            companionListEl.appendChild(companionEmpty('点上方角色，让 AI 为本段生成伴读批注'));
+            return;
+        }
+        roleIds.forEach(function (roleId) {
+            var entry = companionEntries[roleId];
+            var el = document.createElement('div');
+            el.className = 'annotation-item ai-annotation-item';
+            var meta = document.createElement('div');
+            meta.className = 'annotation-meta';
+            meta.textContent = '🤖 ' + (entry.roleName || roleId) + ' · ' + formatAnnotationTime(entry.createdAt);
+            var regen = document.createElement('span');
+            regen.className = 'ai-annotation-regen';
+            regen.textContent = '重新生成';
+            regen.title = '跳过缓存，重新生成本条批注（覆盖旧内容）';
+            regen.addEventListener('click', function () {
+                if (regen.classList.contains('is-loading')) return;
+                var role = companionRoleOf(roleId) || {roleId: roleId, name: entry.roleName || roleId};
+                if (!window.confirm('重新生成会覆盖当前「' + (entry.roleName || roleId) + '」批注，继续？')) return;
+                generateAiAnnotation(role, regen, true);
+            });
+            meta.appendChild(regen);
+            var content = document.createElement('div');
+            content.className = 'annotation-content';
+            content.textContent = entry.content || '';
+            el.appendChild(meta);
+            el.appendChild(content);
+            companionListEl.appendChild(el);
+        });
+    }
+
+    // 生成/重新生成：请求期间在触发元素上加 loading 态；成功刷新列表与 chips 完成态。
+    // 段落取 companionParagraph（弹层打开时定格）——再生成入口在列表渲染闭包里，
+    // 与其逐层传参不如统一读模块状态（弹层单例，状态唯一）。
+    function generateAiAnnotation(role, trigger, force) {
+        trigger.classList.add('is-loading');
+        $.ajax({
+            url: calibre.readingCompanionAnnotateUrl, method: 'POST', contentType: 'application/json',
+            headers: {'X-CSRFToken': readerCsrfToken()},
+            data: JSON.stringify({paragraph: companionParagraph, roleId: role.roleId,
+                bookName: calibre.bookName || '', chapter: currentChapterTitle(), force: !!force})
+        }).done(function (response) {
+            var entry = (response && (response.result || response.data)) || null;
+            if (!annotationPopover || !entry || !entry.content) {
+                readerToast('AI 批注生成失败，请稍后重试');
+                return;
+            }
+            companionEntries[entry.roleId || role.roleId] = entry;
+            renderCompanionList();
+            Array.prototype.forEach.call(document.querySelectorAll('.ai-annotation-chip'), function (chip) {
+                if (chip.dataset.roleId === (entry.roleId || role.roleId)) chip.classList.add('is-done');
+            });
+            readerToast(force ? 'AI 批注已更新' : 'AI 批注已生成');
+        }).fail(function (xhr) {
+            if (reloadIfCsrfBlocked(xhr)) return;
+            var message = 'AI 批注生成失败，请稍后重试';
+            try {
+                var data = JSON.parse(xhr.responseText);
+                if (data && data.message) message = data.message;
+            } catch (e) {}
+            readerToast(message);
+        }).always(function () {
+            trigger.classList.remove('is-loading');
+        });
+    }
+
+    function renderCompanionChips() {
+        if (!companionChipsEl) return;
+        companionChipsEl.textContent = '';
+        loadCompanionRoles().then(function (roles) {
+            if (!companionChipsEl || !annotationPopover) return;
+            if (!roles.length) {
+                companionChipsEl.appendChild(companionEmpty('暂无可用伴读角色'));
+                return;
+            }
+            roles.forEach(function (role) {
+                var chip = document.createElement('span');
+                chip.className = 'ai-annotation-chip';
+                chip.dataset.roleId = role.roleId;
+                chip.textContent = role.name;
+                chip.title = role.description || role.name;
+                if (companionEntries[role.roleId]) chip.classList.add('is-done');
+                chip.addEventListener('click', function () {
+                    if (chip.classList.contains('is-loading')) return;
+                    if (companionEntries[role.roleId]) {
+                        readerToast('该角色已有批注，可用条目上的「重新生成」更新');
+                        return;
+                    }
+                    generateAiAnnotation(role, chip, false);
+                });
+                companionChipsEl.appendChild(chip);
+            });
+        }).catch(function () {
+            if (!companionChipsEl || !annotationPopover) return;
+            companionChipsEl.textContent = '';
+            companionChipsEl.appendChild(companionEmpty('角色清单加载失败，请稍后重开弹层'));
+        });
+    }
+
+    function loadCompanionAnnotations(paragraph) {
+        if (!calibre.readingCompanionListUrl) return;
+        var seq = ++companionRequestSeq;
+        // AI 批注是派生缓存：加载失败静默按空处理，不打扰用户批注区
+        $.ajax({
+            url: calibre.readingCompanionListUrl, method: 'POST', contentType: 'application/json',
+            headers: {'X-CSRFToken': readerCsrfToken()},
+            data: JSON.stringify({paragraph: paragraph})
+        }).done(function (response) {
+            if (seq !== companionRequestSeq || !annotationPopover) return;
+            companionEntries = (response && (response.result || response.data)) || {};
+            renderCompanionList();
+        }).fail(function () {
+            if (seq !== companionRequestSeq || !annotationPopover) return;
+            // 静默按空处理；但不清空已有条目（快速生成成功后列表响应才失败的场景）
+            if (!Object.keys(companionEntries).length) renderCompanionList();
+        });
+    }
+
     // 段落批注弹层：挂在主文档 body（与划词气泡同模式），段落按钮在 iframe
     // 内，坐标需加 iframe 偏移换算到主视口
     function openAnnotationPopover(el, btn) {
@@ -1359,6 +1547,21 @@ var reader;
         excerpt.textContent = paragraph.length > 80 ? paragraph.slice(0, 80) + '…' : paragraph;
         excerpt.title = paragraph;
 
+        // AI 伴读区：角色 chips + 已生成的 AI 批注，位于用户批注列表之上
+        var aiSection = document.createElement('div');
+        aiSection.className = 'ai-annotation-section';
+        var aiTitle = document.createElement('div');
+        aiTitle.className = 'ai-annotation-title';
+        aiTitle.textContent = 'AI 伴读';
+        var chips = document.createElement('div');
+        chips.className = 'ai-annotation-chips';
+        var aiList = document.createElement('div');
+        aiList.className = 'ai-annotation-list';
+        aiList.appendChild(companionEmpty('AI 批注加载中…'));
+        aiSection.appendChild(aiTitle);
+        aiSection.appendChild(chips);
+        aiSection.appendChild(aiList);
+
         var list = document.createElement('div');
         list.className = 'annotation-list';
 
@@ -1380,6 +1583,7 @@ var reader;
 
         popover.appendChild(header);
         popover.appendChild(excerpt);
+        popover.appendChild(aiSection);
         popover.appendChild(list);
         popover.appendChild(input);
         popover.appendChild(actions);
@@ -1394,6 +1598,12 @@ var reader;
         popover.style.left = left + 'px';
 
         annotationPopover = popover;
+        // AI 伴读区状态定格后并行拉角色与已生成批注（与用户批注加载互不阻塞）
+        companionParagraph = paragraph;
+        companionChipsEl = chips;
+        companionListEl = aiList;
+        renderCompanionChips();
+        loadCompanionAnnotations(paragraph);
         loadParagraphAnnotations(paragraph, list);
         setTimeout(function () { input.focus(); }, 0);
 

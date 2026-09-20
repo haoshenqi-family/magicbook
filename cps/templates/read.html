@@ -171,6 +171,12 @@
             readingWordMarkUrl: "{{ url_for('web.reading_word_mark') }}",
             readingTranslateBatchUrl: "{{ url_for('web.reading_translate_batch') }}",
             readingTtsUrl: "{{ url_for('web.reading_tts') }}",
+            readingAnnotationCreateUrl: "{{ url_for('web.reading_annotation_create') }}",
+            readingAnnotationListUrl: "{{ url_for('web.reading_annotation_list_by_paragraph') }}",
+            readingAnnotationBookUrl: "{{ url_for('web.reading_annotation_list_by_book') }}",
+            readingCompanionRolesUrl: "{{ url_for('web.reading_companion_roles') }}",
+            readingCompanionAnnotateUrl: "{{ url_for('web.reading_companion_annotate') }}",
+            readingCompanionListUrl: "{{ url_for('web.reading_companion_list_by_paragraph') }}",
             {% if current_user.role_admin() %}
             wholeBookTranslationUrl: "{{ url_for('web.reading_translate_book') }}",
             wholeBookTranslationStatusUrl: "{{ url_for('web.reading_translate_book_status') }}",

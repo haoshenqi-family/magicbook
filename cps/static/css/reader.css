@@ -265,6 +265,38 @@
   text-align: center;
   padding: 14px 0;
 }
+/* --- AI 伴读区（批注弹层内，位于用户批注之上） --- */
+.ai-annotation-section {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(127, 127, 127, .25);
+}
+.ai-annotation-title { font-weight: 600; font-size: 12px; color: #666; margin-bottom: 6px; }
+.ai-annotation-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-annotation-chip {
+  padding: 1px 10px;
+  border: 1px solid rgba(127, 127, 127, .45);
+  border-radius: 12px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.ai-annotation-chip:hover { border-color: #4a7dbe; color: #4a7dbe; }
+.ai-annotation-chip.is-loading { opacity: .5; cursor: wait; }
+.ai-annotation-chip.is-done { border-color: #4a7dbe; color: #4a7dbe; }
+.ai-annotation-list { margin-top: 6px; max-height: 200px; overflow-y: auto; }
+.ai-annotation-list .annotation-empty { padding: 8px 0; }
+.ai-annotation-item .annotation-meta { color: #4a7dbe; }
+.ai-annotation-regen {
+  float: right;
+  cursor: pointer;
+  font-size: 11px;
+  opacity: .7;
+  text-decoration: underline;
+  user-select: none;
+}
+.ai-annotation-regen:hover { opacity: 1; }
+.ai-annotation-regen.is-loading { opacity: .5; cursor: wait; }
 .annotation-input {
   display: block;
   width: 100%;

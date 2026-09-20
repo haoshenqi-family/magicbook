@@ -551,6 +551,65 @@ def reading_annotation_list_by_book():
                            "reading annotation")
 
 
+@web.route("/ajax/reading-companion-roles", methods=["POST"])
+@user_login_required
+def reading_companion_roles():
+    """Proxy the fixed reading-companion role list to moon-well.
+
+    角色清单固定在 moon-well 代码（本期不可添加）；前端页面级缓存一次即可。
+    """
+    return _moonwell_proxy("/reading/companion/roles", {}, 10, "reading companion")
+
+
+@web.route("/ajax/reading-companion-annotate", methods=["POST"])
+@user_login_required
+def reading_companion_annotate():
+    """Proxy AI companion annotation (role-based paragraph annotation) to moon-well.
+
+    AI 批注缓存在 moon-well 段落文档 aiAnnotations 字段（key=roleId），paragraph
+    必须与翻译/批注链路相同的归一化文本（trim，≤2000）才能命中同一段落文档；
+    force=true 跳过缓存强制重新生成并覆盖。roleId 仅接受 LLM_ANNOTATION 类角色
+    （moon-well 侧校验），翻译/朗读仍走各自既有通道。
+    """
+    payload = request.get_json(silent=True) or {}
+    paragraph_value = payload.get("paragraph")
+    role_value = payload.get("roleId")
+    # JSON null 不能被 str() 静默转换成 "None"（与批注路由同因）
+    if not isinstance(paragraph_value, str) or not isinstance(role_value, str):
+        return jsonify({"success": False,
+                        "message": "paragraph and roleId must be strings"}), 400
+    paragraph = paragraph_value.strip()
+    role_id = role_value.strip()
+    if not paragraph or len(paragraph) > 2000 or not role_id or len(role_id) > 50:
+        return jsonify({"success": False,
+                        "message": "paragraph must be 1-2000 chars and roleId required"}), 400
+    payload["paragraph"] = paragraph
+    payload["roleId"] = role_id
+    payload["bookName"] = str(payload.get("bookName") or "").strip()[:200]
+    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
+    payload["force"] = bool(payload.get("force"))
+    # 60s：单段一次同步 LLM 调用（参考段落朗读 65s 的先例）
+    return _moonwell_proxy("/reading/companion/annotate", payload, 60,
+                           "reading companion")
+
+
+@web.route("/ajax/reading-companion-list-by-paragraph", methods=["POST"])
+@user_login_required
+def reading_companion_list_by_paragraph():
+    """Proxy per-paragraph AI companion annotation listing to moon-well."""
+    payload = request.get_json(silent=True) or {}
+    paragraph_value = payload.get("paragraph")
+    if not isinstance(paragraph_value, str):
+        return jsonify({"success": False, "message": "paragraph must be a string"}), 400
+    paragraph = paragraph_value.strip()
+    if not paragraph or len(paragraph) > 2000:
+        return jsonify({"success": False,
+                        "message": "paragraph must be between 1 and 2000 characters"}), 400
+    payload["paragraph"] = paragraph
+    return _moonwell_proxy("/reading/companion/list-by-paragraph", payload, 15,
+                           "reading companion")
+
+
 # 划词标记的词形白名单：字母开头/结尾，中间仅字母/撇号/连字符。首尾
 # 必须是字母——与 markVocabulary 分词正则的 \b 边界语义对齐（尾部带
 # 撇号/连字符的 key 在页面标注中永远匹配不上，会存成脏数据）。词会
