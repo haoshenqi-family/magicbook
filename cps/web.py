@@ -21,6 +21,7 @@
 import os
 import json
 import re
+import threading
 import mimetypes
 import chardet  # dependency of requests
 import copy
@@ -193,6 +194,17 @@ def toggle_read(book_id):
     if message:
         return message, 400
     else:
+        # 桥接 moon-well：置已读时触发 BOOKS_FINISHED 事件供成就判定（异步，失败不影响主链路）。
+        # Why: 成就只消费 moon-well 自家 book 域事件，不桥接则读完 Calibre 书永远不解锁成就（R64）。
+        try:
+            read_now = ub.session.query(ub.ReadBook).filter(
+                ub.ReadBook.user_id == int(current_user.id),
+                ub.ReadBook.book_id == book_id).first()
+            is_finished = bool(read_now and read_now.read_status == ub.ReadBook.STATUS_FINISHED)
+        except Exception:
+            is_finished = False
+        if is_finished:
+            _moonwell_book_finished_bridge(book_id, True)
         return message
 
 
@@ -474,6 +486,26 @@ def credit_recharge_status():
         return jsonify({"success": False, "message": "orderNo is required"}), 400
     return _moonwell_proxy("/credit/recharge/status", {"orderNo": order_no}, 15,
                            "credit recharge status")
+
+
+@web.route("/ajax/credit/consume-page", methods=["POST"])
+@user_login_required
+def credit_consume_page():
+    """Proxy the user's credit consume detail page (moon-well POST /credit/consume/page);
+    payload {pageNo,pageSize,caller,model,startDate,endDate}，全部可选。"""
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy("/credit/consume/page", payload, 10,
+                           "credit consume page")
+
+
+@web.route("/ajax/credit/consume-summary", methods=["POST"])
+@user_login_required
+def credit_consume_summary():
+    """Proxy the user's credit consume summary (moon-well POST /credit/consume/summary);
+    payload 与 consume-page 相同的过滤条件，返回合计 + 按模块/按模型分组。"""
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy("/credit/consume/summary", payload, 10,
+                           "credit consume summary")
 
 
 @web.route("/ajax/reading-settings", methods=["GET"])
@@ -796,6 +828,111 @@ def _moonwell_settings_fetch():
     except (ValueError, TypeError) as error:
         log.warning("reading settings parse failed: %s", error)
         return None, "reading settings service unavailable"
+
+
+def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=None):
+    """已读状态变更后，向 moon-well 桥接同步（成就系统只认 moon-well 自家 book 域事件）。
+
+    Why: Calibre 书库（本站）与 moon-well book 域是两套独立数据，成就是否解锁完全看
+    moon-well 侧 BOOKS_FINISHED 事件（/book/update 置 FINISHED 或进度 100%）。不在
+    toggleread 后桥接，用户读完 Calibre 里的任何书都不会触发成就（R64 根因）。
+
+    策略：
+    - 仅在置为已读（read_status=True）时同步：取消已读不回退成就（成就计数以 FINISHED
+      状态收敛去重，反向操作无对应语义）；
+    - 优先在用户 moon-well 书架按书名精确检索，命中则复用已有书籍 id；
+    - 未命中则登记新书（附带 Calibre 书名/作者，书架页可识别来源）；
+    - 重复置已读不重复解锁（moon-well 侧 justFinished 幂等，双保险）；
+    - 全程失败只记日志，绝不影响本站已读状态变更主链路。
+    """
+    if not read_status:
+        return
+
+    # Why: worker 运行在后台线程，没有 Flask request 上下文——身份头必须在启动线程
+    # （即 toggleread 请求处理线程，持有 current_user）内取好快照再传入（R65 测试发现）。
+    try:
+        headers = _moonwell_identity_headers()
+    except Exception:
+        headers = None
+    if not headers:
+        log.warning("moonwell book bridge: no identity headers for book %s, skip", book_id)
+        return
+
+    def _worker(book_id=book_id, title=title, authors=authors, headers=headers):
+        try:
+            with app.app_context():
+
+                # 书名/作者缺省时查本站书库补全
+                if not title or not authors:
+                    try:
+                        entries = calibre_db.get_filtered_book(book_id)
+                        if entries:
+                            title = entries.title or title
+                            authors = " & ".join(a.name for a in entries.authors) if entries.authors else authors
+                    except Exception:
+                        pass
+                if not title:
+                    log.warning("moonwell book bridge: book %s has no title, skip", book_id)
+                    return
+
+                # 1) 先按书名查用户 moon-well 书架，命中则复用已有书籍 id
+                book_id_mw = None
+                body, status, _h = _moonwell_proxy(
+                    "/book/page", {"page": 1, "size": 100, "keyword": title}, 15,
+                    "moonwell book bridge page", identity_headers=headers)
+                if 200 <= status < 300:
+                    try:
+                        data = json.loads(body)
+                        if data.get("success") and data.get("result"):
+                            records = data["result"].get("records") or data["result"].get("list") or []
+                            for rec in records:
+                                if (rec.get("title") or "").strip() == title.strip():
+                                    book_id_mw = str(rec.get("id"))
+                                    break
+                    except (ValueError, TypeError):
+                        pass
+
+                # 2) 未命中则登记新书（readingStatus 默认 UNREAD）
+                if not book_id_mw:
+                    create_payload = {
+                        "title": title[:255],
+                        "author": (authors or "Unknown")[:255],
+                    }
+                    body, status, _h = _moonwell_proxy(
+                        "/book/create", create_payload, 15, "moonwell book bridge create",
+                        identity_headers=headers)
+                    if 200 <= status < 300:
+                        try:
+                            data = json.loads(body)
+                            if data.get("success") and data.get("result"):
+                                book_id_mw = str(data["result"].get("id"))
+                        except (ValueError, TypeError):
+                            pass
+                    if not book_id_mw:
+                        log.warning("moonwell book bridge: create failed for book %s (%s): HTTP %s %s",
+                                    book_id, title, status, (body or "")[:200])
+                        return
+
+                # 3) 置 FINISHED 触发 BOOKS_FINISHED 事件（重复置已读由 justFinished 幂等兜底）
+                update_payload = {
+                    "id": book_id_mw,
+                    "title": title[:255],
+                    "author": (authors or "Unknown")[:255],
+                    "readingStatus": "FINISHED",
+                }
+                body, status, _h = _moonwell_proxy(
+                    "/book/update", update_payload, 15, "moonwell book bridge update",
+                    identity_headers=headers)
+                if 200 <= status < 300:
+                    log.info("moonwell book bridge: book %s -> moonwell book %s FINISHED ok",
+                             book_id, book_id_mw)
+                else:
+                    log.warning("moonwell book bridge: update failed for book %s (%s): HTTP %s %s",
+                                book_id, title, status, (body or "")[:200])
+        except Exception:
+            log.error_or_exception("moonwell book bridge unexpected error for book %s" % book_id)
+
+    threading.Thread(target=_worker, name="moonwell-book-bridge", daemon=True).start()
 
 
 def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",

@@ -149,3 +149,20 @@
 ## 2026-09-20
 
 62. 订阅页改造：暂时隐藏按月订阅套餐，仅支持充值积分（99元2000分 / 10元100分 / 0.01元1分测试档仅管理员可见，后续删除）；充值成功即刻发放（moon-well 侧 R47 已就绪）。
+
+## 2026-09-20
+
+63. 把 magicbook 的使用指南写成一本书（电子书），导入 Calibre 书库，让学完这本书的人可以立刻获得一项成就。
+   （R63 补充说明：EPUB 已导入 fnOS 生产书库 id=89，含封面与元数据；另在 AutoClaw 工作区生成网页预览版。）
+
+## 2026-09-20
+
+64. 积分页增加「消耗明细」：余额面板下方新增明细区（汇总 + 分页列表），数据来自 moon-well 新增的 /credit/consume/page 与 /credit/consume/summary（moon-well 侧 R48），magicbook 新增代理 /ajax/credit/consume-page 与 /ajax/credit/consume-summary。
+
+## 2026-09-20
+
+64. Bug 反馈：读完《魔法书使用指南》（Calibre 书库 book 89）没有获得成就"开卷有益"。排查 toggleread→moon-well 成就链路，确认缺口并补偿。
+
+## 2026-09-21
+
+65. 实施两项：① 打开 moon-well INTERNAL_TRUST_ENABLED（内网信任头）；② toggleread 桥接 moon-well（读完 Calibre 书触发成就事件）。

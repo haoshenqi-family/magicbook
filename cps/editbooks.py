@@ -413,6 +413,12 @@ def edit_book_param(param, vals, multi=False):
                         continue
                     else:
                         return error, 400
+                # 桥接 moon-well：置已读触发 BOOKS_FINISHED 事件（R64；延迟导入避免循环依赖）
+                if vals['value'] == "True":
+                    from .web import _moonwell_book_finished_bridge
+                    _moonwell_book_finished_bridge(book.id, True,
+                                                   title=book.title,
+                                                   authors=" & ".join(a.name for a in book.authors))
                 continue
             elif param.startswith("custom_column_"):
                 new_val = dict()
@@ -520,6 +526,10 @@ def read_selected_books():
         try:
             for book_id in vals:
                 ret = helper.edit_book_read_status(book_id, markAsRead)
+                # 桥接 moon-well（R64）：批量置已读同样触发成就事件；book 对象未取，桥接内自查
+                if markAsRead:
+                    from .web import _moonwell_book_finished_bridge
+                    _moonwell_book_finished_bridge(book_id, True)
 
         except (OperationalError, IntegrityError, StaleDataError) as e:
             calibre_db.session.rollback()

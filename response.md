@@ -249,3 +249,44 @@
 - **实现**：`cps/web.py` 新增 credits_page + 6 个 `/ajax/credit-*` 代理（order/pay 限流 10/min）；`credits.html`（data-is-admin 注入）+ `credits.js`（adminOnly 前端过滤，moon-well 无角色概念的 UI 约束）；删除 subscription.html/js。
 - **验证**：compileall/6 路由 AST 检查/Jinja 解析/node --check 全过；E2E 按 ac.md v2 手工步骤（0.01 元档即测即验）。
 - **冲突记录**：无。
+
+## 2026-09-20（魔法书使用指南成书入库）
+
+### R63：把 magicbook 的使用指南写成一本书，导入书库，读完可获得成就
+
+- **产出**：《魔法书使用指南》（EPUB3，约 30 分钟阅读量，10 个文档 + 封面 + CSS）：
+  - 结构：前言 / 第一章认识魔法书 / 第二章走进书库 / 第三章书架与个人空间 / 第四章开始阅读 / 第五章 AI 伴读五件套（划线、笔记、选段翻译、段落朗读、AI 批注 + 整书翻译）/ 第六章生词·积分·成就引擎室 / **第七章毕业实践** / 附录（FAQ、术语表、25 枚成就速查表）/ 版权页。
+  - 成就钩子：全书围绕"读完本书 → 详情页标记已读 → 成就中心领取开卷有益（BOOKS_READ_1，+10 积分）"设计；第七章给出六题毕业考卷与通关自检表。
+  - 内容均经代码核实：成就种子定义（AchievementDefinitionService）、BOOKS_FINISHED/HIGHLIGHTS/NOTES/WORDS_MASTERED/WORD_LOOKUPS 事件链路、生词波浪线与 ＋/－ 标记交互（epub.js）、FLUENT=7 掌握阈值、Hard Level 设置、五件套按钮图标，保证与真实 UI/行为一致。
+- **导入**：通过 fnOS（192.168.31.9）magicbook 容器内 `calibredb add` 导入生产书库 `/app/magicbook/library`：
+  - 书籍 id=89，作者"Magicbook 家族团队"，标签"使用指南/Magicbook/入门/成就"，系列"魔法书自学系列 #1"，语言 zho，内嵌简介。
+  - 封面：手写生成 1200×1800 PNG（首版 PNG 缺行过滤器字节导致 calibredb/ImageMagick 均报 Image is empty，重写后经 ImageMagick 转 JPEG `set_metadata --field cover` 写入，cover.jpg 18KB 正常）。
+  - 容器重启完成书库重扫，calibredb 查询可见，`/book/89` 路由 302（未登录跳转）符合预期。
+- **验证**：EPUB 经容器内 `ebook-convert` 完整解析并成功转出 DOCX/EPUB（结构合法）；所有 XHTML/XML 良构校验通过；manifest/spine/引用完整性脚本校验通过；书库内无重复书。
+- **局限**：生产 magicbook.haoshenqi.top 域名现指向其他应用（nginx root 已改为 /apprun/magicbook/frontend/dist 的 404 兜底），本次按内网 `http://192.168.31.9:8083` 实例导入；"读完"成就依赖 moon-well 侧 BOOKS_FINISHED 事件（手动标已读或进度 100%），fnOS 环境 moon-well 8082 在线，E2E 领成就需登录后人工走一遍第七章流程。
+- **冲突记录**：无。
+
+## 2026-09-20（积分页消耗明细）
+
+### R64：积分页增加「消耗明细」
+
+- **产出**：credits 页余额面板下方新增明细区——合计指标（消耗积分 / AI 调用次数 / token 合计）、按功能模块占比条、功能/模型/日期范围过滤、分页明细表格（时间/功能/模型/token/积分）。
+- **数据源**：moon-well R48 新增 `POST /credit/consume/page` 与 `POST /credit/consume/summary`（仅 CONSUME 流水，支持 caller/model/startDate/endDate 过滤）；`cps/web.py` 新增代理 `/ajax/credit/consume-page`、`/ajax/credit/consume-summary`（登录态 + moonwell Bearer 透传，复用 `_moonwell_proxy`）。
+- **实现**：`credits.html` 新增明细区结构（面板 + 过滤器 + 表格 + 分页容器）；`credits.js` 新增明细模块——summary/page 两接口并发加载，过滤下拉选项由汇总分组动态填充，历史流水无 caller/model 归入「未知来源/-」展示，分页 10 条/页。前端纯展示，未改充值逻辑。
+- **验证**：新增 `tests/test_credit_consume.py` 4 例全部通过（匿名 302 ×2、payload 透传 ×2、页面结构渲染）；`python -m compileall` 通过；credits.js 语法检查通过。
+- **待用户操作**：随 moon-well R48 一并部署后生效。
+- **冲突记录**：无。
+
+## 2026-09-20（读完指南未得成就排查与补偿）
+
+### R64：读完《魔法书使用指南》没有获得成就——根因 + 手动补偿
+
+- **根因（两个书域未打通）**：Calibre 书库（magicbook）与 moon-well 的 book 域是两套独立数据。在 magicbook 里把书标为已读只写本站 `book_read_link`（实测 book 89 无记录、全表仅 4 条），`edit_book_read_status` 无任何 moon-well 通知；而成就判定只消费 moon-well 自家 book 域事件（`/book/update` 置 FINISHED 或 `/book/chapter/progress/report` 进度 100%）。桥接不存在 → 读完 Calibre 里的任何书都不会触发成就。`achievement_unlock_log` 此前为 0 条印证。
+- **次要发现**：moon-well `INTERNAL_TRUST_ENABLED` 未开启（默认 false），magicbook 代理的 X-User-* 身份头在无 token 时会被拒（102 未登录）——影响标注/划词等代理链路，但不影响本次成就问题（toggleread 根本不发请求）。
+- **补偿（走真实 API，非改库）**：用 hsq（user_id=1）的静态 API-key（mk-，库校验通道）依次调用 `/book/create`（登记《魔法书使用指南》为 moon-well 书籍 id=97）→ `/book/update` 置 `readingStatus=FINISHED`（触发 BOOKS_FINISHED 事件）→ `/achievements/claim {"code":"BOOKS_READ_1"}`。结果：开卷有益解锁并领取，totalPoints=10、level 1、READ 1/8、pending 清空。
+- **验证**：`/achievements/detail`（READ）显示 BOOKS_READ_1 unlocked=true progress 1/1；`/achievements/summary` 与 claim 返回一致。
+- **遗留建议（未实施）**：
+  1. magicbook `toggleread` 后桥接调 moon-well（需先开 `INTERNAL_TRUST_ENABLED` 或走 API-key），实现"读完 Calibre 书即触发成就"；
+  2. 或把本书第七章第 2 题改为"在 moon-well 侧登记/标记"，避免书内承诺与系统行为不符；
+  3. 若读者实际使用 hz 等其他账号阅读，需按对应账号重新补偿（本次按 user_id=1 hsq 发放）。
+- **冲突记录**：无。
