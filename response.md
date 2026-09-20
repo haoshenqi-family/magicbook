@@ -964,3 +964,34 @@ R36 为纯前端渲染修复，不涉及数据与接口变更；TED 书（moon-w
 - **接口**：`ai_chat.js` 暴露 `window.AICompanion.insertIntoInput(text)`（ai_chat.js 归口管理输入框与抽屉状态，epub.js 只调用）；epub.js 侧检测到该方法存在才显示 AI 菜单项。
 - **验证**：`node --check` 两个 JS 通过；全量 pytest **188 passed**；node 模拟拼接格式（空输入 → 「text」\n；已有内容 → 空行分隔后追加；空白文本拒绝）。
 - **限制**：仅 EPUB 阅读器（右键菜单绑定在 epub.js）；触屏长按菜单兼容性不定，移动端仍走划词气泡。
+
+---
+
+## 2026-09-19（AI 批注与伴读角色设计）
+
+### R58：AI 批注 + 伴读 AI 角色统一（仅设计，未改代码）
+
+- **产出**：设计文档在 moon-well 仓库——`moon-well/docs/feat/reading-companion/design/reading-companion-ai-annotation-design.md`（核心能力属 moon-well reading 模块；magicbook 为接入方，交互与代理在同文档 §6/§7）。
+- **magicbook 侧方案要点**：
+  - 复用 ✎ 批注弹层内嵌「AI 伴读」区：角色 chips（来自 moon-well roles 接口，页面级缓存）+ 带角色徽标的 AI 批注条目 + 重新生成（force）；新增段落按钮 ✨；本期 ▶/译/✎ 保留，收敛为统一伴读菜单列为 Phase 2。
+  - 新增 3 个 `_moonwell_proxy` 代理：`/ajax/reading-companion-roles | -annotate（60s） | -list-by-paragraph`，鉴权沿用 Bearer + 身份头透传。
+  - 「本书批注」面板本期只展示用户批注，AI 批注（派生共享缓存）不混入。
+- **预留**：整章/整书批量批注（复用整书翻译的任务队列 + 填充式 prompt 契约）、AI 批注朗读、角色自定义。
+- **状态**：设计草案待用户确认，确认后按 Phase 1 开发（moon-well 接口/缓存/prompt 先行，magicbook 弹层与代理随后）。
+- **冲突记录**：无。
+
+---
+
+## 2026-09-20（AI 批注伴读角色 Phase 1 落地）
+
+### R58 实现记录（develop 工作区，未提交）
+
+用户确认后进入开发。magicbook 侧改动：
+
+- **cps/web.py**：新增 3 个 `_moonwell_proxy` 代理——`/ajax/reading-companion-roles`（10s）、`/ajax/reading-companion-annotate`（60s，paragraph trim ≤2000、roleId ≤50、force 布尔归一）、`/ajax/reading-companion-list-by-paragraph`（15s）；鉴权沿用 Bearer + 身份头透传。
+- **cps/templates/read.html**：`window.calibre` 注入 6 个 URL（3 个 companion + 3 个 annotation）。**顺带修复既有缺陷**：`readingAnnotationCreateUrl` / `readingAnnotationListUrl` / `readingAnnotationBookUrl` 此前从未注入——epub.js 批注弹层的请求一直会发到 `undefined`，本次一并补齐。
+- **cps/static/js/reading/epub.js**：段落新增 ✨ 按钮（与 ▶/译/✎ 并列，打开同一批注弹层）；弹层内嵌「AI 伴读」区——角色 chips（仅 LLM_ANNOTATION 类角色，页面级拉取一次并缓存）、AI 批注条目（🤖 角色徽标 + 时间 + 重新生成 confirm 覆盖）、chips 已生成态、请求飞行中关闭弹层丢弃过期响应、列表加载失败静默且不清空已生成条目。
+- **cps/static/css/reader.css**：AI 伴读区样式（chips/条目/重新生成/loading 态）。
+- **验证**：`node --check` epub.js 通过；全量 pytest **188 passed** 无回归。
+- **限制**：仅 EPUB 阅读器（批注弹层绑定在 epub.js）；需与 moon-well 本期改动一同部署才可用；「本书批注」面板仍只展示用户批注（设计约定，AI 批注为派生缓存不混入）。
+- **冲突记录**：无。
