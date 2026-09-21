@@ -274,13 +274,19 @@
         });
     }
 
-    // ---------- 消耗明细（R64） ----------
+    // ---------- 消耗明细（R64；R49 扩展为获取+消耗统一明细） ----------
     var CONSUME_PAGE_SIZE = 10;
     var consumePageNo = 1;
     var consumeTotal = 0;
+    var consumeType = ''; // ''-全部 / INCOME-获取 / CONSUME-消耗
+
+    var TYPE_LABELS = {
+        GRANT: '获取', RECHARGE: '充值', CONSUME: '消耗'
+    };
 
     function consumeFilters() {
         return {
+            type: consumeType || undefined,
             caller: $('#credit-consume-caller').val() || undefined,
             model: $('#credit-consume-model').val() || undefined,
             startDate: $('#credit-consume-start').val() || undefined,
@@ -345,16 +351,23 @@
     function renderConsumeRows(records) {
         var tbody = $('#credit-consume-rows').empty();
         if (!records || !records.length) {
-            tbody.html('<tr><td colspan="5" class="text-muted">No consumption records in this range.</td></tr>');
+            tbody.html('<tr><td colspan="6" class="text-muted">No records in this range.</td></tr>');
             return;
         }
         records.forEach(function (r) {
+            var isIncome = r.direction === 'INCOME';
             var row = $('<tr>');
             row.append($('<td>').text(formatTime(r.createdAt)));
-            row.append($('<td>').text(r.callerName || r.caller || '未知来源'));
-            row.append($('<td>').text(r.model || '-'));
-            row.append($('<td>').addClass('text-right').text(r.totalTokens !== null && r.totalTokens !== undefined ? r.totalTokens : '-'));
-            row.append($('<td>').addClass('text-right').text('-' + (r.amount || 0)));
+            // 类型徽标：获取（绿色）/ 消耗（黄色），优先 direction，缺失按 type 推断
+            var badge = $('<span>').addClass('credit-type-badge ' + (isIncome ? 'income' : 'consume'))
+                .text(TYPE_LABELS[r.type] || (isIncome ? '获取' : '消耗'));
+            row.append($('<td>').append(badge));
+            // R49：原因列——消耗为「功能 · token · 模型」，获取为充值单号/赠送说明
+            row.append($('<td>').attr('title', r.reason || '').text(r.reason || '-'));
+            row.append($('<td>').text(isIncome ? '-' : (r.callerName || r.caller || '未知来源')));
+            row.append($('<td>').text(isIncome ? '-' : (r.model || '-')));
+            var credits = isIncome ? '+' + (r.amount || 0) : '-' + (r.amount || 0);
+            row.append($('<td>').addClass('text-right').css('color', isIncome ? '#3c763d' : '#8a6d3b').text(credits));
             tbody.append(row);
         });
     }
@@ -363,12 +376,12 @@
         var pager = $('#credit-consume-pager').empty();
         var totalPages = Math.max(1, Math.ceil(consumeTotal / CONSUME_PAGE_SIZE));
         if (totalPages <= 1) { return; }
-        var prev = $('<button>').addClass('btn btn-default btn-sm').text('< Prev')
-            .prop('disabled', consumePageNo <= 1);
-        var next = $('<button>').addClass('btn btn-default btn-sm').text('Next >')
-            .prop('disabled', consumePageNo >= totalPages);
+        var prev = $('<button>').addClass('btn btn-default btn-sm').attr('aria-label', 'Previous page')
+            .text('< Prev').prop('disabled', consumePageNo <= 1);
+        var next = $('<button>').addClass('btn btn-default btn-sm').attr('aria-label', 'Next page')
+            .text('Next >').prop('disabled', consumePageNo >= totalPages);
         var info = $('<span>').addClass('text-muted').css('margin', '0 10px')
-            .text(consumePageNo + ' / ' + totalPages);
+            .text(consumePageNo + ' / ' + totalPages + ' · ' + consumeTotal + ' 条');
         prev.on('click', function () { consumePageNo -= 1; loadConsumeDetail(); });
         next.on('click', function () { consumePageNo += 1; loadConsumeDetail(); });
         pager.append(prev, info, next);
@@ -406,6 +419,14 @@
 
         $('#credit-consume-apply').on('click', resetConsumePage);
         $('#credit-consume-apply').on('click', loadConsumeDetail);
+        // R49：获取/消耗方向切换——重置分页并立即重查
+        $('.credit-type-btn').on('click', function () {
+            $('.credit-type-btn').removeClass('btn-primary active').addClass('btn-default');
+            $(this).addClass('btn-primary active').removeClass('btn-default');
+            consumeType = $(this).attr('data-type') || '';
+            resetConsumePage();
+            loadConsumeDetail();
+        });
         $('#credit-consume-reset').on('click', function () {
             $('#credit-consume-caller').val('');
             $('#credit-consume-model').val('');

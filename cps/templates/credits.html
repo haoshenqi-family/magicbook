@@ -20,6 +20,10 @@
   .credit-consume-group .value { color: #777; white-space: nowrap; }
   #credit-consume-table td, #credit-consume-table th { font-size: 13px; }
   .credit-consume-filters select, .credit-consume-filters input { margin-right: 6px; margin-bottom: 5px; }
+  .credit-type-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+  .credit-type-badge.income { background: #dff0d8; color: #3c763d; }
+  .credit-type-badge.consume { background: #fcf8e3; color: #8a6d3b; }
+  #credit-consume-rows td { vertical-align: middle; }
 </style>
 {% endblock %}
 
@@ -49,6 +53,11 @@
       </div>
       <div id="credit-consume-groups"></div>
       <div class="credit-consume-filters" style="margin-top:12px">
+        <div class="btn-group" role="group" style="margin-right:10px;margin-bottom:5px">
+          <button type="button" class="btn btn-sm btn-default credit-type-btn active" data-type="">{{_('All')}}</button>
+          <button type="button" class="btn btn-sm btn-default credit-type-btn" data-type="INCOME">{{_('Income')}}</button>
+          <button type="button" class="btn btn-sm btn-default credit-type-btn" data-type="CONSUME">{{_('Consume')}}</button>
+        </div>
         <select id="credit-consume-caller" class="form-control" style="display:inline-block;width:auto">
           <option value="">{{_('All Features')}}</option>
         </select>
@@ -65,9 +74,10 @@
           <thead>
             <tr>
               <th>{{_('Time')}}</th>
+              <th>{{_('Type')}}</th>
+              <th>{{_('Reason')}}</th>
               <th>{{_('Feature')}}</th>
               <th>{{_('Model')}}</th>
-              <th class="text-right">{{_('Tokens')}}</th>
               <th class="text-right">{{_('Credits')}}</th>
             </tr>
           </thead>

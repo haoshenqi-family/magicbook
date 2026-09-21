@@ -73,10 +73,12 @@ def test_credits_page_renders_consume_section(admin_client, moonwell_configured)
     rv = admin_client.get("/credits")
     assert rv.status_code == 200
     html = rv.data.decode("utf-8")
-    # 模板包含明细区结构；AJAX 端点在外部 credits.js 中引用
+    # 模板包含明细区结构（R49：类型 Tab + 原因列）；AJAX 端点在外部 credits.js 中引用
     assert "credit-consume-summary" in html
     assert "credit-consume-rows" in html
     assert "credit-consume-pager" in html
+    assert "credit-type-btn" in html
+    assert "{{_('Reason')}}" in html or "Reason" in html
     js = pathlib.Path(cps.__file__).parent / "static" / "js" / "credits.js"
     assert "/ajax/credit/consume-page" in js.read_text(encoding="utf-8")
     assert "/ajax/credit/consume-summary" in js.read_text(encoding="utf-8")
