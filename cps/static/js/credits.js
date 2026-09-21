@@ -323,10 +323,10 @@
             box.append($('<p>').addClass('text-muted').text('No consumption data.'));
             return;
         }
+        // R50：Total Tokens 不再展示（后端仍随流水记录，随时可恢复展示）
         var stats = [
             { strong: summary.totalAmount || 0, span: 'Credits Spent' },
-            { strong: summary.totalCount || 0, span: 'AI Calls' },
-            { strong: summary.totalTokens || 0, span: 'Total Tokens' }
+            { strong: summary.totalCount || 0, span: 'AI Calls' }
         ];
         stats.forEach(function (st) {
             var item = $('<div>').addClass('stat');

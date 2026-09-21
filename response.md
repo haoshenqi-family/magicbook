@@ -314,3 +314,8 @@
 - Feature 为空修复：moon-well 侧按 taskId 回溯历史 LLM 任务记录补齐 caller/model（前端无需改动，旧数据自动带出「图书 AI」等功能名）。
 - 分页修复：页码信息显示「x / y · 总条数」，边界按钮禁用，切换筛选/方向时重置回第 1 页。
 - 验证：test_credit_consume.py 4 例通过（含类型 Tab 与原因列断言）；credits.js 语法检查通过。
+
+### R67（对应 moon-well R50）：reason 去 token + Total Tokens 不展示
+
+- credits.js：汇总指标移除 Total Tokens 卡片（后端仍记录）；reason 文案由 moon-well 侧精简为「功能名 · 模型」。
+- 测试：test_credit_consume.py 4 例通过；credits.js 语法检查通过。
