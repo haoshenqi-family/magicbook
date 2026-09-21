@@ -331,3 +331,31 @@
 - 明细表去掉 Model 列（列数 6→5）与「All Models」筛选下拉；model 仍随流水落库、summary 照常按模型聚合（后端零改动，随时可恢复）。
 - Feature 列为空的答疑：旧流水产生于 R48 部署前未记录来源；带 taskId 的已回溯补齐，直调历史行维持未知来源，新流水都会带。
 - 测试：test_credit_consume.py 4 例通过；credits.js 语法检查通过。
+
+## 2026-09-21（日志接入 ES 生产落地 + 部署位置变更）
+
+### R70（R53 执行收尾：fnOS 上线 filebeat → app-log-*，部署位置迁 fnOS）
+
+- **背景**：R53 方案已于 09-19 随代码提交（c26ee2b/a6ea35c6 随批），但生产未落地；且 magicbook 与 moon-well 已同机部署于 fnOS `/vol1/1000/app/`（本条由用户确认并要求更新文档）。
+- **ES 初始化**：fnOS 本机 ES 8.11.3（`base_es` 容器，`http://192.168.31.9:9200`，`es.haoshenqi.top:443` 为其公网入口——两者同集群，此前文档写"ES 在群晖 192.168.31.10:19200"已过时）。执行 `init-app-log-es.sh`（幂等）：`app-log-policy` ILM（30 天删除）+ `app-log-template` 索引模板均 acknowledged。
+- **magicbook 侧**：compose 已带 filebeat（18:30 随 app-manager 部署更新），但服务器缺 `deploy/filebeat.yml`——挂载源文件缺失被 Docker 建成**空目录**，容器卡 Created。修复：rmdir 误建目录 + scp 传入真实配置；`.env` 补 `LOG_ES_*`（密码与 moon-well `ELASTICSEARCH_PASSWORD` 同源；`LOG_ES_HOSTS=http://192.168.31.9:9200`，filebeat 在 bridge 网络不可用 127.0.0.1）。
+- **修复隐患（日志通道）**：`settings.config_logfile` 被设为 `/dev/stdout`（9-12 起文件日志停写），filebeat 只能采到历史。改回默认文件日志（备份 `app.db.bak-logfix-20260921`），重启后 `calibre-web.log` 恢复写入，实时日志进入 ES（曾现一次性 WARN `Log path not valid, falling back to default`，属 setup 回退提示，落点即默认文件，无碍）。
+- **moon-well 侧**：服务器 compose 为旧版（无日志落盘/filebeat）。在既有备份 `docker-compose.yml.bak-internal-trust-20260921` 基线上打最小补丁：注入 `LOGGING_FILE_NAME=/app/logs/moon-well.log`、挂载 `./logs:/app/logs`、追加 filebeat sidecar（连接复用 `.env` 的 `ELASTICSEARCH_*`）+ `filebeat-data` 卷，`docker compose config` 通过后 `up -d`。
+- **验证**：`app-log-magicbook` / `app-log-moon-well` 索引 green，docs 持续增长（部署完成时约 134/305 条）；抽查文档含 `module` 字段与正确 `log.file.path`；ILM `managed:true`。Kibana 5601 可用。
+- **文档同步**：根 `Agents.md`（主机表/项目表/流量图/依赖地址/端口表）、`moon-well/deploy/fnos/README.md`（ES 地址、TED 同库说明、验证命令）、`magicbook/deploy/DEPLOY.md`（验证命令、部署位置）。
+- **遗留**：`access.log` 需管理后台开启访问日志后生成；moon-well 服务器 compose 与仓库 `deploy/fnos/compose.yaml` 存在既有漂移（此补丁未扩大），后续宜收敛。
+
+### 总结
+
+- **requests.md**：占号 R70。
+- **response.md**：记录生产落地过程、日志通道隐患修复与文档同步。
+- **冲突记录**：无。
+
+## 2026-09-21（OPS.md 运维手册 + 示例命令修复）
+
+### R71（日志查询文档收敛到仓库根目录，面向三项目统一运维）
+
+- **产出**：根目录 `OPS.md` —— 三项目总览（部署位置/日志形态/中间件表）、ES 凭据获取、快速查询 curl、Kibana KQL、采集链路图、常见故障排查表（含 09-21 实踩两坑：filebeat.yml 缺失被建成空目录、config_logfile 被改为 /dev/stdout 致文件日志停写）、变更部署流程（含 moon-well compose 漂移警示）、新模块接入指引、关联文件清单。app-manager 未接入 ES，如实标注其 docker logs 查询方式。
+- **修复**：根 `Agents.md` 与两项目 `AGENTS.md` 共 5 处示例命令占位 `ES_PASSWORD=<密码>> curl` 不可直接执行 → 改为「注释 + export ES_PASSWORD=$(grep … moon-well/.env) + curl」三行可复制。
+- **分工**：根 `Agents.md` 保留 AI 速查节（含 OPS.md 指针）；深入排查/运维以根 `OPS.md` 为准。**用户随后要求子项目 AGENTS.md 不修改，两项目 AGENTS.md 已 git 还原，日志查询内容仅保留在根 `Agents.md` 与根 `OPS.md`**。
+- **冲突记录**：无。
