@@ -49,3 +49,4 @@ library/metadata.db
 
 # Temp docs (not tracked by git)
 docs/temp/
+.openclaw/
