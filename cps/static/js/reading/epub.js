@@ -671,7 +671,7 @@ var reader;
     // 旧值不会被误读为每 100 词秒数。
     var TRANSLATION_DISPLAY_KEY = 'calibre.reader.translationDisplaySecondsPer100';
     var TRANSLATION_DISPLAY_DEFAULT = 5;
-    var TRANSLATION_DISPLAY_MIN_SECONDS = 1;
+    // 配置值同时是最小显示秒数：折算不足时按配置值整秒显示，避免单词/短句一闪而过
 
     function translationDisplaySecondsPer100() {
         var raw = null;
@@ -690,11 +690,13 @@ var reader;
         return cjk + latin;
     }
 
-    // 显示秒数 = 原文词数 × 每 100 词秒数 ÷ 100；1 秒下限保证短句也看得见
+    // 显示秒数 = max(配置值, 词数 * 配置值 / 100)，四舍五入到整秒：
+    // 配置值即最小显示时长：单词/短句按配置值整秒显示、不会一闪而过；长段落按词数折算显示更久
     function translationDisplaySecondsFor(sourceText) {
         var per100 = translationDisplaySecondsPer100();
         if (!per100) return 0;
-        return Math.max(TRANSLATION_DISPLAY_MIN_SECONDS, countWords(sourceText) * per100 / 100);
+        var scaled = Math.round(countWords(sourceText) * per100 / 100);
+        return Math.max(per100, scaled);
     }
 
     function readerCsrfToken() {
@@ -961,7 +963,7 @@ var reader;
         });
     }
 
-    // --- 翻译显示时长设置（每 100 词秒数）：改动即时保存，已显示的译文重新计时 ---
+    // --- 翻译显示时长设置（每 100 词秒数，同时是最小显示秒数）：改动即时保存，已显示的译文重新计时 ---
     var translationDisplayInput = document.getElementById('translationDisplaySecondsPer100');
     if (translationDisplayInput) {
         translationDisplayInput.value = String(translationDisplaySecondsPer100());

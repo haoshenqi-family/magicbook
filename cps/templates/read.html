@@ -147,9 +147,9 @@
               <div class="form-group" id="translationDisplayWrapper">
                 <label class="item">{{_('Translation display time per 100 words')}}:</label>
                 <input type="number" id="translationDisplaySecondsPer100" min="0" max="3600" step="1" value="5"
-                       title="{{_('Longer paragraphs stay longer; 0 = keep translations displayed')}}"
+                       title="{{_('Longer paragraphs stay longer, but never shorter than this; 0 = keep translations displayed')}}"
                        style="width: 90px; margin-top: 5px;">
-                <span>{{_('seconds / 100 words (0 = keep displayed)')}}</span>
+                <span>{{_('seconds / 100 words (minimum display time; 0 = keep displayed)')}}</span>
               </div>
             <div class="closer icon-cancel-circled"></div>
         </div>
