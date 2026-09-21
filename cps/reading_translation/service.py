@@ -3,7 +3,7 @@ import os
 import threading
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from .. import calibre_db, config, logger, ub
 from ..cw_login import current_user
@@ -98,6 +98,19 @@ class WholeBookTranslationService:
             TranslationJob.status.in_(ACTIVE_STATUSES))
         if not force:
             existing = query.order_by(TranslationJob.created_at.desc()).first()
+            # 僵尸批次自愈:任务记录清表、容器重启丢线程等历史事故会让旧批次永远停在
+            # RUNNING/PARTIAL_FAILED 且无任何进展(线上实锤:book 44 卡 128 段的 9/15
+            # 死批次霸占复用通道两天)。判定:updated_at 停滞超过 30 分钟即视为僵尸,
+            # 标记 PARTIAL_FAILED 关闭之,让本次点击正常创建新批次;发布线程若其实还在
+            # 跑(真长尾),它下次 commit 会把状态刷回,最多损失一次重复发布(幂等,缓存命中不重复计费)。
+            if existing and _now() - existing.updated_at > timedelta(minutes=30):
+                log.warning("whole-book translation: stale job %s (book=%s updated_at=%s) "
+                            "closed as zombie; creating fresh batch",
+                            existing.id, book_id, existing.updated_at)
+                existing.status = "PARTIAL_FAILED"
+                existing.updated_at = _now()
+                ub.session.commit()
+                existing = None
             if existing:
                 # 复用是静默成功：无此日志时线上无从区分「没收到请求」与「命中幂等」
                 log.info("whole-book translation: reuse active job %s (book=%s status=%s)",

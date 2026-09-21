@@ -548,3 +548,133 @@ def test_moonwell_proxy_system_identity_works_without_flask_context(app, monkeyp
     # 系统身份头来自环境变量默认值，且不携带任何用户 Bearer 令牌
     assert captured["headers"]["X-User-Subject"] == "magicbook-system"
     assert "authorization" not in captured["headers"]
+
+
+def test_stale_active_job_is_recycled(tmp_path, monkeypatch):
+    """R50 僵尸批次自愈:updated_at 停滞 >30 分钟的活动批次被关闭并新建,
+    而不是永远霸占复用通道(线上实锤:book 44 卡 128 段的死批次霸占两天)。"""
+    import sys, os, uuid
+    from datetime import datetime, timedelta, timezone
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from cps.reading_translation import service as svc
+    from cps.reading_translation.models import TranslationJob, TranslationJobItem
+
+    path = tmp_path / "book.epub"
+    _write_epub(path)
+    monkeypatch.setattr(svc.WholeBookTranslationService, "_ensure_tables", lambda self: None)
+    monkeypatch.setattr(svc, "extract_epub_paragraphs",
+                        lambda p: [("Ch.1", "fresh paragraph.")])
+
+    class _Book:
+        title = "Zombie Book"
+        path = "."
+
+    class _CalibreDB:
+        @staticmethod
+        def get_filtered_book(book_id):
+            return _Book()
+
+        @staticmethod
+        def get_book_format(book_id, fmt):
+            class _F:
+                name = "book"
+            return _F()
+
+    class _Config:
+        @staticmethod
+        def get_book_path():
+            return str(tmp_path)
+
+    class _User:
+        id = 1
+
+    stale = TranslationJob(id="zombie-job", user_id=1, book_id=1, book_format="EPUB",
+                           book_fingerprint=svc.WholeBookTranslationService()._fingerprint(str(path)),
+                           book_name="Zombie Book", status="RUNNING",
+                           total_count=128, cached_count=0, published_count=0,
+                           completed_count=0, failed_count=0)
+    stale.updated_at = datetime.now(timezone.utc) - timedelta(hours=3)  # 停滞 3 小时
+
+    rows = [stale]
+
+    class _Session:
+        def __init__(self):
+            self.adds = []
+
+        def add(self, obj):
+            self.adds.append(obj)
+            if isinstance(obj, TranslationJob):
+                for f in ("total_count", "cached_count", "published_count",
+                          "completed_count", "failed_count"):
+                    if getattr(obj, f) is None:
+                        setattr(obj, f, 0)
+
+        def commit(self):
+            pass
+
+        def query(self, model, *a, **k):
+            state = self
+
+            class _Q:
+                def __init__(self):
+                    self._kw = {}
+
+                def filter(self, *a, **k):
+                    return self
+
+                def order_by(self, *a, **k):
+                    class _First:
+                        def first(self):
+                            jobs = [o for o in state.adds if isinstance(o, TranslationJob)]
+                            return jobs[-1] if jobs else None
+                    return _First()
+
+                def all(self):
+                    if model is TranslationJob:
+                        return [o for o in state.adds if isinstance(o, TranslationJob)]
+                    return []
+
+                def filter_by(self, **kw):
+                    self._kw.update(kw)
+                    return self
+
+                def one(self):
+                    jobs = [o for o in state.adds if isinstance(o, TranslationJob)]
+                    return jobs[0]
+
+                def one_or_none(self):
+                    return None
+
+                def all(self):
+                    return [o for o in state.adds if isinstance(o, TranslationJobItem)]
+
+                def __iter__(self):
+                    return iter([])
+            return _Q()
+
+    spawned = []
+
+    def _fake_spawn(self, job_id, book_title, book_id, fingerprint, publish, lookup=None):
+        spawned.append(job_id)
+
+    monkeypatch.setattr(svc.WholeBookTranslationService, "_spawn_publish_worker", _fake_spawn)
+    monkeypatch.setattr(svc, "calibre_db", _CalibreDB)
+    monkeypatch.setattr(svc, "config", _Config)
+    monkeypatch.setattr(svc, "current_user", _User, raising=False)
+    session_state = _Session()
+    session_state.add(stale)  # 预置僵尸批次
+    monkeypatch.setattr(svc.ub, "session", session_state, raising=False)
+
+    published = []
+
+    def _publish(payload):
+        published.append(payload)
+        return {"result": {"taskId": 1}}
+
+    result = svc.WholeBookTranslationService().start(1, "EPUB", False, _publish, None)
+
+    # 核心断言:僵尸批次被关闭,新批次正常创建并进入后台发布
+    assert stale.status == "PARTIAL_FAILED"
+    assert len(spawned) == 1 and spawned[0] != "zombie-job"
+    assert result["totalCount"] == 1
+    assert result["jobId"] != "zombie-job"
