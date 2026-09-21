@@ -166,3 +166,7 @@
 ## 2026-09-21
 
 65. 实施两项：① 打开 moon-well INTERNAL_TRUST_ENABLED（内网信任头）；② toggleread 桥接 moon-well（读完 Calibre 书触发成就事件）。
+
+## 2026-09-21
+
+66. 积分消耗明细反馈（截图）：列表去掉 token 列；获取（充值/赠送）也要展示；分页没生效要修；Feature 列为空要回溯；获取/消耗原因要写清楚。数据源 moon-well R49（明细扩展为全流水 + 原因字段）。
