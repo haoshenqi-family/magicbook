@@ -325,3 +325,9 @@
 - 明细行 reason 由后端精简为仅功能名（前端无需改）；类型列充值行附「更多」链接（仅当 detail 存在）。
 - Bootstrap modal 展示充值详情：订单号/账单号（支付宝交易号）/充值档位/积分/支付金额/支付方式/支付时间（值经 text() 转义防注入）。
 - 测试：test_credit_consume.py 4 例通过；credits.js 语法检查通过。
+
+### R69（对应 moon-well R52）：Model 列下线
+
+- 明细表去掉 Model 列（列数 6→5）与「All Models」筛选下拉；model 仍随流水落库、summary 照常按模型聚合（后端零改动，随时可恢复）。
+- Feature 列为空的答疑：旧流水产生于 R48 部署前未记录来源；带 taskId 的已回溯补齐，直调历史行维持未知来源，新流水都会带。
+- 测试：test_credit_consume.py 4 例通过；credits.js 语法检查通过。

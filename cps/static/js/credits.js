@@ -288,7 +288,6 @@
         return {
             type: consumeType || undefined,
             caller: $('#credit-consume-caller').val() || undefined,
-            model: $('#credit-consume-model').val() || undefined,
             startDate: $('#credit-consume-start').val() || undefined,
             endDate: $('#credit-consume-end').val() || undefined
         };
@@ -335,23 +334,22 @@
             box.append(item);
         });
         renderConsumeGroups(summary.byCaller);
-        // 用汇总结果填充功能/模型过滤下拉（保留当前选择）
-        ['caller', 'model'].forEach(function (key) {
-            var select = $('#credit-consume-' + key);
+        // 用汇总结果填充功能过滤下拉（保留当前选择）；R52：模型筛选下线（model 只记录不展示）
+        (function () {
+            var select = $('#credit-consume-caller');
             var current = select.val();
-            var list = key === 'caller' ? summary.byCaller : summary.byModel;
             select.find('option:not(:first)').remove();
-            (list || []).forEach(function (g) {
+            (summary.byCaller || []).forEach(function (g) {
                 select.append($('<option>').val(g.key).text(g.name));
             });
             if (current) { select.val(current); }
-        });
+        })();
     }
 
     function renderConsumeRows(records) {
         var tbody = $('#credit-consume-rows').empty();
         if (!records || !records.length) {
-            tbody.html('<tr><td colspan="6" class="text-muted">No records in this range.</td></tr>');
+            tbody.html('<tr><td colspan="5" class="text-muted">No records in this range.</td></tr>');
             return;
         }
         records.forEach(function (r) {
@@ -369,8 +367,8 @@
             row.append(typeCell);
             // R51：原因列——消耗为功能名，获取为充值单号/赠送说明
             row.append($('<td>').attr('title', r.reason || '').text(r.reason || '-'));
+            // R52：model 只随流水记录，不在明细展示（后端 summary 仍按模型聚合）
             row.append($('<td>').text(isIncome ? '-' : (r.callerName || r.caller || '未知来源')));
-            row.append($('<td>').text(isIncome ? '-' : (r.model || '-')));
             var credits = isIncome ? '+' + (r.amount || 0) : '-' + (r.amount || 0);
             row.append($('<td>').addClass('text-right').css('color', isIncome ? '#3c763d' : '#8a6d3b').text(credits));
             tbody.append(row);
@@ -467,7 +465,6 @@
         });
         $('#credit-consume-reset').on('click', function () {
             $('#credit-consume-caller').val('');
-            $('#credit-consume-model').val('');
             $('#credit-consume-start').val('');
             $('#credit-consume-end').val('');
             resetConsumePage();

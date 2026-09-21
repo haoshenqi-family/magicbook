@@ -178,3 +178,5 @@
 67. 明细 reason 不再显示 token 消耗数；汇总 Total Tokens 指标不展示（后台照常记录）。
 
 68. 消耗行 reason 只保留功能名；充值行加「更多」查看充值详情（订单号/账单号等，moon-well R51 落库 detail）。
+
+69. 问明 Feature/Model 列含义（为何为空）；Model 只记录不展示——明细表去掉 Model 列与模型筛选。
