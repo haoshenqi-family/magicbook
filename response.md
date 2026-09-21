@@ -319,3 +319,9 @@
 
 - credits.js：汇总指标移除 Total Tokens 卡片（后端仍记录）；reason 文案由 moon-well 侧精简为「功能名 · 模型」。
 - 测试：test_credit_consume.py 4 例通过；credits.js 语法检查通过。
+
+### R68（对应 moon-well R51）：reason 仅功能名 + 充值「更多」详情弹窗
+
+- 明细行 reason 由后端精简为仅功能名（前端无需改）；类型列充值行附「更多」链接（仅当 detail 存在）。
+- Bootstrap modal 展示充值详情：订单号/账单号（支付宝交易号）/充值档位/积分/支付金额/支付方式/支付时间（值经 text() 转义防注入）。
+- 测试：test_credit_consume.py 4 例通过；credits.js 语法检查通过。

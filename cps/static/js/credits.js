@@ -358,11 +358,16 @@
             var isIncome = r.direction === 'INCOME';
             var row = $('<tr>');
             row.append($('<td>').text(formatTime(r.createdAt)));
-            // 类型徽标：获取（绿色）/ 消耗（黄色），优先 direction，缺失按 type 推断
+            // 类型徽标：获取（绿色）/ 消耗（黄色）；充值行附「更多」入口看订单详情（R51）
             var badge = $('<span>').addClass('credit-type-badge ' + (isIncome ? 'income' : 'consume'))
                 .text(TYPE_LABELS[r.type] || (isIncome ? '获取' : '消耗'));
-            row.append($('<td>').append(badge));
-            // R49：原因列——消耗为「功能 · token · 模型」，获取为充值单号/赠送说明
+            var typeCell = $('<td>').append(badge);
+            if (isIncome && r.type === 'RECHARGE' && r.detail) {
+                typeCell.append(' ').append($('<a>').attr('href', 'javascript:void(0)').text('更多')
+                    .on('click', function () { showRechargeDetail(r.detail); }));
+            }
+            row.append(typeCell);
+            // R51：原因列——消耗为功能名，获取为充值单号/赠送说明
             row.append($('<td>').attr('title', r.reason || '').text(r.reason || '-'));
             row.append($('<td>').text(isIncome ? '-' : (r.callerName || r.caller || '未知来源')));
             row.append($('<td>').text(isIncome ? '-' : (r.model || '-')));
@@ -370,6 +375,39 @@
             row.append($('<td>').addClass('text-right').css('color', isIncome ? '#3c763d' : '#8a6d3b').text(credits));
             tbody.append(row);
         });
+    }
+
+    // R51：充值详情弹窗——订单号/账单号（支付宝交易号）/档位/支付金额/支付方式/支付时间
+    var RECHARGE_DETAIL_FIELDS = [
+        ['orderNo', '订单号'], ['transactionId', '账单号'], ['packageTitle', '充值档位'],
+        ['credits', '积分'], ['amount', '支付金额（元）'], ['payType', '支付方式'],
+        ['payTime', '支付时间']
+    ];
+    function showRechargeDetail(detailJson) {
+        var data;
+        try { data = JSON.parse(detailJson); } catch (e) { data = null; }
+        if (!data) { return; }
+        var rows = RECHARGE_DETAIL_FIELDS.filter(function (f) {
+            return data[f[0]] !== null && data[f[0]] !== undefined && data[f[0]] !== '';
+        }).map(function (f) {
+            return '<tr><td style="color:#777;padding:4px 12px 4px 0;white-space:nowrap">' + f[1] +
+                   '</td><td style="padding:4px 0">' + $('<span>').text(String(data[f[0]])).html() + '</td></tr>';
+        }).join('');
+        var html = '<table style="width:100%;font-size:13px">' + rows + '</table>';
+        bootstrapModal('充值详情', html);
+    }
+    function bootstrapModal(title, bodyHtml) {
+        var modal = $(
+            '<div class="modal fade" tabindex="-1" role="dialog">' +
+            '<div class="modal-dialog modal-sm" role="document"><div class="modal-content">' +
+            '<div class="modal-header"><button type="button" class="close" data-dismiss="modal">&times;</button>' +
+            '<h4 class="modal-title"></h4></div>' +
+            '<div class="modal-body"></div>' +
+            '</div></div></div>');
+        modal.find('.modal-title').text(title);
+        modal.find('.modal-body').html(bodyHtml);
+        modal.on('hidden.bs.modal', function () { modal.remove(); });
+        modal.modal('show');
     }
 
     function renderConsumePager() {

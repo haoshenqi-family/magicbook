@@ -176,3 +176,5 @@
 66. 《魔法书使用指南》作者"Magicbook 家族团队"太奇怪：此类自著书籍的作者署名统一改为【好神奇】（Calibre 书库、EPUB 元数据、书内署名、moon-well 侧书架同步）。
 
 67. 明细 reason 不再显示 token 消耗数；汇总 Total Tokens 指标不展示（后台照常记录）。
+
+68. 消耗行 reason 只保留功能名；充值行加「更多」查看充值详情（订单号/账单号等，moon-well R51 落库 detail）。
