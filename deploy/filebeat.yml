@@ -2,7 +2,7 @@
 # Calibre-Web 日志默认落在配置目录（容器内 /config，compose 挂载为只读 /var/log/magicbook）：
 #   calibre-web.log 应用日志（仅 DEBUG 级别时改走容器 stdout，不落此文件）
 #   access.log    访问日志（管理后台开启后才生成）
-# 写入 ES 索引 app-log-magicbook；索引模板与 30 天保留策略由 deploy/init-app-log-es.sh 创建
+# 写入 ES 索引 app-log-magicbook；索引模板与 180 天保留策略由 deploy/init-app-log-es.sh 创建
 filebeat.inputs:
   - type: filestream
     id: magicbook-app-log

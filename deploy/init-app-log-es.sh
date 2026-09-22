@@ -10,13 +10,13 @@
 # 可选环境变量：
 #   ES_URL          默认 https://es.haoshenqi.top:443
 #   ES_USERNAME     默认 elastic
-#   RETENTION_DAYS  默认 30（app-log-* 索引保留天数，到期自动删除）
+#   RETENTION_DAYS  默认 180（app-log-* 索引保留天数，到期自动删除）
 # =============================================================
 set -euo pipefail
 
 ES_URL="${ES_URL:-https://es.haoshenqi.top:443}"
 ES_USERNAME="${ES_USERNAME:-elastic}"
-RETENTION_DAYS="${RETENTION_DAYS:-30}"
+RETENTION_DAYS="${RETENTION_DAYS:-180}"
 : "${ES_PASSWORD:?请先设置环境变量 ES_PASSWORD=<Elasticsearch 密码>}"
 
 # 1. ILM 保留策略：按索引创建时间到期删除（无 rollover，单索引按年龄删除）
