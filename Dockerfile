@@ -60,10 +60,14 @@ WORKDIR /app
 # 复制应用代码
 COPY . .
 
-# 创建非 root 用户运行（UID/GID 可在 compose 中通过 user 指定覆盖）
+# 创建非 root 用户运行（UID/GID 可在 compose 中通过 user 指定覆盖）。
+# 注意：只 chown 应用运行时要写的目录（非递归，几 KB 的元数据层）：
+#   /app、/app/cps（运行时创建 cps/cache/）、/app/logs；
+# 不能 chown -R 整个 /app——那会重写全部代码文件的元数据，
+# 导致每次构建代码层都变化，层无法复用、每次全量推送。
 RUN groupadd -r calibre && useradd -r -g calibre -d /app -s /sbin/nologin calibre \
     && mkdir -p /calibre-library /config /app/logs \
-    && chown -R calibre:calibre /app /calibre-library /config
+    && chown calibre:calibre /app /app/cps /app/logs /calibre-library /config
 
 USER calibre
 

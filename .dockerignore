@@ -1,4 +1,4 @@
-# Git
+# Git 与 CI
 .git
 .gitignore
 .github
@@ -25,6 +25,7 @@ dist/
 .idea/
 .vscode/
 *.swp
+.qoder
 
 # 数据库文件（运行时生成，不应打入镜像）
 *.db
@@ -70,3 +71,10 @@ Thumbs.db
 
 # CI 临时文件
 PR_BODY.md
+response.md
+requests.md
+
+# 部署配置（构建镜像不需要，运行时由 app-manager 管理）
+deploy/
+compose.yaml
+docker-compose.yml

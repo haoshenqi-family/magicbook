@@ -61,8 +61,11 @@ jobs:
           tags: |
             ${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
             ${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
-          cache-from: type=registry,ref=${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
-          cache-to: type=inline
+          # GHA 缓存：层缓存与 cache-mount 存 GitHub Actions 缓存，跨 run 复用；
+          # 不再依赖 registry inline cache（它要求每次把基础层重新上传到 ACR 来回写缓存标记，
+          # 会被 ACR 个人版流控，偶发 pushing layers 700-800s）
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           provenance: false
           sbom: false
 
