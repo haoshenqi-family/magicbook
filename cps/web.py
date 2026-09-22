@@ -22,6 +22,7 @@ import os
 import json
 import re
 import threading
+import uuid
 import mimetypes
 import chardet  # dependency of requests
 import copy
@@ -94,8 +95,16 @@ sql_version = metadata("sqlalchemy")["Version"]
 sqlalchemy_version2 = ([int(x) if x.isnumeric() else 0 for x in sql_version.split('.')[:3]] >= [2, 0, 0])
 
 
+@app.before_request
+def _begin_trace():
+    """请求入口设置 trace-id（contextvar）。沿用上游 X-Trace-Id 保证全链路同一 ID。"""
+    logger.trace_id_var.set(_moonwell_trace_id())
+
+
 @app.after_request
 def add_security_headers(resp):
+    # trace-id 回写：报障时用户可直接提供此 ID，ES 中按 message 检索即可定位全链路日志
+    resp.headers.setdefault("X-Trace-Id", _moonwell_trace_id())
     default_src = ([host.strip() for host in config.config_trustedhosts.split(',') if host] +
                    ["'self'", "'unsafe-inline'", "'unsafe-eval'"])
     csp = "default-src " + ' '.join(default_src)
@@ -628,6 +637,18 @@ def _moonwell_base_url():
     return url.rstrip("/") if url else None
 
 
+def _moonwell_trace_id():
+    """当前请求的 trace-id：优先沿用上游 X-Trace-Id（全链路同一 ID），缺失时生成。
+    Why: moon-well 侧 TraceIdFilter 优先透传该头；两端日志已入 ES（app-log-*），
+    同一 traceId 可在 Kibana 一次拉出 magicbook→moon-well 全链路日志。
+    恢复线程/后台线程无 flask 上下文时 request 会抛 RuntimeError，返回新生成 ID。"""
+    try:
+        upstream = request.headers.get("X-Trace-Id")
+    except RuntimeError:
+        upstream = None
+    return upstream or uuid.uuid4().hex
+
+
 def _moonwell_identity_headers():
     """内网纯信任：携带当前登录用户的 OIDC 身份信息，供 moon-well 定位（或兜底自动建号）同一账户。
 
@@ -654,6 +675,7 @@ def _moonwell_identity_headers():
     issuer = os.environ.get("AUTHENTIK_ISSUER", "")
     if issuer:
         headers["X-User-Issuer"] = issuer.rstrip("/")
+    headers["X-Trace-Id"] = _moonwell_trace_id()
     return headers
 
 
@@ -1022,6 +1044,7 @@ def _moonwell_refresh_session_token():
     try:
         resp = requests.post(
             base + "/auth/refreshToken",
+            headers={"X-Trace-Id": _moonwell_trace_id()},
             json={"refreshToken": refresh_token},
             timeout=8,
             proxies=_MOONWELL_NO_PROXY,

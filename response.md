@@ -359,3 +359,20 @@
 - **修复**：根 `Agents.md` 与两项目 `AGENTS.md` 共 5 处示例命令占位 `ES_PASSWORD=<密码>> curl` 不可直接执行 → 改为「注释 + export ES_PASSWORD=$(grep … moon-well/.env) + curl」三行可复制。
 - **分工**：根 `Agents.md` 保留 AI 速查节（含 OPS.md 指针）；深入排查/运维以根 `OPS.md` 为准。**用户随后要求子项目 AGENTS.md 不修改，两项目 AGENTS.md 已 git 还原，日志查询内容仅保留在根 `Agents.md` 与根 `OPS.md`**。
 - **冲突记录**：无。
+
+## 2026-09-22（trace-id 全链路实施）
+
+### R72（trace-id：请求级贯穿 magicbook→moon-well，进 ES 日志；RestClient 降 INFO）
+
+- **moon-well 侧**：①新增 `TraceIdFilter`（OncePerRequestFilter，最高优先级）——优先透传上游 `X-Trace-Id`，缺失生成 32 位 hex；写 MDC `traceId`、回写响应头；finally 清理防 Tomcat 线程复用泄漏。②新增 `TraceIdTaskDecorator` 并注册为全局 `@Async` 执行器（TeslaMateConfig 内 `taskExecutor`/`applicationTaskExecutor` 两 bean 名，4-16 线程池），异步日志携带触发请求 traceId。③`TedAudioService` 手写单线程池加 `withTraceContext` 快照透传。④`application.yml` 加 console/file pattern（`[%X{traceId:-N/A}]`，无上下文显示 N/A）。
+- **LLM dispatcher 后台线程不改**：drainLoop 为常驻后台循环，无上游请求上下文，traceId 恒为 N/A 属预期；LLM 任务级 trace（发布落库→执行恢复）属独立设计项，待排期。
+- **magicbook 侧**：①`cps/logger.py` 加 `trace_id_var`（contextvars，gevent greenlet 安全）+ 全局 LogRecord 工厂注入 `traceId` 字段（无上下文占位 `-`，防 Formatter KeyError 丢日志）+ FORMATTER 加 `[%(traceId)s]`。②`web.py`：`before_request` 设 contextvar（沿用上游 X-Trace-Id）、`after_request` 回写响应头、`_moonwell_identity_headers()` 统一注入 `X-Trace-Id` 出站头、refreshToken 独立调用同样携带。
+- **RestClient 降级确认**：`org.elasticsearch.client.RestClient: info`（原为 `org.elasticsearch.client: debug`）——30s 心跳/请求摘要 DEBUG 行完全消失；ES 业务异常仍走 WARN/ERROR 不受影响。
+- **验证**：moon-well `mvn test` 411 例全过（含 pattern 生效——测试日志已见 `[N/A]` 段）；magicbook `pytest` 204 例全过 + logger 模块自测（无/有上下文格式化输出正确）。fnos 侧当日网络不可达（ping 不通），生产部署与 ES 端到端验证待网络恢复后进行（CI 推送 develop 即自动部署）。
+- **文档**：根 `OPS.md` 新增 §2.3 trace-id 全链路查询（报障姿势 + curl 模板），KQL 表加 `message: "<traceId>"`。
+
+### 总结
+
+- **requests.md**：占号 R72。
+- **response.md**：记录实施、验证与遗留（LLM 任务级 trace 待排期；生产端到端验证待 fnos 可达）。
+- **冲突记录**：无。

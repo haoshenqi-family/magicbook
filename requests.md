@@ -184,3 +184,5 @@
 70. magicbook 与 moon-well 已同机部署在 fnOS（192.168.31.9）：把两个项目的日志接入 ES 落地到生产（R53 的执行收尾），并更新文档说明部署位置变更。
 
 71. 运维统一运维 3 个项目：日志查询文档收敛到仓库根目录，新增 OPS.md 运维手册；顺带修复 AGENTS.md 中不可直接执行的示例命令占位。
+
+72. 评估并实施系统 trace-id：请求级 trace-id 贯穿 magicbook→moon-well 并进 ES 日志，支持全链路排查；顺带把 moon-well 的 ES RestClient DEBUG 日志降为 INFO。

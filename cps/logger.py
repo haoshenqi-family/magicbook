@@ -20,16 +20,45 @@ import os
 import sys
 import inspect
 import logging
+import uuid
+from contextvars import ContextVar
 from logging import Formatter, StreamHandler
 from logging.handlers import RotatingFileHandler
 
 from .constants import CONFIG_DIR as _CONFIG_DIR
 
+# 请求级 trace-id（contextvars：gevent greenlet / Tornado / 线程池下各自独立，互不串扰）。
+# Why: 日志统一采集进 ES（app-log-magicbook / app-log-moon-well），traceId 串联
+# magicbook→moon-well 一次调用的全链路日志；web.py 在请求入口 set、响应后 reset。
+trace_id_var = ContextVar("trace_id", default=None)
+
+
+def _inject_trace_id(record):
+    # Why: Formatter 引用 %(traceId)s，记录上必须始终有该属性（无请求上下文时占位 "-"），
+    # 否则日志格式化抛 KeyError 且该条日志丢失
+    trace_id = trace_id_var.get()
+    if not getattr(record, "traceId", None):
+        record.traceId = trace_id or "-"
+    return record
+
+
+# 全局 record 工厂：所有日志记录先补 traceId 字段（缺失时占位 "-"），Formatter 再引用
+_orig_record_factory = logging.getLogRecordFactory()
+
+
+def _record_factory(*args, **kwargs):
+    record = _orig_record_factory(*args, **kwargs)
+    _inject_trace_id(record)
+    return record
+
+
+logging.setLogRecordFactory(_record_factory)
+
 
 ACCESS_FORMATTER_GEVENT  = Formatter("%(message)s")
 ACCESS_FORMATTER_TORNADO = Formatter("[%(asctime)s] %(message)s")
 
-FORMATTER           = Formatter("[%(asctime)s] %(levelname)5s {%(filename)s:%(lineno)d} %(message)s")
+FORMATTER           = Formatter("[%(asctime)s] %(levelname)5s [%(traceId)s] {%(filename)s:%(lineno)d} %(message)s")
 DEFAULT_LOG_LEVEL   = logging.INFO
 DEFAULT_LOG_FILE    = os.path.join(_CONFIG_DIR, "calibre-web.log")
 DEFAULT_ACCESS_LOG  = os.path.join(_CONFIG_DIR, "access.log")
