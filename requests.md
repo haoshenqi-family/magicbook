@@ -188,3 +188,5 @@
 72. 评估并实施系统 trace-id：请求级 trace-id 贯穿 magicbook→moon-well 并进 ES 日志，支持全链路排查；顺带把 moon-well 的 ES RestClient DEBUG 日志降为 INFO。
 
 70. 用户不在内网：积分页给管理员加积分调整入口（moon-well R54 提供接口）。
+
+71. 积分页板块排序：充值放到第二块（Credits 下），明细区挪到最后。

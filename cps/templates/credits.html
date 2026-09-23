@@ -45,6 +45,53 @@
 
   <div id="credit-alert" style="display:none" class="alert" role="alert"></div>
 
+  <h3>{{_('Choose a Recharge Package')}}</h3>
+  <div id="credit-packages" class="credit-packages">
+    <p class="text-muted">{{_('Loading...')}}</p>
+  </div>
+
+  <div id="credit-checkout" class="panel panel-default" style="display:none; margin-top:20px;">
+    <div class="panel-heading">
+      <h3 class="panel-title">{{_('Alipay Scan to Pay')}}</h3>
+    </div>
+    <div class="panel-body">
+      <div class="row">
+        <div class="col-sm-4 text-center">
+          <div id="credit-qr"></div>
+        </div>
+        <div class="col-sm-8">
+          <p id="credit-checkout-info" class="lead"></p>
+          <p id="credit-countdown" class="text-muted"></p>
+          <p id="credit-status"></p>
+          <button id="credit-regenerate" class="btn btn-default btn-sm" style="display:none">
+            {{_('Regenerate Order')}}
+          </button>
+          <p class="help-block" style="margin-top:10px">
+            {{_('Open Alipay app and scan the QR code. Credits are granted automatically after payment.')}}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  {% if current_user.role_admin() %}
+  <div class="panel panel-danger" id="credit-admin-panel">
+    <div class="panel-heading">{{_('Admin: Adjust Credits')}}</div>
+    <div class="panel-body">
+      <form id="credit-admin-adjust-form" class="form-inline" style="margin-bottom:0">
+        <input type="number" id="credit-admin-user" class="form-control" placeholder="{{_('User ID')}}" style="width:110px" required>
+        <input type="number" id="credit-admin-amount" class="form-control" placeholder="{{_('Amount (+/-)')}}" style="width:140px" required>
+        <input type="text" id="credit-admin-reason" class="form-control" placeholder="{{_('Reason (required, audited)')}}" style="width:260px" required>
+        <button type="submit" class="btn btn-danger btn-sm">{{_('Apply Adjustment')}}</button>
+      </form>
+      <p class="text-muted" style="margin-top:8px;margin-bottom:0;font-size:12px">
+        {{_('Positive amount adds credits, negative deducts. Every adjustment is recorded in the ledger with your user id.')}}
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
   <h3>{{_('Credit Consumption Detail')}}</h3>
   <div class="panel panel-default">
     <div class="panel-body">
@@ -83,52 +130,6 @@
         </table>
       </div>
       <div id="credit-consume-pager" class="text-center"></div>
-    </div>
-  </div>
-
-  {% if current_user.role_admin() %}
-  <div class="panel panel-danger" id="credit-admin-panel">
-    <div class="panel-heading">{{_('Admin: Adjust Credits')}}</div>
-    <div class="panel-body">
-      <form id="credit-admin-adjust-form" class="form-inline" style="margin-bottom:0">
-        <input type="number" id="credit-admin-user" class="form-control" placeholder="{{_('User ID')}}" style="width:110px" required>
-        <input type="number" id="credit-admin-amount" class="form-control" placeholder="{{_('Amount (+/-)')}}" style="width:140px" required>
-        <input type="text" id="credit-admin-reason" class="form-control" placeholder="{{_('Reason (required, audited)')}}" style="width:260px" required>
-        <button type="submit" class="btn btn-danger btn-sm">{{_('Apply Adjustment')}}</button>
-      </form>
-      <p class="text-muted" style="margin-top:8px;margin-bottom:0;font-size:12px">
-        {{_('Positive amount adds credits, negative deducts. Every adjustment is recorded in the ledger with your user id.')}}
-      </p>
-    </div>
-  </div>
-  {% endif %}
-
-  <h3>{{_('Choose a Recharge Package')}}</h3>
-  <div id="credit-packages" class="credit-packages">
-    <p class="text-muted">{{_('Loading...')}}</p>
-  </div>
-
-  <div id="credit-checkout" class="panel panel-default" style="display:none; margin-top:20px;">
-    <div class="panel-heading">
-      <h3 class="panel-title">{{_('Alipay Scan to Pay')}}</h3>
-    </div>
-    <div class="panel-body">
-      <div class="row">
-        <div class="col-sm-4 text-center">
-          <div id="credit-qr"></div>
-        </div>
-        <div class="col-sm-8">
-          <p id="credit-checkout-info" class="lead"></p>
-          <p id="credit-countdown" class="text-muted"></p>
-          <p id="credit-status"></p>
-          <button id="credit-regenerate" class="btn btn-default btn-sm" style="display:none">
-            {{_('Regenerate Order')}}
-          </button>
-          <p class="help-block" style="margin-top:10px">
-            {{_('Open Alipay app and scan the QR code. Credits are granted automatically after payment.')}}
-          </p>
-        </div>
-      </div>
     </div>
   </div>
 
