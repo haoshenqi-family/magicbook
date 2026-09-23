@@ -190,3 +190,5 @@
 70. 用户不在内网：积分页给管理员加积分调整入口（moon-well R54 提供接口）。
 
 71. 积分页板块排序：充值放到第二块（Credits 下），明细区挪到最后。
+
+73. 日志级别独立成字段：filebeat script processor 从日志行解析级别写入 log.level（keyword），Kibana 可直接过滤聚合；ES 索引模板补映射。

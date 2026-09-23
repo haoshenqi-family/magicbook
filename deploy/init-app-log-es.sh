@@ -34,6 +34,7 @@ echo "  $resp"
 echo "$resp" | grep -q '"acknowledged":true' || { echo "ILM 策略创建失败"; exit 1; }
 
 # 2. 索引模板：动态索引 app-log-moon-well / app-log-magicbook 自动套用
+#    （log.level keyword：filebeat script processor 从日志行提取级别，Kibana 按 level 过滤/聚合）
 echo "[2/2] 创建索引模板 app-log-template（匹配 app-log-*）..."
 resp=$(curl -sS -u "$ES_USERNAME:$ES_PASSWORD" -H 'Content-Type: application/json' \
   -X PUT "$ES_URL/_index_template/app-log-template" -d '{
@@ -49,7 +50,12 @@ resp=$(curl -sS -u "$ES_USERNAME:$ES_PASSWORD" -H 'Content-Type: application/jso
         "@timestamp": { "type": "date" },
         "message":    { "type": "text" },
         "module":     { "type": "keyword" },
-        "log":        { "properties": { "file": { "properties": { "path": { "type": "keyword" } } } } }
+        "log":        {
+          "properties": {
+            "file":   { "properties": { "path": { "type": "keyword" } } },
+            "level":  { "type": "keyword" }
+          }
+        }
       }
     }
   }

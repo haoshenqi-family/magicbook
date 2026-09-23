@@ -387,3 +387,19 @@
 
 - 页面顺序调整为：余额卡 → 充值（档位+收银台）→ 管理员调整（仅管理员）→ 消耗明细（最后）；纯模板块挪动，元素 id 与 JS 绑定不变。
 - 测试：test_credit_consume.py 7 例通过（模板断言不依赖顺序，全部仍过）。
+
+## 2026-09-23（log.level 字段：日志级别独立成 ES 字段）
+
+### R73（filebeat script processor 解析级别 → log.level keyword）
+
+- **方案**：不改应用日志格式——`deploy/filebeat.yml` 加 script processor，从 message 提取级别写入 `log.level`；`deploy/init-app-log-es.sh` 索引模板补 `"log.level": keyword` 映射（幂等重跑即生效，含既有索引）。
+- **解析规则（13 用例验证）**：行首锚定两种已知前缀——①ISO 时间戳（moon-well，兼容 `%5p` 双空格）；②`[方括号时间戳]`（magicbook）；级别词 TRACE/DEBUG/INFO/WARN/CRIT/ERROR/FATAL，CRIT→critical（ECS 约定），其余小写。堆栈行/访问日志行/无时间戳行不匹配 → 保持 filebeat 默认 info，不丢行。
+- **踩坑记录**：首版正则 `^(?:\[[^\]]+\]\s+)?(LEVEL)\s` 匹配不了 moon-well 行——可选前缀组失败后 `^` 后必须紧跟级别词，ISO 时间戳吞不掉；node 13 用例测出后改为显式枚举两种前缀（比"行首 60 字符内搜级别词"更精确，避免堆栈行中段出现的 INFO 误标）。
+- **验证**：node 按 YAML 折叠语义执行两份真实文件的 source 块，13 用例全过；fnos 仍不可达，生产部署（filebeat 重建 + 重跑 init 脚本）待网络恢复。
+- **文档**：根 `OPS.md` KQL 表加 `log.level` 用法。
+
+### 总结
+
+- **requests.md**：占号 R73。
+- **response.md**：本条。
+- **冲突记录**：无。

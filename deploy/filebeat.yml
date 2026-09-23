@@ -13,6 +13,21 @@ filebeat.inputs:
     fields:
       module: magicbook
     fields_under_root: true
+    - script:
+        lang: javascript
+        id: parse_log_level
+        # 从日志行提取级别 → log.level（keyword，Kibana 可直接过滤聚合）
+        # 命中不了（堆栈行/访问日志行）保持 filebeat 默认 info，不丢行
+        source: >-
+          function process(event) {
+            var msg = event.Get("message");
+            var m = /^(?:\d{4}-\d{2}-\d{2}[T ][^ ]*\s+|\[[^\]]+\]\s+)(TRACE|DEBUG|INFO|WARN|CRIT|ERROR|FATAL)\s+/.exec(msg);
+            if (m) {
+              var level = m[1];
+              if (level === "CRIT") { level = "critical"; }
+              event.Put("log.level", level.toLowerCase());
+            }
+          }
 
 output.elasticsearch:
   hosts: ["${LOG_ES_HOSTS}"]
