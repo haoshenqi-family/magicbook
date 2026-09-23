@@ -403,3 +403,19 @@
 - **requests.md**：占号 R73。
 - **response.md**：本条。
 - **冲突记录**：无。
+
+## 2026-09-23（log.level 生产部署 + moon-well 日志分裂修复）
+
+### R73 生产落地（fnos 恢复局域网后继续）
+
+- **YAML 缩进坑（第一次部署失败）**：script processor 首版插在 input 列表内但缩进挂错层级（`- script:` 4 空格挂在 `fields_under_root` 之下）→ 两个 filebeat 容器反复 Restarting（`yaml: line 14: did not find expected key`）。修正为 input 内 `processors:` 键（与 paths/fields 同级），两份文件本地 pyyaml 校验后重推，容器恢复 Up。
+- **修复 moon-well 日志分裂（重要发现）**：moon-well 容器实际由 app-manager 部署的 `/host/app/moon-well/docker-compose.yml` 管理（compose 文件已被 agent 清理，labels 可证），`./logs` 解析到 `/host/app/moon-well/logs`（真实写入点，5.5MB 在涨）；而 filebeat 读的是 `/vol1/1000/app/moon-well/logs`（旧手工 compose 时期的写入点，11:44 后停更）——**同一容器日志写 A、采集读 B**，今天白天的日志其实只来自历史文件。已将 filebeat compose 挂载改为 `/host/app/moon-well/logs:/var/log/moon-well:ro` 并重建，7416 条积压立即 ack。
+- **关键路径事实（fnos 符号链接结构）**：`/app -> /vol1/1000/app`（符号链接）；agent 容器内 `/app` 挂载到宿主 `/host/app`。magicbook 容器挂载写 `/app/magicbook/...` 绝对路径 → 宿主解析到 `/vol1` 侧（数据一致，无问题）；moon-well 容器 compose working_dir 是 `/host/app/moon-well`，相对路径 `./logs` 落在 `/host` 侧。
+- **生产验证**：①`log.level` 聚合近 5 分钟 7768 条全带级别（trace/info/debug 分布正常）；②magicbook 实测 `curl -H "X-Trace-Id: test-opds-20260923" :8083/opds` → ES 命中 1 条 `log.level=warn` 且 message 含该 traceId（级别字段 + trace-id 双特性同时验证通过）；③ILM 策略用仓库版脚本（180d）重跑确认（服务器 /root 下旧脚本是 30d 版）。
+- **防回退**：新版 filebeat.yml 已同步到 app-manager 部署目录（/host/app/moon-well/、/host/app/magicbook/deploy/），CI 触发 agent 重部署时不会丢 parse_log_level 配置。
+
+### 总结
+
+- **response.md**：补记生产部署过程与日志分裂修复。
+- **遗留**：/root/init-app-log-es.sh 已更新为仓库版；magicbook 的 /host 侧部署目录仅 deploy/filebeat.yml，其 compose 来源待下次部署观察。
+- **冲突记录**：无。
