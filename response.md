@@ -376,3 +376,9 @@
 - **requests.md**：占号 R72。
 - **response.md**：记录实施、验证与遗留（LLM 任务级 trace 待排期；生产端到端验证待 fnos 可达）。
 - **冲突记录**：无。
+
+### R70（对应 moon-well R54）：管理员积分调整面板
+
+- credits 页新增「Admin: Adjust Credits」红色面板（仅 role_admin 可见）：目标用户ID / 额度(±) / 原因，提交前二次确认，成功后提示新余额并刷新明细。
+- 代理 `/ajax/credit/admin-adjust`：user_login_required + role_admin 前端门禁，moon-well 侧白名单二次校验（纵深防御）。
+- 测试：test_credit_consume.py 7 例通过（+登录门槛/转发/面板渲染 3 例）。

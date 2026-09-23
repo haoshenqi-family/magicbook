@@ -82,3 +82,39 @@ def test_credits_page_renders_consume_section(admin_client, moonwell_configured)
     js = pathlib.Path(cps.__file__).parent / "static" / "js" / "credits.js"
     assert "/ajax/credit/consume-page" in js.read_text(encoding="utf-8")
     assert "/ajax/credit/consume-summary" in js.read_text(encoding="utf-8")
+
+
+def test_admin_adjust_requires_login(app, moonwell_configured):
+    """Anonymous requests must be redirected to the login page."""
+    client = app.test_client()
+    assert client.post("/ajax/credit/admin-adjust", json={}).status_code == 302
+
+
+def test_admin_adjust_forwards_payload(admin_client, moonwell_configured, monkeypatch):
+    """Admin client's adjust payload is forwarded to moon-well /credit/admin/adjust."""
+    import cps.web as w
+
+    captured = {}
+
+    def fake_proxy(path, payload, timeout, label, binary=False, method="POST"):
+        captured["path"] = path
+        captured["payload"] = payload
+        return (json.dumps({"success": True,
+                            "result": {"userId": 1, "balance": 94}}), 200,
+                {"Content-Type": "application/json"})
+
+    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+
+    payload = {"userId": 1, "amount": 2215, "reason": "R53 计费口径冲正"}
+    rv = admin_client.post("/ajax/credit/admin-adjust", json=payload)
+    assert rv.status_code == 200
+    assert captured["path"] == "/credit/admin/adjust"
+    assert captured["payload"] == payload
+
+
+def test_credits_page_renders_admin_panel_for_admin(admin_client, moonwell_configured):
+    rv = admin_client.get("/credits")
+    assert rv.status_code == 200
+    assert "credit-admin-panel" in rv.data.decode("utf-8")
+    js = pathlib.Path(cps.__file__).parent / "static" / "js" / "credits.js"
+    assert "/ajax/credit/admin-adjust" in js.read_text(encoding="utf-8")

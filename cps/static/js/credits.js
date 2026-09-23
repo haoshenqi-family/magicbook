@@ -455,6 +455,33 @@
 
         $('#credit-consume-apply').on('click', resetConsumePage);
         $('#credit-consume-apply').on('click', loadConsumeDetail);
+        // R54：管理员积分调整（入口仅管理员可见；moon-well 白名单二次校验）
+        $('#credit-admin-adjust-form').on('submit', function (e) {
+            e.preventDefault();
+            var userId = parseInt($('#credit-admin-user').val(), 10);
+            var amount = parseInt($('#credit-admin-amount').val(), 10);
+            var reason = $.trim($('#credit-admin-reason').val());
+            if (!userId || !amount || !reason) { return; }
+            if (!window.confirm('确认调整用户 ' + userId + ' 的积分 ' + (amount > 0 ? '+' : '') + amount + '？此操作将记入流水审计。')) {
+                return;
+            }
+            $.ajax({
+                url: '/ajax/credit/admin-adjust', method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ userId: userId, amount: amount, reason: reason })
+            }).done(function (resp) {
+                var data = resp && resp.result ? resp.result : resp;
+                var balance = data && data.balance !== undefined ? data.balance : '?';
+                window.alert('调整成功，用户 ' + userId + ' 当前余额：' + balance);
+                $('#credit-admin-adjust-form')[0].reset();
+                loadConsumeDetail();
+            }).fail(function (xhr) {
+                var msg = '调整失败';
+                try { msg = (JSON.parse(xhr.responseText).message) || msg; } catch (err) { /* ignore */ }
+                window.alert(msg);
+            });
+        });
+
         // R49：获取/消耗方向切换——重置分页并立即重查
         $('.credit-type-btn').on('click', function () {
             $('.credit-type-btn').removeClass('btn-primary active').addClass('btn-default');

@@ -497,6 +497,21 @@ def credit_recharge_status():
                            "credit recharge status")
 
 
+@web.route("/ajax/credit/admin-adjust", methods=["POST"])
+@user_login_required
+def credit_admin_adjust():
+    """Proxy admin credit adjustment (moon-well POST /credit/admin/adjust, R54).
+
+    Front-end gate: only admins see the entry; moon-well re-checks its own
+    admin whitelist server-side (defense in depth).
+    """
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": "admin only"}), 403
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy("/credit/admin/adjust", payload, 10,
+                           "credit admin adjust")
+
+
 @web.route("/ajax/credit/consume-page", methods=["POST"])
 @user_login_required
 def credit_consume_page():

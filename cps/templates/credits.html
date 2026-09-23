@@ -86,6 +86,23 @@
     </div>
   </div>
 
+  {% if current_user.role_admin() %}
+  <div class="panel panel-danger" id="credit-admin-panel">
+    <div class="panel-heading">{{_('Admin: Adjust Credits')}}</div>
+    <div class="panel-body">
+      <form id="credit-admin-adjust-form" class="form-inline" style="margin-bottom:0">
+        <input type="number" id="credit-admin-user" class="form-control" placeholder="{{_('User ID')}}" style="width:110px" required>
+        <input type="number" id="credit-admin-amount" class="form-control" placeholder="{{_('Amount (+/-)')}}" style="width:140px" required>
+        <input type="text" id="credit-admin-reason" class="form-control" placeholder="{{_('Reason (required, audited)')}}" style="width:260px" required>
+        <button type="submit" class="btn btn-danger btn-sm">{{_('Apply Adjustment')}}</button>
+      </form>
+      <p class="text-muted" style="margin-top:8px;margin-bottom:0;font-size:12px">
+        {{_('Positive amount adds credits, negative deducts. Every adjustment is recorded in the ledger with your user id.')}}
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
   <h3>{{_('Choose a Recharge Package')}}</h3>
   <div id="credit-packages" class="credit-packages">
     <p class="text-muted">{{_('Loading...')}}</p>
