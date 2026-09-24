@@ -192,3 +192,5 @@
 71. 积分页板块排序：充值放到第二块（Credits 下），明细区挪到最后。
 
 73. 日志级别独立成字段：filebeat script processor 从日志行解析级别写入 log.level（keyword），Kibana 可直接过滤聚合；ES 索引模板补映射。
+
+74. Bark 通知更换：build-and-push.yml 的通知地址从 api.day.app 改为自建 https://bark-server.haoshenqi.top，key 同步更换。

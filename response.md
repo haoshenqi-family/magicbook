@@ -419,3 +419,10 @@
 - **response.md**：补记生产部署过程与日志分裂修复。
 - **遗留**：/root/init-app-log-es.sh 已更新为仓库版；magicbook 的 /host 侧部署目录仅 deploy/filebeat.yml，其 compose 来源待下次部署观察。
 - **冲突记录**：无。
+
+### R74（Bark 通知切换自建服务器）
+
+- Bark 通知地址与 key 更换为自建 `https://bark-server.haoshenqi.top`（key 以 fnos `.env` 为准，此处不回显）。
+- 实际执行范围（用户决定）：只改 fnos 本地 webhook-builder——`.env` BARK_KEY 换新 + build-magicbook.sh 2 处 URL 替换（改前已 tar 备份：/app/codelib/webhook-builder/bark-backup-20260925-061438.tar.gz）；`.github/workflows/build-and-push.yml` 与 GitHub secrets 均不动（Actions 已停用；用户明确不改 GitHub 侧）。
+- 验证：bash -n 通过、旧域名残留 0、fnos 实发测试推送 code:200（2026-09-25）。
+- 提醒：若日后重新启用 GitHub Actions，需先把三仓库 secret BARK_KEY 更新为新值。
