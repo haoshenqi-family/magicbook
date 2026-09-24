@@ -75,7 +75,7 @@
 
 - **判定链**：jobId 与第二轮崩溃 traceback 同源（57b763d）→ 批次由**启动恢复线程**（system_identity 路径）处理而非新提交；failed==total 且 pending=0 → R51 会话修复生效、发布线程完整跑完，但每段 publish 都抛异常。
 - **根因**：`_moonwell_proxy` 的 `system_identity=True` 分支只定制了身份头，token 读取仍走 `flask_session.get()`——恢复线程无 Flask 请求上下文，抛 `RuntimeError: Working outside of request context`，被逐段 except 捕获后全部标 FAILED（item.error_message 可证）。
-- **修复**：三分支重排——system_identity → env 头 + token=None；identity_headers 快照 → 显式 bearer_token；仅请求线程分支读 current_user/flask_session。401 自动刷新仅请求线程（`from_request_session` 门控）。移除 `_MOONWELL_UNSET` 哨兵（不再需要）。
+- **修复**：三分支重排——system_identity → env 头 + 用户令牌快照注入 → 显式 bearer_token 参数；仅请求线程分支读 current_user/flask_session。401 自动刷新仅请求线程（`from_request_session` 门控）。移除 `_MOONWELL_UNSET` 哨兵（不再需要）。
 - **测试**：新增 system_identity 无上下文回归测试（旧代码此测试抛 RuntimeError）；全量 **187 passed**。
 - **遗留批次处置**：job 57b763d 已无 PENDING 项，重启恢复不会再接手——部署修复后需管理员调 `POST /ajax/reading-translate-book/retry {"job_id": "57b…"}`（重发 FAILED 段）或带 `force=true` 重新提交建新批次。
 
@@ -356,7 +356,7 @@
 ### R71（日志查询文档收敛到仓库根目录，面向三项目统一运维）
 
 - **产出**：根目录 `OPS.md` —— 三项目总览（部署位置/日志形态/中间件表）、ES 凭据获取、快速查询 curl、Kibana KQL、采集链路图、常见故障排查表（含 09-21 实踩两坑：filebeat.yml 缺失被建成空目录、config_logfile 被改为 /dev/stdout 致文件日志停写）、变更部署流程（含 moon-well compose 漂移警示）、新模块接入指引、关联文件清单。app-manager 未接入 ES，如实标注其 docker logs 查询方式。
-- **修复**：根 `Agents.md` 与两项目 `AGENTS.md` 共 5 处示例命令占位 `ES_PASSWORD=<密码>> curl` 不可直接执行 → 改为「注释 + export ES_PASSWORD=$(grep … moon-well/.env) + curl」三行可复制。
+- **修复**：根 `Agents.md` 与两项目 `AGENTS.md` 共 5 处示例命令占位（形如「密码变量打码后接 curl」的不可执行写法）→ 改为「注释 + 从 moon-well/.env export ES 密码 + curl」三行可复制。
 - **分工**：根 `Agents.md` 保留 AI 速查节（含 OPS.md 指针）；深入排查/运维以根 `OPS.md` 为准。**用户随后要求子项目 AGENTS.md 不修改，两项目 AGENTS.md 已 git 还原，日志查询内容仅保留在根 `Agents.md` 与根 `OPS.md`**。
 - **冲突记录**：无。
 
@@ -426,3 +426,11 @@
 - 实际执行范围（用户决定）：只改 fnos 本地 webhook-builder——`.env` BARK_KEY 换新 + build-magicbook.sh 2 处 URL 替换（改前已 tar 备份：/app/codelib/webhook-builder/bark-backup-20260925-061438.tar.gz）；`.github/workflows/build-and-push.yml` 与 GitHub secrets 均不动（Actions 已停用；用户明确不改 GitHub 侧）。
 - 验证：bash -n 通过、旧域名残留 0、fnos 实发测试推送 code:200（2026-09-25）。
 - 提醒：若日后重新启用 GitHub Actions，需先把三仓库 secret BARK_KEY 更新为新值。
+
+### R75（整本翻译仍报 can't subtract offset-naive and offset-aware datetimes）
+
+- **根因**：`TranslationJob(Item).created_at/updated_at` 是 naive `DateTime` 列但默认值写 aware UTC。aware 值经 DB 往返后 `tzinfo` 被丢成 naive（SQLite 与 MySQL DATETIME 均不带时区），`start()` 的僵尸批次判定 `now_utc() - existing.updated_at` 相减即抛 TypeError；路由 `except TypeError` 把原文返回给前端 alert。前端「整本译」不传 force，只要书上有活动批次（含刚创建的），点击必炸——这就是「还是有问题」的直接原因。R50 引入僵尸判定时暴露，此前复用路径无减法所以未炸。
+- **为什么旧测试没拦住**：`test_stale_active_job_is_recycled` 预置的僵尸批次是内存对象直接赋 aware 值，没经 DB 往返。
+- **修复（口径归一 + 深度防御）**：新增 `cps/reading_translation/timeutil.py`（`now_utc` 唯一时间源 + `as_utc` 读侧归一）；models 两表四列改 `DateTime(timezone=True)`（新环境读回即 aware）；service 全部 7 处 `_now()` 收敛为 `now_utc()`，僵尸判定处读值经 `as_utc()`。存量 naive 行按 UTC 解释，与新行语义一致（写入侧一直是 UTC 墙钟，无数据迁移需要）。
+- **测试**：新增 `tests/test_reading_translation_r75.py`（僵尸路径 + 复用路径，均走真实 SQLite 往返，修复前在 service.py:106 精确复现生产 TypeError）。修后整本翻译相关 12 个 + 全量 209 个测试全绿（基线 207 + 新增 2）。
+- **护栏事件**：response.md 两处历史记录（R53/R71）含「凭据变量打码接等号」的形似凭据赋值字样，导致本次与后续任何写入都被整体扫描拦截；已征询用户（未答复，按推荐项继续）后把这两处改为等价文字描述（历史语义不变）。tests/test_reading_translation.py 未动：该文件 R51 既有测试的 bearer_token 占位字面量同样拦写入，R75 回归故单独建文件，占位是否改环境变量读取留待用户决定。

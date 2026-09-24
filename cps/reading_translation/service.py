@@ -3,12 +3,13 @@ import os
 import threading
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from .. import calibre_db, config, logger, ub
 from ..cw_login import current_user
 from .models import TranslationJob, TranslationJobItem
 from .parser import extract_epub_paragraphs, text_hash
+from .timeutil import as_utc, now_utc
 
 log = logger.create()
 
@@ -30,8 +31,9 @@ def build_paragraph_prompt(paragraph: str) -> str:
     return TRANSLATE_PROMPT.format(paragraph=paragraph)
 
 
-def _now():
-    return datetime.now(timezone.utc)
+# R75: 时间口径统一到 timeutil——now_utc() 是唯一「当前时间」来源；
+# DB 读回的 updated_at 可能是 naive（DATETIME 列丢弃 tzinfo），必须经
+# as_utc() 归一后才能相减，否则抛 offset-naive/offset-aware TypeError。
 
 
 @contextmanager
@@ -103,12 +105,12 @@ class WholeBookTranslationService:
             # 死批次霸占复用通道两天)。判定:updated_at 停滞超过 30 分钟即视为僵尸,
             # 标记 PARTIAL_FAILED 关闭之,让本次点击正常创建新批次;发布线程若其实还在
             # 跑(真长尾),它下次 commit 会把状态刷回,最多损失一次重复发布(幂等,缓存命中不重复计费)。
-            if existing and _now() - existing.updated_at > timedelta(minutes=30):
+            if existing and now_utc() - as_utc(existing.updated_at) > timedelta(minutes=30):
                 log.warning("whole-book translation: stale job %s (book=%s updated_at=%s) "
                             "closed as zombie; creating fresh batch",
                             existing.id, book_id, existing.updated_at)
                 existing.status = "PARTIAL_FAILED"
-                existing.updated_at = _now()
+                existing.updated_at = now_utc()
                 ub.session.commit()
                 existing = None
             if existing:
@@ -240,7 +242,7 @@ class WholeBookTranslationService:
                         item.error_message = str(error)[:1000]
                         item.attempt_count = 1
                         job.failed_count += 1
-                    item.updated_at = _now()
+                    item.updated_at = now_utc()
                     session.commit()
                 self._refresh_counts_session(job, session)
                 session.commit()
@@ -293,7 +295,7 @@ class WholeBookTranslationService:
                         item.status = "COMPLETED"
                         item.translation = cached[item.text]
                         item.error_message = None
-                        item.updated_at = _now()
+                        item.updated_at = now_utc()
                         changed = True
             if changed:
                 self._refresh_counts(job)
@@ -346,7 +348,7 @@ class WholeBookTranslationService:
                     except Exception as error:
                         item.attempt_count += 1
                         item.error_message = str(error)[:1000]
-                    item.updated_at = _now()
+                    item.updated_at = now_utc()
                     session.commit()
                 self._refresh_counts_session(job, session)
                 session.commit()
@@ -378,7 +380,7 @@ class WholeBookTranslationService:
         job.published_count = sum(item.status in ("PUBLISHED", "ACCEPTED", "COMPLETED") for item in items)
         if job.status != "CANCELED":
             job.status = "COMPLETED" if job.completed_count == job.total_count else ("PARTIAL_FAILED" if job.failed_count else "RUNNING")
-        job.updated_at = _now()
+        job.updated_at = now_utc()
 
     @staticmethod
     def _refresh_counts_session(job, session):
@@ -389,4 +391,4 @@ class WholeBookTranslationService:
         job.published_count = sum(item.status in ("PUBLISHED", "ACCEPTED", "COMPLETED") for item in items)
         if job.status != "CANCELED":
             job.status = "COMPLETED" if job.completed_count == job.total_count else ("PARTIAL_FAILED" if job.failed_count else "RUNNING")
-        job.updated_at = _now()
+        job.updated_at = now_utc()

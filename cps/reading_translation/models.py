@@ -1,12 +1,7 @@
-from datetime import datetime, timezone
-
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 
 from .. import ub
-
-
-def _now():
-    return datetime.now(timezone.utc)
+from .timeutil import now_utc, as_utc
 
 
 class TranslationJob(ub.Base):
@@ -24,8 +19,8 @@ class TranslationJob(ub.Base):
     published_count = Column(Integer, nullable=False, default=0)
     completed_count = Column(Integer, nullable=False, default=0)
     failed_count = Column(Integer, nullable=False, default=0)
-    created_at = Column(DateTime, default=_now, nullable=False)
-    updated_at = Column(DateTime, default=_now, onupdate=_now, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc, nullable=False)
 
 
 class TranslationJobItem(ub.Base):
@@ -43,5 +38,5 @@ class TranslationJobItem(ub.Base):
     translation = Column(Text)
     error_message = Column(Text)
     attempt_count = Column(Integer, nullable=False, default=0)
-    created_at = Column(DateTime, default=_now, nullable=False)
-    updated_at = Column(DateTime, default=_now, onupdate=_now, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc, nullable=False)
