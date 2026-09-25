@@ -380,11 +380,12 @@
     $(function () {
         $('#whole-book-translate').on('click', function () {
             var button = $(this);
-            if (!window.confirm('开始翻译整本书？')) return;
+            if (!window.confirm('开始/补齐整本翻译？\n\n已有译文的段落只查缓存不重复消耗，缺失段落才会真正翻译。')) return;
             button.prop('disabled', true).text('提交中…');
             $.ajax({url: '{{ url_for("web.reading_translate_book") }}', method: 'POST',
                 contentType: 'application/json', headers: {'X-CSRFToken': button.data('csrf-token')},
-                data: JSON.stringify({book_id: button.data('book-id'), book_format: button.data('book-format')})
+                // R75 后续：恒带 force，语义同阅读器入口（见 epub.js）。
+                data: JSON.stringify({book_id: button.data('book-id'), book_format: button.data('book-format'), force: true})
             }).done(function (result) {
                 // 译文不是同步返回：任务由 moon-well 后台逐段执行并写入缓存，
                 // 阅读时自动回读；此处只报批次规模，进度经 status 接口查询。

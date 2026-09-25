@@ -289,12 +289,15 @@ var reader;
     var popoverHideText = '';
 
     function startWholeBookTranslation() {
-        if (!calibre.wholeBookTranslationUrl || !window.confirm('开始翻译整本书？')) return;
+        if (!calibre.wholeBookTranslationUrl || !window.confirm('开始/补齐整本翻译？\n\n已有译文的段落只查缓存不重复消耗，缺失段落才会真正翻译。')) return;
         var button = document.getElementById('whole-book-translate');
         if (button) { button.classList.add('active'); button.textContent = '提交中…'; }
         $.ajax({url: calibre.wholeBookTranslationUrl, method: 'POST', contentType: 'application/json',
             headers: {'X-CSRFToken': readerCsrfToken()},
-            data: JSON.stringify({book_id: calibre.bookId, book_format: calibre.bookFormat})
+            // R75 后续：恒带 force。历史批次可能停在 PUBLISHED 缺口（已发布但译文
+            // 未落缓存），retry 只重发 FAILED 段够不着；force 每次新建批次，已译段
+            // 经缓存命中回收（幂等不重复计费），只真正发布缺失段。
+            data: JSON.stringify({book_id: calibre.bookId, book_format: calibre.bookFormat, force: true})
         }).done(function (result) {
             // 译文不是同步返回：任务由 moon-well 后台逐段执行并写入缓存，
             // 完成后本阅读器翻页时经 restoreCachedTranslations 自动回填。
