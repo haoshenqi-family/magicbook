@@ -427,6 +427,19 @@
 - 验证：bash -n 通过、旧域名残留 0、fnos 实发测试推送 code:200（2026-09-25）。
 - 提醒：若日后重新启用 GitHub Actions，需先把三仓库 secret BARK_KEY 更新为新值。
 
+### R76（一键登记全部英文书翻译任务队列：只入队，逐本激活才发布）
+
+- **需求澄清**：与「一键翻译整本书」同机制，批量作用于全部英文书；登记阶段只建任务队列（不发布、不翻译、不耗积分），逐本激活时才真正发布（缓存回收 + 只发缺失段）。
+- **实现**：
+  - 新表 `reading_translation_queue`（book_id 唯一；QUEUED/ACTIVATED/ERROR 状态机）；登记只存待办指针，不预建 job/item（避免 44×数千段空批次与僵尸判定互相干扰）。
+  - service：`enqueue_all_english_books()`（扫 eng+EPUB/KEPUB，幂等只补新增）、`activate_queued()`（start(force=True) 物化批次，回填 job_id；失败标 ERROR）、`list_queue()`（状态+进度联动）。
+  - 路由：`/ajax/reading-translate-queue/enqueue-all|list|activate`（admin）+ 管理页 `/translation-queue`。
+  - fingerprint/段落解析延迟到激活时（文件可能变化，激活时算才准确）。
+- **验证**：新增 3 个单测（幂等、格式筛选、状态机+失败路径；其中 filter 桩按语义等价内存过滤，SQLAlchemy 表达式正确性由部署后真实数据验证）；单段发布异常 except 引用的 zipfile 未 import 被 3 号测试抓出（NameError），已修——正是状态机用例的价值。全量 212 passed（209+3）。
+- **部署与实际登记**：`295ba993` 推送 → fnos webhook 构建 END OK → 容器内执行 enqueue：books=44, queued=44, skipped=0, errors=0，队列 44 条全 QUEUED。
+- **使用**：管理页 `/translation-queue` 一键登记/逐本「开始翻译」；激活后与单本按钮同语义（book 88 的 1803 段缺口也会被同机制补齐——该批次已在跑，无需再激活）。
+- **遗留**：单本按钮弹窗「已缓存 0」是受理时快照过早的展示瑕疵（实际后台 1 分钟内完成缓存回收），后续可改成弹进度。
+
 ### R75（整本翻译仍报 can't subtract offset-naive and offset-aware datetimes）
 
 - **根因**：`TranslationJob(Item).created_at/updated_at` 是 naive `DateTime` 列但默认值写 aware UTC。aware 值经 DB 往返后 `tzinfo` 被丢成 naive（SQLite 与 MySQL DATETIME 均不带时区），`start()` 的僵尸批次判定 `now_utc() - existing.updated_at` 相减即抛 TypeError；路由 `except TypeError` 把原文返回给前端 alert。前端「整本译」不传 force，只要书上有活动批次（含刚创建的），点击必炸——这就是「还是有问题」的直接原因。R50 引入僵尸判定时暴露，此前复用路径无减法所以未炸。
