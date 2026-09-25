@@ -198,3 +198,5 @@
 ## 2026-09-25
 
 75. 整本翻译仍报 `can't subtract offset-naive and offset-aware datetimes`，需要定位修复。
+
+76. 一键登记全部英文书的整本翻译任务队列（只入队不发布）；逐本激活时才发布执行（缓存回收+只发缺失段）。

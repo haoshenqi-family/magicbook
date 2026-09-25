@@ -1,0 +1,94 @@
+{% extends "layout.html" %}
+{% block header %}
+<style>
+  .tq-badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:12px; }
+  .tq-QUEUED { background:#f0ad4e33; color:#8a6d3b; }
+  .tq-ACTIVATED { background:#5cb85c33; color:#3c763d; }
+  .tq-SKIPPED, .tq-ERROR { background:#d9534f33; color:#a94442; }
+  .tq-progress { font-size:12px; color:#777; }
+</style>
+{% endblock %}
+{% block body %}
+<!-- Why: CSRFProtect 全局启用，本页所有 POST 必须带 token（同 achievements.html 的自备模式） -->
+<input type="hidden" id="tq-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Whole-Book Translation Queue')}}</h1>
+  <div class="col-md-12">
+    <p class="text-muted">
+      {{_('Register every English book (EPUB/KEPUB) as a whole-book translation task. Registering only queues the job — nothing is published and no credits are consumed until you activate a book.')}}
+    </p>
+    <button class="btn btn-primary" id="tq-enqueue">{{_('Register All English Books')}}</button>
+    <button class="btn btn-default" id="tq-refresh">{{_('Refresh')}}</button>
+    <span id="tq-enqueue-result" class="tq-progress" style="margin-left:12px"></span>
+  </div>
+  <div class="col-md-12" style="margin-top:16px">
+    <table class="table table-striped" id="tq-table">
+      <thead><tr><th>{{_('Book')}}</th><th>{{_('Status')}}</th><th>{{_('Queued At')}}</th><th>{{_('Progress')}}</th><th></th></tr></thead>
+      <tbody id="tq-body"><tr><td colspan="5" class="text-muted">{{_('Loading…')}}</td></tr></tbody>
+    </table>
+  </div>
+</div>
+<script>
+(function () {
+    var csrf = document.getElementById('tq-csrf').value;
+    function post(url, data, done) {
+        $.ajax({url: url, method: 'POST', contentType: 'application/json',
+                headers: {'X-CSRFToken': csrf}, data: JSON.stringify(data || {})})
+            .done(function (r) { done(null, r); })
+            .fail(function (xhr) { done((xhr.responseJSON && xhr.responseJSON.message) || ('HTTP ' + xhr.status)); });
+    }
+    function render(data) {
+        var body = document.getElementById('tq-body');
+        if (!data.queue || !data.queue.length) {
+            body.innerHTML = '<tr><td colspan="5" class="text-muted">{{_('Queue is empty — register all English books first.')}}</td></tr>';
+            return;
+        }
+        body.innerHTML = data.queue.map(function (row) {
+            var progress = '';
+            if (row.progress) {
+                progress = row.progress.completed + ' / ' + row.progress.total +
+                    ' (cached ' + row.progress.cached + ', failed ' + row.progress.failed + ')';
+            }
+            var action = '';
+            if (row.status === 'QUEUED') {
+                action = '<button class="btn btn-xs btn-primary tq-activate" data-book="' + row.bookId + '">{{_('Start Translation')}}</button>';
+            } else if (row.status === 'ACTIVATED') {
+                action = '<a class="btn btn-xs btn-default" href="{{ url_for(\"web.show_book_by_id\", book_id=0) }}">'.replace('book_id=0', 'book_id=' + row.bookId) + '{{_('Open')}} … </a>';
+            }
+            return '<tr><td>' + row.bookName + ' <span class="tq-progress">#' + row.bookId + ' ' + row.format + '</span></td>' +
+                '<td><span class="tq-badge tq-' + row.status + '">' + row.status + '</span></td>' +
+                '<td class="tq-progress">' + (row.queuedAt || '') + '</td>' +
+                '<td class="tq-progress">' + progress + (row.message ? ' <span class="text-danger">' + row.message + '</span>' : '') + '</td>' +
+                '<td>' + action + '</td></tr>';
+        }).join('');
+        Array.prototype.forEach.call(body.querySelectorAll('.tq-activate'), function (btn) {
+            btn.addEventListener('click', function () {
+                btn.disabled = true; btn.textContent = '…';
+                post('{{ url_for("web.reading_translate_queue_activate") }}', {book_id: btn.dataset.book}, function (err, r) {
+                    if (err) { alert(err); refresh(); return; }
+                    refresh();
+                });
+            });
+        });
+    }
+    function refresh() {
+        post('{{ url_for("web.reading_translate_queue_list") }}', {}, function (err, r) {
+            if (err) { document.getElementById('tq-body').innerHTML = '<tr><td colspan="5" class="text-danger">' + err + '</td></tr>'; return; }
+            render(r);
+        });
+    }
+    document.getElementById('tq-refresh').addEventListener('click', refresh);
+    document.getElementById('tq-enqueue').addEventListener('click', function () {
+        var btn = this; btn.disabled = true; btn.textContent = '…';
+        post('{{ url_for("web.reading_translate_queue_enqueue_all") }}', {}, function (err, r) {
+            btn.disabled = false; btn.textContent = '{{_('Register All English Books')}}';
+            var note = document.getElementById('tq-enqueue-result');
+            if (err) { note.textContent = err; return; }
+            note.textContent = 'books=' + r.books + ', queued=' + r.queued + ', skipped=' + r.skipped + (r.errors && r.errors.length ? ', errors=' + r.errors.length : '');
+            refresh();
+        });
+    });
+    refresh();
+})();
+</script>
+{% endblock %}

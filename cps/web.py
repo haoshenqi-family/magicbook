@@ -641,6 +641,50 @@ def reading_translate_book_cancel():
         return jsonify({"success": False, "message": str(error)}), 400
 
 
+# --------------------------------------------------------------------
+# 整本翻译任务队列（R76）：一键登记全部英文书（只入队，不发布不耗积分），
+# 逐本激活时才物化真实批次并发布缺失段（缓存回收 + force 语义，与单本
+# 按钮完全一致）。全部管理员权限。
+# --------------------------------------------------------------------
+
+
+@web.route("/ajax/reading-translate-queue/enqueue-all", methods=["POST"])
+@user_login_required
+@admin_required
+def reading_translate_queue_enqueue_all():
+    """登记全库英文书（EPUB/KEPUB）入翻译队列，幂等：已登记的书跳过。"""
+    return jsonify(whole_book_translation_service.enqueue_all_english_books())
+
+
+@web.route("/ajax/reading-translate-queue/list", methods=["POST"])
+@user_login_required
+@admin_required
+def reading_translate_queue_list():
+    return jsonify(whole_book_translation_service.list_queue())
+
+
+@web.route("/ajax/reading-translate-queue/activate", methods=["POST"])
+@user_login_required
+@admin_required
+def reading_translate_queue_activate():
+    """激活一条队列任务：真正建批次并发布（已译段缓存回收，只发缺失段）。"""
+    payload = request.get_json(silent=True) or {}
+    try:
+        book_id = int(payload.get("book_id"))
+        publish, lookup = _whole_book_closures()
+        return jsonify(whole_book_translation_service.activate_queued(book_id, publish, lookup))
+    except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/translation-queue", methods=["GET"])
+@user_login_required
+@admin_required
+def translation_queue_page():
+    return render_title_template("translation_queue.html", title=(_("Translation Queue")),
+                                 page="translation_queue")
+
+
 # moon-well 走内网直连（fnos:8082）。进程可能因封面下载等功能携带 http_proxy
 # 环境变量，requests 默认信任它，内网域名会被代理断连导致 503，必须显式绕过。
 _MOONWELL_NO_PROXY = {"http": None, "https": None}
