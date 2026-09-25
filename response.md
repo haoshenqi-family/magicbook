@@ -440,6 +440,18 @@
 - **使用**：管理页 `/translation-queue` 一键登记/逐本「开始翻译」；激活后与单本按钮同语义（book 88 的 1803 段缺口也会被同机制补齐——该批次已在跑，无需再激活）。
 - **遗留**：单本按钮弹窗「已缓存 0」是受理时快照过早的展示瑕疵（实际后台 1 分钟内完成缓存回收），后续可改成弹进度。
 
+### R77（一键翻译全部英文书：登记即执行，去掉两段式队列）
+
+- **需求变更**：R76 的「登记/激活两段式」不符合用户语义（「不要分开登记和激活」）——改为 **登记即执行**：一键给全部英文书直接建批次并开始翻译。
+- **实现（352ed877）**：
+  - 删除 TranslationQueue 队列表与 enqueue/activate 接口（R76 路线废弃，生产建过的 44 条 QUEUED 记录留存无害）。
+  - `translate_all_english_books(publish, lookup)`：扫 eng+EPUB/KEPUB，逐本直接 `start(force=True)`，每本独立后台发布线程互不阻塞；**已有新鲜（<30min）活动批次的书自动跳过**防重复发布（僵尸由既有判定自愈）；无文件/失败书单条记录不中断。
+  - `all_books_progress()`：从任务表聚合每书最新批次进度。
+  - 页面 `/translate-all`：一键开始 + 进度表（状态/完成数/失败数/更新时间）。
+- **验证**：R76 队列测试删除；新增 R77 三测试（全量执行 force、跳过在跑+坏书、进度聚合取最新批次）。全量 212 passed。
+- **测试工位教训**：stub `query(Model.column)`（progress 里的列查询）与 SQLAlchemy DeclarativeMeta 的 isinstance 语义（type(Model) 是元类）两处踩坑；stub 的 filter 改为对 BinaryExpression 按 left.key/right.value 真实求值，杜绝语义漂移。服务层顺手把 `in_(子查询)` 改为先取 id 列表（对 stub 与真实 DB 都更直接）。
+- **部署**：推送 → fnos 构建 END OK → 容器重建 SUCCESS。未代为触发执行——一键会立即对 44 本英文书发布翻译并连续消耗积分，由用户在页面上自行点击决定时机。
+
 ### R75（整本翻译仍报 can't subtract offset-naive and offset-aware datetimes）
 
 - **根因**：`TranslationJob(Item).created_at/updated_at` 是 naive `DateTime` 列但默认值写 aware UTC。aware 值经 DB 往返后 `tzinfo` 被丢成 naive（SQLite 与 MySQL DATETIME 均不带时区），`start()` 的僵尸批次判定 `now_utc() - existing.updated_at` 相减即抛 TypeError；路由 `except TypeError` 把原文返回给前端 alert。前端「整本译」不传 force，只要书上有活动批次（含刚创建的），点击必炸——这就是「还是有问题」的直接原因。R50 引入僵尸判定时暴露，此前复用路径无减法所以未炸。
