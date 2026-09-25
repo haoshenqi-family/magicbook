@@ -1,0 +1,75 @@
+{% extends "layout.html" %}
+{% block header %}
+<style>
+  .ta-done { color: #3c763d; }
+  .ta-running { color: #8a6d3b; }
+  .ta-failed { color: #a94442; }
+  .ta-progress { font-size: 12px; color: #777; }
+</style>
+{% endblock %}
+{% block body %}
+<input type="hidden" id="ta-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Translate All English Books')}}</h1>
+  <div class="col-md-12">
+    <p class="text-muted">
+      {{_('Start whole-book translation for every English book (EPUB/KEPUB). Already-translated paragraphs are recovered from cache for free; only missing paragraphs are published. Books already running are skipped.')}}
+    </p>
+    <button class="btn btn-primary" id="ta-start">{{_('Translate All English Books')}}</button>
+    <button class="btn btn-default" id="ta-refresh">{{_('Refresh Progress')}}</button>
+    <span id="ta-note" class="ta-progress" style="margin-left:12px"></span>
+  </div>
+  <div class="col-md-12" style="margin-top:16px">
+    <table class="table table-striped">
+      <thead><tr><th>{{_('Book')}}</th><th>{{_('Status')}}</th><th>{{_('Completed / Total')}}</th><th>{{_('Failed')}}</th><th>{{_('Updated')}}</th></tr></thead>
+      <tbody id="ta-body"><tr><td colspan="5" class="text-muted">{{_('Loading…')}}</td></tr></tbody>
+    </table>
+  </div>
+</div>
+<script>
+(function () {
+    // Why: CSRFProtect 全局启用，POST 必须带 token（同 achievements 页的自备模式）
+    var csrfValue = document.getElementById('ta-csrf').value;
+    function post(url, data, done) {
+        $.ajax({url: url, method: 'POST', contentType: 'application/json',
+                headers: {'X-CSRFToken': csrfValue}, data: JSON.stringify(data || {})})
+            .done(function (r) { done(null, r); })
+            .fail(function (xhr) { done((xhr.responseJSON && xhr.responseJSON.message) || ('HTTP ' + xhr.status)); });
+    }
+    function refresh() {
+        post('{{ url_for("web.reading_translate_all_progress") }}', {}, function (err, r) {
+            var body = document.getElementById('ta-body');
+            if (err) { body.innerHTML = '<tr><td colspan="5" class="text-danger">' + err + '</td></tr>'; return; }
+            if (!r.books.length) {
+                body.innerHTML = '<tr><td colspan="5" class="text-muted">{{_('No batches yet — click the start button.')}}</td></tr>';
+                return;
+            }
+            body.innerHTML = r.books.map(function (b) {
+                var cls = b.status === 'COMPLETED' ? 'ta-done' : (b.status === 'PARTIAL_FAILED' || b.failed > 0 ? 'ta-failed' : 'ta-running');
+                return '<tr><td>' + b.bookName + ' <span class="ta-progress">#' + b.bookId + '</span></td>' +
+                    '<td class="' + cls + '">' + b.status + '</td>' +
+                    '<td>' + b.completed + ' / ' + b.total + ' (cached ' + b.cached + ')</td>' +
+                    '<td>' + b.failed + '</td><td class="ta-progress">' + (b.updatedAt || '') + '</td></tr>';
+            }).join('');
+            document.getElementById('ta-note').textContent = r.allDone ? '\u2713 {{_('All done')}}' : '';
+        });
+    }
+    document.getElementById('ta-refresh').addEventListener('click', refresh);
+    document.getElementById('ta-start').addEventListener('click', function () {
+        if (!window.confirm('{{_('Start whole-book translation for ALL English books now? Missing paragraphs will be published and consume credits.')}}')) return;
+        var btn = this; btn.disabled = true; btn.textContent = '\u2026';
+        post('{{ url_for("web.reading_translate_all_books") }}', {}, function (err, r) {
+            btn.disabled = false; btn.textContent = '{{_('Translate All English Books')}}';
+            var note = document.getElementById('ta-note');
+            if (err) { note.textContent = err; return; }
+            note.textContent = 'books=' + r.books + ', started=' + r.started +
+                ', alreadyRunning=' + r.alreadyRunning +
+                (r.unavailable && r.unavailable.length ? ', unavailable=' + r.unavailable.length : '') +
+                (r.errors && r.errors.length ? ', errors=' + r.errors.length : '');
+            refresh();
+        });
+    });
+    refresh();
+})();
+</script>
+{% endblock %}

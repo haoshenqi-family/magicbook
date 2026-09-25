@@ -10,7 +10,6 @@ from .. import calibre_db, config, logger, ub
 from ..cw_login import current_user
 from .models import TranslationJob, TranslationJobItem
 from .parser import extract_epub_paragraphs, text_hash
-from .queue import TranslationQueue
 from .timeutil import as_utc, now_utc
 
 log = logger.create()
@@ -396,101 +395,80 @@ class WholeBookTranslationService:
         job.updated_at = now_utc()
 
     # ------------------------------------------------------------------
-    # 批量登记队列（R76）：一键登记全部英文书，逐本激活才真正发布。
-    # 登记只是待办指针：不解析段落、不建批次、不调 moon-well、不耗积分。
+    # 批量整本翻译（R77）：一键给全部英文书建批次并立即开始执行。
+    # 与单本按钮完全同语义（start(force=True)：缓存回收 + 只发缺失段），
+    # 每本书一个后台发布线程互不阻塞；翻译任务表作执行台账，不再有
+    # 「登记待办」两段式。
     # ------------------------------------------------------------------
 
-    def enqueue_all_english_books(self):
-        """扫描全库 eng 语言 + EPUB/KEPUB 格式的书，逐本登记队列（幂等）。
+    def translate_all_english_books(self, publish, lookup=None):
+        """扫描全库 eng 语言 + EPUB/KEPUB 格式，逐本直接开始整本翻译（幂等跳过在跑的）。
 
-        Why: 与单本按钮同一套执行机制，但登记与执行解耦——批量登记只建
-        指针，避免一次建 44 × 数千段 item 的空批次；激活时才调 start(force=True)
-        物化真实批次（缓存回收 + 只发缺失段）。
-        How: calibre_db 会话查 Books.languages/Data；fingerprint 延迟到激活时
-        再算（文件可能变化，激活时算才准确）；单本失败不中断整批。
+        Why: 用户语义是「一键翻译全部英文书」——登记即执行，不做待办队列。
+        force 语义保证：已有活动批次的书（正在跑）会被非 force 复用通道拦截吗？
+        不会——start(force=True) 跳过复用直接新建。为避免对同一本书重复发布，
+        这里先查活动批次：已有 ACTIVE 批次的书直接跳过并回报，不新建。
+        How: calibre_db 会话筛书；每本调 start(force=True) 拉起独立后台发布
+        线程（缓存回收 + 只发缺失段）；单本失败不中断整批。
         """
         from ..db import Books, Data, Languages
         from sqlalchemy import func as sa_func
 
-        self._ensure_queue_table()
-        queued, skipped, errors = 0, 0, []
+        started, running, skipped_no_file, errors = 0, 0, [], []
         books = (calibre_db.session.query(Books)
                  .join(Books.languages).join(Books.data)
                  .filter(Languages.lang_code == "eng")
                  .filter(sa_func.upper(Data.format).in_(("EPUB", "KEPUB")))
                  .distinct().all())
-        existing = {q.book_id for q in ub.session.query(TranslationQueue).all()}
         for book in books:
-            if book.id in existing:
-                skipped += 1
-                continue
             fmt = "KEPUB" if any(d.format == "KEPUB" for d in book.data) else "EPUB"
             try:
-                ub.session.add(TranslationQueue(
-                    book_id=book.id, book_format=fmt,
-                    book_name=(book.title or "")[:500], status="QUEUED"))
-                queued += 1
+                # 已有活动批次的书跳过：僵尸批次由 start 内部 30 分钟判定自愈，
+                # 真在跑的批次重复 force 会重复发布，这里按 updated_at 新鲜度拦截
+                active = (ub.session.query(TranslationJob)
+                          .filter(TranslationJob.book_id == book.id,
+                                  TranslationJob.status.in_(ACTIVE_STATUSES))
+                          .order_by(TranslationJob.created_at.desc()).first())
+                if active and as_utc(active.updated_at) > now_utc() - timedelta(minutes=30):
+                    running += 1
+                    continue
+                progress = self.start(book.id, fmt, True, publish, lookup)
+                started += 1
+                log.info("translate-all: book %s (%s) started, jobId=%s total=%s",
+                         book.id, book.title[:60], progress["jobId"], progress["totalCount"])
+            except (ValueError, OSError, zipfile.BadZipFile) as error:
+                skipped_no_file.append({"bookId": book.id, "error": str(error)[:200]})
             except Exception as error:
-                errors.append({"book_id": book.id, "error": str(error)[:200]})
-        ub.session.commit()
-        log.info("translation queue: enqueue-all books=%s queued=%s skipped=%s errors=%s",
-                 len(books), queued, skipped, len(errors))
-        return {"books": len(books), "queued": queued, "skipped": skipped,
-                "errors": errors}
+                errors.append({"bookId": book.id, "error": str(error)[:200]})
+        log.info("translate-all: done books=%s started=%s running=%s no-file=%s errors=%s",
+                 len(books), started, running, len(skipped_no_file), len(errors))
+        return {"books": len(books), "started": started, "alreadyRunning": running,
+                "unavailable": skipped_no_file, "errors": errors}
 
-    def list_queue(self):
-        """队列清单：状态 + 已激活批次的实时进度。"""
-        self._ensure_queue_table()
-        rows = ub.session.query(TranslationQueue).order_by(TranslationQueue.id).all()
+    def all_books_progress(self):
+        """全部英文书整本翻译进度：从翻译任务表聚合（执行台账）。"""
+        from ..db import Books, Data, Languages
+        from sqlalchemy import func as sa_func
+
+        english_ids = [bid for (bid,) in calibre_db.session.query(Books.id)
+                       .join(Books.languages).join(Books.data)
+                       .filter(Languages.lang_code == "eng")
+                       .filter(sa_func.upper(Data.format).in_(("EPUB", "KEPUB")))
+                       .distinct().all()]
+        latest = {}
+        rows = (ub.session.query(TranslationJob)
+                .filter(TranslationJob.book_id.in_(english_ids))
+                .order_by(TranslationJob.created_at.asc()).all())
+        for job in rows:
+            latest[job.book_id] = job  # 同书多批次取最新
         result = []
-        for row in rows:
-            entry = {"bookId": row.book_id, "format": row.book_format,
-                     "bookName": row.book_name, "status": row.status,
-                     "jobId": row.job_id, "message": row.message,
-                     "queuedAt": row.queued_at.isoformat() if row.queued_at else None,
-                     "activatedAt": row.activated_at.isoformat() if row.activated_at else None}
-            if row.job_id:
-                job = ub.session.query(TranslationJob).filter_by(id=row.job_id).one_or_none()
-                if job:
-                    entry["progress"] = {"total": job.total_count, "cached": job.cached_count,
-                                         "published": job.published_count,
-                                         "completed": job.completed_count,
-                                         "failed": job.failed_count, "status": job.status}
-            result.append(entry)
-        return {"queue": result}
+        for book_id, job in sorted(latest.items()):
+            done = (job.status == "COMPLETED")
+            result.append({"bookId": book_id, "bookName": job.book_name,
+                           "status": job.status, "total": job.total_count,
+                           "cached": job.cached_count, "published": job.published_count,
+                           "completed": job.completed_count, "failed": job.failed_count,
+                           "updatedAt": job.updated_at.isoformat() if job.updated_at else None,
+                           "done": done})
+        return {"books": result, "allDone": all(b["done"] for b in result) if result else False}
 
-    def activate_queued(self, book_id, publish, lookup=None):
-        """激活一条队列任务：物化真实批次并后台发布（缓存回收 + 只发缺失段）。
-
-        Why: 队列登记时不算 fingerprint/不解析段落（书文件可能变化，激活时
-        算才准确）；激活即调既有 start(force=True)，与单本按钮完全同语义。
-        幂等：已 ACTIVATED 的记录直接返回当前进度，不重复建批次。
-        """
-        from ..cw_login import current_user
-
-        self._ensure_queue_table()
-        row = ub.session.query(TranslationQueue).filter_by(book_id=int(book_id)).one_or_none()
-        if not row:
-            raise ValueError("queue entry is unavailable")
-        if row.status == "ACTIVATED" and row.job_id:
-            job = ub.session.query(TranslationJob).filter_by(id=row.job_id).one_or_none()
-            if job:
-                return self.get_progress(row.job_id, lookup)
-        try:
-            progress = self.start(int(book_id), row.book_format, True, publish, lookup)
-        except (ValueError, OSError, zipfile.BadZipFile) as error:
-            row.status = "ERROR"
-            row.message = str(error)[:500]
-            row.activated_at = now_utc()
-            ub.session.commit()
-            raise
-        row.status = "ACTIVATED"
-        row.job_id = progress["jobId"]
-        row.message = ""
-        row.activated_at = now_utc()
-        ub.session.commit()
-        return progress
-
-    def _ensure_queue_table(self):
-        bind = ub.session.get_bind()
-        ub.Base.metadata.create_all(bind, tables=[TranslationQueue.__table__])

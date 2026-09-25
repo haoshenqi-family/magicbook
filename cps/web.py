@@ -642,47 +642,33 @@ def reading_translate_book_cancel():
 
 
 # --------------------------------------------------------------------
-# 整本翻译任务队列（R76）：一键登记全部英文书（只入队，不发布不耗积分），
-# 逐本激活时才物化真实批次并发布缺失段（缓存回收 + force 语义，与单本
-# 按钮完全一致）。全部管理员权限。
+# 批量整本翻译（R77）：一键翻译全部英文书——每本直接建批次立即执行
+# （缓存回收 + 只发缺失段，与单本按钮同语义）；正在跑的书自动跳过。
 # --------------------------------------------------------------------
 
 
-@web.route("/ajax/reading-translate-queue/enqueue-all", methods=["POST"])
+@web.route("/ajax/reading-translate-all", methods=["POST"])
 @user_login_required
 @admin_required
-def reading_translate_queue_enqueue_all():
-    """登记全库英文书（EPUB/KEPUB）入翻译队列，幂等：已登记的书跳过。"""
-    return jsonify(whole_book_translation_service.enqueue_all_english_books())
+def reading_translate_all_books():
+    """一键翻译全部英文书：逐本建批次并后台发布，正在跑的书跳过。"""
+    publish, lookup = _whole_book_closures()
+    return jsonify(whole_book_translation_service.translate_all_english_books(publish, lookup))
 
 
-@web.route("/ajax/reading-translate-queue/list", methods=["POST"])
+@web.route("/ajax/reading-translate-all/progress", methods=["POST"])
 @user_login_required
 @admin_required
-def reading_translate_queue_list():
-    return jsonify(whole_book_translation_service.list_queue())
+def reading_translate_all_progress():
+    return jsonify(whole_book_translation_service.all_books_progress())
 
 
-@web.route("/ajax/reading-translate-queue/activate", methods=["POST"])
+@web.route("/translate-all", methods=["GET"])
 @user_login_required
 @admin_required
-def reading_translate_queue_activate():
-    """激活一条队列任务：真正建批次并发布（已译段缓存回收，只发缺失段）。"""
-    payload = request.get_json(silent=True) or {}
-    try:
-        book_id = int(payload.get("book_id"))
-        publish, lookup = _whole_book_closures()
-        return jsonify(whole_book_translation_service.activate_queued(book_id, publish, lookup))
-    except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
-        return jsonify({"success": False, "message": str(error)}), 400
-
-
-@web.route("/translation-queue", methods=["GET"])
-@user_login_required
-@admin_required
-def translation_queue_page():
-    return render_title_template("translation_queue.html", title=(_("Translation Queue")),
-                                 page="translation_queue")
+def translate_all_page():
+    return render_title_template("translate_all.html", title=(_("Translate All English Books")),
+                                 page="translate_all")
 
 
 # moon-well 走内网直连（fnos:8082）。进程可能因封面下载等功能携带 http_proxy
