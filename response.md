@@ -460,3 +460,33 @@
 - **测试**：新增 `tests/test_reading_translation_r75.py`（僵尸路径 + 复用路径，均走真实 SQLite 往返，修复前在 service.py:106 精确复现生产 TypeError）。修后整本翻译相关 12 个 + 全量 209 个测试全绿（基线 207 + 新增 2）。
 - **护栏事件**：response.md 两处历史记录（R53/R71）含「凭据变量打码接等号」的形似凭据赋值字样，导致本次与后续任何写入都被整体扫描拦截；已征询用户（未答复，按推荐项继续）后把这两处改为等价文字描述（历史语义不变）。tests/test_reading_translation.py 未动：该文件 R51 既有测试的 bearer_token 占位字面量同样拦写入，R75 回归故单独建文件，占位是否改环境变量读取留待用户决定。
 - **R75 后续（同日部署与网络故障）**：推送后 fnos webhook 构建死于 git 拉取间歇故障（`curl 16 HTTP2 framing layer`，重试时直连 443 超时 135s）。处置：fnOS root git 全局配置 `http.version=HTTP/1.1` + 低速断连快速失败，并按用户指示把 GitHub 域代理固定为 `http://192.168.31.11:12811`（内网开发机 HTTP 代理，仅 GitHub 域，ACR 推送不受影响；旧 1082 代理已失效）；手动重跑 `build-magicbook.sh` 后 END OK，app-manager 重建容器 SUCCESS，容器内验证新代码在跑。配置与排查步骤已补记根目录 `OPS.md` §4/§5。
+
+---
+
+## 2026-09-26
+
+### R78（家族三系统架构评审，只读分析）
+
+跨 app-manager / moon-well / magicbook 的架构级评审，全文已在对话中交付；三仓库账本同步登记（app-manager #9、moon-well R58）。未改任何代码。
+
+- **magicbook 结论（B-）**：亮点——fork 卫生意识好（定制收进 ai/、reading_translation/、metadata_provider/ 独立包；cw_advocate 为 vendored SSRF 防护库 Advocate；OIDC 接 authentik 与家族统一认证）；事故驱动测试闭环成型（R51/R75 均补真实 SQLite 往返回归测试，R75 时点全量 209 个测试）。
+- **结构性风险**：① Calibre-Web fork 是三系统最大长期维护负债——cps 4 万行上游代码、web.py 2580 行定制织入（oidc、moon-well 代理），无可见 upstream 同步节奏，需显式决策（锁版本定期 rebase 或声明 hard fork）；② Web 进程内长出作业系统——整本翻译后台线程已两次生产事故（R51 线程上下文、R75 时间口径），本质是长任务负载超出上游请求/响应架构形状，当前修复合理但每加一种后台任务都在加重量；③ ai/ 包 1744 行自成 LLM 栈（registry/crypto/memory），与 moon-well LlmFacade 平行，家族层面 LLM 管道两份。
+- **家族级**：moon-well TED 导入直写本项目 metadata.db 是唯一违反「不共享数据库」原则的集成线；本项目网页元数据编辑（editbooks）同样写该库，双写者风险在本路径兑现概率最高，建议推动改 HTTP 契约。
+- **冲突记录**：无。
+
+### 总结
+
+- **requests.md**：R78 已登记（家族三系统架构评审）。
+- **response.md**：记录 magicbook 侧评审结论与风险；评审主体在对话中交付。
+
+---
+
+## 2026-09-26
+
+### R79（架构评审修复执行，跨仓库；本仓库无代码改动）
+
+用户裁定范围：修复4（RabbitMQ 下线，moon-well 侧完成，本仓库无依赖无改动）、修复3/5a/5b（app-manager 与根 OPS.md 侧完成）、数据库表逻辑关系整理（根 `docs/db/DATABASE.md`，含本仓库关联的 Calibre metadata.db 集成线定性）；修复1（TED 导入 HTTP 契约）与修复2（支付收敛）明确不做。
+
+- 本仓库本轮仅账本登记，无代码/配置变更。
+- 与本仓库相关的两条记录：① DATABASE.md §7 清理清单确认 `tag`/`word` 等遗留表与现役表无冲突；② 修复1 后续若启动，magicbook 侧需新增导入端点（评审报告已有设计），本轮不实施。
+- **冲突记录**：无。
