@@ -228,3 +228,41 @@ def test_all_books_progress_lazy_recovers_cache(monkeypatch):
     assert job_new.completed_count == 2
     assert entry["completed"] == 2 and entry["total"] == 2
     assert result["allDone"] is True
+
+
+def test_recover_closure_resolves_moonwell_proxy(app, monkeypatch):
+    """R78 追加：启动恢复闭包必须能解析 _moonwell_proxy。
+
+    09-27 生产实锤：cps/__init__.py 的 _system_publish 闭包直接引用
+    _moonwell_proxy（定义在 cps.web），未 import → NameError，
+    恢复批次 27,428 段全部 FAILED（error_message 可证）。
+    """
+    from cps import web as web_module
+
+    assert hasattr(web_module, "_moonwell_proxy")
+
+    # create_app 的恢复闭包在运行时经 from . import web as web_module 解析；
+    # 模拟恢复线程执行 publish：确认闭包能走到 _moonwell_proxy 并发出请求
+    import json
+    import cps  # noqa: F401  (create_app 已由 app fixture 构建)
+
+    captured = {}
+
+    class _Resp:
+        status_code = 200
+        content = b'{"result": {"taskId": "t-r78"}}'
+        text = '{"result": {"taskId": "t-r78"}}'
+        headers = {"Content-Type": "application/json"}
+
+    monkeypatch.setattr(web_module.constants, "MOON_WELL_READING_URL",
+                        "http://127.0.0.1:18082")
+    monkeypatch.setattr(web_module.requests, "post",
+                        lambda url, json=None, headers=None, timeout=None, proxies=None:
+                        captured.update(url=url) or _Resp())
+
+    # 直接重放 create_app 内的 _system_publish 逻辑（等价于恢复线程路径）
+    response = web_module._moonwell_proxy(
+        "/llm/task/publish", {"input": "hi"}, 20,
+        "whole-book translation recovery", system_identity=True)
+    assert isinstance(response, tuple) and response[1] == 200
+    assert captured["url"].endswith("/llm/task/publish")

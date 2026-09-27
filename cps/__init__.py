@@ -206,7 +206,15 @@ def create_app():
     # 活动批次在此重新拉起（断点续作，设计文档 §9）。内部调用用系统身份：
     # 无请求上下文，直接以「内部信任头」形式向 moon-well 发布，不依赖用户会话。
     def _recover_whole_book_translation():
+        # R78: _moonwell_proxy 定义在 cps.web 模块级；闭包里直接引用会
+        # NameError（09-27 生产实锤：31 批次 × ~900 段全部 FAILED，
+        # error_message='name '_moonwell_proxy' is not defined'）。
+        # 循环 import 风险：web.py 顶部 import cps（本模块），此处延迟
+        # 到函数体内 import web 模块本身（create_app 执行时 web 已加载完毕）。
+        from . import web as web_module
         from .reading_translation.service import WholeBookTranslationService
+
+        _moonwell_proxy = web_module._moonwell_proxy
 
         service = WholeBookTranslationService()
 
