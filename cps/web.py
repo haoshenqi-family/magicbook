@@ -660,7 +660,10 @@ def reading_translate_all_books():
 @user_login_required
 @admin_required
 def reading_translate_all_progress():
-    return jsonify(whole_book_translation_service.all_books_progress())
+    # R78: 传入 lookup——进度页每次刷新顺带做缓存懒回收，数字跟着
+    # moon-well 的实际完成走，不再是静态快照
+    _, lookup = _whole_book_closures()
+    return jsonify(whole_book_translation_service.all_books_progress(lookup))
 
 
 @web.route("/translate-all", methods=["GET"])

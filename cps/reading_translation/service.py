@@ -1,6 +1,7 @@
 import hashlib
 import os
 import threading
+import time
 import uuid
 import zipfile
 from contextlib import contextmanager
@@ -16,6 +17,29 @@ log = logger.create()
 
 
 ACTIVE_STATUSES = ("PENDING", "RUNNING", "PARTIAL_FAILED")
+
+# R78：全局发布并发收敛。09-26 一键 44 本书同时拉起 44 个发布线程，
+# 每段一 commit 同一个 SQLite 文件，锁冲突爆发（30 次 'database is locked'
+# 崩溃），31 本书的发布线程中途死亡，39,645 段滞留 PENDING。
+# 改为全局信号量：同一时刻最多 PUBLISH_WORKERS 个发布线程真正在跑，
+# 其余在信号量上排队。moon-well 侧本来就是顺序执行器（~1 段/10s），
+# 多线程发布毫无收益只会放大锁竞争。每段 commit 前 retry_on_lock 兜底
+# 残余锁冲突（busy_timeout 也可能不够）。
+PUBLISH_WORKERS = max(1, int(os.environ.get("WHOLE_BOOK_PUBLISH_WORKERS", "2")))
+_PUBLISH_SEM = threading.Semaphore(PUBLISH_WORKERS)
+
+# R78：SQLite 并发写锁重试（database is locked 兜底）。
+# sqlite3 默认 busy_timeout 5s；这里对 commit 再包一层指数退避重试。
+def _commit_with_retry(session, attempts=6):
+    for attempt in range(attempts):
+        try:
+            session.commit()
+            return
+        except Exception as error:
+            is_locked = "locked" in str(error).lower()
+            if not is_locked or attempt == attempts - 1:
+                raise
+            time.sleep(min(2 ** attempt, 30))
 
 # 整书翻译单段提示词：与 moon-well PromptDefinitions.reading-paragraph-translate-plain
 # 语义一致。Why: 发布时即填充为完整提示词（prompt 字段），任务记录自包含可审计，
@@ -153,11 +177,18 @@ class WholeBookTranslationService:
     def _spawn_publish_worker(self, job_id, book_title, book_id, fingerprint, publish, lookup=None):
         """拉起后台发布线程（start 与启动恢复共用同一入口）。"""
         worker = threading.Thread(
-            target=self._publish_pending,
+            target=self._publish_worker_guarded,
             args=(job_id, book_title, book_id, fingerprint, publish, lookup),
             name="whole-book-publish-" + str(job_id)[:8], daemon=True)
         worker.start()
         return worker
+
+    def _publish_worker_guarded(self, job_id, book_title, book_id, fingerprint, publish, lookup=None):
+        """R78：全局并发收敛 wrapper——同一时刻最多 PUBLISH_WORKERS 个批次
+        真正在发布，其余在信号量上排队。排队中的批次账面状态不变（PENDING
+        段仍在），重启恢复也能重新拉起。"""
+        with _PUBLISH_SEM:
+            self._publish_pending(job_id, book_title, book_id, fingerprint, publish, lookup)
 
     def recover_active_jobs(self, publish, lookup=None):
         """应用启动恢复：为存在 PENDING 项的活动批次重新拉起发布线程。
@@ -215,7 +246,7 @@ class WholeBookTranslationService:
                                 item.translation = cached[item.text]
                                 job.cached_count += 1
                                 job.completed_count += 1
-                        session.commit()
+                        _commit_with_retry(session)
                 for item in items:
                     if item.status != "PENDING":
                         continue
@@ -244,9 +275,10 @@ class WholeBookTranslationService:
                         item.attempt_count = 1
                         job.failed_count += 1
                     item.updated_at = now_utc()
-                    session.commit()
+                    # R78: 每段一 commit 是锁冲突主源，包 retry 兜底残余冲突
+                    _commit_with_retry(session)
                 self._refresh_counts_session(job, session)
-                session.commit()
+                _commit_with_retry(session)
                 log.info("whole-book translation: publish finished, job=%s total=%s cached=%s "
                          "published=%s failed=%s status=%s",
                          job.id, job.total_count, job.cached_count,
@@ -445,8 +477,14 @@ class WholeBookTranslationService:
         return {"books": len(books), "started": started, "alreadyRunning": running,
                 "unavailable": skipped_no_file, "errors": errors}
 
-    def all_books_progress(self):
-        """全部英文书整本翻译进度：从翻译任务表聚合（执行台账）。"""
+    def all_books_progress(self, lookup=None):
+        """全部英文书整本翻译进度：从翻译任务表聚合（执行台账）。
+
+        R78: 传入 lookup 时对每书最新批次做一轮缓存懒回收——moon-well
+        顺序执行器在后台持续写缓存，任务表计数器不会自己动；不回收的话
+        页面数字永远是静态快照（09-27 实测：moon-well 已完成数千段而
+        页面进度纹丝不动，用户以为翻译停了）。
+        """
         from ..db import Books, Data, Languages
         from sqlalchemy import func as sa_func
 
@@ -461,6 +499,12 @@ class WholeBookTranslationService:
                 .order_by(TranslationJob.created_at.asc()).all())
         for job in rows:
             latest[job.book_id] = job  # 同书多批次取最新
+        if lookup:
+            for job in latest.values():
+                try:
+                    self._lazy_recover_job(job, lookup)
+                except Exception:
+                    log.exception("translate-all progress: lazy recover failed for job %s", job.id)
         result = []
         for book_id, job in sorted(latest.items()):
             done = (job.status == "COMPLETED")
@@ -472,3 +516,32 @@ class WholeBookTranslationService:
                            "done": done})
         return {"books": result, "allDone": all(b["done"] for b in result) if result else False}
 
+    def _lazy_recover_job(self, job, lookup):
+        """对单个批次做一轮缓存懒回收（get_progress 的单书版本，供聚合进度用）。
+
+        Why: 78k 段 × 1 段/10s 的消化速度下，页面必须能看到数字在动，
+        否则无法区分「在慢慢翻译」与「彻底卡死」。
+        How: 只查非终态 item，200 段一批；单批失败静默跳过（下轮再试）。
+        ub.session 是请求线程会话，与 get_progress 同一形态。
+        """
+        pending_items = ub.session.query(TranslationJobItem).filter(
+            TranslationJobItem.job_id == job.id,
+            ~TranslationJobItem.status.in_(("COMPLETED", "FAILED", "SKIPPED"))).all()
+        if not pending_items:
+            return
+        changed = False
+        for batch in self._batches(pending_items, 200):
+            try:
+                cached = lookup([item.text for item in batch]) or {}
+            except Exception:
+                continue
+            for item in batch:
+                if cached.get(item.text):
+                    item.status = "COMPLETED"
+                    item.translation = cached[item.text]
+                    item.error_message = None
+                    item.updated_at = now_utc()
+                    changed = True
+        if changed:
+            self._refresh_counts(job)
+            ub.session.commit()

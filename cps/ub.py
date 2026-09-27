@@ -749,7 +749,12 @@ def password_change(user_credentials=None):
 
 
 def get_new_session_instance():
-    new_engine = create_engine('sqlite:///{0}'.format(app_DB_path), echo=False)
+    # R78: 后台发布线程每段一 commit，多线程并发写同一 SQLite 文件时
+    # 默认 5s busy_timeout 不够（生产 30 次 'database is locked' 崩溃），
+    # 提高到 60s 让写锁等待而非立刻炸；配合 reading_translation 侧的全局
+    # 发布信号量（并发收敛到 2）双保险。
+    new_engine = create_engine('sqlite:///{0}'.format(app_DB_path), echo=False,
+                               connect_args={'timeout': 60})
     new_session = scoped_session(sessionmaker())
     new_session.configure(bind=new_engine)
 
