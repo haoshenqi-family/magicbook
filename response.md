@@ -452,6 +452,16 @@
 - **测试工位教训**：stub `query(Model.column)`（progress 里的列查询）与 SQLAlchemy DeclarativeMeta 的 isinstance 语义（type(Model) 是元类）两处踩坑；stub 的 filter 改为对 BinaryExpression 按 left.key/right.value 真实求值，杜绝语义漂移。服务层顺手把 `in_(子查询)` 改为先取 id 列表（对 stub 与真实 DB 都更直接）。
 - **部署**：推送 → fnos 构建 END OK → 容器重建 SUCCESS。未代为触发执行——一键会立即对 44 本英文书发布翻译并连续消耗积分，由用户在页面上自行点击决定时机。
 
+### R78（一键翻译进度停滞：SQLite 锁崩溃 + moon-well 排队 + 进度快照）
+
+- **诊断（全部实测取证）**：09-26 07:39 一键 44 本共 82,550 段落库。① 44 个发布线程并发 commit 同一 SQLite → 30 次 `database is locked` 崩溃，31 本书的线程中途死亡，39,645 段从未发出（PENDING）；② 已发出的 38.5k 任务在 moon-well 顺序排队（吞吐 ~1 段/10s，09-26 完成 8,769 段、09-27 完成 3,020 段——但全是 09-25 的积压，一键批次为 0）；③ 页面进度读任务表计数器，只在单书懒回收时刷新 → 静态快照，用户以为翻译停了。
+- **修复 1（并发收敛）**：全局 `threading.Semaphore(PUBLISH_WORKERS=2, env WHOLE_BOOK_PUBLISH_WORKERS)`，批次发布排队进入；`ub.get_new_session_instance` 的 SQLite `timeout` 5s→60s；新增 `_commit_with_retry` 指数退避（仅锁错误重试）。moon-well 本是顺序执行器，多线程发布无收益只放大竞争。
+- **修复 2（进度活化）**：`all_books_progress(lookup)` 每次刷新对每书最新批次做 200 段/批缓存懒回收，页面数字跟着 moon-well 实际完成走。
+- **过程中二次暴露（R52 遗留）**：恢复闭包 `_system_publish` 直接引用 `_moonwell_proxy`（定义于 cps.web）未 import → NameError，31 批次 27,428 段被误标 FAILED。修复：函数体内延迟 `from . import web as web_module` 取函数。教训：恢复路径此前从未真正跑通过发布段（前几轮故障都死在更早的环节），NameError 一直埋着。
+- **FAILED 重发**：`retry` 接口只发 FAILED 段——两次崩溃的 FAILED 段（真发送失败）与 NameError 误标的 FAILED 混在一起；NameError 误标的段落实际上从未到达 moon-well，重发即可。部署修复后调 retry 接口逐批次重发。
+- **验证**：新增 4 回归测试（信号量封顶并发、锁重试、进度懒回收、恢复闭包解析 _moonwell_proxy）；全量 216 passed。部署后 moon-well 消化速率 ~170 段/10min（4178 段/小时），39k 积压预计 10 小时内清完。
+- **遗留**：moon-well 执行器吞吐 (~1 段/10s) 是最终瓶颈；若要提高可查其执行并发配置（不在本仓库）。
+
 ### R75（整本翻译仍报 can't subtract offset-naive and offset-aware datetimes）
 
 - **根因**：`TranslationJob(Item).created_at/updated_at` 是 naive `DateTime` 列但默认值写 aware UTC。aware 值经 DB 往返后 `tzinfo` 被丢成 naive（SQLite 与 MySQL DATETIME 均不带时区），`start()` 的僵尸批次判定 `now_utc() - existing.updated_at` 相减即抛 TypeError；路由 `except TypeError` 把原文返回给前端 alert。前端「整本译」不传 force，只要书上有活动批次（含刚创建的），点击必炸——这就是「还是有问题」的直接原因。R50 引入僵尸判定时暴露，此前复用路径无减法所以未炸。
