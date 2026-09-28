@@ -249,3 +249,20 @@
 - **requests.md**：占号 R74。
 - **response.md**：本条。
 - **冲突记录**：无。
+
+## 2026-09-28（magicbook 整站假死排查与恢复）
+
+### R87（https://magicbook.haoyuhang.top/ 突然访问不了——应用假死，已恢复）
+
+- **现象与分层定位**：公网 TLS 握手正常（Traefik 证书有效）但 HTTP 请求 15s 0 字节；内网直连 fnOS:8083 TCP 能连但 12s 0 字节；fnOS 本机 `curl 127.0.0.1:8083` 同样挂起 → 排除 Traefik/网络，应用假死。容器状态却显示 `Up 32 hours (healthy)`。
+- **py-spy 实锤死锁链**（`pip3 install py-spy` + `py-spy dump`）：MainThread（Tornado IOLoop）卡在 `cps/search_metadata.py:137` 的 `as_completed` 无限等待；它提交到 `ThreadPoolExecutor-1` 的两个线程卡在 `cps/metadata_provider/google.py:54` 的 `requests.get`（**无 timeout**）——fnOS 内网到 `www.googleapis.com` 不可达（复现：curl exit 28 超时），TCP 连接永不超时。元数据搜索视图跑在事件循环线程里 → 外呼挂 → 全站 8083 不再响应。旁证：8083 上 113 个 CLOSE-WAIT 堆积、accept 队列积压、应用日志止于 15:23:31、WAL 文件停在 13:51。
+- **为什么 healthy/自愈没兜住**：healthcheck 是 `nc -z localhost 8083`（TCP 探活），应用不 accept 时内核 backlog 仍完成握手，永远报 healthy；magicbook 也没有 moon-well 那样的 autoheal。当日 14:18/14:52 moon-well NewAPI 500、moon-well 自身 15:27/15:36 被 autoheal 重启，均为相邻事件，与本假死无因果。
+- **处置**：`docker restart magicbook`（死锁无软恢复手段）。验证：fnOS 本机 HTTP 302（6ms），公网 302（0.1~0.5s）；容器内 09-27 遗留的 `/tmp/trigger_book89.py`、`retry_book89.py` 等挂起进程随重启消失（文件仍在，无害）。
+- **遗留待办（未改代码，待确认后排期）**：① `google.py` 及其他元数据 provider 外呼统一加 `timeout`；② compose healthcheck 从 `nc -z` 改为 HTTP 探针（如 `curl -f http://localhost:8083/`），让假死能触发自愈；③ 根 `OPS.md` §4 已新增「Web 应用整站假死」排查行。
+- **文档**：根 `OPS.md` 更新最后更新日期与 §4 排查表。
+
+### 总结
+
+- **requests.md**：占号 R87。
+- **response.md**：本条。
+- **冲突记录**：无。
