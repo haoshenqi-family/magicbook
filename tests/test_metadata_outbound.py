@@ -191,3 +191,64 @@ class TestSearchViewBounded:
         rv = admin_client.post("/metadata/search", data={"query": "x"})
         assert rv.status_code == 200
         assert rv.get_json() == [{"name": "fast-result"}]
+
+
+class _FakeImageResponse:
+    status_code = 200
+
+    def raise_for_status(self):
+        pass
+
+
+class _FakeAdvocate:
+    def __init__(self):
+        self.calls = []
+
+    def get(self, url, **kwargs):
+        self.calls.append((url, kwargs))
+        return _FakeImageResponse()
+
+
+class TestCoverDownloadRouting:
+    """R88 补漏：封面下载是独立于 provider 搜索的另一条外呼链路。
+
+    只给 provider 加代理时，点"应用元数据"取谷歌封面仍会直连
+    books.google.com 超时（日志：Cover Download Error ... ConnectTimeoutError），
+    前端报 "Error Downloading Cover"。这里锁定它必须复用同一条域名路由。
+    """
+
+    def test_google_cover_goes_through_outbound(self, monkeypatch):
+        from cps import helper
+
+        calls = []
+        monkeypatch.setattr(helper.outbound, "get",
+                            lambda url, **kw: calls.append((url, kw)) or _FakeImageResponse())
+        monkeypatch.setattr(helper, "save_cover", lambda img, path: (True, ""))
+        advocate = _FakeAdvocate()
+        monkeypatch.setattr(helper, "cw_advocate", advocate, raising=False)
+
+        ok, _msg = helper.save_cover_from_url(
+            "https://books.google.com/books/content?id=DZowEQAAQBAJ&fife=w800-h900", "/tmp/x")
+
+        assert ok is True
+        assert len(calls) == 1
+        assert calls[0][0].startswith("https://books.google.com/")
+        assert calls[0][1]["allow_redirects"] is False
+        assert calls[0][1]["timeout"] == (10, 200)
+        assert advocate.calls == [], "谷歌封面不能走 advocate（其连接类无法挂代理）"
+
+    def test_non_google_cover_keeps_advocate(self, monkeypatch):
+        from cps import helper
+
+        monkeypatch.setattr(helper.outbound, "get",
+                            lambda *a, **k: pytest.fail("非谷歌封面不应改道 outbound"))
+        monkeypatch.setattr(helper, "save_cover", lambda img, path: (True, ""))
+        advocate = _FakeAdvocate()
+        monkeypatch.setattr(helper, "use_advocate", True, raising=False)
+        monkeypatch.setattr(helper, "cw_advocate", advocate, raising=False)
+        monkeypatch.setattr(helper.cli_param, "allow_localhost", False, raising=False)
+
+        ok, _msg = helper.save_cover_from_url("https://images.example.com/x.jpg", "/tmp/x")
+
+        assert ok is True
+        assert [c[0] for c in advocate.calls] == ["https://images.example.com/x.jpg"]

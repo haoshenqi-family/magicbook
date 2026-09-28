@@ -52,6 +52,7 @@ except ImportError as e:
     UnacceptableAddressException = MissingSchema = BaseException
 
 from . import calibre_db, cli_param
+from .metadata_provider import outbound
 from .string_helper import strip_whitespaces
 from .tasks.convert import TaskConvert
 from . import logger, config, db, ub, fs
@@ -824,7 +825,13 @@ def get_series_thumbnail(series_id, resolution):
 # saves book cover from url
 def save_cover_from_url(url, book_path):
     try:
-        if cli_param.allow_localhost:
+        if outbound.is_google_url(url):
+            # 谷歌封面（books.google.com / *.googleusercontent.com 等）内网直连必然
+            # 超时，必须与元数据搜索共用同一条"仅谷歌走代理"的路由（R88）；advocate
+            # 自带连接类、无法挂代理，故谷歌走 outbound（其余域名仍由 advocate 做
+            # SSRF 校验，保持原有防护）。
+            img = outbound.get(url, timeout=(10, 200), allow_redirects=False)
+        elif cli_param.allow_localhost:
             img = requests.get(url, timeout=(10, 200), allow_redirects=False)  # ToDo: Error Handling
         elif use_advocate:
             img = cw_advocate.get(url, timeout=(10, 200), allow_redirects=False)      # ToDo: Error Handling
