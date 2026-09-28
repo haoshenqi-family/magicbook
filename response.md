@@ -266,3 +266,26 @@
 - **requests.md**：占号 R87。
 - **response.md**：本条。
 - **冲突记录**：无。
+
+## 2026-09-28（magicbook 元数据外呼：仅谷歌走代理 + 强制超时）
+
+### R88（仅谷歌相关请求走内网代理 192.168.31.11:12811，其余保持直连）
+
+- **实现（magicbook，8 个源文件 + 2 个测试文件）**：
+  - 新增 `cps/metadata_provider/outbound.py`：按域名路由——仅 `googleapis.com` / `google.com` / `googleusercontent.com` / `gstatic.com`（含 `scholar.google.com`）走 `METADATA_GOOGLE_PROXY`；其余域名显式 `proxies={'http':None,'https':None}` 钉死直连，防止泄漏的 `http_proxy`/`https_proxy` 把豆瓣/Amazon/ComicVine/LubimyCzytac 静默改道；`timeout` 强制注入，显式传 `None` 会被重置为默认 (5,30)。域名按 label 边界匹配，`notgoogle.com` 不算谷歌。
+  - 六个 provider 全部接入：google（专属超时 (5,20)，R87 源头）、amazon、douban、lubimyczytac、comicvine、scholar（顺带注入 `scholarly.use_proxy`）。
+  - `google.py` 的 API key 改为请求时读取：旧写法在类体求值，provider 扫描早于 config 初始化时会抛 `AttributeError` 带崩整个扫描（测试环境已复现）。
+  - `/metadata/search` 弃用无界 `as_completed` → `futures.wait(timeout=METADATA_SEARCH_TIMEOUT，默认 60s)`：卡住的 provider 丢弃、已完成结果照常返回；不再用 `with`（上下文退出时 `shutdown(wait=True)` 会把等待上限架空，R87 教训）。同族的 `/metadata/provider/<id>` 单源路径靠 provider 自身超时兜底。
+  - healthcheck 从 `nc -z` 改为应用层 HTTP 探针（TCP 探不出事件循环假死）。
+- **测试**：新增 `tests/test_metadata_outbound.py` 11 例（域名路由三分支 / 显式直连抗环境变量污染 / timeout 不可绕过 / 视图不被卡死 provider 无界阻塞 / 非法 env 兜底）；conftest 补注册 metadata 蓝图。全量 **227 例通过**。
+- **验证**：开发机实测 googleapis 直连 2.0s、经代理 2.3s 拿到响应（HTTP 429，代理链路本身可用）；非谷歌域名 `_proxies_for` 恒返回直连映射。
+- **部署状态**：代码已提交并推送 `67b5f82b`（develop）。fnOS webhook 构建**首次尝试失败**——`git fetch` 走代理时报 `GnuTLS recv error (-110): The TLS connection was non-properly terminated`（builder 侧 git 代理配置齐全，属代理/GitHub 瞬断），镜像未更新、容器仍是旧版本。重跑命令：`/app/codelib/webhook-builder/build-magicbook.sh refs/heads/develop 67b5f82b26a6cbf2f243d5b0c0da30d0e45fd794`。
+- **线上配置（已就位）**：`/vol1/1000/app/magicbook/.env` 增加 `METADATA_GOOGLE_PROXY=http://192.168.31.11:12811`；`docker-compose.yml` 换成仓库版（新增两个 env 透传 + HTTP healthcheck），旧文件备份为 `docker-compose.yml.bak-20260928`。**注意：线上 compose 是手工副本，仓库改动不会自动同步**，每次改 compose 都要手动 scp。
+- **文档**：根 `OPS.md` §4 的「Web 应用整站假死」排查行（R87 新增）已覆盖本故障模式；本轮补充了代理与超时口径。
+- **冲突记录**：无。
+
+### 总结
+
+- **requests.md**：占号 R88。
+- **response.md**：本条。
+- **冲突记录**：无。
