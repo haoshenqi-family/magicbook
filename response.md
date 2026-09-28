@@ -289,3 +289,18 @@
 - **requests.md**：占号 R88。
 - **response.md**：本条。
 - **冲突记录**：无。
+
+### R88 补漏（2026-09-28 晚，已上线）
+
+- **现象**：元数据搜索已通（21:19 配置保存成功并重启，Google 不再报 429，返回了结果与封面 URL），但点「应用元数据」取谷歌封面报 `Error Downloading Cover`。
+- **根因**：封面下载是**独立于 provider 搜索的另一条外呼链路**——`helper.save_cover_from_url` 用 `cw_advocate.get` 直连，R88 的代理路由只覆盖了 provider 的 `search()`。日志实锤：`Cover Download Error ValidatingHTTPSConnectionPool(host='books.google.com', port=443) ... ConnectTimeoutError ... connect timeout=10`。因带 10s 超时，只报错不假死。
+- **修复**：`save_cover_from_url` 增加 google 分支，谷歌域名改走 `outbound.get`（复用「仅谷歌走代理」路由）；其余域名仍走 advocate —— advocate 自带 `ValidatingHTTPSConnection`、挂不上代理，这正是当初漏掉它的原因，也是不能整体替换的原因（SSRF 校验需保留）。
+- **测试**：`tests/test_metadata_outbound.py` 新增 `TestCoverDownloadRouting` 2 例（谷歌封面必须走 outbound 且不碰 advocate；非谷歌封面不许改道 outbound）。全量 **229 例通过**。
+- **上线验证**：`d21ead7a` 推送 → 21:43:20 构建 + app-manager 部署成功；容器 `healthy`；镜像内 `/app/cps/helper.py:828` 已含新分支；实测该封面 URL 路由到代理并返回 `200 image/jpeg 74529 bytes`（2.7s）。
+- **配置**：无需新增（复用 `METADATA_GOOGLE_PROXY`）。
+
+### 总结
+
+- **requests.md**：R88 补漏，不单独占号。
+- **response.md**：本条。
+- **冲突记录**：无。
