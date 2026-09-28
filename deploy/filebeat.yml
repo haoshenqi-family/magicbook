@@ -28,6 +28,15 @@ filebeat.inputs:
                 if (level === "CRIT") { level = "critical"; }
                 event.Put("log.level", level.toLowerCase());
               }
+              var t = /---\s*\[[^\]]*\]\s*\[([0-9a-f]{32})\]/.exec(msg);
+              if (t) {
+                event.Put("trace.id", t[1]);
+              } else {
+                var t2 = /^\[[^\]]+\]\s+[A-Z]+\s+\[([^\]]+)\]/.exec(msg);
+                if (t2 && t2[1] !== "-" && t2[1] !== "N/A") {
+                  event.Put("trace.id", t2[1]);
+                }
+              }
             }
 
 output.elasticsearch:

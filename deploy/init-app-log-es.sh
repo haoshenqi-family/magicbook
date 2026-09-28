@@ -55,6 +55,9 @@ resp=$(curl -sS -u "$ES_USERNAME:$ES_PASSWORD" -H 'Content-Type: application/jso
             "file":   { "properties": { "path": { "type": "keyword" } } },
             "level":  { "type": "keyword" }
           }
+        },
+        "trace":      {
+          "properties": { "id": { "type": "keyword" } }
         }
       }
     }
