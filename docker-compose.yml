@@ -11,6 +11,11 @@ services:
       TZ: Asia/Shanghai
       # 调试/限流配置（可选）
       CALIBRE_CONFIG_RECONNECT: ${CALIBRE_CONFIG_RECONNECT:-0}
+      # 仅谷歌请求走内网代理（可选，如 http://192.168.31.11:12811；留空=直连）。
+      # 非谷歌请求不受影响，应用内部已显式直连，不会误走代理。
+      METADATA_GOOGLE_PROXY: ${METADATA_GOOGLE_PROXY:-}
+      # 元数据搜索整体等待上限秒数（防止单个元数据源卡住拖死全站）
+      METADATA_SEARCH_TIMEOUT: ${METADATA_SEARCH_TIMEOUT:-60}
     env_file:
       # AI_DATABASE_URL 等敏感配置（.env 已被 gitignore，不提交）
       - .env
@@ -24,7 +29,10 @@ services:
     # 以 root 运行以便自动修正挂载卷权限，entrypoint 会 gosu 降权到 calibre 用户
     user: "0:0"
     healthcheck:
-      test: ["CMD", "nc", "-z", "localhost", "8083"]
+      # 应用层 HTTP 探针：TCP nc -z 探不出应用假死（2026-09-28 R87 实踩——
+      # 事件循环冻死后内核仍代答握手，容器一直 healthy）。拿不到响应即非零
+      # 退出，unhealthy 后可被重启策略/autoheal 接手。
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8083/', timeout=5)"]
       interval: 30s
       timeout: 10s
       start_period: 40s

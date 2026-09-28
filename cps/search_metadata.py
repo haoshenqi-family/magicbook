@@ -127,13 +127,40 @@ def metadata_search():
     locale = get_locale()
     if query:
         static_cover = url_for("static", filename="generic_cover.jpg")
-        # ret = cl[0].search(query, static_cover, locale)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        # 2026-09-28 整站假死（R87）后的双保险：
+        # (1) 各 provider 外呼自身已强制超时（cps/metadata_provider/outbound.py）；
+        # (2) 这里不再无界等待——用 futures.wait 整体兜底，卡住的 provider
+        #     最多拖满 METADATA_SEARCH_TIMEOUT 秒即被丢弃，已有结果照常返回。
+        #     本视图运行在 Tornado 事件循环线程内，这里的等待上限就是全站
+        #     可用性上限，不允许改回无界 as_completed。
+        try:
+            wait_cap = int(os.environ.get("METADATA_SEARCH_TIMEOUT", "60"))
+        except ValueError:
+            wait_cap = 60
+        # 不用 with：ThreadPoolExecutor 上下文退出时 shutdown(wait=True) 会
+        # 重新无限等待卡死的 provider，把下面的等待上限架空（R87 教训）。
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
+        try:
             meta = {
                 executor.submit(c.search, query, static_cover, locale): c
                 for c in cl
                 if active.get(c.__id__, True)
             }
-            for future in concurrent.futures.as_completed(meta):
-                data.extend([asdict(x) for x in (future.result() or []) if x])
+            done, not_done = concurrent.futures.wait(
+                meta, timeout=wait_cap,
+                return_when=concurrent.futures.ALL_COMPLETED)
+            for future in done:
+                try:
+                    data.extend([asdict(x) for x in (future.result() or []) if x])
+                except Exception as e:
+                    log.warning("metadata provider failed: {}".format(e))
+            for future in not_done:
+                future.cancel()
+                log.warning("metadata provider timed out after {}s, dropped: {}".format(
+                    wait_cap, meta[future].__id__))
+        finally:
+            # Why wait=False：本视图运行在 Tornado 事件循环线程，这里再等
+            # 正在卡死的 provider 会拖死全站；未完成任务由 provider 自身
+            # 的强制超时（outbound.DEFAULT_TIMEOUT）兜底结束后自行退出。
+            executor.shutdown(wait=False, cancel_futures=True)
     return  make_response(jsonify(data))

@@ -26,6 +26,7 @@ try:
 except ImportError:
     pass
 
+from cps.metadata_provider import outbound
 from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
 import cps.logger as logger
 
@@ -58,7 +59,9 @@ class Amazon(Metadata):
         def inner(link, index) -> [dict, int]:
             with self.session as session:
                 try:
-                    r = session.get(f"https://www.amazon.com/{link}")
+                    r = session.get(f"https://www.amazon.com/{link}",
+                                    timeout=outbound.DEFAULT_TIMEOUT,
+                                    proxies=outbound.DIRECT_PROXIES)
                     r.raise_for_status()
                 except Exception as ex:
                     log.warning(ex)
@@ -122,7 +125,9 @@ class Amazon(Metadata):
                 results = self.session.get(
                     f"https://www.amazon.com/s?k={query.replace(' ', '+')}&i=digital-text&sprefix={query.replace(' ', '+')}"
                     f"%2Cdigital-text&ref=nb_sb_noss",
-                    headers=self.headers)
+                    headers=self.headers,
+                    timeout=outbound.DEFAULT_TIMEOUT,
+                    proxies=outbound.DIRECT_PROXIES)
                 results.raise_for_status()
             except requests.exceptions.HTTPError as e:
                 log.error_or_exception(e)

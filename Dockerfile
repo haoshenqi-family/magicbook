@@ -80,9 +80,10 @@ ENV CALIBRE_PORT=8083 \
 # 暴露端口
 EXPOSE 8083
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD nc -z localhost 8083 || exit 1
+# 健康检查：应用层 HTTP 探针（nc -z 只能证明 TCP 内核栈活着，探不出
+# 应用假死——2026-09-28 R87 实踩；compose 中的同名定义会覆盖此处）
+HEALTHCHECK --interval=30s --timeout=15s --start-period=40s --retries=3 \
+    CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8083/', timeout=5)" || exit 1
 
 # 使用 tini 作为 init 进程，正确转发信号给 Python
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/entrypoint.sh"]

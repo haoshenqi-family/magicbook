@@ -139,6 +139,11 @@ def _app_instance(tmp_path_factory):
     app.register_blueprint(about)
     app.register_blueprint(search)
     try:
+        from cps.search_metadata import meta as metadata_meta
+        app.register_blueprint(metadata_meta)
+    except ImportError:
+        pass
+    try:
         from cps.tasks_status import tasks
         app.register_blueprint(tasks)
     except ImportError:

@@ -28,6 +28,7 @@ from lxml.html import HtmlElement, fromstring, tostring
 from markdown2 import Markdown
 
 from cps import logger
+from cps.metadata_provider import outbound
 from cps.isoLanguages import get_language_name
 from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
 
@@ -118,7 +119,13 @@ class LubimyCzytac(Metadata):
     ) -> Optional[List[MetaRecord]]:
         if self.active:
             try:
-                result = requests.get(self._prepare_query(title=query))
+                # 强制超时 + 显式直连：防止无界等待拖死调用线程（R87），
+                # 也防止泄漏的 http_proxy 环境变量把非谷歌请求改道代理（R88）。
+                result = requests.get(
+                    self._prepare_query(title=query),
+                    timeout=outbound.DEFAULT_TIMEOUT,
+                    proxies=outbound.DIRECT_PROXIES,
+                )
                 result.raise_for_status()
             except Exception as e:
                 log.warning(e)
@@ -212,7 +219,11 @@ class LubimyCzytacParser:
         self, match: MetaRecord, generic_cover: str, locale: str
     ) -> MetaRecord:
         try:
-            response = requests.get(match.url)
+            response = requests.get(
+                match.url,
+                timeout=outbound.DEFAULT_TIMEOUT,
+                proxies=outbound.DIRECT_PROXIES,
+            )
             response.raise_for_status()
         except Exception as e:
             log.warning(e)

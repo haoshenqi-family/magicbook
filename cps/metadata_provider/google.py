@@ -21,10 +21,9 @@ from typing import Dict, List, Optional
 from urllib.parse import quote
 from datetime import datetime
 
-import requests
-
 from cps import logger, config
 from cps.isoLanguages import get_lang3, get_language_name
+from cps.metadata_provider import outbound
 from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
 
 log = logger.create()
@@ -38,7 +37,18 @@ class Google(Metadata):
     BOOK_URL = "https://books.google.com/books?id="
     SEARCH_URL = "https://www.googleapis.com/books/v1/volumes?q="
     ISBN_TYPE = "ISBN_13"
-    API_KEY = "&key=" + config.config_googlebooks_api_key 
+    # Google Books 专属超时 (连接, 读取)：比默认值更紧。这里是 R87 整站假死
+    # 的源头，内网不可达时必须在秒级放弃，不能长时间占住事件循环线程。
+    TIMEOUT = (5, 20)
+
+    @staticmethod
+    def _api_key_param():
+        """Why 延迟读取：类属性在模块导入期求值，此时 config 可能还没初始化
+        （测试环境、以及 provider 扫描早于 create_app 的场景），旧写法
+        ``"&key=" + config.config_googlebooks_api_key`` 会在导入期抛
+        AttributeError，把整个 provider 扫描带崩。
+        """
+        return "&key=" + (getattr(config, "config_googlebooks_api_key", "") or "")
 
     def search(
         self, query: str, generic_cover: str = "", locale: str = "en"
@@ -51,7 +61,11 @@ class Google(Metadata):
                 tokens = [quote(t.encode("utf-8")) for t in title_tokens]
                 query = "+".join(tokens)
             try:
-                results = requests.get(Google.SEARCH_URL + query + Google.API_KEY)
+                # 经 outbound：谷歌域名按 METADATA_GOOGLE_PROXY 走代理，且强制
+                # 超时，杜绝 R87 那种无界等待拖死事件循环的情况再次发生。
+                results = outbound.get(
+                    Google.SEARCH_URL + query + Google._api_key_param(),
+                    timeout=Google.TIMEOUT)
                 results.raise_for_status()
             except Exception as e:
                 log.warning(e)
