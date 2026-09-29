@@ -167,6 +167,43 @@ def test_unmapped_user_is_rejected(fake_target, sqlite_source, tmp_path):
         migrate.main(_argv(sqlite_source, str(path)))
 
 
+def test_skip_unmapped_drops_rows_and_cascade_messages(fake_target, tmp_path):
+    """--skip-unmapped：未映射用户的会话/消息/记忆跳过，映射用户正常迁移；
+    被跳会话的消息级联跳过（引用一致）。"""
+    db_path = tmp_path / "mixed.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.executescript(SCHEMA)
+    # user 1：已映射（→ moon-well 1），会话 11 + 消息 21 + 记忆 31
+    conn.execute("INSERT INTO ai_conversation (id, user_id, book_id, title, created_at,"
+                 " updated_at) VALUES (11, 1, 89, 'mapped conv', '2026-09-01 10:00:00',"
+                 " '2026-09-01 10:05:00')")
+    conn.execute("INSERT INTO ai_message (id, conversation_id, role, content, created_at)"
+                 " VALUES (21, 11, 'user', 'q', '2026-09-01 10:00:01')")
+    conn.execute("INSERT INTO ai_user_memory (id, user_id, content, source_book_id,"
+                 " created_at) VALUES (31, 1, '偏好简洁', 89, '2026-09-01 10:00:03')")
+    # user 9：未映射，会话 12 + 消息 23 + 记忆 32 → 全部应被跳过
+    conn.execute("INSERT INTO ai_conversation (id, user_id, book_id, title, created_at,"
+                 " updated_at) VALUES (12, 9, 90, 'orphan conv', '2026-09-01 11:00:00',"
+                 " '2026-09-01 11:05:00')")
+    conn.execute("INSERT INTO ai_message (id, conversation_id, role, content, created_at)"
+                 " VALUES (23, 12, 'user', 'q2', '2026-09-01 11:00:01')")
+    conn.execute("INSERT INTO ai_user_memory (id, user_id, content, source_book_id,"
+                 " created_at) VALUES (32, 9, 'orphan mem', 90, '2026-09-01 11:00:03')")
+    conn.commit()
+    conn.close()
+
+    map_path = tmp_path / "partial_map.json"
+    map_path.write_text(json.dumps({"1": "1"}), encoding="utf-8")
+    rc = migrate.main(_argv(str(db_path), str(map_path), extra=["--skip-unmapped"]))
+    assert rc == 0
+
+    tables = {t: rows for t, cols, rows in FakeTarget.calls}
+    assert [r["id"] for r in tables["ai_conversation"]] == [11]
+    assert [r["id"] for r in tables["ai_message"]] == [21]      # 消息 23 级联跳过
+    assert [r["id"] for r in tables["ai_user_memory"]] == [31]  # 记忆 32 跳过
+    assert FakeTarget.instances[0].committed
+
+
 def test_dry_run_writes_nothing(fake_target, sqlite_source, user_map_file):
     rc = migrate.main(_argv(sqlite_source, user_map_file, extra=["--dry-run"]))
     assert rc == 0

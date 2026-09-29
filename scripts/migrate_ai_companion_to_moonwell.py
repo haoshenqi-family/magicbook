@@ -69,9 +69,14 @@ def resolve_user_id(user_map, raw_id):
         return int(raw_id)
     mapped = user_map.get(str(raw_id))
     if mapped is None:
-        raise SystemExit("user_id %s 不在映射表里（迁移前需核实映射关系，"
-                         "或实测同 id 后改用 --identity-mapping）" % raw_id)
+        raise UnmappedUserError(
+            "user_id %s 不在映射表里（迁移前需核实映射关系，实测同 id 后可改用"
+            " --identity-mapping；或确认放弃该用户数据时加 --skip-unmapped）" % raw_id)
     return int(mapped)
+
+
+class UnmappedUserError(ValueError):
+    """源行 user_id 不在映射表（--skip-unmapped 可跳过而不是失败）。"""
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +216,9 @@ def main(argv=None):
     parser.add_argument("--user-map", help='映射 JSON 文件 {"magicbook用户id": "moonwell userId"}')
     parser.add_argument("--identity-mapping", action="store_true",
                         help="两系统 user id 同源（需迁移前实测核实后才能用）")
+    parser.add_argument("--skip-unmapped", action="store_true",
+                        help="映射表之外用户的行跳过不迁（打印清单），而不是报错退出；"
+                             "被跳会话的消息一并级联跳过")
     parser.add_argument("--dry-run", action="store_true",
                         help="只读源库 + 打印对账，不写 MySQL")
     args = parser.parse_args(argv)
@@ -238,9 +246,35 @@ def main(argv=None):
         raise SystemExit("缺 --mysql-url（或环境变量 MOONWELL_MYSQL_URL）")
 
     mapped = {}
-    for table in TABLES_TO_MIGRATE:
-        mapper = MAPPERS[table]
-        mapped[table] = [mapper(row, user_map) for row in data[table]]
+    skipped = {}
+    try:
+        for table in TABLES_TO_MIGRATE:
+            rows_out = []
+            for row in data[table]:
+                try:
+                    rows_out.append(MAPPERS[table](row, user_map))
+                except UnmappedUserError:
+                    if not args.skip_unmapped:
+                        raise
+                    skipped.setdefault(table, []).append(row["id"])
+            mapped[table] = rows_out
+    except UnmappedUserError as e:
+        raise SystemExit(str(e))
+
+    # 会话被跳过时，其消息一并级联跳过（保持 conversation_id 引用一致）
+    if skipped.get("ai_conversation"):
+        kept_conv = {r["id"] for r in mapped["ai_conversation"]}
+        dropped = [m["id"] for m in mapped["ai_message"]
+                   if m["conversation_id"] not in kept_conv]
+        mapped["ai_message"] = [m for m in mapped["ai_message"]
+                                if m["conversation_id"] in kept_conv]
+        if dropped:
+            skipped["ai_message"] = dropped
+
+    if skipped:
+        print("=== 按 --skip-unmapped 跳过的行 ===")
+        for table, ids in skipped.items():
+            print("%-16s 跳过 %d 行: id=%s" % (table, len(ids), ids))
 
     target = MySqlTarget(args.mysql_url)
     try:
