@@ -320,3 +320,9 @@
 - **测试**：全量 214 passed（基线 229；删 26 个旧 chat/admin 行为测试，新增薄代理 8、迁移 5、退役语义 13、过渡 E2E 4）。moon-well 侧配套（会话 rename/delete 端点 + 519 全绿）已在 moon-well R98 追补提交（5281f65）。
 - **待运维动作（本机不可执行）**：① 生产部署后确认 moon-well `ai.agent.enabled=true` 灰度开启；② 实测 user_id 映射（OIDC 同源核实）后执行迁移脚本（先 cp 备份 ai_companion.db）；③ 迁移对账通过后执行最终退役（删除 provider/crypto/database 等模块与 ai_admin.html、旧读端点）。
 - **对 requests.md/response.md 的总结**：本轮补登了此前会话未入库的 R89–R97 回应与 R70–R80 归档、R92–R95 设计文档；R98 与 moon-well R81 同源登记联动，两侧编号无冲突。
+
+### R98 追记（2026-09-29 傍晚：上线运维结果与迁移执行）
+
+- **部署确认**：生产容器运行的镜像（14:59 构建）已验证含 R98 全部代码（容器内 cps/ai/proxy.py 存在、旧 /ai/chat 返回 410）。注意：magicbook 的 GitHub "Build and Push to Aliyun" workflow 处于 disabled_manually（最后一次 GH 构建 9-23），今日镜像另有构建来源——构建管线归属待用户拍板。
+- **迁移已执行**（配合 moon-well R82）：NAS 备份 `ai_companion.db.bak-20260929-155745`；user_map {"3":"1","4":"4"}（OIDC subject 实测比对，两系统不同源）；写入 moon-well MySQL ai_conversation 8 条 / ai_message 9 条 / ai_user_memory 0 条，对账全 OK，AUTO_INCREMENT 拨号完成；admin 的 1 条空会话（0 消息）按 --skip-unmapped 跳过（df68ded7）；config/provider 快照归档至 NAS 备份旁。
+- **待办**：①用户在新 UI 验证旧会话可见可续聊；②验证后做最终退役（删旧读端点 + provider/crypto/database 等模块 + ai_admin.html + seed 逻辑）。
