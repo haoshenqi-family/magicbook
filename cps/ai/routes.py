@@ -1,4 +1,4 @@
-"""AI companion blueprint — chat API, conversations, history, memory, admin.
+"""AI companion legacy blueprint — RETIRED chat path, read-only remnants.
 
 Why conversations instead of one thread per book:
 - A reader previously had exactly one chat thread per (user, book). Users now
@@ -6,38 +6,35 @@ Why conversations instead of one thread per book:
   to switch). The ``conversation_id`` is carried by the frontend on every chat
   request; ``/ai/conversations/<book_id>`` lists and creates threads.
 
+Retirement (2026-09-29, agent backendization switch, magicbook-side design §6.2):
+- The live companion chat moved to moon-well as a bounded agent loop; magicbook
+  only keeps a thin proxy at ``cps/ai/proxy.py`` (/ai/agent/*). This module's
+  WRITE endpoints permanently return 410 so ai_companion.db stops evolving —
+  scripts/migrate_ai_companion_to_moonwell.py migrates the frozen data once.
+- READ endpoints (conversation list / history / memory list) stay until the
+  migration is verified in production, then the whole package goes away
+  (design §4.3 retirement checklist).
+- Provider/registry/crypto/memory helpers are no longer imported here; their
+  files remain on disk only for the migration window and are deleted together
+  with the SQLite archive.
+
 Storage:
 - All AI rows live in the independent AI data layer (``cps.ai.database``),
   NOT in calibre-web's ub.session. See cps/ai/database.py for why.
 
-Routes are mounted under ``/ai/``. Authentication uses calibre-web's existing
-``user_login_required`` decorator. CSRF is handled by Flask-WTF (the frontend
-sends the X-CSRFToken header).
+Authentication uses calibre-web's existing ``user_login_required`` decorator.
+CSRF is handled by Flask-WTF (the frontend sends the X-CSRFToken header).
 """
-import json
-import os
-
 from sqlalchemy import func
 
-from flask import (Blueprint, Response, request, jsonify, stream_with_context,
-                   abort)
-from flask_babel import gettext as _
-
-from cps import logger, calibre_db
+from flask import Blueprint, jsonify
+from cps import logger
 from cps.cw_login import current_user
 from cps.usermanagement import user_login_required
-from cps.render_template import render_title_template
-from cps.config_sql import get_encryption_key
 
-from .models import (AiConfig, AiProvider, AiConversation, AiMessage,
-                     AiUserMemory)
-from .registry import get_provider, list_providers
-from .crypto import encrypt_value, decrypt_value
+from .models import AiConversation, AiMessage
 from .database import get_session
-from .timezone import now as now_cn
-from .memory import (build_system_prompt, extract_user_memory,
-                     get_user_memory_strings, has_memory_signal,
-                     select_relevant_memories, should_extract_memory)
+from .memory import get_user_memory_strings
 
 log = logger.create()
 
@@ -46,12 +43,6 @@ aichat = Blueprint("aichat", __name__)
 # Default title shown in the conversation dropdown until the first real
 # question gives the thread a meaningful name.
 DEFAULT_CONV_TITLE = "新会话"
-_TITLE_MAX_LEN = 30
-
-#: Legacy AiProvider row name from the retired direct-TTS integration
-#: (reader TTS is now relayed through moon-well). Rows with this name are
-#: deleted on the admin page so the generic provider loops never see them.
-TTS_PROVIDER_NAME = "tts"
 
 
 def _session():
@@ -59,43 +50,12 @@ def _session():
     return get_session()
 
 
-def _get_encryption_key():
-    """Get the Fernet key calibre-web uses for config secrets.
-
-    Returns the raw bytes key (or empty bytes if unavailable).
-    """
-    from cps import ub
-    settings_path = os.path.dirname(ub.app_DB_path)
-    key, _err = get_encryption_key(settings_path)
-    return key or b""
-
-
-def get_active_provider():
-    """Instantiate the active provider from DB config.
-
-    Returns ``(provider_instance, model_id)`` or raises ``RuntimeError`` if
-    AI is disabled or no provider is configured.
-    """
-    sess = _session()
-    cfg = sess.query(AiConfig).first()
-    if cfg is None or not cfg.enabled:
-        raise RuntimeError("AI companion is disabled")
-
-    provider_name = cfg.default_provider
-    prov_row = sess.query(AiProvider).filter_by(provider_name=provider_name).first()
-    if prov_row is None:
-        raise RuntimeError(f"provider '{provider_name}' not configured")
-
-    key = _get_encryption_key()
-    api_key = decrypt_value(prov_row.api_key_encrypted, key)
-
-    provider = get_provider(provider_name, api_base=prov_row.api_base,
-                            api_key=api_key)
-    # Some providers (e.g. OpenAI-compatible local gateways) work without an
-    # API key; only enforce a key when the provider class requires it.
-    if not api_key and provider.requires_key:
-        raise RuntimeError(f"provider '{provider_name}' has no API key set")
-    return provider, cfg.default_model
+def _gone():
+    """统一 410 响应：写路径已随 agent 后端化永久停写。"""
+    return jsonify({
+        "error": "AI 伴读已升级为 agent 模式（由 moon-well 承载），请刷新页面使用新版对话面板",
+        "gone": True,
+    }), 410
 
 
 def _serialize_message(msg):
@@ -108,37 +68,9 @@ def _serialize_message(msg):
     }
 
 
-def _get_or_create_conversation(user_id, book_id, book_format, title,
-                                conversation_id=None):
-    """Return an existing conversation (by id, if it belongs to the user+book)
-    or create a fresh one.
-
-    Ownership guard: a conversation_id that belongs to another user or another
-    book returns None so the caller can reject the request (404) — we never
-    fall through to creating/joining a thread the user shouldn't touch.
-
-    New threads always start with the generic title; the first real question
-    renames them (see chat()). We deliberately ignore ``title`` here so the
-    auto-naming isn't defeated by book metadata titles.
-    """
-    sess = _session()
-    if conversation_id is not None:
-        conv = sess.query(AiConversation).filter_by(id=conversation_id).first()
-        if conv is None or conv.user_id != user_id:
-            return None
-        if book_id and conv.book_id != book_id:
-            return None
-        return conv
-
-    conv = AiConversation()
-    conv.user_id = user_id
-    conv.book_id = book_id
-    conv.book_format = book_format or ""
-    conv.title = DEFAULT_CONV_TITLE
-    sess.add(conv)
-    sess.commit()
-    return conv
-
+# ---------------------------------------------------------------------------
+# Read-only remnants（迁移验证期内保留；新前端已走 /ai/agent/* 薄代理）
+# ---------------------------------------------------------------------------
 
 @aichat.route("/ai/conversations/<int:book_id>", methods=["GET"])
 @user_login_required
@@ -173,221 +105,6 @@ def conversations(book_id):
     return jsonify({"conversations": out})
 
 
-@aichat.route("/ai/conversations/<int:book_id>", methods=["POST"])
-@user_login_required
-def new_conversation(book_id):
-    """Create a fresh empty conversation for the current user + book."""
-    sess = _session()
-    body = request.get_json(silent=True) or {}
-    conv = AiConversation()
-    conv.user_id = current_user.id
-    conv.book_id = book_id
-    conv.book_format = body.get("book_format", "")
-    conv.title = DEFAULT_CONV_TITLE
-    sess.add(conv)
-    sess.commit()
-    return jsonify({"conversation_id": conv.id, "title": conv.title})
-
-
-@aichat.route("/ai/conversations/<int:conversation_id>/rename", methods=["POST"])
-@user_login_required
-def rename_conversation(conversation_id):
-    """Rename a conversation owned by the current user.
-
-    Request JSON: ``{title}``. Empty/whitespace titles are rejected so a
-    thread never ends up with a blank label in the dropdown.
-    """
-    sess = _session()
-    conv = sess.query(AiConversation).filter_by(
-        id=conversation_id, user_id=current_user.id).first()
-    if conv is None:
-        return jsonify({"error": "conversation not found or not owned"}), 404
-
-    body = request.get_json(silent=True) or {}
-    raw = body.get("title")
-    title = raw.strip() if isinstance(raw, str) else ""
-    if not title:
-        return jsonify({"error": "title is required"}), 400
-    if len(title) > 500:
-        return jsonify({"error": "title too long"}), 400
-
-    conv.title = title
-    sess.commit()
-    return jsonify({"conversation_id": conv.id, "title": conv.title})
-
-
-@aichat.route("/ai/chat", methods=["POST"])
-@user_login_required
-def chat():
-    """Stream a chat completion response.
-
-    Request JSON: ``{book_id, conversation_id?, book_format, message,
-                     page_context, chapter?, unfamiliar_words?,
-                     book_title?, book_authors?,
-                     book_description?, book_tags?}``
-    ``chapter``/``unfamiliar_words`` come from the reader's AICompanion bridge
-    and are injected into the system prompt as reading context.
-    Response: ``text/event-stream`` of content deltas (``data: <chunk>\\n\\n``),
-    terminated by ``data: [DONE]``.
-
-    If ``conversation_id`` is omitted the server creates a new conversation.
-    """
-    sess = _session()
-    data = request.get_json(silent=True) or {}
-    book_id = data.get("book_id")
-    message = (data.get("message") or "").strip()
-    if not book_id or not message:
-        return jsonify({"error": "book_id and message are required"}), 400
-
-    # Try to fetch book metadata from calibre DB if not provided by frontend
-    book_title = data.get("book_title", "")
-    book_authors = data.get("book_authors", []) or []
-    book_description = data.get("book_description", "")
-    book_tags = data.get("book_tags", []) or []
-
-    try:
-        book = calibre_db.get_filtered_book(book_id)
-        if book:
-            if not book_title:
-                book_title = book.title
-            if not book_authors:
-                book_authors = [a.name for a in book.authors]
-            if not book_description and book.comments:
-                book_description = book.comments[0].text or ""
-            if not book_tags:
-                book_tags = [t.name for t in book.tags]
-    except Exception as e:
-        log.warning("could not fetch book metadata for %s: %s", book_id, e)
-
-    page_context = data.get("page_context", "")
-    book_format = data.get("book_format", "")
-    conversation_id = data.get("conversation_id")
-    # 阅读器桥接的章节与当前页生词（AI 伴读上下文）
-    chapter = str(data.get("chapter") or "").strip()[:200]
-    unfamiliar_raw = data.get("unfamiliar_words")
-    if not isinstance(unfamiliar_raw, list):
-        unfamiliar_raw = []
-    unfamiliar_words = [str(w).strip() for w in unfamiliar_raw
-                        if str(w or "").strip()][:30]
-
-    # Load config + memory
-    cfg = sess.query(AiConfig).first()
-    user_memory = []
-    if cfg and cfg.memory_enabled:
-        # 相关性注入: 本书记忆优先, 提到本书关键词(书名/作者/标签)的次之, 近期记忆补位
-        user_memory = select_relevant_memories(
-            current_user.id, book_id=book_id,
-            book_keywords=[book_title] + list(book_authors) + list(book_tags),
-            limit=10)
-
-    system_prompt = build_system_prompt(
-        book_title=book_title or "Unknown",
-        book_authors=book_authors,
-        book_description=book_description,
-        book_tags=book_tags,
-        page_context=page_context,
-        user_memory=user_memory,
-        extra_prompt=cfg.system_prompt_extra if cfg else "",
-        chapter=chapter,
-        unfamiliar_words=unfamiliar_words,
-    )
-
-    # Get or create conversation + load history. title is intentionally empty:
-    # new threads are auto-named from the first question (see _get_or_create_conversation).
-    conv = _get_or_create_conversation(current_user.id, book_id, book_format,
-                                       "", conversation_id)
-    if conv is None:
-        return jsonify({"error": "conversation not found or not owned"}), 404
-    history_msgs = sess.query(AiMessage).filter_by(conversation_id=conv.id)\
-        .order_by(AiMessage.created_at.asc()).all()
-
-    messages = [{"role": "system", "content": system_prompt}]
-    for hm in history_msgs:
-        messages.append({"role": hm.role, "content": hm.content})
-    messages.append({"role": "user", "content": message})
-
-    # Save the user message; auto-name the thread from the first question.
-    user_msg = AiMessage()
-    user_msg.conversation_id = conv.id
-    user_msg.role = "user"
-    user_msg.content = message
-    user_msg.page_context = (page_context or "")[:4000]
-    sess.add(user_msg)
-    if not conv.title or conv.title == DEFAULT_CONV_TITLE:
-        conv.title = message.replace("\n", " ")[:_TITLE_MAX_LEN] or DEFAULT_CONV_TITLE
-    conv.updated_at = now_cn()
-    sess.commit()
-
-    try:
-        provider, model = get_active_provider()
-    except RuntimeError as e:
-        return jsonify({"error": str(e)}), 503
-
-    conv_id = conv.id
-    user_id = current_user.id
-    memory_enabled = bool(cfg and cfg.memory_enabled)
-    extract_interval = cfg.memory_extract_interval if cfg else 10
-
-    def generate():
-        full_reply = []
-        try:
-            for delta in provider.chat(messages, model=model, stream=True):
-                full_reply.append(delta)
-                yield f"data: {json.dumps({'delta': delta})}\n\n"
-        except Exception as e:
-            log.error("chat streaming error: %s", e)
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-            yield "data: [DONE]\n\n"
-            return
-
-        # Save the assistant reply (persist every exchange to the DB).
-        reply_text = "".join(full_reply)
-        try:
-            asst_msg = AiMessage()
-            asst_msg.conversation_id = conv_id
-            asst_msg.role = "assistant"
-            asst_msg.content = reply_text
-            sess.add(asst_msg)
-            # Bump the thread's activity time so the conversation list orders
-            # by "most recently active" rather than creation order.
-            conv_row = sess.query(AiConversation).filter_by(id=conv_id).first()
-            if conv_row is not None:
-                conv_row.updated_at = now_cn()
-            sess.commit()
-
-            # Maybe extract memory — 间隔门控 + 信号门控双闸:
-            # 间隔到了先零成本扫最近消息, 无偏好/纠正/背景信号则跳过本次 LLM 提取
-            if memory_enabled:
-                msg_count = sess.query(AiMessage).filter_by(
-                    conversation_id=conv_id).count()
-                if should_extract_memory(msg_count, extract_interval):
-                    all_msgs = [{"role": m.role, "content": m.content} for m in
-                                sess.query(AiMessage).filter_by(
-                                    conversation_id=conv_id).order_by(
-                                    AiMessage.created_at.asc()).all()]
-                    if not has_memory_signal(all_msgs):
-                        log.info("memory extraction skipped: no signal in recent messages")
-                    else:
-                        try:
-                            extract_user_memory(provider, model, all_msgs,
-                                                user_id, book_id)
-                        except Exception as e:
-                            log.warning("memory extraction failed: %s", e)
-        except Exception as e:
-            log.error("failed to save assistant message: %s", e)
-            try:
-                sess.rollback()
-            except Exception:
-                pass
-
-        yield "data: [DONE]\n\n"
-
-    return Response(stream_with_context(generate()),
-                    mimetype="text/event-stream",
-                    headers={"Cache-Control": "no-cache",
-                             "X-Accel-Buffering": "no"})
-
-
 @aichat.route("/ai/history/<int:conversation_id>", methods=["GET"])
 @user_login_required
 def history(conversation_id):
@@ -408,19 +125,6 @@ def history(conversation_id):
     })
 
 
-@aichat.route("/ai/history/<int:conversation_id>", methods=["DELETE"])
-@user_login_required
-def clear_history(conversation_id):
-    """Delete one conversation (and all its messages)."""
-    sess = _session()
-    conv = sess.query(AiConversation).filter_by(
-        id=conversation_id, user_id=current_user.id).first()
-    if conv:
-        sess.delete(conv)
-        sess.commit()
-    return jsonify({"status": "ok"})
-
-
 @aichat.route("/ai/memory", methods=["GET"])
 @user_login_required
 def get_memory():
@@ -429,202 +133,54 @@ def get_memory():
     return jsonify({"memories": mems})
 
 
+# ---------------------------------------------------------------------------
+# Retired write endpoints（永久 410，停写 ai_companion.db）
+# ---------------------------------------------------------------------------
+
+@aichat.route("/ai/chat", methods=["POST"])
+@user_login_required
+def chat():
+    """Retired：伴读对话已迁 moon-well agent（/ai/agent/chat 薄代理）。"""
+    return _gone()
+
+
+@aichat.route("/ai/conversations/<int:book_id>", methods=["POST"])
+@user_login_required
+def new_conversation(book_id):
+    """Retired：会话由 moon-well 服务端在首问时创建（薄代理）。"""
+    return _gone()
+
+
+@aichat.route("/ai/conversations/<int:conversation_id>/rename", methods=["POST"])
+@user_login_required
+def rename_conversation(conversation_id):
+    """Retired：走薄代理 /ai/agent/conversation/rename。"""
+    return _gone()
+
+
+@aichat.route("/ai/history/<int:conversation_id>", methods=["DELETE"])
+@user_login_required
+def clear_history(conversation_id):
+    """Retired：走薄代理 /ai/agent/conversation/delete。"""
+    return _gone()
+
+
 @aichat.route("/ai/memory/clear", methods=["POST"])
 @user_login_required
 def clear_memory():
-    """Delete all long-term memory entries for the current user."""
-    sess = _session()
-    sess.query(AiUserMemory).filter_by(user_id=current_user.id).delete()
-    sess.commit()
-    return jsonify({"status": "ok"})
+    """Retired：记忆管理走薄代理 /ai/agent/memory/*。"""
+    return _gone()
 
 
 @aichat.route("/ai/test_provider", methods=["POST"])
 @user_login_required
 def test_provider():
-    """Validate an OpenAI-compatible provider connection without saving it.
-
-    Request JSON: ``{provider_id?, provider_name?, api_base, api_key?, model}``.
-    Sends a minimal chat request to check connectivity/auth and, best-effort,
-    lists the models the endpoint advertises via ``/models``. When
-    ``provider_id`` is given and ``api_key`` is blank, the stored key is used.
-
-    Response: ``{ok, reply?, error?, models: [..]}`` — ``models`` is a
-    best-effort list (empty when the endpoint doesn't expose ``/models``).
-    """
-    if not current_user.role_admin():
-        abort(403)
-    sess = _session()
-    body = request.get_json(silent=True) or {}
-    api_base = (body.get("api_base") or "").strip()
-    model = (body.get("model") or "").strip()
-    api_key = (body.get("api_key") or "").strip()
-
-    # Fall back to the stored key when the admin left the key field blank.
-    provider_id = body.get("provider_id")
-    if not api_key and provider_id:
-        prov_row = sess.query(AiProvider).filter_by(id=provider_id).first()
-        if prov_row:
-            api_key = decrypt_value(prov_row.api_key_encrypted, _get_encryption_key())
-
-    if not api_base:
-        return jsonify({"ok": False, "error": "api_base is required"}), 400
-    if not model:
-        return jsonify({"ok": False, "error": "model is required"}), 400
-    if not api_base.lower().startswith(("http://", "https://")):
-        return jsonify({"ok": False, "error": "api_base must start with http(s)://"}), 400
-
-    provider = get_provider(body.get("provider_name") or "openai",
-                            api_base=api_base, api_key=api_key)
-
-    # Best-effort model list from /models; never blocks or fails the result.
-    models = []
-    try:
-        models = [m.id for m in provider.available_models()]
-    except Exception as e:
-        log.debug("model listing failed during provider test: %s", e)
-
-    try:
-        reply = provider.chat(
-            [{"role": "system", "content": "You are a connectivity check."},
-             {"role": "user", "content": "Reply with exactly: OK"}],
-            model=model, stream=False)
-        return jsonify({"ok": True, "reply": (reply or "")[:200],
-                        "models": models})
-    except Exception as e:
-        # Truncate the error so a chatty/remote body never floods the admin UI
-        # or leaks more than needed (e.g. from an SSRF target).
-        log.warning("provider test failed: %s", e)
-        return jsonify({"ok": False, "error": str(e)[:500],
-                        "models": models})
+    """Retired：provider 管理随 agent 后端化退役（moon-well LlmGateway + Nacos 承接）。"""
+    return _gone()
 
 
 @aichat.route("/ai/admin", methods=["GET", "POST"])
 @user_login_required
 def admin():
-    """AI provider/model configuration page (admin only)."""
-    if not current_user.role_admin():
-        abort(403)
-    sess = _session()
-
-    if request.method == "POST":
-        cfg = sess.query(AiConfig).first()
-        if cfg is None:
-            cfg = AiConfig()
-            sess.add(cfg)
-        cfg.enabled = request.form.get("enabled") == "on"
-        cfg.default_provider = request.form.get("default_provider", "deepseek")
-        cfg.default_model = request.form.get("default_model", "deepseek-chat")
-        cfg.memory_enabled = request.form.get("memory_enabled") == "on"
-        try:
-            cfg.memory_extract_interval = int(request.form.get("memory_extract_interval", 10))
-        except (ValueError, TypeError):
-            cfg.memory_extract_interval = 10
-        cfg.system_prompt_extra = request.form.get("system_prompt_extra", "")
-
-        # Update provider configs
-        key = _get_encryption_key()
-
-        # 0) One-time cleanup of legacy direct-TTS rows: reader TTS now goes
-        # through moon-well, and a leftover dict-shaped models_json would
-        # crash the model auto-correct below (it parses models_json as a list).
-        for legacy in sess.query(AiProvider).filter_by(
-                provider_name=TTS_PROVIDER_NAME).all():
-            log.info("removing legacy TTS provider row %d", legacy.id)
-            sess.delete(legacy)
-
-        # 1) Delete providers marked for removal.
-        deleted_names = []
-        for prov in list(sess.query(AiProvider).all()):
-            if request.form.get(f"provider_{prov.id}_delete") == "on":
-                deleted_names.append(prov.provider_name)
-                sess.delete(prov)
-
-        # 2) Add a brand-new custom provider if a name was supplied.
-        new_name = (request.form.get("new_provider_name") or "").strip()
-        if new_name:
-            exists = sess.query(AiProvider).filter_by(provider_name=new_name).first()
-            if exists is None:
-                new_prov = AiProvider()
-                new_prov.provider_name = new_name
-                new_prov.display_name = (request.form.get("new_provider_display") or new_name).strip()
-                new_prov.api_base = (request.form.get("new_provider_api_base") or "").strip()
-                new_prov.models_json = "[]"
-                new_prov.active = False
-                sess.add(new_prov)
-
-        sess.flush()  # assign ids so the update loop below can address new rows
-
-        # 3) Update existing providers.
-        for prov in sess.query(AiProvider).all():
-            field_prefix = f"provider_{prov.id}_"
-            if f"{field_prefix}api_base" in request.form:
-                prov.api_base = request.form.get(field_prefix + "api_base", prov.api_base)
-            new_key = request.form.get(field_prefix + "api_key", "")
-            if new_key:
-                prov.api_key_encrypted = encrypt_value(new_key, key)
-            # Only touch active/models when the full form actually submitted
-            # them; a partial POST (e.g. a delete-only form) must not wipe them.
-            if f"{field_prefix}active" in request.form:
-                prov.active = request.form.get(field_prefix + "active") == "on"
-            if f"{field_prefix}models" in request.form:
-                # Parse newline-separated "id|label" lines into a model list.
-                # Accept both half-width '|' and full-width '｜' separators.
-                models_text = request.form.get(field_prefix + "models", "")
-                models_list = []
-                for line in models_text.splitlines():
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if "|" in line:
-                        mid, mlabel = line.split("|", 1)
-                    elif "｜" in line:
-                        mid, mlabel = line.split("｜", 1)
-                    else:
-                        mid, mlabel = line, line
-                    models_list.append({"id": mid.strip(), "label": mlabel.strip()})
-                prov.models_json = json.dumps(models_list)
-
-        # If the default provider was just deleted, point it at a surviving one
-        # so chat doesn't start failing with 'provider not configured'.
-        if cfg.default_provider in deleted_names:
-            remaining = [p.provider_name for p in sess.query(AiProvider).all()]
-            cfg.default_provider = (remaining[0] if remaining else
-                                    list_providers()[0] if list_providers() else "deepseek")
-
-        sess.commit()
-
-        # Auto-correct the default model if it doesn't belong to the selected
-        # provider (e.g. switching deepseek -> openai left 'deepseek-chat' set).
-        prov_row = sess.query(AiProvider).filter_by(
-            provider_name=cfg.default_provider).first()
-        if prov_row:
-            try:
-                models = json.loads(prov_row.models_json or "[]")
-            except (ValueError, TypeError):
-                models = []
-            if models and cfg.default_model not in {m["id"] for m in models}:
-                cfg.default_model = models[0]["id"]
-                sess.commit()
-
-    cfg = sess.query(AiConfig).first()
-    if cfg is None:
-        cfg = AiConfig()
-        sess.add(cfg)
-        sess.commit()
-    # Legacy direct-TTS rows are never displayed (their editing panel is gone);
-    # the POST handler above deletes them from the DB on the next save.
-    providers = [p for p in sess.query(AiProvider).all()
-                 if p.provider_name != TTS_PROVIDER_NAME]
-    # The default-provider dropdown merges built-in provider classes with any
-    # custom providers already stored in the DB.
-    available_provider_classes = list_providers()
-    db_names = [p.provider_name for p in providers]
-    for n in db_names:
-        if n not in available_provider_classes:
-            available_provider_classes.append(n)
-
-    return render_title_template("ai_admin.html", title=_("AI Companion Settings"),
-                                 config=cfg, providers=providers,
-                                 available_providers=available_provider_classes,
-                                 page="aiadmin")
+    """Retired：provider/model 配置页下线（配置收敛 Nacos ai.llm.configs）。"""
+    return _gone()

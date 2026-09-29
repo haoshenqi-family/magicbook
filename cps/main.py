@@ -80,6 +80,9 @@ def main():
     # nothing in create_app).
     from cps.ai.routes import aichat
     app.register_blueprint(aichat)
+    # AI agent 薄代理（moon-well 宿主；/ai/agent/* 端点，SSE 透传见 cps/ai/proxy.py）
+    from cps.ai.proxy import aiagent
+    app.register_blueprint(aiagent)
     from cps import ai
     ai.seed_default_config()
     # Release the AI scoped session at the end of each request (AI-only hook).

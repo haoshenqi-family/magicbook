@@ -308,3 +308,15 @@
 - **requests.md**：占号 R90。
 - **response.md**：本条。
 - **冲突记录**：无。
+
+## 2026-09-29（伴读 agent magicbook 侧开发交付）
+
+### R98（薄代理 / drawer 前端 / 记忆面板 / 迁移脚本与 cps/ai 退役）
+
+- **薄代理**（`cps/ai/proxy.py`，blueprint `aiagent`）：`/ai/agent/chat` SSE 流式透传（`requests stream=True` 逐 chunk、不缓冲；token 刷新前置到连接建立阶段——流开始后 401 无法重放；上游 ≥400 JSON 原样透传；客户端断开 finally 关上游；`X-Accel-Buffering: no`、idle 300s 对齐 moon-well agent 预算）。JSON 端点复用 `_moonwell_proxy` 身份头 + JWT 管理：GET conversations/history/memory/book-profile 做形制适配（GET ?bookId= → moon-well POST body），POST memory/save、memory/delete、conversation/rename、conversation/delete 原样透传；moon-well Result 包装不解包，前端统一处理。
+- **drawer 前端**（ai_chat.js/css/ai_chat_panel.html）：SSE 解析升级为 `event:`+`data:` 分型帧（无 event 行按 delta 兼容旧裸文本流，降级模式保留）；五类事件渲染——delta 打字机、tool_call/tool_result 折叠工具芯片（✍ 写工具高亮，requireConfirm 透出）、final token 用量角标 + 会话 id 回填、error 错误条；bookContext 每轮重新采集上行（pageText/chapter/unfamiliarWords）；「＋新建」改为本地置空（moon-well 服务端首问建会话）；会话列表/历史/改名/删除走薄代理；新增 🧠 记忆面板（book 学情摘要 + 记忆查/改/删 + 手动添加）。
+- **cps/ai 退役（第一步）**：写路径全部 410 停写（chat/conversations POST/rename/history DELETE/memory clear/test_provider/admin 管理页），SQLite ai_companion.db 从部署本版起冻结；读路径（conversations/history/memory GET）保留到迁移验证完成（设计 §6.2 切换点语义）。provider/registry/crypto 等模块文件与 ai_admin.html 死模板随最终退役删除。
+- **迁移脚本**（`scripts/migrate_ai_companion_to_moonwell.py`）：SQLite→moon-well MySQL 一次性迁移；全量迁三表、ai_config/ai_provider 快照归档（D8）；id 原样保留 + AUTO_INCREMENT 拨号；列映射含 `content`→`memory`、`source_book_id`→`book_id`（NULL→0）、`page_context`→`tool_trace.legacy_page_context` 存档；user_id 支持 `--user-map`/`--identity-mapping`（§6.3 前置核实）与 `--dry-run`。
+- **测试**：全量 214 passed（基线 229；删 26 个旧 chat/admin 行为测试，新增薄代理 8、迁移 5、退役语义 13、过渡 E2E 4）。moon-well 侧配套（会话 rename/delete 端点 + 519 全绿）已在 moon-well R98 追补提交（5281f65）。
+- **待运维动作（本机不可执行）**：① 生产部署后确认 moon-well `ai.agent.enabled=true` 灰度开启；② 实测 user_id 映射（OIDC 同源核实）后执行迁移脚本（先 cp 备份 ai_companion.db）；③ 迁移对账通过后执行最终退役（删除 provider/crypto/database 等模块与 ai_admin.html、旧读端点）。
+- **对 requests.md/response.md 的总结**：本轮补登了此前会话未入库的 R89–R97 回应与 R70–R80 归档、R92–R95 设计文档；R98 与 moon-well R81 同源登记联动，两侧编号无冲突。

@@ -10,10 +10,12 @@ class TestSmoke:
     def test_admin_login_works(self, admin_client):
         """The admin_client fixture should be logged in.
 
-        We hit /ai/admin (which doesn't touch calibre_db) instead of /,
+        We hit /ai/memory (which doesn't touch calibre_db) instead of /,
         because the index page queries calibre_db.session which is None
-        in the test environment (no calibre metadata.db).
+        in the test environment (no calibre metadata.db). /ai/admin can no
+        longer serve as the probe: the provider admin page was retired with
+        the agent backendization (R98) and returns 410.
         """
-        rv = admin_client.get("/ai/admin")
-        # Admin page returns 200 for logged-in admins
+        rv = admin_client.get("/ai/memory")
+        # Memory list (legacy read-only remnant) returns 200 for logged-in admins
         assert rv.status_code == 200

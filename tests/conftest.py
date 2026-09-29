@@ -169,6 +169,13 @@ def _app_instance(tmp_path_factory):
     except ImportError:
         pass  # cps.ai not yet created
 
+    # AI agent 薄代理（/ai/agent/*，moon-well 宿主）——与 main.py 保持同序注册
+    try:
+        from cps.ai.proxy import aiagent
+        app.register_blueprint(aiagent)
+    except ImportError:
+        pass  # cps.ai not yet created
+
     # AI tables are created by cps.ai.database.init_ai_db() inside create_app()
     # (they live on their own AiBase + AI_DATABASE_URL engine, not ub.Base).
     # Seed AI default config (providers + AiConfig row) if the package supports it.

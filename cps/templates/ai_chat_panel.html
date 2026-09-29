@@ -9,9 +9,10 @@
       <h3>{{_('AI Reading Companion')}}</h3>
       <div class="ai-chat-conv-bar">
         <select id="ai-chat-conversations" title="{{_('Switch conversation')}}"></select>
+        <button id="ai-chat-new" type="button" title="{{_('New conversation')}}">＋</button>
         <button id="ai-chat-rename" type="button" title="{{_('Rename conversation')}}">✎</button>
         <button id="ai-chat-delete" type="button" title="{{_('Delete conversation')}}">🗑</button>
-        <button id="ai-chat-new" type="button" title="{{_('New conversation')}}">＋</button>
+        <button id="ai-chat-memory" type="button" title="{{_('Memory & profile')}}">🧠</button>
       </div>
       <button id="ai-companion-close">&times;</button>
     </header>
@@ -19,6 +20,18 @@
     <div id="ai-chat-input-area">
       <textarea id="ai-chat-input" placeholder="{{_('Ask about the current page...')}}"></textarea>
       <button id="ai-chat-send">{{_('Send')}}</button>
+    </div>
+    <div id="ai-memory-panel">
+      <div class="ai-memory-header">
+        <span>{{_('Memory & Book Profile')}}</span>
+        <button id="ai-memory-close" type="button">&times;</button>
+      </div>
+      <div id="ai-memory-profile" class="ai-memory-profile"></div>
+      <div id="ai-memory-list" class="ai-memory-list"></div>
+      <div class="ai-memory-add">
+        <textarea id="ai-memory-input" placeholder="{{_('Add a memory...')}}"></textarea>
+        <button id="ai-memory-add" type="button">{{_('Save')}}</button>
+      </div>
     </div>
   </div>
 </div>
