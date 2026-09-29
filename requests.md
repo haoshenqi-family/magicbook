@@ -226,3 +226,20 @@
 86. 划词结果加缓存，词典 miss 后先尝试还原，两个一起做掉。（moon-well 编码实现，含测试）
 87. 排查 https://magicbook.haoyuhang.top/ 突然访问不了（线上故障排查，TCP 通但应用不响应）。
 88. magicbook 仅谷歌相关请求走内网代理 192.168.31.11:12811，其余请求保持直连（编码实现，含测试；顺带堵住元数据外呼无 timeout 的假死隐患）。
+
+## 2026-09-29
+
+89. 检查 llm task list 为什么现在队列没有任务了，但是明显所有的书没有完成翻译（生产诊断，只读取证）。
+
+90. 清理 llm task list 里的僵尸任务（4,902 条 FAILED/ACCEPTED），并补齐 7 条真实缺失的段落翻译（生产运维，含数据清理）。
+
+90. 把 magicbook 的伴读功能做成轻量化 AI agent（有自我分析、工具使用能力，非一次性对话框；不要 opencode 那么重）——设计方向咨询，只读分析不改代码。
+91. 追问 R90：agent 放 moon-well、magicbook 只做前端是否可行（含工具面/鉴权/迁移影响评估）——设计咨询，只读不改代码。
+92. 追问 R91：①书内检索确认走前端注入上下文；②确认 magicbook 数据库迁移边界——calibre 的 metadata.db 不能动，magicbook 增强数据（app.db 增强表 + ai_companion.db）迁 MySQL/后端。设计确认，只读不改代码。
+93. 追问 R92：app.db 具体哪部分不迁移、为什么——逐表归类答复（只读分析，不改代码）。
+94. 追问 R93：magicbook 的表能否挂载给 moon-well 读取——可行性+架构判断（只读咨询，不改代码）。
+95. 设计文档交付：伴读 agent 化 magicbook 侧改造 LLD——薄代理/SSE 转发/前端 drawer 工具芯片/数据迁移边界。仅写文档，不开发。
+96. 同源登记（moon-well R71）：AgentTool 设计与用法讲解（含前端工具芯片事件消费侧）。只读问答。
+97. 同源登记（moon-well R72）：SSE/线程模型/WebSocket 取舍答疑。只读答疑。
+
+98. 同源登记（moon-well R81）：伴读 agent magicbook 侧开发——/ai/* 薄代理（SSE 流式转发+JWT 注入）、drawer 前端升级（事件分型渲染/工具芯片/bookContext 上行）、记忆面板、学情摘要入口、ai_companion.db 迁移脚本与 cps/ai 退役（旧端点只读保底）。
