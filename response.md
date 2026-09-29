@@ -326,3 +326,13 @@
 - **部署确认**：生产容器运行的镜像（14:59 构建）已验证含 R98 全部代码（容器内 cps/ai/proxy.py 存在、旧 /ai/chat 返回 410）。注意：magicbook 的 GitHub "Build and Push to Aliyun" workflow 处于 disabled_manually（最后一次 GH 构建 9-23），今日镜像另有构建来源——构建管线归属待用户拍板。
 - **迁移已执行**（配合 moon-well R82）：NAS 备份 `ai_companion.db.bak-20260929-155745`；user_map {"3":"1","4":"4"}（OIDC subject 实测比对，两系统不同源）；写入 moon-well MySQL ai_conversation 8 条 / ai_message 9 条 / ai_user_memory 0 条，对账全 OK，AUTO_INCREMENT 拨号完成；admin 的 1 条空会话（0 消息）按 --skip-unmapped 跳过（df68ded7）；config/provider 快照归档至 NAS 备份旁。
 - **待办**：①用户在新 UI 验证旧会话可见可续聊；②验证后做最终退役（删旧读端点 + provider/crypto/database 等模块 + ai_admin.html + seed 逻辑）。
+
+## 2026-09-29（伴读 agent「思考中」占位）
+
+### R99（同源登记 moon-well R88：前端等待反馈）
+
+- **改动**：`cps/static/js/ai_chat.js` 发送后的占位从静态「...」升级为「思考中」+ 三点波浪动画（`cps/static/css/ai_chat.css` 新增 `.ai-chat-typing .dot` 透明度波浪 keyframes）；首个 delta 事件到达时 `$msg.html(renderMarkdown(fullText))` 整体替换占位，无残留。
+- **背景**：moon-well R87 排查确认——网关流式接入前（R88 后端已实现 `chatWithUsageStream`，content 增量逐段推送），零工具场景整段生成期间（实测 17~18s）SSE 流完全静默，体感像「没反应」；流式上线后首字延迟降到秒级，本占位覆盖首 token 前的短暂等待与工具轮间隙。
+- **测试**：全量 pytest 215 passed（改动为纯静态 JS/CSS，Python 套件不受影响）。
+- **对 requests.md/response.md 的总结**：本条。
+- **冲突记录**：无。

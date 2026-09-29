@@ -243,3 +243,5 @@
 97. 同源登记（moon-well R72）：SSE/线程模型/WebSocket 取舍答疑。只读答疑。
 
 98. 同源登记（moon-well R81）：伴读 agent magicbook 侧开发——/ai/* 薄代理（SSE 流式转发+JWT 注入）、drawer 前端升级（事件分型渲染/工具芯片/bookContext 上行）、记忆面板、学情摘要入口、ai_companion.db 迁移脚本与 cps/ai 退役（旧端点只读保底）。
+
+99. 同源登记（moon-well R88）：伴读 agent 前端「思考中」动效占位——LLM 首 token 前的等待反馈（三点波浪动画），零工具场景长静默不再像「没反应」。仅静态 JS/CSS，不改代理与后端契约。

@@ -104,6 +104,14 @@
 #ai-chat-send { margin-top: 8px; padding: 8px 20px; background: #4285f4; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
 #ai-chat-send:disabled { background: #aaa; cursor: not-allowed; }
 .ai-chat-typing { color: #999; font-style: italic; }
+/* 思考中三点波浪（首个 delta 到达前的等待反馈） */
+.ai-chat-typing .dot { display: inline-block; animation: ai-chat-dot-bounce 1.2s infinite; }
+.ai-chat-typing .dot:nth-child(2) { animation-delay: 0.2s; }
+.ai-chat-typing .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ai-chat-dot-bounce {
+  0%, 60%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+}
 
 /* ============ Mobile / small-screen adaptations ============ */
 @media (max-width: 600px) {

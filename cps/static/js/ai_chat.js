@@ -306,7 +306,10 @@
     sending = true;
     $("#ai-chat-send").prop("disabled", true);
 
-    var $msg = $('<div class="ai-chat-msg assistant"><span class="ai-chat-typing">...</span></div>')
+    // 首个 delta 到达前的等待反馈（R87：零工具场景整段生成期间 stream 静默，
+    // tool 芯片也不会出现——动效占位让「没反应」变成「思考中」）
+    var $msg = $('<div class="ai-chat-msg assistant"><span class="ai-chat-typing">思考中' +
+      '<span class="dot">·</span><span class="dot">·</span><span class="dot">·</span></span></div>')
       .appendTo("#ai-chat-messages");
     scrollMessages();
     var fullText = "";
