@@ -336,3 +336,46 @@
 - **测试**：全量 pytest 215 passed（改动为纯静态 JS/CSS，Python 套件不受影响）。
 - **对 requests.md/response.md 的总结**：本条。
 - **冲突记录**：无。
+
+## 2026-09-30（整本翻译 no translatable paragraphs found 诊断）
+
+### R101（book 91 整本翻译报错定位，只读诊断）
+
+- **现象**：book 91（Little Prince，EPUB）点整本翻译返回 400 `no translatable paragraphs found`。
+- **根因**：`cps/reading_translation/parser.py` 用严格 XML 解析器（`etree.XMLParser`）解析 spine 内容文件，该书全部 32 个内容 HTML 均非良构 XML（`<link>` 未闭合致 `XMLSyntaxError: Opening and ending tag mismatch: link line 6 and head`）；`parser.py:99-100` 对解析失败静默 `continue`，32/32 全跳过 → `extract_epub_paragraphs` 返回空 → `service.py:149` 抛错。书本身正文完好，是文件 HTML 规范度问题。
+- **影响面（全库实测）**：53 本 EPUB/KEPUB 中仅 book 91 一本 0 段；49 本正常；另 book 2/19/20 文件损坏（`BadZipFile: File is not a zip file`）属独立问题。
+- **修复方案（待用户确认后实施）**：parser 增加宽松回退——XML 解析失败时改用 `etree.HTMLParser()` 再试，双失败才跳过；已在该书文件上验证：回退后 32/32 文件可解析、抽出 884 段。可选增强：解析失败计数打 warning、0 段时报错文案区分「无文本」与「内容文件均无法解析」。
+- **验证方法**：修复后在生产容器重跑抽取（预期 884 段）+ 页面点 book 91 整本翻译应正常建批次。
+
+### 总结
+
+- **requests.md**：占号 R101。
+- **response.md**：本条；保留窗口 R91–R101。
+- **冲突记录**：无。
+
+### R101 追记（2026-09-30：修复实施与生产验证）
+
+用户拍板「都用宽松模式」。实施为 `XMLParser(recover=True, resolve_entities=False, no_network=True)` 单一宽松路径——不用 HTMLParser（其树构建规则强制拆开 `<p>` 内嵌 `<table>/<div>`，book 88 实测文本受损；XML recover 对良构文件树级零改动）；未定义命名实体（`&nbsp;` 等）在 `normalize_text` 内按 `&name;` 完整形态 `html.unescape` 展开（旧文本曾把整段 `'&nbsp;'` 字面量送翻译）。解析失败/空文件新增 warning 留痕。
+
+- **单测**：新增 `test_lenient_parsing_recovers_non_wellformed_content`（非良构 HTML + 实体 + 空文件）；全量 216 passed。
+- **生产全库验证（新旧实现逐书逐文本对比）**：48 本逐字零变化；book 88 实体展开后文本流逐字等价（分片 6667→4512 属文本虚胖消除，零内容损失、零实体残留）；book 91 恢复 308 段/100,611 字符完整正文；book 2/19/20 BadZip 损坏文件行为不变（独立问题，需重传源文件）。
+- **交付与部署**：`c1067724` 推 develop。CI workflow（build-and-push.yml）自 09-23 起为 disabled_manually，push 不再触发构建；生产部署经 fnOS 手动构建链完成——本会话验证时发现另一并行会话（R100）11:34 构建的镜像已包含本提交，运行中容器 md5 与 `c1067724` 一致，book 91 实时抽取 308 段，部署无需重复操作。
+- **AC**：`docs/feat/whole-book-translation/` 无 ac/ 目录，本条与单测即验收记录。
+
+## 2026-09-30（导航栏「设置 Settings」下拉框）
+
+### R102（magicbook 自有设置入口收纳为下拉框 + 双语标签）
+
+- **需求**：magicbook（非 calibre-web 部分）的设置入口平铺放不下，改下拉框跳转；页面双语，默认中文。
+- **现状盘点**：导航栏平铺项 = 阅读设置（theme 0）/ 成就 / 积分；theme 1 三项塞在头像下拉；整本翻译 /translate-all（admin）无任何入口；另有指向已退役 /ai/admin（R98 起 410）的死链 AI 按钮。admin 账号 locale=en 且 magicbook 词条未入 po——纯 Babel 方案对实际用户永远显示英文，故标签不走 i18n。
+- **实现**（`cps/templates/layout.html`）：新增主题无关的「设置 Settings」Bootstrap 3 下拉框（id=top_mb_settings，登录可见）：阅读设置/成就/积分 + admin 分隔线后整本翻译（与路由 @admin_required 一致）；移除 theme 0 三处平铺项、theme 1 头像下拉三处重复项与死链 AI 按钮。标签「中文 + 英文辅助（small.text-muted）」双写，任何 locale 下中文可见。
+- **顺带清理**：删除孤儿模板 `cps/templates/ai_admin.html`（无任何代码渲染、引用已退役端点，R98 退役漏网件）。
+- **测试**：新增 `tests/test_nav_settings_dropdown.py` 5 项——admin 全入口、双语标签（圈定在下拉块内，防 <title> 假信心）、平铺项/死链不回流 + id 唯一性、普通用户无 admin 项、匿名不渲染；全量 221 passed。Code Review（交叉 agent）：无 P0，3 个 P1（孤儿模板/非 admin 用例/断言圈定）均已修复。
+- **交付**：推 develop；CI 处于 disabled_manually，生产生效需 fnOS 手动构建链。工作区另有 login.html 未提交改动（R100 会话遗留，与本条无关，未纳入提交）。
+- **AC**：无独立 ac/ 目录，本条与单测即验收记录。
+
+### 总结
+
+- **requests.md**：占号 R102。
+- **response.md**：本条；保留窗口 R92–R102（未到 10 整倍数，无归档动作）。本次提交顺带携带 R101 会话留在工作区的 response.md 未提交记录（补登）。
+- **冲突记录**：无。
