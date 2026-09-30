@@ -379,3 +379,17 @@
 - **requests.md**：占号 R102。
 - **response.md**：本条；保留窗口 R92–R102（未到 10 整倍数，无归档动作）。本次提交顺带携带 R101 会话留在工作区的 response.md 未提交记录（补登）。
 - **冲突记录**：无。
+
+## 2026-09-30（登录页邀请制注册入口）
+
+### R103（Authentik 邀请注册链接放登录页 + R100 遗留补登）
+
+- **需求**：把 Authentik 邀请制注册链接放到 magicbook 首页，跟登录入口放一起。
+- **现状确认**：生产 `/` 对游客 302 → `/login`（匿名浏览关闭），游客首页即登录页；同源会话已在 Authentik（2025.10.2）侧建好 `invitation-enrollment` 邀请注册流程与 30 天期邀请（见 authentik-invite-enrollment 记忆）。另发现工作区有 R100 会话遗留的 login.html 未提交改动（移除右下角重复 Authentik 链接 + endif 错位修正），生产实际仍渲染两个按钮——单独补登为 `5c92e125`。
+- **实现**：`cps/web.py` `render_login` 从环境变量 `AUTHENTIK_ENROLLMENT_INVITE_URL` 读取邀请链接注入 `authentik_invite_url`；`cps/templates/login.html` Authentik 分支在登录按钮下渲染「注册账号 Sign up (invite)」按钮（target=_blank 不打断登录页 + 一行邀请制说明，标签中英双写不走 Babel，与 R102 约定一致）；未配置变量时不渲染，邀请轮换只改 `.env` 重启即可。
+- **测试**：新增 `tests/test_login_invite_link.py` 3 项（配置时渲染且指向配置链接、未配置不渲染、本地登录分支忽略该变量）；`tests/conftest.py` 建_app 阶段补注册 oidc 蓝图（修复用例内注册报 "setup method can no longer be called"——会话级 app 处理过请求后 Flask 拒绝 register_blueprint；config 开关仍由用例 monkeypatch 控制，不影响其他用例）。全量 224 passed。
+- **交付与部署**：`247ba434` 推 develop。push 后 fnOS webhook-builder 链**自动**构建并经 app-manager 触发 fnOS 部署 SUCCESS（15:43，build END OK (247ba434)）——此前认知"CI 停用后需手动构建"已过时：GitHub 仓库 webhook → fnOS webhook_listener → build-magicbook.sh 链路在自动工作。随后 fnOS `/app/magicbook/.env` 追加 `AUTHENTIK_ENROLLMENT_INVITE_URL`（备份 .env.bak-20260930-invite）+ `./deploy.sh` 重建容器使变量生效。
+- **生产验证**：`/login` 渲染 1 个「Log in with Authentik」（R100 去重同步生效）+ 1 个 `#authentik_invite_signup`，href 与邀请链接一致；`/` 仍 302 → `/login`；浏览器截图确认排版正常。
+- **AC**：无独立 ac/ 目录，本条与单测即验收记录。
+- **对 requests.md/response.md 的总结**：requests.md 占号 R103；response.md 本条；保留窗口 R93–R103（未到 10 整倍数，无归档动作）。
+- **冲突记录**：无。R100 遗留改动与本条同文件（login.html），已拆分为两个独立提交（5c92e125 / 247ba434），历史可区分。

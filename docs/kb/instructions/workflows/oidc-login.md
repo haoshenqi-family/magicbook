@@ -40,6 +40,7 @@ OIDC 全部由环境变量配置，`docker-compose.yml` 经 `env_file` 注入，
 | `AUTHENTIK_MAGICBOOK_CLIENT_ID` | `<client_id>` | Authentik 侧 magicbook application 的 Client ID |
 | `AUTHENTIK_MAGICBOOK_CLIENT_SECRET` | `<client_secret>` | 与 id_token 签名/凭证换取相关的密钥 |
 | `AUTHENTIK_MAGICBOOK_REDIRECT_URI` | `https://magicbook.haoyuhang.top/oidc/callback` | **回调地址**，授权后 Authentik 重定向到此处；未设置时回退 `url_for(..., _external=True)` |
+| `AUTHENTIK_ENROLLMENT_INVITE_URL` | `https://authentik.haoshenqi.top/if/flow/invitation-enrollment/?itoken=<邀请pk>` | **邀请制注册入口**（R103）。配置后登录页（游客首页）在登录按钮下渲染「注册账号 Sign up (invite)」；Authentik 邀请默认 30 天过期，轮换时更新此值并重启容器，未配置则不渲染 |
 
 > **当前线上取值（2026-08-21 修订后）**
 >
