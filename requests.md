@@ -254,3 +254,11 @@
 102. 设置页改版：magicbook 扩展设置（非 calibre-web 部分）平铺放不下，改为下拉框跳转对应设置分区；页面支持中英双语，默认中文。
 
 103. 把 Authentik 邀请制注册链接（https://authentik.haoshenqi.top/if/flow/invitation-enrollment/?itoken=5566492c-5d73-49dd-abe0-8dc9d48c14d8）放到 magicbook 首页，跟登录入口放在一起。
+
+104. 为书 #89《Magicbook User Guide》生成哈利波特风格封面并替换线上封面（已完成：ImageGen 生成 + 编辑元数据页上传，/cover/89 已生效）。
+105. 咨询：这本书是指南、后续可能要改部分内容，应该走什么流程（已答复：下载线上 EPUB→解包改 xhtml→重打包→上传格式替换→重新触发整本翻译）。
+106. 设计咨询：书原文放 Halo blog（note.haoshenqi.top）用 Markdown 写，点「发布」自动更新到 magicbook——评估连接器可行性与方案（只读咨询，不改代码）。
+
+107. 采纳 R106 的 A 方案（magicbook 新增内部导入 API），编写 Halo→magicbook 书籍连接器 LLD 设计文档。仅写文档，不开发。
+
+108. 登录页文案：①删掉「注册采用邀请制，请使用管理员发放的邀请链接 / Registration is invite-only...」提示句；②"Sign in with your Authentik account" 简化为 "Sign in"；③"Log in with Authentik" 同理简化。（占号时误写 103，与并行会话冲突，按纪律续编 108）

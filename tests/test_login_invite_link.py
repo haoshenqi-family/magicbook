@@ -26,7 +26,23 @@ def test_invite_link_rendered_when_configured(app, client, monkeypatch):
     assert 'target="_blank"' in page
     assert "注册账号" in page
     assert "Sign up (invite)" in page
-    assert "Log in with Authentik" in page
+    assert "Log in" in page
+
+
+def test_login_copy_simplified(app, client, monkeypatch):
+    """R108: 文案简化——按钮/提示去 Authentik 长句，邀请制说明句删除。"""
+    monkeypatch.setitem(app.config, "AUTHENTIK_OIDC_ENABLED", True)
+    monkeypatch.setenv("AUTHENTIK_ENROLLMENT_INVITE_URL", INVITE_URL)
+    rv = client.get("/login")
+    assert rv.status_code == 200
+    page = rv.data.decode("utf-8")
+    assert ">Sign in<" in page
+    # 旧长句与邀请制提示句不得回流
+    assert "Sign in with your Authentik account" not in page
+    assert "Log in with Authentik" not in page
+    assert "invite-only" not in page
+    assert "邀请制" not in page
+    assert "邀请链接" not in page
 
 
 def test_invite_link_absent_when_not_configured(app, client, monkeypatch):
@@ -35,7 +51,7 @@ def test_invite_link_absent_when_not_configured(app, client, monkeypatch):
     rv = client.get("/login")
     assert rv.status_code == 200
     page = rv.data.decode("utf-8")
-    assert "Log in with Authentik" in page  # 登录按钮本身不受影响
+    assert "Log in" in page  # 登录按钮本身不受影响
     assert "authentik_invite_signup" not in page
 
 

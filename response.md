@@ -393,3 +393,14 @@
 - **AC**：无独立 ac/ 目录，本条与单测即验收记录。
 - **对 requests.md/response.md 的总结**：requests.md 占号 R103；response.md 本条；保留窗口 R93–R103（未到 10 整倍数，无归档动作）。
 - **冲突记录**：无。R100 遗留改动与本条同文件（login.html），已拆分为两个独立提交（5c92e125 / 247ba434），历史可区分。
+
+## 2026-09-30（登录页文案简化）
+
+### R108（删除邀请制提示句 + Authentik 长句简化）
+
+- **需求**：①删「注册采用邀请制，请使用管理员发放的邀请链接 / Registration is invite-only...」提示句；②"Sign in with your Authentik account"→"Sign in"；③"Log in with Authentik"→"Log in"。
+- **实现**（`cps/templates/login.html`，Authentik OIDC 分支）：提示段整块删除；muted 提示与主按钮改为 "Sign in" / "Log in" 纯文本（不走 Babel——原 msgid 本就不在 po，行为不变、文案确定）。邀请注册按钮（注册账号 Sign up (invite)）与 URL 注入逻辑不动。
+- **测试**：`tests/test_login_invite_link.py` 旧断言同步 + 新增 `test_login_copy_simplified` 锁定简化后文案、旧长句与提示句不得回流；4 项全过，全量 240 passed。
+- **交付**：推 develop；生产生效需 fnOS 手动构建链。
+- **对 requests.md/response.md 的总结**：requests.md 占号 R108（首次误写 103 与并行会话冲突，按纪律续编，条目内已注明）；response.md 本条；保留窗口 R98–R108（未到 10 整倍数，无归档动作）。
+- **冲突记录**：占号时 R103 已被并行会话（邀请注册入口）占用，本条续编 R108；并行会话在 admin.py/main.py/conftest.py 等文件有未提交改动（halo-book-connector），本条未触碰。
