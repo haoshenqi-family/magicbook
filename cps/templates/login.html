@@ -37,7 +37,6 @@
       <a class="btn btn-default" href="{{url_for('web.index')}}">{{ _('Home') }}</a>
       {% endif %}
     {%endif%}
-    {% endif %}
     {% if config.config_remote_login %}
     <a href="{{url_for('remotelogin.remote_login')}}" id="remote_login" class="pull-right">{{_('Log in with Magic Link')}}</a>
     {% endif %}
@@ -58,10 +57,8 @@
         </a>
       {% endif %}
     {% endif %}
-    {% if authentik_oidc_enabled %}
-      <a href="{{ url_for('oidc.login', next=next_url) }}" class="pull-right">{{_('Log in with Authentik')}}</a>
-    {% endif %}
   </form>
+  {% endif %}
 </div>
   {% if error %}
   <div class="col-sm-6 col-sm-offset-2">
