@@ -263,6 +263,37 @@ def test_extract_skips_nested_blocks_and_empty_paragraphs(tmp_path):
     assert texts == ["quoted line.", "after empty."]
 
 
+def test_lenient_parsing_recovers_non_wellformed_content(tmp_path):
+    """R101 回归：真实世界 EPUB 内容文件常是非良构 HTML（未闭合 <link>/<meta>、
+    &nbsp; 实体）。旧实现用严格 XML 解析器整文件拒收（book 91 生产实测 32/32
+    个 spine 文件全部 XMLSyntaxError，被静默 continue 跳过后整本 0 段，报 no
+    translatable paragraphs found）。正文必须宽松解析（recover 模式）：坏标签
+    自动修补、未定义命名实体经 normalize_text 展开不残留、空内容文件跳过且
+    不抛错。"""
+    container = """<container xmlns='urn:oasis:names:tc:opendocument:xmlns:container'><rootfiles><rootfile full-path='OPS/content.opf'/></rootfiles></container>"""
+    opf = """<package xmlns='http://www.idpf.org/2007/opf'><manifest>
+      <item id='one' href='one.html' media-type='text/html'/>
+      <item id='blank' href='blank.html' media-type='text/html'/>
+    </manifest><spine><itemref idref='one'/><itemref idref='blank'/></spine></package>"""
+    one = ("<html><head><link rel='stylesheet' href='style.css'>\n"
+           "<meta charset='utf-8'>\n<title>Broken Book</title></head><body>"
+           "<h1>Chapter One</h1>"
+           "<p>First &nbsp; paragraph.</p>"
+           "<p>Second.</p>"
+           "</body></html>")
+    path = tmp_path / "broken.epub"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("META-INF/container.xml", container)
+        archive.writestr("OPS/content.opf", opf)
+        archive.writestr("OPS/one.html", one)
+        archive.writestr("OPS/blank.html", "")
+
+    assert extract_epub_paragraphs(path) == [
+        ("Chapter One", "First paragraph."),
+        ("Chapter One", "Second."),
+    ]
+
+
 def test_publish_survives_single_segment_failure(tmp_path, monkeypatch):
     """R48 后台发布线程：单段发布失败只标 FAILED，不中断整批发布。"""
     import sys, os
