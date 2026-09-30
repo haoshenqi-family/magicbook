@@ -138,6 +138,14 @@ def _app_instance(tmp_path_factory):
     app.register_blueprint(basic)
     app.register_blueprint(about)
     app.register_blueprint(search)
+    # OIDC 蓝图（Authentik 登录）：测试环境未配置 AUTHENTIK_*，config 开关保持
+    # False、登录行为不变；仅注册以支持渲染层 url_for('oidc.login')。
+    # 必须在建 app 阶段注册——处理过首个请求后 Flask 拒绝 register_blueprint。
+    try:
+        from cps.oidc import oidc
+        app.register_blueprint(oidc)
+    except ImportError:
+        pass
     try:
         from cps.search_metadata import meta as metadata_meta
         app.register_blueprint(metadata_meta)

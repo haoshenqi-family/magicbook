@@ -8,6 +8,17 @@
     <a href="{{ url_for('oidc.login', next=next_url) }}" class="btn btn-primary btn-block" style="white-space:normal">
       {{_('Log in with Authentik')}}
     </a>
+    {# 邀请制注册：游客首页即本页（匿名浏览关闭时 / 302 到 /login），登录入口旁放注册入口；
+       链接来自 AUTHENTIK_ENROLLMENT_INVITE_URL；标签不走 Babel（词条未入 po），中英双写 #}
+    {% if authentik_invite_url %}
+    <a id="authentik_invite_signup" href="{{ authentik_invite_url }}" target="_blank" rel="noopener"
+       class="btn btn-default btn-block" style="white-space:normal;margin-top:8px">
+      注册账号 <small class="text-muted">Sign up (invite)</small>
+    </a>
+    <p class="text-muted" style="text-align:center;margin-bottom:0">
+      <small>注册采用邀请制，请使用管理员发放的邀请链接 <br>Registration is invite-only, use the invite link from the admin</small>
+    </p>
+    {% endif %}
   {% else %}
   <form method="POST" role="form">
     <input type="hidden" name="next" value="{{next_url}}">

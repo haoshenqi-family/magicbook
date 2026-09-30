@@ -2267,6 +2267,9 @@ def render_login(username="", password=""):
     if url_for("web.logout") == next_url:
         next_url = url_for("web.index")
     oidc_enabled = current_app.config.get("AUTHENTIK_OIDC_ENABLED", False)
+    # 邀请制注册入口：链接由 .env 的 AUTHENTIK_ENROLLMENT_INVITE_URL 注入（Authentik
+    # 邀请默认 30 天过期，轮换时只改环境变量并重启，不动代码）；未配置则不渲染
+    invite_url = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
     return render_title_template('login.html',
                                  title=_("Login"),
                                  next_url=next_url,
@@ -2274,6 +2277,7 @@ def render_login(username="", password=""):
                                  password=password,
                                  oauth_check=oauth_check,
                                  authentik_oidc_enabled=oidc_enabled,
+                                 authentik_invite_url=invite_url,
                                  # 统一账户体系：Authentik 启用时隐藏本地密码表单，仅保留 OIDC 登录
                                  hide_local_login=oidc_enabled,
                                  mail=config.get_mail_server_configured(), page="login")

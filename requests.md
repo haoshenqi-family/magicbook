@@ -252,3 +252,5 @@
 101. 生产报错诊断：「no translatable paragraphs found」，https://magicbook.haoyuhang.top/book/91 整本翻译无法启动——定位原因（只读诊断）。
 
 102. 设置页改版：magicbook 扩展设置（非 calibre-web 部分）平铺放不下，改为下拉框跳转对应设置分区；页面支持中英双语，默认中文。
+
+103. 把 Authentik 邀请制注册链接（https://authentik.haoshenqi.top/if/flow/invitation-enrollment/?itoken=5566492c-5d73-49dd-abe0-8dc9d48c14d8）放到 magicbook 首页，跟登录入口放在一起。
