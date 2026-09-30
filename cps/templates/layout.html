@@ -69,9 +69,6 @@
                     <li><a id="register" href="{{url_for('web.register')}}"><span class="glyphicon glyphicon-user"></span> {{_('Register')}}</a></li>
                     {% endif %}
                     {% if not current_user.is_anonymous %}
-                    <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> <span class="hidden-sm">{{_('Reading Settings')}}</span></a></li>
-                    <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> <span class="hidden-sm">{{_('Achievements')}}</span></a></li>
-                    <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> <span class="hidden-sm">{{_('Credits')}}</span></a></li>
                     <li><a id="logout" href="{{url_for('web.logout', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}"><span class="glyphicon glyphicon-log-out"></span> <span class="hidden-sm">{{_('Logout')}}</span></a></li>
                     {% endif %}
                 </ul>
@@ -94,14 +91,29 @@
               {% endif %}
               {% if current_user.role_admin() %}
                 <li><a id="top_admin" data-text="{{_('Settings')}}" href="{{url_for('admin.admin')}}"><span class="glyphicon glyphicon-dashboard"></span> <span class="hidden-sm">{{_('Admin')}}</span></a></li>
-                <li><a id="top_ai_admin" href="{{url_for('aichat.admin')}}" title="{{_('AI Companion Settings')}}"><span class="glyphicon glyphicon-comment"></span> <span class="hidden-sm">{{_('AI')}}</span></a></li>
+              {% endif %}
+              {# magicbook 扩展设置入口统一收进下拉框：平铺项放不下且持续新增；
+                 标签不走 Babel（magicbook 词条未入 po，且账号 locale=en 时永远英文），
+                 直接「中文 + 英文辅助」双写，两种语言同时可用 #}
+              {% if not current_user.is_anonymous %}
+                <li class="dropdown" id="top_mb_settings">
+                  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                    <span class="glyphicon glyphicon-cog"></span> 设置 <small class="text-muted hidden-sm hidden-md">Settings</small> <span class="caret"></span>
+                  </a>
+                  <ul class="dropdown-menu">
+                    <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> 阅读设置 <small class="text-muted">Reading Settings</small></a></li>
+                    <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> 成就 <small class="text-muted">Achievements</small></a></li>
+                    <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> 积分 <small class="text-muted">Credits</small></a></li>
+                    {% if current_user.role_admin() %}
+                    <li class="divider"></li>
+                    <li><a id="top_translate_all" href="{{url_for('web.translate_all_page')}}"><span class="glyphicon glyphicon-globe"></span> 整本翻译 <small class="text-muted">Book Translation</small></a></li>
+                    {% endif %}
+                  </ul>
+                </li>
               {% endif %}
               {% if g.current_theme == 0 %}
               <li><a id="top_user" data-text="{{_('Account')}}" href="{% if not current_user.is_anonymous %}{{url_for('web.profile')}}{% else %}{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}{% endif %}"><span class="glyphicon glyphicon-user"></span> <span class="hidden-sm">{{current_user.name}}</span></a></li>
                 {% if not current_user.is_anonymous %}
-                <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> <span class="hidden-sm">{{_('Reading Settings')}}</span></a></li>
-                    <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> <span class="hidden-sm">{{_('Achievements')}}</span></a></li>
-                    <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> <span class="hidden-sm">{{_('Credits')}}</span></a></li>
                 <li><a id="logout" href="{{url_for('web.logout', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}"><span class="glyphicon glyphicon-log-out"></span> <span class="hidden-sm">{{_('Logout')}}</span></a></li>
                 {% endif %}
               {% endif %}
