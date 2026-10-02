@@ -528,6 +528,8 @@
       </script>
       <script src="{{ url_for('static', filename='js/libs/screenfull.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/libs/reader.min.js') }}"></script>
+      {# R112：i18n 种子必须在 epub.js 之前——epub.js 顶层就读取 mbT（如 CSS 角标词条） #}
+      {% include 'i18n_seed.html' %}
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
     {% include 'ai_chat_panel.html' %}
     {# R109 阅读器导览段：jQuery 已在上方 :158 载入；readpdf/readtxt/readcbr 无 jQuery

@@ -16,7 +16,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Generated-By: Babel 2.17.0\n"
+"Generated-By: Babel 2.18.0\n"
 
 #: cps/about.py:85
 msgid "Statistics"
@@ -175,15 +175,21 @@ msgid "Are you sure you want to change locales of selected user(s)?"
 msgstr "您确定要修改选定用户的本地化设置吗？"
 
 #: cps/admin.py:628
-msgid "Are you sure you want to change visible book languages for selected user(s)?"
+msgid ""
+"Are you sure you want to change visible book languages for selected "
+"user(s)?"
 msgstr "您确定要修改选定用户的可见书籍语言吗？"
 
 #: cps/admin.py:630
-msgid "Are you sure you want to change the selected role for the selected user(s)?"
+msgid ""
+"Are you sure you want to change the selected role for the selected "
+"user(s)?"
 msgstr "您确定要修改选定用户的选定角色吗？"
 
 #: cps/admin.py:632
-msgid "Are you sure you want to change the archive status for the selected book(s)?"
+msgid ""
+"Are you sure you want to change the archive status for the selected "
+"book(s)?"
 msgstr "您确定要修改所选书籍的归档状态吗？"
 
 #: cps/admin.py:634
@@ -191,15 +197,21 @@ msgid "Are you sure you want to change the read status for the selected book(s)?
 msgstr "您确定要修改所选书记的已读状态吗？"
 
 #: cps/admin.py:636
-msgid "Are you sure you want to change the selected restrictions for the selected user(s)?"
+msgid ""
+"Are you sure you want to change the selected restrictions for the "
+"selected user(s)?"
 msgstr "您确定要修改选定用户的选定限制吗？"
 
 #: cps/admin.py:638
-msgid "Are you sure you want to change the selected visibility restrictions for the selected user(s)?"
+msgid ""
+"Are you sure you want to change the selected visibility restrictions for "
+"the selected user(s)?"
 msgstr "您确定要修改选定用户的选定可视化限制吗？"
 
 #: cps/admin.py:641
-msgid "Are you sure you want to change shelf sync behavior for the selected user(s)?"
+msgid ""
+"Are you sure you want to change shelf sync behavior for the selected "
+"user(s)?"
 msgstr "您确定要更改所选用户的书架同步行为吗？"
 
 #: cps/admin.py:643
@@ -207,11 +219,15 @@ msgid "Are you sure you want to change Calibre library location?"
 msgstr "您确定要更改 Calibre 库位置吗？"
 
 #: cps/admin.py:645
-msgid "Calibre-Web will search for updated Covers and update Cover Thumbnails, this may take a while?"
+msgid ""
+"Calibre-Web will search for updated Covers and update Cover Thumbnails, "
+"this may take a while?"
 msgstr "Calibre-Web 将搜索更新封面，并更新缩略图，这可能需要一段时间？"
 
 #: cps/admin.py:648
-msgid "Are you sure you want delete Calibre-Web's sync database to force a full sync with your Kobo Reader?"
+msgid ""
+"Are you sure you want delete Calibre-Web's sync database to force a full "
+"sync with your Kobo Reader?"
 msgstr "您确定要删除 Calibre-Web 的同步数据库以强制与您的 Kobo Reader 进行完全同步吗？"
 
 #: cps/admin.py:891 cps/admin.py:897 cps/admin.py:907 cps/admin.py:917
@@ -291,7 +307,9 @@ msgid "LDAP Member User Filter Has Unmatched Parenthesis"
 msgstr "LDAP 成员用户过滤器中有不匹配的括号"
 
 #: cps/admin.py:1261
-msgid "LDAP CACertificate, Certificate or Key Location is not Valid, Please Enter Correct Path"
+msgid ""
+"LDAP CACertificate, Certificate or Key Location is not Valid, Please "
+"Enter Correct Path"
 msgstr "LDAP CA证书、证书或密钥位置无效，请输入正确的路径"
 
 #: cps/admin.py:1292 cps/templates/admin.html:53
@@ -587,7 +605,9 @@ msgstr "请求中缺少数值"
 #: cps/editbooks.py:319 cps/editbooks.py:326 cps/editbooks.py:627
 #: cps/editbooks.py:1146 cps/web.py:532 cps/web.py:1567 cps/web.py:1613
 #: cps/web.py:1663
-msgid "Oops! Selected book is unavailable. File does not exist or is not accessible"
+msgid ""
+"Oops! Selected book is unavailable. File does not exist or is not "
+"accessible"
 msgstr "糟糕！所选书籍无法打开。文件不存在或者文件不可访问"
 
 #: cps/editbooks.py:673 cps/editbooks.py:1503
@@ -613,7 +633,9 @@ msgid "Error editing book: {}"
 msgstr "编辑书籍时出错: {}"
 
 #: cps/editbooks.py:856
-msgid "Uploaded book probably exists in the library, consider to change before upload new: "
+msgid ""
+"Uploaded book probably exists in the library, consider to change before "
+"upload new: "
 msgstr "上传的书籍可能已经存在，建议修改后重新上传： "
 
 #: cps/editbooks.py:950 cps/editbooks.py:1420
@@ -701,11 +723,15 @@ msgid "Please wait one minute before next login"
 msgstr "下次登录前请等待一分钟"
 
 #: cps/gdrive.py:58
-msgid "Google Drive setup not completed, try to deactivate and activate Google Drive again"
+msgid ""
+"Google Drive setup not completed, try to deactivate and activate Google "
+"Drive again"
 msgstr "Google Drive 设置未完成，请尝试停用并再次激活 Google 云端硬盘"
 
 #: cps/gdrive.py:96
-msgid "Callback domain is not verified, please follow steps to verify domain in google developer console"
+msgid ""
+"Callback domain is not verified, please follow steps to verify domain in "
+"google developer console"
 msgstr "回调域名尚未被校验，请在 Google 开发者控制台按步骤校验域名"
 
 #: cps/helper.py:87
@@ -784,12 +810,16 @@ msgstr "删除书籍 %(id)s 失败：%(message)s"
 
 #: cps/helper.py:390
 #, python-format
-msgid "Deleting book %(id)s from database only, book path in database not valid: %(path)s"
+msgid ""
+"Deleting book %(id)s from database only, book path in database not valid:"
+" %(path)s"
 msgstr "仅从数据库中删除书籍 %(id)s，数据库中的书籍路径无效： %(path)s"
 
 #: cps/helper.py:404
 #, python-format
-msgid "Moving book path of Book %(book_id)s to: '%(src)s' failed with error: %(error)s"
+msgid ""
+"Moving book path of Book %(book_id)s to: '%(src)s' failed with error: "
+"%(error)s"
 msgstr "将书籍%(book_id)s的移动路径更改为：'%(src)s'失败，错误：%(error)s"
 
 #: cps/helper.py:443
@@ -841,7 +871,9 @@ msgid "Cover Format Error"
 msgstr "封面格式出错"
 
 #: cps/helper.py:849
-msgid "You are not allowed to access localhost or the local network for cover uploads"
+msgid ""
+"You are not allowed to access localhost or the local network for cover "
+"uploads"
 msgstr "您没有访问本地主机或本地网络进行封面上传"
 
 #: cps/helper.py:859
@@ -907,7 +939,9 @@ msgid "Queue all books for metadata backup"
 msgstr "将所有书籍加入元数据备份队列"
 
 #: cps/kobo_auth.py:93
-msgid "Please access Calibre-Web from non localhost to get valid api_endpoint for kobo device"
+msgid ""
+"Please access Calibre-Web from non localhost to get valid api_endpoint "
+"for kobo device"
 msgstr "请不要从 localhost 访问 Calibre-Web，以便 Kobo 设备能获取有效的 api_endpoint"
 
 #: cps/kobo_auth.py:119
@@ -1354,7 +1388,9 @@ msgid "No update available. You already have the latest version installed"
 msgstr "无可用更新。您已经安装了最新版本"
 
 #: cps/updater.py:459
-msgid "A new update is available. Click on the button below to update to the latest version."
+msgid ""
+"A new update is available. Click on the button below to update to the "
+"latest version."
 msgstr "有新的更新。单击下面的按钮以更新到最新版本。"
 
 #: cps/updater.py:476
@@ -1367,7 +1403,9 @@ msgstr "点击下面按钮更新到最新稳定版本。"
 
 #: cps/updater.py:495 cps/updater.py:509 cps/updater.py:520
 #, python-format
-msgid "A new update is available. Click on the button below to update to version: %(version)s"
+msgid ""
+"A new update is available. Click on the button below to update to "
+"version: %(version)s"
 msgstr "有新的更新。单击下面的按钮以更新到版本: %(version)s"
 
 #: cps/updater.py:538
@@ -1479,7 +1517,9 @@ msgstr "您现在已以“%(nickname)s”身份登录"
 
 #: cps/web.py:1406
 #, python-format
-msgid "Fallback Login as: '%(nickname)s', LDAP Server not reachable, or user not known"
+msgid ""
+"Fallback Login as: '%(nickname)s', LDAP Server not reachable, or user not"
+" known"
 msgstr "后备登录“%(nickname)s”：无法访问 LDAP 服务器，或用户未知"
 
 #: cps/web.py:1411
@@ -2080,7 +2120,9 @@ msgid "Add Identifier"
 msgstr "添加书号"
 
 #: cps/templates/book_edit.html:133
-msgid "Fetch Cover from URL (JPEG - Image will be downloaded and stored in database)"
+msgid ""
+"Fetch Cover from URL (JPEG - Image will be downloaded and stored in "
+"database)"
 msgstr "从 URL 获取封面（JPEG - 图片将下载并存储在数据库中）"
 
 #: cps/templates/book_edit.html:137
@@ -2419,7 +2461,9 @@ msgid "Convert non-English characters in title and author while saving to disk"
 msgstr "保存到磁盘时转换标题和作者中的非英文字符"
 
 #: cps/templates/config_edit.html:108
-msgid "Embed Metadata to Ebook File on Download/Conversion/e-mail (needs Calibre/Kepubify binaries)"
+msgid ""
+"Embed Metadata to Ebook File on Download/Conversion/e-mail (needs "
+"Calibre/Kepubify binaries)"
 msgstr "在下载/转换/电子邮件时将元数据嵌入电子书文件（需要 Calibre/Kepubify 程序）"
 
 #: cps/templates/config_edit.html:112
@@ -2515,7 +2559,9 @@ msgid "SSL"
 msgstr "SSL 协议"
 
 #: cps/templates/config_edit.html:213
-msgid "LDAP CACertificate Path (Only needed for Client Certificate Authentication)"
+msgid ""
+"LDAP CACertificate Path (Only needed for Client Certificate "
+"Authentication)"
 msgstr "LDAP CA证书路径 (仅用于客户端证书认证)"
 
 #: cps/templates/config_edit.html:220
@@ -2823,7 +2869,9 @@ msgid "Add to archive"
 msgstr "添加到归档"
 
 #: cps/templates/detail.html:275
-msgid "Mark Book as archived or not, to hide it in Calibre-Web and delete it from Kobo Reader"
+msgid ""
+"Mark Book as archived or not, to hide it in Calibre-Web and delete it "
+"from Kobo Reader"
 msgstr "将书籍标记为已归档或未归档，以便在 Calibre-Web 中隐藏书籍并从 Kobo 阅读器中删除书籍"
 
 #: cps/templates/detail.html:301 cps/templates/listenmp3.html:190
@@ -2905,7 +2953,9 @@ msgid "Denied Domains (Blacklist)"
 msgstr "禁止注册的域名（黑名单）"
 
 #: cps/templates/generate_kobo_auth_url.html:6
-msgid "Open the .kobo/Kobo/Kobo eReader.conf file in a text editor and add (or edit):"
+msgid ""
+"Open the .kobo/Kobo/Kobo eReader.conf file in a text editor and add (or "
+"edit):"
 msgstr "在文本编辑器中打开 .kobo/Kobo/Kobo eReader.conf，添加（或编辑）:"
 
 #: cps/templates/generate_kobo_auth_url.html:11
@@ -3145,7 +3195,9 @@ msgid "Important Kobo Note: deleted books will remain on any paired Kobo device.
 msgstr "Kobo 重要提示：被删除的书籍将保留在任何配对的 Kobo 设备上。"
 
 #: cps/templates/modal_dialogs.html:56
-msgid "Books must first be archived and the device synced before a book can safely be deleted."
+msgid ""
+"Books must first be archived and the device synced before a book can "
+"safely be deleted."
 msgstr "在安全删除书籍之前，必须先将书籍归档并与设备同步。"
 
 #: cps/templates/modal_dialogs.html:75
@@ -3611,7 +3663,9 @@ msgid "This task will be cancelled. Any progress made by this task will be saved
 msgstr "这个任务将被取消。此任务所有的更改都将被保存。"
 
 #: cps/templates/tasks.html:42
-msgid "If this is a scheduled task, it will be re-ran during the next scheduled time."
+msgid ""
+"If this is a scheduled task, it will be re-ran during the next scheduled "
+"time."
 msgstr "如果这是计划任务，则将在下一个计划的时间内重新运行。"
 
 #: cps/templates/user_edit.html:20
@@ -3619,7 +3673,9 @@ msgid "Reset user Password"
 msgstr "重置用户密码"
 
 #: cps/templates/user_edit.html:28
-msgid "Send to eReader Email Address. Use comma to separate emails for multiple eReaders"
+msgid ""
+"Send to eReader Email Address. Use comma to separate emails for multiple "
+"eReaders"
 msgstr "发送至电子阅读器的电子邮箱地址。使用逗号分隔多个邮箱地址"
 
 #: cps/templates/user_edit.html:43
@@ -3749,4 +3805,709 @@ msgstr "同步所选书架到 Kobo"
 #: cps/templates/user_table.html:156
 msgid "Show Read/Unread Section"
 msgstr "显示已读、未读栏目"
+
+msgid ""
+"(No long-term memories yet — say \"remember…\" in the chat or add one "
+"below)"
+msgstr "（暂无长期记忆——对话里说「记住…」或在下方面板手动添加）"
+
+msgid "AI Companion"
+msgstr "AI 伴读"
+
+msgid "AI Reading Companion"
+msgstr "AI 伴读"
+
+msgid "AI annotation failed, please retry later"
+msgstr "AI 批注生成失败，请稍后重试"
+
+msgid "AI annotation generated"
+msgstr "AI 批注已生成"
+
+msgid "AI annotation updated"
+msgstr "AI 批注已更新"
+
+msgid "AI companion annotation"
+msgstr "AI 伴读批注"
+
+msgid "AI service error"
+msgstr "AI 服务出错"
+
+msgid "AI speech (via moon-well)"
+msgstr "AI 语音（经 moon-well）"
+
+msgid "AI speech failed, falling back to local voice"
+msgstr "AI 朗读失败，改用本地语音"
+
+msgid "AI translation"
+msgstr "AI 翻译"
+
+msgid "Achievement Unlocked!"
+msgstr "成就解锁！"
+
+msgid "Achievements"
+msgstr "成就"
+
+msgid "Add a memory..."
+msgstr "写下要记住的内容…"
+
+msgid "Admin: Adjust Credits"
+msgstr "管理员：调整积分"
+
+msgid "Advanced search"
+msgstr "高级搜索"
+
+msgid "Alipay Scan to Pay"
+msgstr "支付宝扫码支付"
+
+msgid "All Features"
+msgstr "全部功能"
+
+msgid "All done"
+msgstr "全部完成"
+
+msgid "Amount (+/-)"
+msgstr "数额（+/-）"
+
+msgid "Annotate this paragraph"
+msgstr "批注本段"
+
+msgid "Annotation saved"
+msgstr "批注已保存"
+
+msgid "Apply"
+msgstr "查询"
+
+msgid "Apply Adjustment"
+msgstr "应用调整"
+
+msgid "Ask about the current page..."
+msgstr "就本页内容提问…"
+
+msgid "Ask questions about this book; it remembers your preferences."
+msgstr "就这本书提问，它还会记住你的偏好。"
+
+#, python-brace-format
+msgid "Asked {n} questions for this book; learning summary pending."
+msgstr "本书已提问 {n} 次，学情摘要待生成。"
+
+msgid "Audio playback failed"
+msgstr "音频播放失败"
+
+msgid "Book"
+msgstr "书名"
+
+msgid "Book Translation"
+msgstr "整本翻译"
+
+msgid "Book annotations"
+msgstr "本书批注"
+
+msgid "Book wall"
+msgstr "书墙"
+
+msgid "Bookmark"
+msgstr "书签"
+
+msgid "Browser built-in voice"
+msgstr "浏览器内置语音"
+
+msgid "Choose a Recharge Package"
+msgstr "选择充值套餐"
+
+msgid "Claim"
+msgstr "领取"
+
+msgid ""
+"Click the arrows or use the left/right arrow keys; progress is saved "
+"automatically."
+msgstr "点箭头或用 ← →，进度自动保存。"
+
+msgid "Close (Esc)"
+msgstr "关闭 (Esc)"
+
+msgid "Colors, font size, layout and read-aloud all live here."
+msgstr "配色、字号字体、版式与朗读都在这。"
+
+msgid "Completed / Total"
+msgstr "已完成 / 总数"
+
+msgid "Consume"
+msgstr "消耗"
+
+msgid "Contents"
+msgstr "目录面板"
+
+msgid "Copied"
+msgstr "已复制"
+
+msgid "Copy"
+msgstr "复制"
+
+msgid "Credit Consumption Detail"
+msgstr "积分消耗明细"
+
+msgid "Credits"
+msgstr "积分"
+
+msgid ""
+"Credits are consumed by AI features (about 1 credit per 1k tokens). "
+"Recharge is credited instantly after payment."
+msgstr "AI 功能会消耗积分（约每千 token 消耗 1 积分）。充值支付后即时到账。"
+
+msgid "Current level"
+msgstr "当前等级"
+
+msgid "Day streak"
+msgstr "连续天数"
+
+msgid "Delete conversation"
+msgstr "删除会话"
+
+#, python-brace-format
+msgid "Delete conversation “{t}”? This cannot be undone."
+msgstr "删除会话「{t}」？该操作不可恢复。"
+
+msgid "Delete failed: "
+msgstr "删除失败: "
+
+msgid "Delete memory"
+msgstr "删除"
+
+msgid "Delete this memory?"
+msgstr "删除这条记忆？"
+
+msgid "Dictionary"
+msgstr "词典"
+
+msgid "Done"
+msgstr "完成"
+
+msgid "Download EPUB / PDF / TXT, or send straight to your Kindle email."
+msgstr "下载 EPUB / PDF / TXT，配了 Kindle 邮箱还能一键传书。"
+
+msgid "Edit memory"
+msgstr "编辑"
+
+msgid "Edit memory (clear to cancel)"
+msgstr "编辑记忆（清空则取消）"
+
+msgid "Esc to close"
+msgstr "Esc 关闭"
+
+msgid "Failed to load annotations, please retry later"
+msgstr "批注加载失败，请稍后重试"
+
+msgid "Failed to load memories: "
+msgstr "记忆加载失败："
+
+msgid "Failed to load reading settings"
+msgstr "阅读设置加载失败"
+
+msgid "Failed to load roles, please reopen the panel later"
+msgstr "角色清单加载失败，请稍后重开弹层"
+
+msgid "Failed to mark, please retry later"
+msgstr "标记失败，请稍后重试"
+
+msgid "Failed to save annotation, please retry later"
+msgstr "批注保存失败，请稍后重试"
+
+msgid "Failed to submit whole-book translation"
+msgstr "整本翻译提交失败"
+
+msgid "Failed: "
+msgstr "失败："
+
+msgid "Feature"
+msgstr "功能"
+
+msgid ""
+"Flip pages, switch themes and use the AI companion, right inside the "
+"reader."
+msgstr "带你在阅读器里翻页、换主题、用 AI 伴读。"
+
+msgid "Fullscreen"
+msgstr "全屏"
+
+msgid "Further reading: Magicbook User Guide"
+msgstr "延伸阅读：《Magicbook User Guide》"
+
+msgid "Happy reading"
+msgstr "阅读愉快"
+
+msgid "Hard level"
+msgstr "难词等级"
+
+msgid "Hide the browser chrome and keep only the reading area."
+msgstr "隐藏浏览器边框，只留阅读区。"
+
+msgid "Income"
+msgstr "收入"
+
+msgid "Invalid level"
+msgstr "无效等级"
+
+msgid "Later"
+msgstr "以后再说"
+
+msgid "Learn magicbook in 2 minutes"
+msgstr "花 2 分钟学会 magicbook"
+
+msgid "Learning profile unavailable: "
+msgstr "学情暂不可用："
+
+msgid "Leave the rest to habit. A second tour awaits inside the reader."
+msgstr "剩下的交给习惯。打开阅读器时还有第二段导览。"
+
+msgid "Level"
+msgstr "等级"
+
+msgid "Loading AI annotation…"
+msgstr "AI 批注加载中…"
+
+msgid "Loading annotations…"
+msgstr "批注加载中…"
+
+msgid "Loading learning profile…"
+msgstr "学情加载中…"
+
+msgid "Loading memories…"
+msgstr "记忆加载中…"
+
+msgid "Loading…"
+msgstr "加载中…"
+
+msgid "Local password login is disabled; please log in with Authentik"
+msgstr "本地密码登录已停用，请使用 Authentik 登录"
+
+msgid "Log in"
+msgstr "登录"
+
+msgid ""
+"Longer paragraphs stay longer, but never shorter than this; 0 = keep "
+"translations displayed"
+msgstr "段落越长停留越久，但不会低于此值；0 = 保持翻译常显"
+
+msgid "Mark as known"
+msgstr "标记为已认识"
+
+msgid "Mark as unknown"
+msgstr "标记为不认识"
+
+msgid "Mark key spots and jump back with one click from the sidebar."
+msgstr "标记关键处，之后从侧栏一键回来。"
+
+#, python-brace-format
+msgid "Marked as known: {w}"
+msgstr "已标记为认识：{w}"
+
+#, python-brace-format
+msgid "Marked as unknown: {w}"
+msgstr "已标记为不认识：{w}"
+
+msgid "Me"
+msgstr "我"
+
+msgid "Memory & Book Profile"
+msgstr "记忆与本书画像"
+
+msgid "Memory & profile"
+msgstr "记忆与画像"
+
+msgid "My Credit Balance"
+msgstr "我的积分余额"
+
+msgid "Never show again"
+msgstr "不再提示"
+
+msgid "New"
+msgstr "新成就"
+
+msgid "New conversation"
+msgstr "新会话"
+
+msgid ""
+"New conversation ready: it will be created once you send your first "
+"question."
+msgstr "新会话已就绪：第一句提问发出后自动创建。"
+
+msgid "Next step"
+msgstr "下一步"
+
+msgid "No annotations in this book yet — click ✎ next to a paragraph to add one"
+msgstr "本书暂无批注，点段落旁的 ✎ 添加"
+
+msgid "No annotations yet"
+msgstr "暂无批注"
+
+msgid "No batches yet — click the start button."
+msgstr "暂无批次——点击开始按钮。"
+
+msgid "No companion roles available"
+msgstr "暂无可用伴读角色"
+
+msgid "No learning records for this book yet."
+msgstr "本书暂无学情记录。"
+
+msgid "No translation yet"
+msgstr "暂无翻译"
+
+msgid "Onboarding Tour"
+msgstr "使用引导"
+
+msgid ""
+"Open Alipay app and scan the QR code. Credits are granted automatically "
+"after payment."
+msgstr "打开支付宝 App 扫描二维码，支付完成后积分自动到账。"
+
+msgid "Open a book"
+msgstr "进入一本书"
+
+msgid "Open the reader without downloading; the second tour takes over inside."
+msgstr "点开阅读器无需下载，进阅读器后由第二段导览接手。"
+
+msgid "Paging"
+msgstr "翻页"
+
+msgid "Paragraph annotation"
+msgstr "段落批注"
+
+msgid "Pick a role above to let AI generate a companion note for this paragraph"
+msgstr "点上方角色，让 AI 为本段生成伴读批注"
+
+msgid "Pick any book to open its detail page; the tour continues there."
+msgstr "任选一本进入详情页，导览在详情页接着讲。"
+
+msgid "Please select an existing conversation first"
+msgstr "请先选择一个已创建的会话"
+
+msgid ""
+"Positive amount adds credits, negative deducts. Every adjustment is "
+"recorded in the ledger with your user id."
+msgstr "正数为增加积分，负数为扣减。每次调整都会以你的用户 ID 记入账本。"
+
+msgid "Previous step"
+msgstr "上一步"
+
+msgid "Quote to AI companion"
+msgstr "引用到 AI 伴读"
+
+msgid "Quoted into the AI companion — add a prompt and send"
+msgstr "已引用到 AI 伴读，补充提示词后发送"
+
+msgid "Read in browser"
+msgstr "在浏览器里读"
+
+msgid "Read original aloud"
+msgstr "朗读原文"
+
+msgid "Read this paragraph aloud"
+msgstr "朗读本段"
+
+msgid "Read-aloud engine"
+msgstr "朗读引擎"
+
+msgid "Reading"
+msgstr "阅读"
+
+msgid "Reading Settings"
+msgstr "阅读设置"
+
+msgid "Reading settings, achievements and credits all live in this dropdown."
+msgstr "阅读设置、成就、积分都收在这个下拉里。"
+
+msgid "Reason"
+msgstr "原因"
+
+msgid "Reason (required, audited)"
+msgstr "原因（必填，留审计）"
+
+msgid "Refresh Progress"
+msgstr "刷新进度"
+
+msgid "Regenerate"
+msgstr "重新生成"
+
+msgid "Regenerate Order"
+msgstr "重新生成订单"
+
+#, python-brace-format
+msgid "Regenerating will overwrite the current “{r}” annotation. Continue?"
+msgstr "重新生成会覆盖当前「{r}」批注，继续？"
+
+msgid "Rename conversation"
+msgstr "重命名会话"
+
+msgid "Rename failed: "
+msgstr "重命名失败: "
+
+msgid "Reset"
+msgstr "重置"
+
+msgid "Result: "
+msgstr "结果："
+
+msgid "Retry"
+msgstr "重试"
+
+msgid "Right of the cover: title, authors, series, tags, rating and publisher."
+msgstr "封面右侧是书名、作者、系列、标签、评分与出版社。"
+
+msgid "Save failed"
+msgstr "保存失败"
+
+msgid "Save failed: "
+msgstr "保存失败: "
+
+msgid "Saved"
+msgstr "已保存"
+
+msgid "Saving..."
+msgstr "保存中…"
+
+msgid ""
+"Search the whole library by title or author; the results page keeps the "
+"same sorting and shelf actions."
+msgstr "输入书名或作者全库检索，结果页沿用同样的排序与书架操作。"
+
+msgid "Send"
+msgstr "发送"
+
+msgid ""
+"Shelves are your own curated lists (want-to-read / reading / favorites), "
+"switchable in the sidebar."
+msgstr "书架是你自己组织的书单（想读 / 在读 / 收藏），左侧栏可随时切换。"
+
+msgid "Sign in"
+msgstr "登录"
+
+msgid "Sign up"
+msgstr "注册账号"
+
+msgid "Skip"
+msgstr "跳过"
+
+msgid "Skip the cache and regenerate this annotation (overwrites the old one)"
+msgstr "跳过缓存，重新生成本条批注（覆盖旧内容）"
+
+msgid "Sort"
+msgstr "排序"
+
+msgid ""
+"Sort by age, title, author or publisher; your choice is saved to your "
+"account."
+msgstr "按新旧、书名、作者、出版社排序，选择会记在你的账号上。"
+
+msgid "Speech synthesis failed"
+msgstr "语音合成失败"
+
+msgid "Speech synthesis is not supported in this browser"
+msgstr "当前浏览器不支持语音合成"
+
+msgid "Start Tour"
+msgstr "开始引导"
+
+msgid ""
+"Start whole-book translation for ALL English books now? Missing "
+"paragraphs will be published and consume credits."
+msgstr "立即为所有英文书启动整本翻译？缺失段落将被发布并消耗积分。"
+
+msgid ""
+"Start whole-book translation for every English book (EPUB/KEPUB). "
+"Already-translated paragraphs are recovered from cache for free; only "
+"missing paragraphs are published. Books already running are skipped."
+msgstr "为所有英文书（EPUB/KEPUB）启动整本翻译。已翻译段落免费从缓存恢复，仅发布缺失段落。正在运行的书会被跳过。"
+
+msgid ""
+"Start/resume whole-book translation?\n"
+"\n"
+"Paragraphs that already have translations only hit the cache and are not "
+"billed again; only missing paragraphs are actually translated."
+msgstr ""
+"开始/补齐整本翻译？\n"
+"\n"
+"已有译文的段落只查缓存不重复消耗，缺失段落才会真正翻译。"
+
+msgid "Streak"
+msgstr "连续"
+
+msgid "Submit annotation"
+msgstr "提交批注"
+
+msgid "Submitting…"
+msgstr "提交中…"
+
+msgid "Switch conversation"
+msgstr "切换会话"
+
+msgid ""
+"Switch library views by newest / trending / top rated / read / unread / "
+"random — your first stop for finding books."
+msgstr "按「最新 / 热门 / 高分 / 已读 / 未读 / 随机」切换书库视图，是找书的第一站。"
+
+msgid "Tap the “?” at the bottom-left any time to replay the tour."
+msgstr "想重看随时点左下角的「?」。"
+
+msgid ""
+"The cover grid is your library. Click a cover for details; hover for "
+"quick actions."
+msgstr "封面网格就是书库。点封面看详情，悬停可快速操作。"
+
+msgid ""
+"The sidebar switches between table of contents, bookmarks and in-book "
+"search."
+msgstr "侧栏可切目录、书签与书内搜索。"
+
+msgid "Thinking"
+msgstr "思考中"
+
+msgid ""
+"This role already has an annotation; use Regenerate on the item to update"
+" it"
+msgstr "该角色已有批注，可用条目上的「重新生成」更新"
+
+msgid "Tick it when you finish; read/unread filters and stats rely on it."
+msgstr "读完勾一下，「未读 / 已读」筛选、统计与成就都依赖它。"
+
+msgid "Time"
+msgstr "时间"
+
+#, python-brace-format
+msgid "Total questions: {q} · tool calls: {t}"
+msgstr "累计提问 {q} 次 · 工具调用 {t} 次"
+
+msgid "Tr"
+msgstr "译"
+
+msgid "Translate"
+msgstr "翻译与划词"
+
+msgid "Translate All English Books"
+msgstr "整本翻译所有英文书"
+
+msgid "Translate this book"
+msgstr "翻译本书"
+
+msgid "Translate this page (click again to hide)"
+msgstr "翻译本页（再次点击隐藏）"
+
+msgid "Translate this paragraph (click again to undo)"
+msgstr "翻译本段（再点一次取消）"
+
+msgid "Translating…"
+msgstr "翻译中…"
+
+msgid "Translation display time per 100 words"
+msgstr "每百词翻译停留时间"
+
+msgid "Translation failed, click to retry"
+msgstr "翻译失败，点击重试"
+
+msgid "Translation failed, please retry later"
+msgstr "翻译失败，请稍后重试"
+
+msgid "Try it"
+msgstr "点我试试"
+
+msgid ""
+"Turn on bilingual paragraphs; select a word or phrase for definitions and"
+" unknown words."
+msgstr "开双语段落；选中词句可查释义、加生词。"
+
+msgid "Type"
+msgstr "类型"
+
+msgid "Unknown chapter"
+msgstr "未知章节"
+
+msgid "Unlocked"
+msgstr "已解锁"
+
+msgid "Updated"
+msgstr "更新于"
+
+msgid ""
+"Use it to combine filters by author / series / publisher / language / "
+"rating."
+msgstr "按作者 / 系列 / 出版社 / 语言 / 评分多条件组合过滤时用这里。"
+
+msgid "User ID"
+msgstr "用户 ID"
+
+msgid "Vocabulary"
+msgstr "词汇"
+
+msgid "Vocabulary Difficulty Level"
+msgstr "词汇难度等级"
+
+msgid ""
+"Walk through finding books, shelves, download and reading on the real "
+"interface."
+msgstr "带你在真实界面上走一遍找书、加书架、下载与阅读。"
+
+msgid "Whole-book"
+msgstr "整本译"
+
+#, python-brace-format
+msgid "Whole-book translation completed: {d}/{t}"
+msgstr "整本翻译完成：{d}/{t}"
+
+#, python-brace-format
+msgid "Whole-book translation finished, {f} paragraphs failed: {d}/{t}"
+msgstr "整本翻译完成，{f} 段失败：{d}/{t}"
+
+#, python-brace-format
+msgid ""
+"Whole-book translation submitted\n"
+"Total paragraphs: {total}\n"
+"Cached: {cached}\n"
+"Newly published: {published}\n"
+"\n"
+"Translations are generated in the background paragraph by paragraph and "
+"appear automatically while reading."
+msgstr ""
+"整本翻译已提交\n"
+"总段落：{total}\n"
+"已缓存：{cached}\n"
+"新发布：{published}\n"
+"\n"
+"译文会在后台逐段生成，完成后阅读时自动显示。"
+
+msgid ""
+"Words harder than this level are marked as unknown while reading. "
+"Default: CET4."
+msgstr "阅读时高于该等级的词会被标记为生词。默认：CET4。"
+
+msgid "Write something to remember first"
+msgstr "先写一条要记住的内容"
+
+msgid "Write your annotation for this paragraph… (Ctrl+Enter to submit)"
+msgstr "写下对本段的批注…（Ctrl+Enter 提交）"
+
+msgid "[General]"
+msgstr "[通用]"
+
+msgid "[This book]"
+msgstr "[本书]"
+
+msgid "default"
+msgstr "默认"
+
+msgid "default (not saved)"
+msgstr "默认（未保存）"
+
+msgid "moon-well request failed"
+msgstr "moon-well 请求失败"
+
+msgid "seconds / 100 words (minimum display time; 0 = keep displayed)"
+msgstr "秒 / 百词（最短停留时间；0 = 常显）"
+
+msgid "Difficulty: "
+msgstr "难度："
+
+msgid "Topics: "
+msgstr "主题："
+
+msgid "Frequent words: "
+msgstr "高频词："
 

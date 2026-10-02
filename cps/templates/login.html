@@ -4,16 +4,16 @@
   <h2 style="margin-top: 0">{{_('Login')}}</h2>
   {% if authentik_oidc_enabled %}
     {# 统一账户体系：Authentik 启用后隐藏本地密码表单，仅保留 OIDC 登录 #}
-    <p class="text-muted">Sign in</p>
+    <p class="text-muted">{{_('Sign in')}}</p>
     <a href="{{ url_for('oidc.login', next=next_url) }}" class="btn btn-primary btn-block" style="white-space:normal">
-      Log in
+      {{_('Log in')}}
     </a>
     {# 邀请制注册：游客首页即本页（匿名浏览关闭时 / 302 到 /login），登录入口旁放注册入口；
-       链接来自 AUTHENTIK_ENROLLMENT_INVITE_URL；标签不走 Babel（词条未入 po），中英双写 #}
+       链接来自 AUTHENTIK_ENROLLMENT_INVITE_URL；R112：标签走 Babel gettext，随 locale 切换 #}
     {% if authentik_invite_url %}
     <a id="authentik_invite_signup" href="{{ authentik_invite_url }}" target="_blank" rel="noopener"
        class="btn btn-default btn-block" style="white-space:normal;margin-top:8px">
-      注册账号 <small class="text-muted">Sign up (invite)</small>
+      {{_('Sign up')}}
     </a>
     {% endif %}
   {% else %}

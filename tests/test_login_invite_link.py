@@ -24,8 +24,9 @@ def test_invite_link_rendered_when_configured(app, client, monkeypatch):
     assert 'id="authentik_invite_signup"' in page
     assert 'href="{0}"'.format(INVITE_URL) in page
     assert 'target="_blank"' in page
-    assert "注册账号" in page
-    assert "Sign up (invite)" in page
+    # R112：标签走 Babel gettext，匿名（locale 回落 en）只见英文 msgid，中文不得双写回流
+    assert "Sign up" in page
+    assert "注册账号" not in page
     assert "Log in" in page
 
 

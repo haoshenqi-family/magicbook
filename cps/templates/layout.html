@@ -94,22 +94,22 @@
                 <li><a id="top_admin" data-text="{{_('Settings')}}" href="{{url_for('admin.admin')}}"><span class="glyphicon glyphicon-dashboard"></span> <span class="hidden-sm">{{_('Admin')}}</span></a></li>
               {% endif %}
               {# magicbook 扩展设置入口统一收进下拉框：平铺项放不下且持续新增；
-                 标签不走 Babel（magicbook 词条未入 po，且账号 locale=en 时永远英文），
-                 直接「中文 + 英文辅助」双写，两种语言同时可用 #}
+                 R112：标签走标准 Babel gettext（英文 msgid，中文词条在 zh_Hans_CN po），
+                 随用户 locale 切换单语言显示，替代旧「中英双写」方案 #}
               {% if not current_user.is_anonymous %}
                 <li class="dropdown" id="top_mb_settings">
                   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
-                    <span class="glyphicon glyphicon-cog"></span> 设置 <small class="text-muted hidden-sm hidden-md">Settings</small> <span class="caret"></span>
+                    <span class="glyphicon glyphicon-cog"></span> {{_('Settings')}} <span class="caret"></span>
                   </a>
                   <ul class="dropdown-menu">
-                    <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> 阅读设置 <small class="text-muted">Reading Settings</small></a></li>
-                    <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> 成就 <small class="text-muted">Achievements</small></a></li>
-                    <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> 积分 <small class="text-muted">Credits</small></a></li>
+                    <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> {{_('Reading Settings')}}</a></li>
+                    <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> {{_('Achievements')}}</a></li>
+                    <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> {{_('Credits')}}</a></li>
                     {# R109 使用引导：常驻手动入口，点击后由 onboarding.js 接管 #}
-                    <li><a id="top_onboarding" href="#"><span class="glyphicon glyphicon-education"></span> 使用引导 <small class="text-muted">Onboarding Tour</small></a></li>
+                    <li><a id="top_onboarding" href="#"><span class="glyphicon glyphicon-education"></span> {{_('Onboarding Tour')}}</a></li>
                     {% if current_user.role_admin() %}
                     <li class="divider"></li>
-                    <li><a id="top_translate_all" href="{{url_for('web.translate_all_page')}}"><span class="glyphicon glyphicon-globe"></span> 整本翻译 <small class="text-muted">Book Translation</small></a></li>
+                    <li><a id="top_translate_all" href="{{url_for('web.translate_all_page')}}"><span class="glyphicon glyphicon-globe"></span> {{_('Book Translation')}}</a></li>
                     {% endif %}
                   </ul>
                 </li>
@@ -247,6 +247,7 @@
     {% endif %}
     {% block js %}{% endblock %}
     {# R109 引导模式：必须在 jQuery 之后（onboarding.js 依赖 $），故放在 block js 之后 #}
+    {% include 'i18n_seed.html' %}
     {% include 'onboarding_mount.html' %}
   </body>
 </html>

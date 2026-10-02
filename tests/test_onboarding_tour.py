@@ -133,8 +133,9 @@ def test_anonymous_seed_is_marked_and_page_ok(client):
 def test_manual_entry_bilingual_and_role_scoped(settings_page):
     block = _dropdown_block(settings_page)
     assert 'id="top_onboarding"' in block
-    # 中文为主 + 英文辅助双写（R102 惯例），不走 Babel
-    assert "使用引导" in block and "Onboarding Tour" in block
+    # R112：走 Babel gettext，admin（locale=en）只见英文 msgid，双写不得回流
+    assert "Onboarding Tour" in block
+    assert "使用引导" not in block
     assert settings_page.count('id="top_onboarding"') == 1
 
 
@@ -244,3 +245,59 @@ def test_scroll_listener_uses_capture_phase():
         src = fh.read()
     assert 'window.addEventListener("scroll", onViewportEvent, true)' in src
     assert 'resize.onboarding scroll.onboarding' not in src
+
+
+def _mb_i18n(page):
+    """解析 i18n_seed.html 注入的 MB_I18N 字典（tojson 会把中文转义，全文匹配不可靠）。"""
+    m = re.search(r"window\.MB_I18N = (\{.*?\});\n\s*window\.mbT", page, re.S)
+    assert m, "MB_I18N 种子未渲染"
+    return json.loads(m.group(1))
+
+
+def test_i18n_seed_mounted_once_and_localizes(app, admin_client):
+    """R112 US2: layout 页注入 window.MB_I18N（只一次），en 账号取词回 msgid 本身。"""
+    rv = admin_client.get("/reading/settings")
+    page = rv.data.decode("utf-8")
+    assert page.count("window.MB_I18N = ") == 1
+    assert "window.mbT" in page
+    d = _mb_i18n(page)
+    assert d["Skip"] == "Skip"
+
+
+def test_i18n_seed_renders_chinese_for_zh_user(app):
+    """zh_Hans_CN 用户拿到的 MB_I18N 值是中文译文（po 链路生效），且不再双写。"""
+    from werkzeug.security import generate_password_hash
+    user = ub.session.query(ub.User).filter(ub.User.name == "zh-seed-tester").first()
+    if user is None:
+        user = ub.User(name="zh-seed-tester", email="zhseed@example.com",
+                       password=generate_password_hash("zhseed-pass"))
+        ub.session.add(user)
+        ub.session.commit()
+    user.locale = "zh_Hans_CN"
+    ub.session.commit()
+
+    client = app.test_client()
+    rv = client.post("/login", data={"username": "zh-seed-tester", "password": "zhseed-pass"})
+    assert rv.status_code == 302
+    from cps import config as cw_config
+    cw_config.db_configured = True
+    page = client.get("/reading/settings").data.decode("utf-8")
+    d = _mb_i18n(page)
+    assert d["Skip"] == "跳过"
+    assert d["Start Tour"] == "开始引导"
+    assert d["Book wall"] == "书墙"
+    # 尾点这条曾出现「字典 key 带句点、_() 实参不带」的不一致：值非空但是英文，
+    # 遍历断言查不出来，故逐字比对（同缺陷类由 test_i18n_seed_contract 从源码侧锁死）
+    assert d["Tap the “?” at the bottom-left any time to replay the tour."] == (
+        "想重看随时点左下角的「?」。")
+    # 含 \n / 引号转义的长词条走运行时比对（源码转义形态不可靠）
+    for key, val in d.items():
+        assert val, f"词条 {key!r} 翻译为空"
+    assert d["Whole-book translation submitted\nTotal paragraphs: {total}\nCached: {cached}\n"
+            "Newly published: {published}\n\nTranslations are generated in the background "
+            "paragraph by paragraph and appear automatically while reading."] == (
+        "整本翻译已提交\n总段落：{total}\n已缓存：{cached}\n新发布：{published}\n\n"
+        "译文会在后台逐段生成，完成后阅读时自动显示。")
+    assert d['(No long-term memories yet — say "remember…" in the chat or add one below)'] == (
+        "（暂无长期记忆——对话里说「记住…」或在下方面板手动添加）")
+    assert d["Delete this memory?"] == "删除这条记忆？"

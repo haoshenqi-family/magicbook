@@ -4,6 +4,8 @@ var reader;
 
 (function () {
     "use strict";
+  // R112: i18n 取词（种子缺失时回退 msgid 本身）
+  var mbT = window.mbT || function (id) { return id; };
 
     EPUBJS.filePath = calibre.filePath;
     EPUBJS.cssPath = calibre.cssPath;
@@ -272,9 +274,9 @@ var reader;
                 if (result && (result.status === 'COMPLETED' || result.status === 'PARTIAL_FAILED')) {
                     clearInterval(wholeBookPollTimer);
                     wholeBookPollTimer = null;
-                    readerToast('整本翻译' + (result.status === 'COMPLETED' ? '完成' : '部分段落失败') +
-                        '：' + result.completedCount + '/' + result.totalCount +
-                        (result.failedCount ? '（失败 ' + result.failedCount + ' 段）' : ''));
+                    readerToast(result.status === 'COMPLETED'
+                        ? mbT('Whole-book translation completed: {d}/{t}').replace('{d}', result.completedCount).replace('{t}', result.totalCount)
+                        : mbT('Whole-book translation finished, {f} paragraphs failed: {d}/{t}').replace('{f}', result.failedCount).replace('{d}', result.completedCount).replace('{t}', result.totalCount));
                 }
             }).fail(function () {
                 // 查询失败静默：下次轮询继续；会话过期时后端返回 401，轮询仍无害
@@ -289,9 +291,9 @@ var reader;
     var popoverHideText = '';
 
     function startWholeBookTranslation() {
-        if (!calibre.wholeBookTranslationUrl || !window.confirm('开始/补齐整本翻译？\n\n已有译文的段落只查缓存不重复消耗，缺失段落才会真正翻译。')) return;
+        if (!calibre.wholeBookTranslationUrl || !window.confirm(mbT('Start/resume whole-book translation?\n\nParagraphs that already have translations only hit the cache and are not billed again; only missing paragraphs are actually translated.'))) return;
         var button = document.getElementById('whole-book-translate');
-        if (button) { button.classList.add('active'); button.textContent = '提交中…'; }
+        if (button) { button.classList.add('active'); button.textContent = mbT('Submitting…'); }
         $.ajax({url: calibre.wholeBookTranslationUrl, method: 'POST', contentType: 'application/json',
             headers: {'X-CSRFToken': readerCsrfToken()},
             // R75 后续：恒带 force。历史批次可能停在 PUBLISHED 缺口（已发布但译文
@@ -302,16 +304,16 @@ var reader;
             // 译文不是同步返回：任务由 moon-well 后台逐段执行并写入缓存，
             // 完成后本阅读器翻页时经 restoreCachedTranslations 自动回填。
             try { localStorage.setItem('calibre.reader.translation.job.' + calibre.bookId, result.jobId); } catch (e) {}
-            alert('整本翻译已提交\n总段落：' + (result.totalCount || 0) +
-                '\n已缓存：' + (result.cachedCount || 0) +
-                '\n新发布：' + (result.publishedCount || 0) +
-                '\n\n译文会在后台逐段生成，完成后阅读时自动显示。');
+            alert(mbT('Whole-book translation submitted\nTotal paragraphs: {total}\nCached: {cached}\nNewly published: {published}\n\nTranslations are generated in the background paragraph by paragraph and appear automatically while reading.')
+                .replace('{total}', result.totalCount || 0)
+                .replace('{cached}', result.cachedCount || 0)
+                .replace('{published}', result.publishedCount || 0));
             startWholeBookProgressPolling();
         }).fail(function (xhr) {
             if (reloadIfCsrfBlocked(xhr)) return;
-            alert((xhr.responseJSON && xhr.responseJSON.message) || '整本翻译提交失败');
+            alert((xhr.responseJSON && xhr.responseJSON.message) || mbT('Failed to submit whole-book translation'));
         }).always(function () {
-            if (button) { button.classList.remove('active'); button.textContent = '整本译'; }
+            if (button) { button.classList.remove('active'); button.textContent = mbT('Whole-book'); }
         });
     }
 
@@ -344,7 +346,7 @@ var reader;
         closeTranslationPopover();
         translationPopover = document.createElement('div');
         translationPopover.className = 'reading-translation-popover' + (loading ? ' is-loading' : '');
-        translationPopover.textContent = loading ? '翻译中…' : text;
+        translationPopover.textContent = loading ? mbT('Translating…') : text;
         // 气泡内任何点击（朗读/生词标记等）都视为正在使用：重置自动隐藏计时。
         // 用捕获阶段监听——按钮自身的 click 处理器会 stopPropagation，
         // 冒泡阶段的监听收不到，捕获先于目标处理器执行不受影响。
@@ -386,11 +388,11 @@ var reader;
             if (requestId !== translationRequest || !translationPopover) return;
             var result = response.result || response.data || {};
             popover.classList.remove('is-loading');
-            popover.textContent = result.translation || '暂无翻译';
+            popover.textContent = result.translation || mbT('No translation yet');
             if (result.source) {
                 var source = document.createElement('div');
                 source.className = 'translation-source';
-                source.textContent = result.source === 'dictionary' ? '词典' : 'AI 翻译';
+                source.textContent = result.source === 'dictionary' ? mbT('Dictionary') : mbT('AI translation');
                 popover.appendChild(source);
             }
             // 划词发音：单词走有道词库真人音频，短语/句子走浏览器合成（speakSelection）
@@ -399,7 +401,7 @@ var reader;
                 var speakBtn = document.createElement('span');
                 speakBtn.className = 'translation-speak';
                 speakBtn.textContent = '🔊';
-                speakBtn.title = '朗读原文';
+                speakBtn.title = mbT('Read original aloud');
                 speakBtn.addEventListener('click', function (ev) {
                     ev.stopPropagation();
                     speakSelection(text);
@@ -418,7 +420,7 @@ var reader;
             if (reloadIfCsrfBlocked(xhr)) return;
             if (requestId === translationRequest && translationPopover) {
                 popover.classList.remove('is-loading');
-                popover.textContent = '翻译失败，请稍后重试';
+                popover.textContent = mbT('Translation failed, please retry later');
             }
         });
     }
@@ -502,11 +504,11 @@ var reader;
         var plusBtn = document.createElement('span');
         plusBtn.className = 'translation-mark translation-mark-plus';
         plusBtn.textContent = '＋';
-        plusBtn.title = '标记为不认识';
+        plusBtn.title = mbT('Mark as unknown');
         var minusBtn = document.createElement('span');
         minusBtn.className = 'translation-mark translation-mark-minus';
         minusBtn.textContent = '－';
-        minusBtn.title = '标记为已认识';
+        minusBtn.title = mbT('Mark as known');
 
         function refreshState() {
             var record = vocabularyRecords[word];
@@ -526,11 +528,13 @@ var reader;
             }).done(function () {
                 applyWordUnknown(word, unknown);
                 refreshState();
-                readerToast(unknown ? '已标记为不认识：' + word : '已标记为认识：' + word);
+                // 插入的是用户选中的原文，用回调形式：String.replace 的第二参里 $&/$1 有特殊含义
+                readerToast(unknown ? mbT('Marked as unknown: {w}').replace('{w}', function () { return word; })
+                                    : mbT('Marked as known: {w}').replace('{w}', function () { return word; }));
             }).fail(function (xhr) {
                 // CSRF 过期/会话重建：刷新页面拿新 token，避免「标记失败」误导
                 if (reloadIfCsrfBlocked(xhr)) return;
-                readerToast('标记失败，请稍后重试');
+                readerToast(mbT('Failed to mark, please retry later'));
             }).always(function () {
                 btn.classList.remove('is-loading');
             });
@@ -568,7 +572,7 @@ var reader;
     }
 
     function copySelectionText(content, text) {
-        var done = function () { readerToast('已复制'); };
+        var done = function () { readerToast(mbT('Copied')); };
         var legacy = function () {
             try { content.document.execCommand('copy'); done(); } catch (e) {}
         };
@@ -585,7 +589,7 @@ var reader;
         var trimmed = text.length > SELECTION_QUOTE_MAX ? text.slice(0, SELECTION_QUOTE_MAX) + '…' : text;
         if (window.AICompanion && typeof window.AICompanion.insertIntoInput === 'function' &&
             window.AICompanion.insertIntoInput(trimmed)) {
-            readerToast('已引用到 AI 伴读，补充提示词后发送');
+            readerToast(mbT('Quoted into the AI companion — add a prompt and send'));
         }
     }
 
@@ -610,9 +614,9 @@ var reader;
         }
 
         if (window.AICompanion && typeof window.AICompanion.insertIntoInput === 'function') {
-            addItem('引用到 AI 伴读', function () { quoteSelectionToAi(text); });
+            addItem(mbT('Quote to AI companion'), function () { quoteSelectionToAi(text); });
         }
-        addItem('复制', function () { copySelectionText(content, text); });
+        addItem(mbT('Copy'), function () { copySelectionText(content, text); });
 
         document.body.appendChild(selectionMenu);
 
@@ -733,7 +737,7 @@ var reader;
         '.reading-tts-btn::before{content:"▶"}',
         '.reading-tts-btn.is-loading::before{content:"⟳"}',
         '.reading-tts-btn.is-playing::before{content:"■"}',
-        '.reading-translate-btn::before{content:"译"}',
+        '.reading-translate-btn::before{content:"' + mbT('Tr') + '"}',
         '.reading-translate-btn.is-loading::before{content:"⟳"}',
         '.reading-translate-btn.is-done{opacity:.5}',
         '.reading-annotation-btn::before{content:"✎"}',
@@ -779,7 +783,7 @@ var reader;
             if (!el.querySelector(':scope > .reading-tts-btn')) {
                 var ttsBtn = doc.createElement('span');
                 ttsBtn.className = 'reading-para-btn reading-tts-btn';
-                ttsBtn.title = '朗读本段';
+                ttsBtn.title = mbT('Read this paragraph aloud');
                 ttsBtn.addEventListener('click', function (ev) {
                     ev.preventDefault();
                     ev.stopPropagation();
@@ -790,7 +794,7 @@ var reader;
             if (!el.querySelector(':scope > .reading-translate-btn')) {
                 var trBtn = doc.createElement('span');
                 trBtn.className = 'reading-para-btn reading-translate-btn';
-                trBtn.title = '翻译本段（再点一次取消）';
+                trBtn.title = mbT('Translate this paragraph (click again to undo)');
                 trBtn.addEventListener('click', function (ev) {
                     ev.preventDefault();
                     ev.stopPropagation();
@@ -801,7 +805,7 @@ var reader;
             if (!el.querySelector(':scope > .reading-annotation-btn')) {
                 var noteBtn = doc.createElement('span');
                 noteBtn.className = 'reading-para-btn reading-annotation-btn';
-                noteBtn.title = '批注本段';
+                noteBtn.title = mbT('Annotate this paragraph');
                 noteBtn.addEventListener('click', function (ev) {
                     ev.preventDefault();
                     ev.stopPropagation();
@@ -812,7 +816,7 @@ var reader;
             if (!el.querySelector(':scope > .reading-companion-btn')) {
                 var aiBtn = doc.createElement('span');
                 aiBtn.className = 'reading-para-btn reading-companion-btn';
-                aiBtn.title = 'AI 伴读批注';
+                aiBtn.title = mbT('AI companion annotation');
                 aiBtn.addEventListener('click', function (ev) {
                     ev.preventDefault();
                     ev.stopPropagation();
@@ -885,15 +889,15 @@ var reader;
             activeTts = {audio: audio, url: url, btn: btn};
             audio.onended = function () { if (activeTts && activeTts.audio === audio) stopTts(); };
             audio.onerror = function () {
-                if (activeTts && activeTts.audio === audio) { stopTts(); readerToast('音频播放失败'); }
+                if (activeTts && activeTts.audio === audio) { stopTts(); readerToast(mbT('Audio playback failed')); }
             };
-            audio.play().catch(function () { stopTts(); readerToast('音频播放失败'); });
+            audio.play().catch(function () { stopTts(); readerToast(mbT('Audio playback failed')); });
         }).catch(function (err) {
             if (seq !== ttsRequestSeq) return;
             btn.classList.remove('is-loading');
             // CSRF 过期/会话重建：刷新页面拿新 token（AI 朗读才能恢复）
             if (reloadIfCsrfBlocked(err && err.message)) return;
-            readerToast('AI 朗读失败，改用本地语音' + (err && err.message ? '：' + err.message : ''));
+            readerToast(mbT('AI speech failed, falling back to local voice') + (err && err.message ? '：' + err.message : ''));
             speakWithBrowser(btn, text);
         });
     }
@@ -920,7 +924,7 @@ var reader;
 
     function speakWithBrowser(btn, text) {
         if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-            readerToast('当前浏览器不支持语音合成');
+            readerToast(mbT('Speech synthesis is not supported in this browser'));
             return;
         }
         var utterance = buildSpeechUtterance(text);
@@ -928,7 +932,7 @@ var reader;
         activeTts = {utterance: utterance, btn: btn};
         utterance.onend = function () { if (activeTts && activeTts.utterance === utterance) stopTts(); };
         utterance.onerror = function () {
-            if (activeTts && activeTts.utterance === utterance) { stopTts(); readerToast('语音合成失败'); }
+            if (activeTts && activeTts.utterance === utterance) { stopTts(); readerToast(mbT('Speech synthesis failed')); }
         };
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
@@ -1088,7 +1092,7 @@ var reader;
 
     function showTranslationError(el, text) {
         setParagraphTranslated(el, false);
-        var div = insertTranslation(el, '翻译失败，点击重试', 'is-error');
+        var div = insertTranslation(el, mbT('Translation failed, click to retry'), 'is-error');
         div.addEventListener('click', function () {
             div.remove();
             translateSingleParagraph(el, text);
@@ -1098,7 +1102,7 @@ var reader;
     function translateSingleParagraph(el, text) {
         var btn = el.querySelector(':scope > .reading-translate-btn');
         if (btn) btn.classList.add('is-loading');
-        insertTranslation(el, '翻译中…', 'is-loading');
+        insertTranslation(el, mbT('Translating…'), 'is-loading');
         $.ajax({
             url: calibre.readingTranslateBatchUrl,
             method: 'POST', contentType: 'application/json',
@@ -1229,7 +1233,7 @@ var reader;
         translationInFlight = true;
         var chapter = currentChapterTitle();
         var remaining = jobs.length;
-        jobs.forEach(function (job) { insertTranslation(job.el, '翻译中…', 'is-loading'); });
+        jobs.forEach(function (job) { insertTranslation(job.el, mbT('Translating…'), 'is-loading'); });
         // 逐段并发（限 4）：每段一个请求，翻译到达即显示，避免整页单请求的长时间卡顿
         runConcurrent(jobs, 4, function (job, done) {
             translateParagraphJob(job, cache, chapter, function () {
@@ -1313,7 +1317,7 @@ var reader;
         el.className = 'annotation-item';
         var meta = document.createElement('div');
         meta.className = 'annotation-meta';
-        meta.textContent = (item.nickName || '匿名') + ' · ' + formatAnnotationTime(item.annotatedAt);
+        meta.textContent = (item.nickName || mbT('Anonymous')) + ' · ' + formatAnnotationTime(item.annotatedAt);
         var content = document.createElement('div');
         content.className = 'annotation-content';
         content.textContent = item.content || '';
@@ -1327,7 +1331,7 @@ var reader;
         if (!items || !items.length) {
             var empty = document.createElement('div');
             empty.className = 'annotation-empty';
-            empty.textContent = emptyText || '暂无批注';
+            empty.textContent = emptyText || mbT('No annotations yet');
             container.appendChild(empty);
             return;
         }
@@ -1338,7 +1342,7 @@ var reader;
 
     function loadParagraphAnnotations(paragraph, listEl) {
         var seq = ++annotationRequestSeq;
-        renderAnnotationList(listEl, null, '批注加载中…');
+        renderAnnotationList(listEl, null, mbT('Loading annotations…'));
         $.ajax({
             url: calibre.readingAnnotationListUrl, method: 'POST', contentType: 'application/json',
             headers: {'X-CSRFToken': readerCsrfToken()},
@@ -1350,7 +1354,7 @@ var reader;
         }).fail(function (xhr) {
             if (reloadIfCsrfBlocked(xhr)) return;
             if (seq !== annotationRequestSeq || !annotationPopover) return;
-            renderAnnotationList(listEl, null, '批注加载失败，请稍后重试');
+            renderAnnotationList(listEl, null, mbT('Failed to load annotations, please retry later'));
         });
     }
 
@@ -1399,7 +1403,7 @@ var reader;
         companionListEl.textContent = '';
         var roleIds = Object.keys(companionEntries);
         if (!roleIds.length) {
-            companionListEl.appendChild(companionEmpty('点上方角色，让 AI 为本段生成伴读批注'));
+            companionListEl.appendChild(companionEmpty(mbT('Pick a role above to let AI generate a companion note for this paragraph')));
             return;
         }
         roleIds.forEach(function (roleId) {
@@ -1411,12 +1415,13 @@ var reader;
             meta.textContent = '🤖 ' + (entry.roleName || roleId) + ' · ' + formatAnnotationTime(entry.createdAt);
             var regen = document.createElement('span');
             regen.className = 'ai-annotation-regen';
-            regen.textContent = '重新生成';
-            regen.title = '跳过缓存，重新生成本条批注（覆盖旧内容）';
+            regen.textContent = mbT('Regenerate');
+            regen.title = mbT('Skip the cache and regenerate this annotation (overwrites the old one)');
             regen.addEventListener('click', function () {
                 if (regen.classList.contains('is-loading')) return;
                 var role = companionRoleOf(roleId) || {roleId: roleId, name: entry.roleName || roleId};
-                if (!window.confirm('重新生成会覆盖当前「' + (entry.roleName || roleId) + '」批注，继续？')) return;
+                if (!window.confirm(mbT('Regenerating will overwrite the current “{r}” annotation. Continue?')
+                    .replace('{r}', function () { return entry.roleName || roleId; }))) return;
                 generateAiAnnotation(role, regen, true);
             });
             meta.appendChild(regen);
@@ -1442,7 +1447,7 @@ var reader;
         }).done(function (response) {
             var entry = (response && (response.result || response.data)) || null;
             if (!annotationPopover || !entry || !entry.content) {
-                readerToast('AI 批注生成失败，请稍后重试');
+                readerToast(mbT('AI annotation failed, please retry later'));
                 return;
             }
             companionEntries[entry.roleId || role.roleId] = entry;
@@ -1450,10 +1455,10 @@ var reader;
             Array.prototype.forEach.call(document.querySelectorAll('.ai-annotation-chip'), function (chip) {
                 if (chip.dataset.roleId === (entry.roleId || role.roleId)) chip.classList.add('is-done');
             });
-            readerToast(force ? 'AI 批注已更新' : 'AI 批注已生成');
+            readerToast(force ? mbT('AI annotation updated') : mbT('AI annotation generated'));
         }).fail(function (xhr) {
             if (reloadIfCsrfBlocked(xhr)) return;
-            var message = 'AI 批注生成失败，请稍后重试';
+            var message = mbT('AI annotation failed, please retry later');
             try {
                 var data = JSON.parse(xhr.responseText);
                 if (data && data.message) message = data.message;
@@ -1470,7 +1475,7 @@ var reader;
         loadCompanionRoles().then(function (roles) {
             if (!companionChipsEl || !annotationPopover) return;
             if (!roles.length) {
-                companionChipsEl.appendChild(companionEmpty('暂无可用伴读角色'));
+                companionChipsEl.appendChild(companionEmpty(mbT('No companion roles available')));
                 return;
             }
             roles.forEach(function (role) {
@@ -1483,7 +1488,7 @@ var reader;
                 chip.addEventListener('click', function () {
                     if (chip.classList.contains('is-loading')) return;
                     if (companionEntries[role.roleId]) {
-                        readerToast('该角色已有批注，可用条目上的「重新生成」更新');
+                        readerToast(mbT('This role already has an annotation; use Regenerate on the item to update it'));
                         return;
                     }
                     generateAiAnnotation(role, chip, false);
@@ -1493,7 +1498,7 @@ var reader;
         }).catch(function () {
             if (!companionChipsEl || !annotationPopover) return;
             companionChipsEl.textContent = '';
-            companionChipsEl.appendChild(companionEmpty('角色清单加载失败，请稍后重开弹层'));
+            companionChipsEl.appendChild(companionEmpty(mbT('Failed to load roles, please reopen the panel later')));
         });
     }
 
@@ -1538,11 +1543,11 @@ var reader;
         header.className = 'annotation-header';
         var title = document.createElement('span');
         title.className = 'annotation-title';
-        title.textContent = '段落批注';
+        title.textContent = mbT('Paragraph annotation');
         var closeBtn = document.createElement('span');
         closeBtn.className = 'annotation-close';
         closeBtn.textContent = '×';
-        closeBtn.title = '关闭 (Esc)';
+        closeBtn.title = mbT('Close (Esc)');
         closeBtn.addEventListener('click', function () { closeAnnotationPopover(); });
         header.appendChild(title);
         header.appendChild(closeBtn);
@@ -1557,12 +1562,12 @@ var reader;
         aiSection.className = 'ai-annotation-section';
         var aiTitle = document.createElement('div');
         aiTitle.className = 'ai-annotation-title';
-        aiTitle.textContent = 'AI 伴读';
+        aiTitle.textContent = mbT('AI Companion');
         var chips = document.createElement('div');
         chips.className = 'ai-annotation-chips';
         var aiList = document.createElement('div');
         aiList.className = 'ai-annotation-list';
-        aiList.appendChild(companionEmpty('AI 批注加载中…'));
+        aiList.appendChild(companionEmpty(mbT('Loading AI annotation…')));
         aiSection.appendChild(aiTitle);
         aiSection.appendChild(chips);
         aiSection.appendChild(aiList);
@@ -1572,17 +1577,17 @@ var reader;
 
         var input = document.createElement('textarea');
         input.className = 'annotation-input';
-        input.placeholder = '写下对本段的批注…（Ctrl+Enter 提交）';
+        input.placeholder = mbT('Write your annotation for this paragraph… (Ctrl+Enter to submit)');
         input.maxLength = 2000;
 
         var actions = document.createElement('div');
         actions.className = 'annotation-actions';
         var submit = document.createElement('span');
         submit.className = 'annotation-submit';
-        submit.textContent = '提交批注';
+        submit.textContent = mbT('Submit annotation');
         var hint = document.createElement('span');
         hint.className = 'annotation-hint';
-        hint.textContent = 'Esc 关闭';
+        hint.textContent = mbT('Esc to close');
         actions.appendChild(submit);
         actions.appendChild(hint);
 
@@ -1625,16 +1630,16 @@ var reader;
             }).done(function (response) {
                 // 头部插入服务端返回的批注（含署名与时间），不整列表重拉
                 var item = (response && (response.result || response.data)) ||
-                    {nickName: '我', content: content};
+                    {nickName: mbT('Me'), content: content};
                 var empty = list.querySelector('.annotation-empty');
                 if (empty) empty.remove();
                 list.insertBefore(annotationItem(item), list.firstChild);
                 input.value = '';
-                readerToast('批注已保存');
+                readerToast(mbT('Annotation saved'));
             }).fail(function (xhr) {
                 // CSRF 过期/会话重建：刷新页面拿新 token
                 if (reloadIfCsrfBlocked(xhr)) return;
-                var message = '批注保存失败，请稍后重试';
+                var message = mbT('Failed to save annotation, please retry later');
                 try {
                     var data = JSON.parse(xhr.responseText);
                     if (data && data.message) message = data.message;
@@ -1663,7 +1668,7 @@ var reader;
         card.className = 'annotation-card';
         var meta = document.createElement('div');
         meta.className = 'annotation-card-meta';
-        meta.textContent = item.chapter || '未知章节';
+        meta.textContent = item.chapter || mbT('Unknown chapter');
         var excerpt = document.createElement('div');
         excerpt.className = 'annotation-card-excerpt';
         var text = item.paragraph || '';
@@ -1691,11 +1696,11 @@ var reader;
         header.className = 'annotation-header';
         var title = document.createElement('span');
         title.className = 'annotation-title';
-        title.textContent = '本书批注';
+        title.textContent = mbT('Book annotations');
         var closeBtn = document.createElement('span');
         closeBtn.className = 'annotation-close';
         closeBtn.textContent = '×';
-        closeBtn.title = '关闭 (Esc)';
+        closeBtn.title = mbT('Close (Esc)');
         closeBtn.addEventListener('click', closeAnnotationPanel);
         header.appendChild(title);
         header.appendChild(closeBtn);
@@ -1714,7 +1719,7 @@ var reader;
             if (ev.target === overlay) closeAnnotationPanel();
         });
 
-        renderAnnotationList(list, null, '批注加载中…');
+        renderAnnotationList(list, null, mbT('Loading annotations…'));
         $.ajax({
             url: calibre.readingAnnotationBookUrl, method: 'POST', contentType: 'application/json',
             headers: {'X-CSRFToken': readerCsrfToken()},
@@ -1723,7 +1728,7 @@ var reader;
             var paragraphs = response.result || response.data || [];
             list.textContent = '';
             if (!paragraphs.length) {
-                renderAnnotationList(list, null, '本书暂无批注，点段落旁的 ✎ 添加');
+                renderAnnotationList(list, null, mbT('No annotations in this book yet — click ✎ next to a paragraph to add one'));
                 return;
             }
             paragraphs.forEach(function (item) {
@@ -1731,7 +1736,7 @@ var reader;
             });
         }).fail(function (xhr) {
             if (reloadIfCsrfBlocked(xhr)) return;
-            renderAnnotationList(list, null, '批注加载失败，请稍后重试');
+            renderAnnotationList(list, null, mbT('Failed to load annotations, please retry later'));
         });
     }
 

@@ -2,7 +2,8 @@
 
 Why: magicbook 扩展入口（阅读设置/成就/积分/整本翻译）持续新增，导航栏平铺
 放不下；且 /ai/admin 已随 agent 后端化退役（410），旧导航 AI 按钮是死链。
-本测试锁定：下拉框渲染、入口按角色显隐、双语标签、旧平铺项与死链不回流。
+本测试锁定：下拉框渲染、入口按角色显隐、标签随 locale 单语言切换（R112）、
+旧平铺项与死链不回流。
 """
 import re
 
@@ -36,12 +37,38 @@ def test_dropdown_present_with_all_admin_entries(settings_page):
         assert 'id="{0}"'.format(anchor) in settings_page
 
 
-def test_bilingual_labels(settings_page):
-    # 中文为主 + 英文辅助，双写不依赖账号 locale（admin 账号 locale=en）；
-    # 断言圈定在下拉框块内——"Reading Settings" 也出现在 <title>，全文匹配是假信心
+def test_labels_single_language_for_en_admin(settings_page):
+    # R112：标签走 Babel gettext，admin 账号 locale=en 只渲染英文 msgid；
+    # 中文不得同时出现（防「中英双写」回流）。断言圈定在下拉框块内——
+    # "Reading Settings" 也出现在 <title>，全文匹配是假信心
     block = _dropdown_block(settings_page)
-    assert "阅读设置" in block and "Reading Settings" in block
-    assert "整本翻译" in block and "Book Translation" in block
+    assert "Reading Settings" in block and "Book Translation" in block
+    assert "阅读设置" not in block and "整本翻译" not in block
+
+
+def test_labels_switch_to_chinese_for_zh_user(app):
+    """R112：locale=zh_Hans_CN 的用户下拉框应显示中文词条（zh po 补齐后生效）。"""
+    user = ub.session.query(ub.User).filter(ub.User.name == "zh-tester").first()
+    if user is None:
+        user = ub.User(name="zh-tester", email="zh@example.com",
+                       password=generate_password_hash("zh-pass"))
+        ub.session.add(user)
+        ub.session.commit()
+    user.locale = "zh_Hans_CN"
+    ub.session.commit()
+
+    client = app.test_client()
+    rv = client.post("/login", data={"username": "zh-tester", "password": "zh-pass"})
+    assert rv.status_code == 302
+
+    from cps import config as cw_config
+    cw_config.db_configured = True
+    rv = client.get("/reading/settings")
+    assert rv.status_code == 200
+    block = _dropdown_block(rv.data.decode("utf-8"))
+    # zh-tester 非 admin，整本翻译入口不渲染；只断言用户可见入口的中文词条
+    assert "阅读设置" in block and "使用引导" in block
+    assert "Reading Settings" not in block and "Onboarding Tour" not in block
 
 
 def test_old_flat_entries_and_dead_link_removed(settings_page):

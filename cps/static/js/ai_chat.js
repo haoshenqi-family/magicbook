@@ -6,6 +6,8 @@
    Depends on: jQuery (loaded by reader pages), ai_page_extract.js */
 (function ($) {
   "use strict";
+  // R112: i18n 取词（种子缺失时回退 msgid 本身）
+  var mbT = window.mbT || function (id) { return id; };
   if (!window.AICompanion) return;
 
   var BOOK_ID = null;
@@ -31,7 +33,7 @@
   /** moon-well Result 包装解包：{success, result, message} → result（失败时抛错）。 */
   function unwrap(data) {
     if (data && data.success === false) {
-      throw new Error(data.message || "moon-well 请求失败");
+      throw new Error(data.message || mbT('moon-well request failed'));
     }
     return data && data.result !== undefined ? data.result : data;
   }
@@ -110,7 +112,7 @@
           return;
         }
         convs.forEach(function (c) {
-          $sel.append($("<option>").val(c.id).text(c.title || "新会话"));
+          $sel.append($("<option>").val(c.id).text(c.title || mbT('New conversation')));
         });
         var preferred = parseInt(localStorage.getItem(storageKey()) || "", 10);
         var target = convs.some(function (c) { return c.id === preferred; }) ? preferred : convs[0].id;
@@ -131,7 +133,7 @@
     persistSelection();
     $("#ai-chat-conversations").val(null);
     clearMessages();
-    appendHint("新会话已就绪：第一句提问发出后自动创建。");
+    appendHint(mbT('New conversation ready: it will be created once you send your first question.'));
   }
 
   function selectConversation(conversationId) {
@@ -144,9 +146,9 @@
 
   function renameConversation() {
     var id = currentConversationId;
-    if (!id) { window.alert("请先选择一个已创建的会话"); return; }
+    if (!id) { window.alert(mbT('Please select an existing conversation first')); return; }
     var $opt = $("#ai-chat-conversations").find("option:selected");
-    var newTitle = window.prompt("重命名会话", ($opt.text() || "").trim());
+    var newTitle = window.prompt(mbT('Rename conversation'), ($opt.text() || "").trim());
     if (newTitle === null) return;
     newTitle = (newTitle || "").trim();
     if (!newTitle) return;
@@ -160,7 +162,7 @@
       try { unwrap(raw); } catch (e) { window.alert(e.message); return; }
       $opt.text(newTitle);
     }).fail(function (xhr) {
-      window.alert("重命名失败: " + errText(xhr));
+      window.alert(mbT('Rename failed: ') + errText(xhr));
     });
   }
 
@@ -168,7 +170,9 @@
     var id = currentConversationId;
     if (!id || deleting) return;
     var title = $("#ai-chat-conversations").find("option:selected").text() || "";
-    if (!window.confirm("删除会话「" + title + "」？该操作不可恢复。")) return;
+    // 会话名用户可自取，含 $&/$1 时 String.replace 的第二参会做特殊展开，故走回调
+    if (!window.confirm(mbT('Delete conversation “{t}”? This cannot be undone.')
+        .replace('{t}', function () { return title; }))) return;
     deleting = true;
     $.ajax({
       url: "/ai/agent/conversation/delete",
@@ -188,7 +192,7 @@
       }
     }).fail(function (xhr) {
       deleting = false;
-      window.alert("删除失败: " + errText(xhr));
+      window.alert(mbT('Delete failed: ') + errText(xhr));
     });
   }
 
@@ -260,7 +264,7 @@
     if (!$chip.length) return;
     $chip.addClass(ok ? "ok" : "fail");
     $chip.find(".ai-tool-status").text(ok ? "✓ " + durationMs + "ms" : "✗");
-    $chip.find(".ai-tool-detail").text((ok ? "结果：" : "失败：") + (resultSummary || ""));
+    $chip.find(".ai-tool-detail").text((ok ? mbT("Result: ") : mbT("Failed: ")) + (resultSummary || ""));
     if (!ok) $chip.find(".ai-tool-status").attr("title", resultSummary || "");
     scrollMessages();
   }
@@ -308,7 +312,7 @@
 
     // 首个 delta 到达前的等待反馈（R87：零工具场景整段生成期间 stream 静默，
     // tool 芯片也不会出现——动效占位让「没反应」变成「思考中」）
-    var $msg = $('<div class="ai-chat-msg assistant"><span class="ai-chat-typing">思考中' +
+    var $msg = $('<div class="ai-chat-msg assistant"><span class="ai-chat-typing">' + mbT("Thinking") +
       '<span class="dot">·</span><span class="dot">·</span><span class="dot">·</span></span></div>')
       .appendTo("#ai-chat-messages");
     scrollMessages();
@@ -400,7 +404,7 @@
             }
             break;
           case "error":
-            fullText += (fullText ? "\n" : "") + "⚠ " + (obj.message || "AI 服务出错");
+            fullText += (fullText ? "\n" : "") + "⚠ " + (obj.message || mbT('AI service error'));
             $msg.html(renderMarkdown(fullText));
             scrollMessages();
             break;
@@ -449,76 +453,76 @@
   }
 
   function loadBookProfile() {
-    var $profile = $("#ai-memory-profile").text("学情加载中…");
+    var $profile = $("#ai-memory-profile").text(mbT('Loading learning profile…'));
     $.getJSON("/ai/agent/book-profile", { bookId: BOOK_ID })
       .then(function (raw) {
         var profile;
         try { profile = unwrap(raw); } catch (e) {
-          $profile.text("学情暂不可用：" + e.message);
+          $profile.text(mbT('Learning profile unavailable: ') + e.message);
           return;
         }
         if (!profile || !profile.summary) {
           var base = profile && profile.questionCount
-            ? "本书已提问 " + profile.questionCount + " 次，学情摘要待生成。"
-            : "本书暂无学情记录。";
+            ? mbT("Asked {n} questions for this book; learning summary pending.").replace("{n}", profile.questionCount)
+            : mbT("No learning records for this book yet.");
           $profile.text(base);
           return;
         }
         $profile.empty();
         $('<div class="ai-profile-summary"></div>').text(profile.summary).appendTo($profile);
         var bits = [];
-        if (profile.difficulty) bits.push("难度：" + profile.difficulty);
-        if (profile.topics && profile.topics.length) bits.push("主题：" + profile.topics.join("、"));
-        if (profile.hotWords && profile.hotWords.length) bits.push("高频词：" + profile.hotWords.join("、"));
+        if (profile.difficulty) bits.push(mbT("Difficulty: ") + profile.difficulty);
+        if (profile.topics && profile.topics.length) bits.push(mbT("Topics: ") + profile.topics.join("、"));
+        if (profile.hotWords && profile.hotWords.length) bits.push(mbT("Frequent words: ") + profile.hotWords.join("、"));
         if (bits.length) $('<div class="ai-profile-meta"></div>').text(bits.join(" ｜ ")).appendTo($profile);
         if (profile.questionCount) {
           $('<div class="ai-profile-meta"></div>')
-            .text("累计提问 " + profile.questionCount + " 次 · 工具调用 " + profile.toolUseCount + " 次")
+            .text(mbT("Total questions: {q} · tool calls: {t}").replace("{q}", profile.questionCount).replace("{t}", profile.toolUseCount))
             .appendTo($profile);
         }
       })
       .fail(function (xhr) {
-        $profile.text("学情暂不可用：" + errText(xhr));
+        $profile.text(mbT('Learning profile unavailable: ') + errText(xhr));
       });
   }
 
   function loadMemories() {
-    var $list = $("#ai-memory-list").empty().text("记忆加载中…");
+    var $list = $("#ai-memory-list").empty().text(mbT('Loading memories…'));
     $.getJSON("/ai/agent/memory")
       .then(function (raw) {
         var memories;
         try { memories = unwrap(raw) || []; } catch (e) {
-          $list.text("记忆加载失败：" + e.message);
+          $list.text(mbT('Failed to load memories: ') + e.message);
           return;
         }
         $list.empty();
         if (!memories.length) {
-          $list.text("（暂无长期记忆——对话里说「记住…」或在下方面板手动添加）");
+          $list.text(mbT('(No long-term memories yet — say "remember…" in the chat or add one below)'));
           return;
         }
         memories.forEach(function (m) {
           var $item = $('<div class="ai-memory-item"></div>');
           $('<span class="ai-memory-scope"></span>')
-            .text(m.bookId && m.bookId !== 0 ? "[本书]" : "[通用]")
+            .text(m.bookId && m.bookId !== 0 ? mbT("[This book]") : mbT("[General]"))
             .appendTo($item);
           $('<span class="ai-memory-text"></span>').text(m.memory).appendTo($item);
           var $actions = $('<span class="ai-memory-actions"></span>').appendTo($item);
-          $('<button type="button" title="编辑">✎</button>')
+          $('<button type="button" title="' + mbT("Edit memory") + '">✎</button>')
             .on("click", function () { editMemory(m); }).appendTo($actions);
-          $('<button type="button" title="删除">🗑</button>')
+          $('<button type="button" title="' + mbT("Delete memory") + '">🗑</button>')
             .on("click", function () { deleteMemory(m); }).appendTo($actions);
           $item.appendTo($list);
         });
       })
       .fail(function (xhr) {
-        $list.text("记忆加载失败：" + errText(xhr));
+        $list.text(mbT('Failed to load memories: ') + errText(xhr));
       });
   }
 
   function addMemory() {
     var $input = $("#ai-memory-input");
     var text = ($input.val() || "").trim();
-    if (!text) { window.alert("先写一条要记住的内容"); return; }
+    if (!text) { window.alert(mbT('Write something to remember first')); return; }
     $.ajax({
       url: "/ai/agent/memory/save",
       method: "POST",
@@ -530,12 +534,12 @@
       $input.val("");
       loadMemories();
     }).fail(function (xhr) {
-      window.alert("保存失败: " + errText(xhr));
+      window.alert(mbT('Save failed: ') + errText(xhr));
     });
   }
 
   function editMemory(m) {
-    var newText = window.prompt("编辑记忆（清空则取消）", m.memory);
+    var newText = window.prompt(mbT('Edit memory (clear to cancel)'), m.memory);
     if (newText === null) return;
     newText = (newText || "").trim();
     if (!newText || newText === m.memory) return;
@@ -546,11 +550,11 @@
       headers: { "X-CSRFToken": getCsrfToken() },
       data: JSON.stringify({ id: m.id, memory: newText }),
     }).then(loadMemories)
-      .fail(function (xhr) { window.alert("保存失败: " + errText(xhr)); });
+      .fail(function (xhr) { window.alert(mbT('Save failed: ') + errText(xhr)); });
   }
 
   function deleteMemory(m) {
-    if (!window.confirm("删除这条记忆？\n" + m.memory)) return;
+    if (!window.confirm(mbT('Delete this memory?') + '\n' + m.memory)) return;
     $.ajax({
       url: "/ai/agent/memory/delete",
       method: "POST",
@@ -558,7 +562,7 @@
       headers: { "X-CSRFToken": getCsrfToken() },
       data: JSON.stringify({ id: m.id }),
     }).then(loadMemories)
-      .fail(function (xhr) { window.alert("删除失败: " + errText(xhr)); });
+      .fail(function (xhr) { window.alert(mbT('Delete failed: ') + errText(xhr)); });
   }
 
   function errMessageFrom(body, status) {

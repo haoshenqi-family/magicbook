@@ -1,0 +1,181 @@
+{# R112 JS 层 i18n 种子：模板用 Babel gettext 渲染英文 msgid → 用户 locale 的译文，
+   挂到 window.MB_I18N；JS 统一经 mbT(msgid) 取词，缺词条回退 msgid 本身（英文）。
+   Why: epub.js / ai_chat.js / onboarding.js 是纯静态 JS，拿不到 Jinja 的 `_()`；
+        沿用上游 i18nMsg 思路但把词条集中到本文件，pybabel jinja 抽取器可扫描，
+        新增 JS 文案 → 本文件加一行 `_()` → 进 po，链路和模板层一致。
+   挂载：layout.html 与 read.html 在各自 JS 之前 include 本文件。 #}
+{% set mb_i18n = {
+  "Previous step": _("Previous step"),
+  "Skip": _("Skip"),
+  "Next step": _("Next step"),
+  "Done": _("Done"),
+  "Try it": _("Try it"),
+  "Close": _("Close"),
+  "Further reading: Magicbook User Guide": _("Further reading: Magicbook User Guide"),
+  "Onboarding Tour": _("Onboarding Tour"),
+  "Learn magicbook in 2 minutes": _("Learn magicbook in 2 minutes"),
+  "Walk through finding books, shelves, download and reading on the real interface.":
+      _("Walk through finding books, shelves, download and reading on the real interface."),
+  "Flip pages, switch themes and use the AI companion, right inside the reader.":
+      _("Flip pages, switch themes and use the AI companion, right inside the reader."),
+  "Never show again": _("Never show again"),
+  "Later": _("Later"),
+  "Start Tour": _("Start Tour"),
+  "Browse": _("Browse"),
+  "Switch library views by newest / trending / top rated / read / unread / random — your first stop for finding books.":
+      _("Switch library views by newest / trending / top rated / read / unread / random — your first stop for finding books."),
+  "Search": _("Search"),
+  "Search the whole library by title or author; the results page keeps the same sorting and shelf actions.":
+      _("Search the whole library by title or author; the results page keeps the same sorting and shelf actions."),
+  "Advanced search": _("Advanced search"),
+  "Use it to combine filters by author / series / publisher / language / rating.":
+      _("Use it to combine filters by author / series / publisher / language / rating."),
+  "Book wall": _("Book wall"),
+  "The cover grid is your library. Click a cover for details; hover for quick actions.":
+      _("The cover grid is your library. Click a cover for details; hover for quick actions."),
+  "Sort": _("Sort"),
+  "Sort by age, title, author or publisher; your choice is saved to your account.":
+      _("Sort by age, title, author or publisher; your choice is saved to your account."),
+  "Open a book": _("Open a book"),
+  "Pick any book to open its detail page; the tour continues there.":
+      _("Pick any book to open its detail page; the tour continues there."),
+  "Details": _("Details"),
+  "Right of the cover: title, authors, series, tags, rating and publisher.":
+      _("Right of the cover: title, authors, series, tags, rating and publisher."),
+  "Download": _("Download"),
+  "Download EPUB / PDF / TXT, or send straight to your Kindle email.":
+      _("Download EPUB / PDF / TXT, or send straight to your Kindle email."),
+  "Read in browser": _("Read in browser"),
+  "Open the reader without downloading; the second tour takes over inside.":
+      _("Open the reader without downloading; the second tour takes over inside."),
+  "Shelves": _("Shelves"),
+  "Shelves are your own curated lists (want-to-read / reading / favorites), switchable in the sidebar.":
+      _("Shelves are your own curated lists (want-to-read / reading / favorites), switchable in the sidebar."),
+  "Mark as read": _("Mark as read"),
+  "Tick it when you finish; read/unread filters and stats rely on it.":
+      _("Tick it when you finish; read/unread filters and stats rely on it."),
+  "Settings": _("Settings"),
+  "Reading settings, achievements and credits all live in this dropdown.":
+      _("Reading settings, achievements and credits all live in this dropdown."),
+  "Leave the rest to habit. A second tour awaits inside the reader.":
+      _("Leave the rest to habit. A second tour awaits inside the reader."),
+  "Contents": _("Contents"),
+  "The sidebar switches between table of contents, bookmarks and in-book search.":
+      _("The sidebar switches between table of contents, bookmarks and in-book search."),
+  "Paging": _("Paging"),
+  "Click the arrows or use the left/right arrow keys; progress is saved automatically.":
+      _("Click the arrows or use the left/right arrow keys; progress is saved automatically."),
+  "Reading Settings": _("Reading Settings"),
+  "Colors, font size, layout and read-aloud all live here.":
+      _("Colors, font size, layout and read-aloud all live here."),
+  "Translate": _("Translate"),
+  "Turn on bilingual paragraphs; select a word or phrase for definitions and unknown words.":
+      _("Turn on bilingual paragraphs; select a word or phrase for definitions and unknown words."),
+  "Bookmark": _("Bookmark"),
+  "Mark key spots and jump back with one click from the sidebar.":
+      _("Mark key spots and jump back with one click from the sidebar."),
+  "Fullscreen": _("Fullscreen"),
+  "Hide the browser chrome and keep only the reading area.":
+      _("Hide the browser chrome and keep only the reading area."),
+  "AI Companion": _("AI Companion"),
+  "Ask questions about this book; it remembers your preferences.":
+      _("Ask questions about this book; it remembers your preferences."),
+  "Happy reading": _("Happy reading"),
+  "Tap the “?” at the bottom-left any time to replay the tour.":
+      _("Tap the “?” at the bottom-left any time to replay the tour."),
+  "Translating…": _("Translating…"),
+  "No translation yet": _("No translation yet"),
+  "Dictionary": _("Dictionary"),
+  "AI translation": _("AI translation"),
+  "Read original aloud": _("Read original aloud"),
+  "Translation failed, please retry later": _("Translation failed, please retry later"),
+  "Mark as unknown": _("Mark as unknown"),
+  "Mark as known": _("Mark as known"),
+  "Failed to mark, please retry later": _("Failed to mark, please retry later"),
+  "Copied": _("Copied"),
+  "Quoted into the AI companion — add a prompt and send": _("Quoted into the AI companion — add a prompt and send"),
+  "Quote to AI companion": _("Quote to AI companion"),
+  "Copy": _("Copy"),
+  "Read this paragraph aloud": _("Read this paragraph aloud"),
+  "Translate this paragraph (click again to undo)": _("Translate this paragraph (click again to undo)"),
+  "Annotate this paragraph": _("Annotate this paragraph"),
+  "AI companion annotation": _("AI companion annotation"),
+  "Audio playback failed": _("Audio playback failed"),
+  "AI speech failed, falling back to local voice": _("AI speech failed, falling back to local voice"),
+  "Speech synthesis is not supported in this browser": _("Speech synthesis is not supported in this browser"),
+  "Speech synthesis failed": _("Speech synthesis failed"),
+  "Translation failed, click to retry": _("Translation failed, click to retry"),
+  "Anonymous": _("Anonymous"),
+  "No annotations yet": _("No annotations yet"),
+  "Loading annotations…": _("Loading annotations…"),
+  "Failed to load annotations, please retry later": _("Failed to load annotations, please retry later"),
+  "Pick a role above to let AI generate a companion note for this paragraph": _("Pick a role above to let AI generate a companion note for this paragraph"),
+  "Regenerate": _("Regenerate"),
+  "Skip the cache and regenerate this annotation (overwrites the old one)": _("Skip the cache and regenerate this annotation (overwrites the old one)"),
+  "AI annotation failed, please retry later": _("AI annotation failed, please retry later"),
+  "AI annotation updated": _("AI annotation updated"),
+  "AI annotation generated": _("AI annotation generated"),
+  "No companion roles available": _("No companion roles available"),
+  "This role already has an annotation; use Regenerate on the item to update it": _("This role already has an annotation; use Regenerate on the item to update it"),
+  "Failed to load roles, please reopen the panel later": _("Failed to load roles, please reopen the panel later"),
+  "Paragraph annotation": _("Paragraph annotation"),
+  "Close (Esc)": _("Close (Esc)"),
+  "Loading AI annotation…": _("Loading AI annotation…"),
+  "Write your annotation for this paragraph… (Ctrl+Enter to submit)": _("Write your annotation for this paragraph… (Ctrl+Enter to submit)"),
+  "Submit annotation": _("Submit annotation"),
+  "Esc to close": _("Esc to close"),
+  "Me": _("Me"),
+  "Annotation saved": _("Annotation saved"),
+  "Failed to save annotation, please retry later": _("Failed to save annotation, please retry later"),
+  "Unknown chapter": _("Unknown chapter"),
+  "Book annotations": _("Book annotations"),
+  "No annotations in this book yet — click ✎ next to a paragraph to add one": _("No annotations in this book yet — click ✎ next to a paragraph to add one"),
+  "moon-well request failed": _("moon-well request failed"),
+  "New conversation": _("New conversation"),
+  "New conversation ready: it will be created once you send your first question.": _("New conversation ready: it will be created once you send your first question."),
+  "Please select an existing conversation first": _("Please select an existing conversation first"),
+  "Rename conversation": _("Rename conversation"),
+  "Rename failed: ": _("Rename failed: "),
+  "Delete failed: ": _("Delete failed: "),
+  "AI service error": _("AI service error"),
+  "Loading learning profile…": _("Loading learning profile…"),
+  "Learning profile unavailable: ": _("Learning profile unavailable: "),
+  "Loading memories…": _("Loading memories…"),
+  "Failed to load memories: ": _("Failed to load memories: "),
+  "(No long-term memories yet — say \"remember…\" in the chat or add one below)": _("(No long-term memories yet — say \"remember…\" in the chat or add one below)"),
+  "Write something to remember first": _("Write something to remember first"),
+  "Save failed: ": _("Save failed: "),
+  "Edit memory (clear to cancel)": _("Edit memory (clear to cancel)"),
+  "Delete this memory?": _("Delete this memory?"),
+  "Whole-book translation completed: {d}/{t}": _("Whole-book translation completed: {d}/{t}"),
+  "Whole-book translation finished, {f} paragraphs failed: {d}/{t}": _("Whole-book translation finished, {f} paragraphs failed: {d}/{t}"),
+  "Start/resume whole-book translation?\n\nParagraphs that already have translations only hit the cache and are not billed again; only missing paragraphs are actually translated.": _("Start/resume whole-book translation?\n\nParagraphs that already have translations only hit the cache and are not billed again; only missing paragraphs are actually translated."),
+  "Submitting…": _("Submitting…"),
+  "Whole-book translation submitted\nTotal paragraphs: {total}\nCached: {cached}\nNewly published: {published}\n\nTranslations are generated in the background paragraph by paragraph and appear automatically while reading.": _("Whole-book translation submitted\nTotal paragraphs: {total}\nCached: {cached}\nNewly published: {published}\n\nTranslations are generated in the background paragraph by paragraph and appear automatically while reading."),
+  "Failed to submit whole-book translation": _("Failed to submit whole-book translation"),
+  "Whole-book": _("Whole-book"),
+  "Marked as unknown: {w}": _("Marked as unknown: {w}"),
+  "Marked as known: {w}": _("Marked as known: {w}"),
+  "Regenerating will overwrite the current “{r}” annotation. Continue?": _("Regenerating will overwrite the current “{r}” annotation. Continue?"),
+  "Tr": _("Tr"),
+  "Delete conversation “{t}”? This cannot be undone.": _("Delete conversation “{t}”? This cannot be undone."),
+  "Thinking": _("Thinking"),
+  "Asked {n} questions for this book; learning summary pending.": _("Asked {n} questions for this book; learning summary pending."),
+  "No learning records for this book yet.": _("No learning records for this book yet."),
+  "Total questions: {q} · tool calls: {t}": _("Total questions: {q} · tool calls: {t}"),
+  "[This book]": _("[This book]"),
+  "[General]": _("[General]"),
+  "Edit memory": _("Edit memory"),
+  "Delete memory": _("Delete memory"),
+  "Difficulty: ": _("Difficulty: "),
+  "Topics: ": _("Topics: "),
+  "Frequent words: ": _("Frequent words: "),
+  "Result: ": _("Result: "),
+  "Failed: ": _("Failed: ")
+} %}
+<script>
+  window.MB_I18N = {{ mb_i18n | tojson }};
+  window.mbT = function (id) {
+    return Object.prototype.hasOwnProperty.call(window.MB_I18N, id) ? window.MB_I18N[id] : id;
+  };
+</script>
