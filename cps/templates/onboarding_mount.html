@@ -1,4 +1,4 @@
-{# R109 引导模式挂载点（layout.html 与各阅读器页共用这一处 include）。
+{# R109 引导模式挂载点（layout.html 与各阅读器页共用这一处 include；样式在各自 <head> 里引）。
    Why: 状态种子直接在模板里读 current_user.view_settings，配合既有
         POST /ajax/view 通道，实现「零 Python 改动」的跨设备记忆；`or {}` 链
         同时兜住 view_settings 为 NULL、AnonymousUserMixin 无该属性、
@@ -7,7 +7,6 @@
         才带 token，缺它时 main.js 的 ajaxSetup 会拿空值，写视图设置静默 400）。 #}
 {% set onb_view = (current_user.view_settings or {}).get('onboarding') or {} %}
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/onboarding.css') }}">
 <script>
   window.MagicbookOnboarding = {
     seen: {{ onb_view|tojson }},

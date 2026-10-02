@@ -16,6 +16,8 @@ from werkzeug.security import generate_password_hash
 from cps import ub
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cps", "templates")
+JS_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "cps", "static", "js", "onboarding.js")
 
 
 @pytest.fixture
@@ -48,14 +50,20 @@ def tour_user(app):
 
 
 def _dropdown_block(page):
-    m = re.search(r'<li class="dropdown" id="top_mb_settings">.*?</li>\s*</ul>\s*</li>', page, re.S)
+    m = re.search(r'<li class="dropdown" id="top_mb_settings">.*?</ul>\s*</li>', page, re.S)
     assert m, "下拉框 #top_mb_settings 未渲染"
     return m.group(0)
 
 
+def _mount_block(page):
+    """圈定挂载点注入的配置块，避免 seen 断言被页面其他文本误满足。"""
+    m = re.search(r"window\.MagicbookOnboarding = \{(.*?)\n  \};", page, re.S)
+    assert m, "MagicbookOnboarding 配置块未渲染"
+    return m.group(1)
+
+
 def _seen_of(page):
-    """取模板注入的 window.MagicbookOnboarding.seen 种子值。"""
-    m = re.search(r"seen: (\{.*?\}),", page, re.S)
+    m = re.search(r"seen: (\{.*?\}),", _mount_block(page), re.S)
     assert m, "MagicbookOnboarding.seen 种子未渲染"
     return json.loads(m.group(1))
 
@@ -64,8 +72,23 @@ def test_mount_present_once(settings_page):
     assert settings_page.count('css/onboarding.css') == 1
     assert settings_page.count('js/onboarding.js') == 1
     assert "window.MagicbookOnboarding" in settings_page
-    # 挂载点在 jQuery 之后：否则 onboarding.js 里的 $ 未定义
+    # 样式在 <head>、脚本在 jQuery 之后：两者顺序错了会分别导致无样式 / $ 未定义
+    assert settings_page.index("<head>") < settings_page.index("css/onboarding.css")
     assert settings_page.index("js/libs/jquery.min.js") < settings_page.index("js/onboarding.js")
+
+
+def test_csrf_wiring_present(settings_page):
+    """挂载点自带 csrf_token 隐藏域，且前端确实带 X-CSRFToken 头。
+
+    Why: 测试环境 conftest 关了 CSRF（WTF_CSRF_ENABLED=False），所以这里只能锁「接线」
+         而不是端到端校验；真实 CSRF 行为由本地浏览器实跑覆盖（见 R109 设计稿 §8）。
+         顺带修的既有问题：无上传权限的页面上原本没有任何 csrf_token 输入，
+         main.js 的 $.ajaxSetup 取到空值，写 /ajax/view 会静默 400。
+    """
+    assert 'name="csrf_token"' in settings_page
+    js = open(JS_PATH, encoding="utf-8").read()
+    assert "X-CSRFToken" in js
+    assert "/ajax/view" in js
 
 
 def test_seen_seed_false_for_fresh_user(tour_user):
@@ -172,6 +195,52 @@ def test_browse_step_anchors_exist_in_templates():
 
     with open(os.path.join(TEMPLATE_DIR, "detail.html"), encoding="utf-8") as fh:
         src = fh.read()
-    for anchor in ('id="detailcover"', 'id="btnGroupDrop1"', 'id="shelf-actions"',
-                   'id="have_read_cb"', 'id="read-in-browser"', 'id="readbtn"'):
+    # 注意：这些锚点多数带角色/数据门控（#readbtn 需 role_viewer+role_admin、
+    # 单格式书渲染 #Download 而非 #btnGroupDrop1、#shelf-actions 需已有书架权限），
+    # 源码级存在只能保证「导览不会指到不存在的东西」，缺锚点时的降级由引擎跳过负责。
+    for anchor in ('id="detailcover"', 'id="btnGroupDrop1"', 'id="Download"',
+                   'id="shelf-actions"', 'id="have_read_cb"',
+                   'id="read-in-browser"', 'id="readbtn"'):
         assert anchor in src
+
+
+def test_centered_card_is_displayed_after_append():
+    """Why: 浏览器实跑发现「导览完成」卡一直挂在 DOM 里却完全不可见——
+    jQuery 3 的 .show() 对未插入文档的元素不生效（isHiddenWithinTree 要在树内判定），
+    而 #onb-bubble 默认 display:none。居中路径必须先 append 再显式给 display。"""
+    with open(JS_PATH, encoding="utf-8") as fh:
+        src = fh.read()
+    assert 'append(centered.show())' not in src
+    assert re.search(r'\$\("body"\)\.append\(centered\);\s*\n(\s*//[^\n]*\n)*\s*centered\.css\("display", "block"\)', src), \
+        "居中卡需在入树后显式设 display，否则完成卡/窄屏卡不可见"
+
+
+def test_bubble_is_positioned_against_the_hole():
+    """Why: 高于视口的目标（侧栏导航）原始 rect 的 top 是负值，拿它定位会把气泡推到
+    屏幕外。定位基准必须是 drawMask 与视口求交后的「洞」，且超高元素改为顶对齐滚动。"""
+    with open(JS_PATH, encoding="utf-8") as fh:
+        src = fh.read()
+    assert not re.search(r'\n\s*position\(bubble, rect\);', src), \
+        "必须按「洞」定位，不能用目标原始 rect"
+    assert src.count("position(bubble, hole)") + src.count('position($("#onb-bubble"), hole)') == 2
+    assert 'block: tall ? "start" : "center"' in src
+
+
+def test_step_class_is_replaced_not_accumulated():
+    """Why: 实跑发现换步时旧的 onb-step-* 没被摘掉。CSS 靠 body.onb-step-ai
+    放行 z-index 高于蒙层的 AI 悬浮球，残留会让它在后续步骤上继续盖住导览卡片。"""
+    with open(JS_PATH, encoding="utf-8") as fh:
+        src = fh.read()
+    assert "function clearStepClass()" in src
+    # 加新步类之前必须先清旧类
+    assert re.search(r'clearStepClass\(\);\s*\n\s*\$\("body"\)\.addClass\("onb-step-', src)
+
+
+def test_scroll_listener_uses_capture_phase():
+    """Why: caliBlur 主题下真正滚动的是 .col-sm-10（overflow:auto），scroll 不冒泡，
+    挂在 window 上的普通监听收不到内部容器滚动——实跑时高亮洞钉在原地与目标脱钩。
+    必须用捕获阶段监听。"""
+    with open(JS_PATH, encoding="utf-8") as fh:
+        src = fh.read()
+    assert 'window.addEventListener("scroll", onViewportEvent, true)' in src
+    assert 'resize.onboarding scroll.onboarding' not in src

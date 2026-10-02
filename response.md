@@ -415,3 +415,16 @@
 - **交付**：拆两个代码提交 `0806da06`（R107）/ `44cd4721`（R109）+ 本记录提交，单次推送 develop；push 后 fnOS webhook-builder 链自动构建部署（进度见 /app/codelib/logs/magicbook.log）。
 - **对 requests.md/response.md 的总结**：requests.md 占号 R110；response.md 本条；保留窗口 R94–R110（未到 10 整倍数，无归档动作）。
 - **冲突记录**：无。R109 会话的 response 未写（会话已结束），本条仅代提交与验证，功能层面的回应留待原会话补登或按需追记；R108（登录页文案简化）仍占号未实施。
+
+## 2026-10-02（R109 引导模式功能层回应补登 + 浏览器验收发现 4 个缺陷并修复）
+
+### R109（前端引导模式 onboarding：实现、实跑验收与缺陷修复）
+
+- **需求**：做一个前端引导模式，带新用户在真实界面上学会用 magicbook。形态经确认取「纯 spotlight 逐步导览」（蒙层挖洞 + 气泡指向真实控件），状态持久化取「服务端 `User.view_settings`」（跨设备权威，localStorage 只作断点续览），覆盖「浏览/搜索/书架/下载」+「阅读器 + AI 伴读」+「引导读 R104 指南书 #89」，触发为「首次自动邀请 + 常驻手动入口」，邀请卡可在任意页面出现，指南书按 id 89 硬引用。
+- **实现（零 Python 改动、零迁移）**：新增 `cps/static/js/onboarding.js`（引擎 + 两段步骤表：主段 13 步 / 阅读器段 8 步）、`cps/static/css/onboarding.css`、`cps/templates/onboarding_mount.html`（状态种子 include），`layout.html` 挂入口 `#top_onboarding`（设置下拉内，双语标签）+ include，`read.html` 挂 include + 常驻「?」。写入复用既有 `POST /ajax/view`（`web.py:229`），读取直接在模板里取 `current_user.view_settings`；匿名访客只走 localStorage（`ub.Anonymous.set_view_property` 写的是 `flask_session`，模板读的是共享行，服务端那条写入对匿名无意义）。
+- **验收方式**：本地临时实例（`docs/temp/run_onboarding_check.py`，CSRF 保持开启）+ 真实浏览器逐帧量 `getBoundingClientRect()`。已验：邀请卡四按钮、主段逐步高亮几何、锚点缺失自动跳过（3→12→13）、`点我试试 Go` 的点击捕获与 `window.open`、跨段 handoff 落 `{segment:"reader",step:"toc"}`、完成/跳过写回 `view_settings`（`POST /ajax/view` 200 且落库）、刷新不再邀请、手动入口无视「以后再说」可重开、ESC 只收起不记 seen、`later` 按段隔离、匿名不发写请求、阅读器段 8 步（AI 悬浮球只在 `onb-step-ai` 一步放行）、指南链接探测降级。
+- **实跑发现并修复 4 个静态检查看不见的缺陷**（详见设计文档 §11）：① 气泡按目标原始 rect 定位，指向高于视口的侧栏时 `top:-181` 飞出屏幕 → 改为按 `drawMask()` 与视口求交后的「洞」定位 + `top` 夹取 + 超高元素顶对齐滚动；② 居中「导览完成」卡从未真正显示过——jQuery 3 的 `.show()` 对未入树元素不生效而 `#onb-bubble` 默认 `display:none`（窄屏同路径同受影响）→ 先 append 再显式 `css("display","block")`；③ `onb-step-*` 换步不清，残留会让 AI 悬浮球在后续步骤继续盖住卡片 → 抽出 `clearStepClass()`；④ scroll 不冒泡而 caliBlur 主题下真正滚动容器是 `.col-sm-10`（`overflow:auto`），洞与目标脱钩（实测容器滚 260px 后目标到 1638、洞仍钉在 258）→ 改捕获阶段监听。四条各补源码级回归断言防「顺手简化」改回。
+- **测试**：`tests/test_onboarding_tour.py` 16 项（挂载唯一性、三种 `view_settings` 形态渲染、角色显隐、`/ajax/view` 写入通道真实落库、锚点存在性、上述 4 条回归）；全量 **255 passed**。
+- **未验（诚实边界）**：本机无 calibre `metadata.db`，`/`、`/book/<id>`、`/read/...` 三类页面 500，真实书库下的详情页/阅读器步骤未实地走过（用同页注入阅读器锚点驱动真实引擎替代，控件 id 一致性由模板测试锁定）；窄屏 <768 未在真实小视口截图。CSRF 端到端未被测试覆盖（`conftest.py` 关用了 `WTF_CSRF_ENABLED`），但已在本地实例开着 CSRF 实跑过 200。
+- **对 requests.md/response.md 的总结**：requests.md 占号 R109（本条为其功能层回应，R110 已代提交快照、留待补登）；response.md 本条。
+- **冲突记录**：**R110 提交并推送的 `44cd4721` 是本功能修复前的快照**——上面 4 个缺陷（含「完成卡不可见」）以及 code review 阶段的修复（`<link>` 从 body 移入 head、AI 浮层由仅禁指针改为按步放行、ESC 不再误记 seen 等）都还在工作区未提交，`git status` 显示 7 个文件 modified（+302/−99）。若 develop/生产要拿到修好的版本，需要另行提交推送（未擅自操作）。另：本文件保留窗口已超 10 个 request（现存 R90/R94–R110），R94–R97 及重复的 R90 条目按规则应原样归档至 `response-archive/`，本次未做（涉及搬运并行会话的记录，留待确认）。

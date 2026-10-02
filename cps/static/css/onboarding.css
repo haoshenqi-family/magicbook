@@ -124,12 +124,20 @@
   flex: 1;
 }
 
-/* 导览期间冻结 AI 浮层：它用的是 2147483646 这种顶级 z-index，蒙层压不住，
-   不禁用指针事件就能绕过导览直接点它。
-   注意：不冻结页面滚动——scrollIntoView 需要页面能滚，洞的位置由 scroll 监听跟随重算。 */
+/* AI 伴读按钮/抽屉用的是 2147483646/647（cps/static/css/ai_chat.css:8,18），比蒙层还高，
+   只禁指针事件不够——按钮会在每一步都亮着，看起来就像当前高亮目标。
+   因此在导览期间整体藏起来，只有高亮它的那一步（onb-step-ai）才放出来；
+   抽屉本身在 startTour 里已被关闭。 */
 body.onboarding-active #ai-companion-fab,
-body.onboarding-active #ai-companion-drawer {
+body.onboarding-active #ai-companion-drawer,
+body.onboarding-active #onb-help {
+  visibility: hidden;
   pointer-events: none;
+}
+
+body.onboarding-active.onb-step-ai #ai-companion-fab {
+  visibility: visible;
+  pointer-events: auto;
 }
 
 /* ---------------- 邀请卡（非阻塞） ---------------- */

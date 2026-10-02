@@ -5,8 +5,8 @@
         状态持久化复用既有 POST /ajax/view → User.view_settings['onboarding']，
         因此零 Python 改动、零数据库迁移。
    How: 两段导览——main（浏览/详情/设置，挂在 layout.html）与 reader（阅读器/AI 伴读，
-        挂在 read*.html）。步骤只在锚点存在的页面上生效，锚点缺失（角色门控、书库为空）
-        自动跳过而不是卡死。进度写 localStorage 以支持跨页面与新标签页续览。 */
+        挂在 read.html）。步骤只在锚点存在的页面上生效，锚点缺失（角色门控、书库为空、
+        单格式书）自动跳过而不是卡死。进度写 localStorage 以支持跨页面与新标签页续览。 */
 (function ($) {
   "use strict";
 
@@ -17,7 +17,9 @@
 
   /* ---------------- 步骤表 ----------------
      sel 为 null → 渲染居中卡（收尾卡）。
-     act: "goto" → 主按钮放行目标的原生点击（跳转类步骤），新页面据进度续览。 */
+     act: "goto" → 洞上盖点击捕获，由 gotoTarget 统一决定怎么跳（见 holeCatcher）。
+     handoff: 跳转后把进度落到「另一段导览」的某步——阅读器是新标签，
+              若沿用本段下一步会在无关页面上错误续览。 */
 
   var STEPS_MAIN = [
     { id: "browse", sel: "#scnd-nav",
@@ -36,7 +38,7 @@
       zh: "书墙", en: "Book wall",
       body: "封面网格就是书库（首页那排是随机推荐）。点封面看详情，鼠标悬停可快速操作。",
       bodyEn: "The cover grid is the library (the home row is a random pick). Click a cover for details." },
-    { id: "viewmode", sel: ".filterheader",
+    { id: "sort", sel: ".filterheader",
       zh: "排序", en: "Sort",
       body: "按新旧、书名、作者、出版社排序；选择会被记住，下次进来还是这个顺序。",
       bodyEn: "Sort by date, title, author or publisher. The choice is remembered per account." },
@@ -48,14 +50,16 @@
       zh: "详情与元数据", en: "Details and metadata",
       body: "封面右侧是书名、作者、系列、标签、评分与出版社等 Calibre 元数据。",
       bodyEn: "Beside the cover: title, authors, series, tags, rating and publisher." },
-    { id: "read_online", sel: "#readbtn, #read-in-browser", act: "goto",
-      zh: "在浏览器里读", en: "Read in browser",
-      body: "点开阅读器无需下载；进阅读器后还会有第二段导览，讲翻页、主题与 AI 伴读。",
-      bodyEn: "Read without downloading. A second tour covers paging, themes and the AI companion inside." },
-    { id: "download", sel: "#btnGroupDrop1",
+    // 单格式书渲染的是 #Download，多格式才是 #btnGroupDrop1（detail.html:26/39）
+    { id: "download", sel: "#btnGroupDrop1, #Download",
       zh: "下载与传书", en: "Download and send",
       body: "下载 EPUB / PDF / TXT 等已有格式；配了 Kindle 邮箱还能一键传书。",
       bodyEn: "Download available formats, or send the book to your Kindle e-reader." },
+    { id: "read_online", sel: "#readbtn, #read-in-browser", act: "goto",
+      handoff: { segment: "reader", step: "toc" },
+      zh: "在浏览器里读", en: "Read in browser",
+      body: "点开阅读器无需下载；进阅读器后由第二段导览接手，讲翻页、主题与 AI 伴读。",
+      bodyEn: "Read without downloading. A second tour takes over inside the reader." },
     { id: "shelf", sel: "#shelf-actions",
       zh: "书架", en: "Shelves",
       body: "书架是你自己组织的书单（想读 / 在读 / 收藏），左侧栏可随时切换。",
@@ -143,8 +147,9 @@
   }
 
   function isSeen(segment) {
-    // 服务端为权威（跨设备）；本地镜像兜住匿名访客——服务端的 view_settings 指向
-    // ROLE_ANONYMOUS 那一条共享用户行（cps/ub.py:297-313），写它会污染所有匿名访客。
+    // 服务端为权威（跨设备）；本地镜像兜住匿名访客——Anonymous.set_view_property
+    // 写的是 flask_session（cps/ub.py:338），而模板读的是共享行的 view_settings，
+    // 服务端那条写入对匿名既不会生效也没有意义，所以匿名只用 localStorage。
     return !!serverSeen()[segment] || !!localSeen()[segment];
   }
 
@@ -163,6 +168,27 @@
         // 写失败不影响体验：下次进页面会重新邀请，最多重看一次导览
       });
     }
+  }
+
+  // 「以后再说」按段记录：主流程说以后再不要，不该连带屏蔽阅读器导览
+  function isLater(segment) {
+    var v = lsGet("later", {});
+    return !!(v && typeof v === "object" && v[segment]);
+  }
+
+  function setLater(segment) {
+    var v = lsGet("later", {});
+    if (!v || typeof v !== "object") v = {};
+    v[segment] = 1;
+    lsSet("later", v);
+  }
+
+  /** 主动开启导览 = 撤回该段的「以后再说」，但不动另一段。 */
+  function clearLater(segment) {
+    var v = lsGet("later", {});
+    if (!v || typeof v !== "object") return;
+    delete v[segment];
+    lsSet("later", v);
   }
 
   function appPath() {
@@ -218,11 +244,7 @@
 
   function findStep(segment, stepId) {
     var i = findStepIndex(segment, stepId);
-    return i > -1 ? list2step(segment, i) : null;
-  }
-
-  function list2step(segment, i) {
-    return stepsFor(segment)[i];
+    return i > -1 ? stepsFor(segment)[i] : null;
   }
 
   function findVisible(selector) {
@@ -232,8 +254,26 @@
     }).first();
   }
 
+  /** 高于视口的目标（侧栏导航）若按 center 对齐，元素顶部会被推到视口外，
+      高亮框上下边都看不见；这类元素改为顶对齐。 */
+  function scrollTargetIntoView(el) {
+    var tall = el.getBoundingClientRect().height > window.innerHeight;
+    var opts = { block: tall ? "start" : "center", inline: "nearest" };
+    try { el.scrollIntoView(opts); } catch (e) { el.scrollIntoView(); }
+  }
+
+  /** 换步必须先摘掉上一步的 onb-step-*：CSS 用它在「AI 伴读」一步放行 FAB，
+      残留会让 FAB 在后续步骤上继续盖住蒙层。 */
+  function clearStepClass() {
+    $("body").removeClass(function (i, cls) {
+      return (cls.match(/onb-step-\S+/g) || []).join(" ");
+    });
+  }
+
   function teardown() {
+    // #onb-help 不删：它是阅读器段的常驻入口，导览期间靠 body 类隐藏
     $("body").removeClass("onboarding-active");
+    clearStepClass();
     $("#onb-mask, #onb-bubble").remove();
     current = null;
   }
@@ -245,11 +285,12 @@
   function buildBubble(step, index, total) {
     var isLast = index >= total - 1;
     var html = '<div class="onb-card">'
-      + '<div class="onb-head"><span class="onb-title">' + esc(step.zh) + '</span>'
-      + ' <small class="onb-title-en">' + esc(step.en) + '</small>'
+      + '<div class="onb-head"><span class="onb-title" id="onb-title" lang="zh-Hans">' + esc(step.zh) + '</span>'
+      + ' <small class="onb-title-en" lang="en">' + esc(step.en) + '</small>'
       + '<span class="onb-count">' + (index + 1) + ' / ' + total + '</span></div>'
-      + '<p class="onb-text">' + esc(step.body) + '</p>'
-      + '<p class="onb-text-en">' + esc(step.bodyEn) + '</p>'
+      + '<div aria-live="polite">'
+      + '<p class="onb-text" lang="zh-Hans">' + esc(step.body) + '</p>'
+      + '<p class="onb-text-en" lang="en">' + esc(step.bodyEn) + '</p></div>'
       + (step.guide && GUIDE_BOOK_ID ? '<p class="onb-guide"><a href="' + appPath() + '/book/' + GUIDE_BOOK_ID
           + '">延伸阅读：《Magicbook User Guide》</a></p>' : '')
       + '<div class="onb-actions">'
@@ -260,12 +301,12 @@
       + (step.act === "goto" ? '点我试试 Go' : (isLast ? '完成 Done' : '下一步 Next'))
       + '</button></div></div>';
 
-    var bubble = $('<div id="onb-bubble"></div>').html(html);
+    var bubble = $('<div id="onb-bubble" role="dialog" aria-modal="true" aria-labelledby="onb-title"></div>').html(html);
 
     bubble.on("click", ".onb-next", function () {
       if (step.act === "goto") {
         var el = findVisible(step.sel);
-        if (el.length) { gotoTarget(el.get(0)); return; }
+        if (el.length) { gotoTarget(step, el.get(0)); return; }
       }
       if (isLast) { finish(current.segment); return; }
       render(index + 1);
@@ -280,8 +321,31 @@
     return index + 1 < list.length ? list[index + 1].id : null;
   }
 
-  /** 气泡贴目标：下方优先，空间不足依次上方 / 右侧 / 垂直居中，并夹在视口内。 */
+  /** 跳转类步骤：进度落到 handoff 指定的段/步（跨段交给新标签），否则本段下一步。 */
+  function gotoTarget(step, el) {
+    if (!el) return;
+    var $el = $(el), href = $el.attr("href");
+    if (step.handoff) {
+      saveProgress(step.handoff.segment, step.handoff.step);
+    } else {
+      saveProgress(current.segment, nextStepId(current.index));
+    }
+    teardown();
+    if (href) {
+      if ($el.attr("target") === "_blank") { window.open(href); }
+      else { window.location.href = href; }
+      return;
+    }
+    // 无 href（多格式「在浏览器里读」是 dropdown-toggle）：交给原生行为展开菜单，
+    // 用户自选格式 → 新标签里按 handoff 进度续览阅读器段
+    el.click();
+  }
+
+  /** 气泡贴高亮洞：下方优先，空间不足依次上方 / 右侧 / 垂直居中，并夹在视口内。
+      rect 必须是 drawMask 返回的「洞」而非目标原始 rect：侧栏导航这类高于视口的
+      元素，原始 rect 的 top 是负值，直接拿来定位会把气泡推到屏幕外。 */
   function position(bubble, rect) {
+    if (!bubble.length) return;
     bubble.css({ visibility: "hidden", display: "block" });
     var bw = bubble.outerWidth(), bh = bubble.outerHeight();
     var gap = 14, pad = 12, vw = window.innerWidth, vh = window.innerHeight;
@@ -290,12 +354,13 @@
     if (rect.bottom + bh + gap + pad < vh) { top = rect.bottom + gap; }
     else if (rect.top - bh - gap - pad > 0) { top = rect.top - bh - gap; }
     else if (rect.right + bw + gap < vw) { top = rect.top; left = rect.right + gap; }
-    else { top = Math.max(pad, (vh - bh) / 2); }
+    else { top = (vh - bh) / 2; }
 
     if (left === undefined) {
       var wanted = rect.left + rect.width / 2 - bw / 2;
       left = Math.min(Math.max(pad, wanted), Math.max(pad, vw - bw - pad));
     }
+    top = Math.min(Math.max(pad, top), Math.max(pad, vh - bh - pad));
     bubble.css({ top: top, left: left, visibility: "visible" });
   }
 
@@ -319,30 +384,16 @@
     mask.append($('<div class="onb-ring"></div>').css({
       left: l, top: t, width: Math.max(0, r - l), height: h
     }));
-    return { left: l, top: t, width: Math.max(0, r - l), height: h };
+    return { left: l, top: t, width: Math.max(0, r - l), height: h, right: r, bottom: b };
   }
 
-  /** 跳转类步骤：洞是开的，用户直接点控件会走页面原生行为——详情封面是
-      data-toggle="modal"（Bootstrap z-index 1050，会被蒙层压暗），阅读器按钮是
-      target="_blank"。所以在洞上盖一层捕获，统一由 gotoTarget 决定怎么跳。 */
-  function holeCatcher(hole, el) {
-    var catcher = $('<div class="onb-catch"></div>').css(hole);
-    catcher.on("click", function () { gotoTarget(el); });
+  /** 跳转类步骤盖在洞上的点击捕获：原生点击会开出 modal / 新标签，
+      Bootstrap modal（z≈1050）会被蒙层压暗，所以由脚本统一接管跳转。 */
+  function holeCatcher(hole, step, el) {
+    var catcher = $('<div class="onb-catch"></div>').css(
+      { left: hole.left, top: hole.top, width: hole.width, height: hole.height });
+    catcher.on("click", function () { gotoTarget(step, el); });
     $("#onb-mask").append(catcher);
-  }
-
-  function gotoTarget(el) {
-    if (!el) return;
-    var $el = $(el), href = $el.attr("href");
-    // 先落进度到「下一步」，目标页（或新标签）据此续览
-    saveProgress(current.segment, nextStepId(current.index));
-    teardown();
-    if (href) {
-      if ($el.attr("target") === "_blank") { window.open(href); }
-      else { window.location.href = href; }
-      return;
-    }
-    el.click();
   }
 
   function render(index) {
@@ -353,7 +404,7 @@
     var narrow = window.innerWidth < 768;
     var target = narrow ? $() : findVisible(step.sel);
 
-    // 锚点缺失（角色门控 / 书库为空 / 主题差异）→ 跳过该步，绝不停在空白气泡上
+    // 锚点缺失（角色门控 / 单格式书 / 主题差异）→ 跳过该步，绝不停在空白气泡上
     if (!narrow && step.sel && !target.length) {
       render(index + 1);
       return;
@@ -361,27 +412,36 @@
 
     current.index = index;
     saveProgress(current.segment, step.id);
+    // onb-step-<id>：AI 按钮的 z-index 高于蒙层，只有「AI 伴读」这一步才让它亮着
     $("body").addClass("onboarding-active");
-    $("#onb-mask, #onb-bubble, #onb-help").remove();
+    clearStepClass();
+    $("body").addClass("onb-step-" + step.id);
+    $("#onb-mask, #onb-bubble").remove();
 
     if (!target.length) {
       // 居中卡 + 整体压暗（窄屏同样走这条路径）
       $("body").append('<div id="onb-mask" class="onb-dim"></div>');
       var centered = buildBubble(step, index, list.length).addClass("onb-centered");
-      $("body").append(centered.show());
-      if (step.guide) verifyGuideLink();
+      $("body").append(centered);
+      // 必须先入树再给 display：jQuery 3 的 .show() 对未插入文档的元素不生效
+      // （isHiddenWithinTree 依赖在树内判定），#onb-bubble 默认 display:none，
+      // 于是完成卡会挂在 DOM 里但完全不可见
+      centered.css("display", "block");
+      if (step.guide) verifyGuideLink(centered);
+      centered.find(".onb-next").trigger("focus");
       return;
     }
 
     var el = target.get(0);
-    try { el.scrollIntoView({ block: "center", inline: "center" }); } catch (e) { el.scrollIntoView(); }
+    scrollTargetIntoView(el);
     var rect = el.getBoundingClientRect();
     $("body").append('<div id="onb-mask"></div>');
     var hole = drawMask(rect);
-    if (step.act === "goto") holeCatcher(hole, el);
+    if (step.act === "goto") holeCatcher(hole, step, el);
     var bubble = buildBubble(step, index, list.length);
     $("body").append(bubble);
-    position(bubble, rect);
+    position(bubble, hole);
+    bubble.find(".onb-next").trigger("focus");
   }
 
   function onViewportChange() {
@@ -392,8 +452,8 @@
     if (!target.length) return;  // 该步已划出视野：保持原位，滚回来即可
     var rect = target.get(0).getBoundingClientRect();
     var hole = drawMask(rect);   // drawMask 会清空蒙层，点击捕获需重贴
-    if (step.act === "goto") holeCatcher(hole, target.get(0));
-    position($("#onb-bubble"), rect);
+    if (step.act === "goto") holeCatcher(hole, step, target.get(0));
+    position($("#onb-bubble"), hole);
   }
 
   // scroll 事件密度高，合并到一帧一次，避免导览期间持续重排
@@ -407,6 +467,9 @@
   }
 
   function startTour(segment, fromStepId) {
+    $("#onb-invite").remove();
+    // AI 抽屉 z-index 高于气泡，开着会盖住气泡；导览一律从关闭态开始
+    $("#ai-companion-drawer").removeClass("open");
     current = { segment: segment, index: 0 };
     render(fromStepId ? Math.max(0, findStepIndex(segment, fromStepId)) : 0);
   }
@@ -414,20 +477,36 @@
   function finish(segment) {
     markSeen(segment);
     teardown();
+    showEntryAgainIfNeeded(segment);
+  }
+
+  /** ESC 只是「收起」，不等于「学完了」：不写 seen，只按以后再说处理。 */
+  function dismiss(segment) {
+    setLater(segment);
+    clearProgress();
+    teardown();
+    showEntryAgainIfNeeded(segment);
+  }
+
+  function showEntryAgainIfNeeded(segment) {
+    if (segment === "reader") showReaderHelp();
   }
 
   /* ---------------- 邀请卡与常驻入口 ---------------- */
 
   function showInvite(segment) {
     var isReader = segment === "reader";
-    var card = $('<div id="onb-invite"><div class="onb-invite-card">'
-      + '<button type="button" class="onb-invite-x" title="关闭 Close">×</button>'
-      + '<div class="onb-invite-title">花 2 分钟学会 magicbook <small>2-min tour</small></div>'
-      + '<p class="onb-invite-text">'
-      + (isReader
-          ? '带你在阅读器里翻页、换主题、用 AI 伴读。<small>Learn paging, themes and the AI companion.</small>'
-          : '带你在真实界面上走一遍找书、加书架、下载与阅读。<small>Walk the real UI: find, shelve, download, read.</small>')
-      + '</p><div class="onb-invite-actions">'
+    var card = $('<div id="onb-invite" role="dialog" aria-label="使用引导"><div class="onb-invite-card">'
+      + '<button type="button" class="onb-invite-x" title="关闭 Close" aria-label="关闭">×</button>'
+      + '<div class="onb-invite-title" lang="zh-Hans">花 2 分钟学会 magicbook'
+      + ' <small lang="en">2-min tour</small></div>'
+      + '<p class="onb-invite-text" lang="zh-Hans">'
+      + (isReader ? "带你在阅读器里翻页、换主题、用 AI 伴读。"
+                  : "带你在真实界面上走一遍找书、加书架、下载与阅读。")
+      + '<small lang="en">'
+      + (isReader ? "Learn paging, themes and the AI companion."
+                  : "Walk the real UI: find, shelve, download, read.")
+      + '</small></p><div class="onb-invite-actions">'
       + '<button type="button" class="btn btn-xs btn-link onb-invite-never">不再提示 Never</button>'
       + '<span class="onb-spacer"></span>'
       + '<button type="button" class="btn btn-xs btn-default onb-invite-later">以后再说 Later</button> '
@@ -435,29 +514,30 @@
       + '</div></div></div>');
 
     card.on("click", ".onb-invite-start", function () { card.remove(); startTour(segment); });
-    card.on("click", ".onb-invite-later", function () { lsSet("later", 1); card.remove(); });
-    card.on("click", ".onb-invite-never", function () { lsSet("later", 1); markSeen(segment); card.remove(); });
-    card.on("click", ".onb-invite-x", function () { card.remove(); });
+    card.on("click", ".onb-invite-later", function () { setLater(segment); card.remove(); });
+    card.on("click", ".onb-invite-never", function () { setLater(segment); markSeen(segment); card.remove(); });
+    // × 与「以后再说」同义：否则每次翻页都重弹，等于没关
+    card.on("click", ".onb-invite-x", function () { setLater(segment); card.remove(); });
     $("body").append(card);
   }
 
   /** 阅读器页没有 layout 的「设置」下拉，用常驻「?」代替手动入口。 */
   function showReaderHelp() {
     if (!isReaderPage() || $("#onb-help").length) return;
-    $("body").append('<button type="button" id="onb-help" title="使用引导 Onboarding">?</button>');
-    $("#onb-help").on("click", function () { showInvite("reader"); });
+    $("body").append('<button type="button" id="onb-help" title="使用引导 Onboarding" aria-label="使用引导">?</button>');
+    $("#onb-help").on("click", function () { clearLater("reader"); showInvite("reader"); });
   }
 
-  /** 指南书可能已不在书库里：探一次，非 200 就摘掉链接，不留死链。 */
-  function verifyGuideLink() {
-    var link = $("#onb-bubble .onb-guide a");
-    if (!link.length) return;
-    $.ajax({ method: "GET", url: link.attr("href") })
-      .always(function (data, status, xhr) {
-        if (!xhr || xhr.status !== 200) {
-          $("#onb-bubble .onb-guide").remove();
-        }
-      });
+  /** 指南书可能已不在书库里：探一次，非 200（或被登录页 302 兜走）就摘掉链接。 */
+  function verifyGuideLink(bubble) {
+    var para = bubble.find(".onb-guide");
+    if (!para.length) return;
+    $.ajax({ method: "GET", url: para.find("a").attr("href") })
+      .done(function (data, status, xhr) {
+        var toLogin = xhr && xhr.responseURL && xhr.responseURL.indexOf("/login") > -1;
+        if (!xhr || xhr.status !== 200 || toLogin) para.remove();
+      })
+      .fail(function () { para.remove(); });
   }
 
   /* ---------------- 入口 ---------------- */
@@ -465,8 +545,9 @@
   function bindLayoutEntry() {
     $("#top_onboarding").on("click", function (e) {
       e.preventDefault();
-      lsDel("later");
-      startTour(detectSegment());
+      var segment = detectSegment();
+      clearLater(segment);
+      startTour(segment);
     });
   }
 
@@ -486,7 +567,7 @@
     if (progress && progress.segment === segment) {
       clearProgress();  // 步骤已从表里移除
     }
-    if (!isSeen(segment) && !lsGet("later", 0)) {
+    if (!isSeen(segment) && !isLater(segment)) {
       showInvite(segment);
       return;
     }
@@ -494,12 +575,16 @@
   }
 
   $(document).on("keydown.onboarding", function (e) {
-    if (e.key === "Escape" && current) {
-      e.stopPropagation();
-      finish(current.segment);
-    }
+    if (e.key !== "Escape" || !current) return;
+    // 阻止 ai_chat.js 的同键监听一起把抽屉关掉（它比我们早注册）
+    e.stopImmediatePropagation();
+    dismiss(current.segment);
   });
-  $(window).on("resize.onboarding scroll.onboarding", onViewportEvent);
+  $(window).on("resize.onboarding", onViewportEvent);
+  // scroll 不冒泡：caliBlur 主题下真正滚动的是 .col-sm-10（overflow:auto），
+  // 挂在 window 上的普通监听收不到内部容器滚动，高亮洞会钉在原地跟目标脱钩，
+  // 只有捕获阶段能拿到
+  window.addEventListener("scroll", onViewportEvent, true);
 
   $(init);
 })(jQuery);

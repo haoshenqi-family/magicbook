@@ -172,3 +172,43 @@ IIFE + 原生 DOM，与 `achievements.js`/`credits.js` 的 magicbook 自有惯�
 8. **导览期间冻结 `#ai-companion-fab`**：它用 `2147483646` 这种顶级 z-index，蒙层压不住，
    不禁用指针事件就能被绕过（见 `onboarding.css` 的 `body.onboarding-active` 规则）。
 
+
+## 11. 浏览器实跑发现的缺陷（R109 验收，均已修复）
+
+在本地临时实例（`docs/temp/run_onboarding_check.py`，CSRF 保持开启）用真实浏览器逐帧量了
+`getBoundingClientRect()`，暴露 4 个静态检查看不见的问题：
+
+1. **气泡定位基准错了**：`position()` 拿的是目标原始 rect。第一步指向侧栏 `#scnd-nav`
+   （高 1135px > 视口 741px），其 `top` 是 -181，走到「右侧」分支时 `top = rect.top`
+   直接把气泡推到屏幕外（`top:-181`）。改为以 `drawMask()` 与视口求交后的「洞」为基准，
+   并对 `top` 兜一次视口夹取；同时超高元素改为顶对齐滚动（`block:"start"`），
+   否则 `scrollIntoView({block:"center"})` 会把它的上半截推出视口。
+2. **完成卡从未显示过**：居中路径写的是 `$("body").append(centered.show())`。jQuery 3 的
+   `.show()` 对**未插入文档**的元素不生效（`isHiddenWithinTree` 要在树内判定），而
+   `#onb-bubble` 默认 `display:none`，于是「导览完成」卡一直静静挂在 DOM 里。
+   窄屏（<768）走同一条路径，同样受影响。改为先 append 再显式 `css("display","block")`。
+3. **`onb-step-*` 类换步不清**：`render()` 每步只 `addClass`，旧类残留。CSS 靠
+   `body.onboarding-active.onb-step-ai #ai-companion-fab` 放行那个 z-index 高于蒙层的悬浮球，
+   残留会让它在后续步骤上继续盖住导览卡片。抽出 `clearStepClass()`，加新类前先摘旧类。
+4. **滚动时高亮洞与目标脱钩**：监听原本挂在 `$(window).on("scroll")`，但 scroll 事件不冒泡，
+   而 caliBlur 主题下真正的滚动容器是 `.col-sm-10`（`overflow:auto`）。实测容器滚 260px 后
+   目标已到 `top:1638`、洞仍钉在 `top:258`。改为捕获阶段监听
+   `window.addEventListener("scroll", onViewportEvent, true)`。
+
+四条都补了源码级回归断言（`test_centered_card_is_displayed_after_append`、
+`test_bubble_is_positioned_against_the_hole`、`test_step_class_is_replaced_not_accumulated`、
+`test_scroll_listener_uses_capture_phase`），防止后续「顺手简化」把它改回去。
+
+### 实跑覆盖与未覆盖
+
+已验（真实浏览器 + 真实 CSRF）：邀请卡渲染与四个按钮、13 步主段的逐步高亮几何、锚点缺失
+时自动跳过（3→12→13）、`点我试试 Go` 的点击捕获与 `window.open`、跨段 handoff 落
+`{segment:"reader", step:"toc"}`、完成/跳过写回 `User.view_settings`（`POST /ajax/view` 200
+且落库）、刷新后不再邀请、常驻手动入口可无视「以后再说」重开、ESC 只收起不记 seen、
+`later` 按段隔离、匿名访客只写 localStorage 不发请求、阅读器段 8 步（含 AI 悬浮球只在
+`onb-step-ai` 一步放行）、指南书链接探测降级（本地 `/book/89` 500 → 链接被摘）。
+
+未验：真实 calibre 书库下的 `/`、`/book/<id>`、`/read/...` 三个页面（本机没有 `metadata.db`，
+这些路由 500）——阅读器段是用「同页注入阅读器锚点」驱动真实引擎跑的，控件 id 与
+`read.html` 的一致性由 `test_reader_step_anchors_exist_in_template` 锁；窄屏（<768）的
+居中路径与完成卡共用同一分支，已随缺陷 2 一并修复但未在真实小视口下截图。
