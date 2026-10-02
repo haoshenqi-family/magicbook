@@ -1,0 +1,17 @@
+services:
+  halo-book-connector:
+    build: .
+    container_name: halo-book-connector
+    restart: unless-stopped
+    ports:
+      - "9878:9878"
+    env_file: .env
+    volumes:
+      - ./data:/srv/data
+    networks:
+      - fnnet
+
+networks:
+  fnnet:
+    name: fnnet
+    external: true

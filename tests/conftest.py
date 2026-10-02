@@ -184,6 +184,14 @@ def _app_instance(tmp_path_factory):
     except ImportError:
         pass  # cps.ai not yet created
 
+    # 内部书籍导入 API（R107）——main.py 按 BOOK_IMPORT_KEY fail-closed 注册；
+    # 测试环境始终注册，开关行为由 connector_required 按 env 实时判定。
+    try:
+        from cps.book_import import bookimport
+        app.register_blueprint(bookimport)
+    except ImportError:
+        pass
+
     # AI tables are created by cps.ai.database.init_ai_db() inside create_app()
     # (they live on their own AiBase + AI_DATABASE_URL engine, not ub.Base).
     # Seed AI default config (providers + AiConfig row) if the package supports it.

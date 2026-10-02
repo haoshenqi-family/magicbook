@@ -128,6 +128,9 @@ def before_request():
                                  'web.login_post',
                                  'web.logout',
                                  'admin.load_dialogtexts',
+                                 # 内部书籍导入 API（R107）：库未配置时也不应被
+                                 # 302 劫持到配置页，保持 JSON 错误契约
+                                 'book_import.import_book',
                                  'admin.ajax_pathchooser')):
         return redirect(url_for('admin.db_configuration'))
 

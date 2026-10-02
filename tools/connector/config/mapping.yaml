@@ -1,0 +1,11 @@
+# Halo 文章 slug → magicbook 书籍映射（V1 静态配置，见 LLD §3.2）
+# slug 建议为文章设置固定自定义别名，避免默认随机串。
+books:
+  - slug: magicbook-user-guide
+    book_id: 89
+    title: Magicbook User Guide
+    creator: Magicbook Family Team
+    lang: en
+    identifier: "urn:uuid:6f2c9a1e-7b34-4c8d-9a55-magicbook0001"
+    trigger_translation: true
+    cover_from_post: false

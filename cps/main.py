@@ -16,6 +16,7 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import sys
 
 from . import create_app, limiter
@@ -83,6 +84,11 @@ def main():
     # AI agent 薄代理（moon-well 宿主；/ai/agent/* 端点，SSE 透传见 cps/ai/proxy.py）
     from cps.ai.proxy import aiagent
     app.register_blueprint(aiagent)
+    # 内部书籍导入 API（halo-book-connector R107）：fail-closed，
+    # 未配置 BOOK_IMPORT_KEY 时路由整体不注册
+    if os.environ.get("BOOK_IMPORT_KEY"):
+        from cps.book_import import bookimport
+        app.register_blueprint(bookimport)
     from cps import ai
     ai.seed_default_config()
     # Release the AI scoped session at the end of each request (AI-only hook).
