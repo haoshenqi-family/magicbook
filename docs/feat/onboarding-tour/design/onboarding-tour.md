@@ -48,7 +48,7 @@
 | --- | --- | --- |
 | 全站（浏览/详情/书架/设置页均 `{% extends "layout.html" %}`） | `cps/templates/layout.html` | `<head>` 内加 `onboarding.css`；`</body>` 前、`main.js` 之后加 `onboarding.js`；`<body>` 上加 `data-onboarding-seen` / `data-onboarding-anonymous` |
 | 阅读器（不继承 layout 的独立 HTML） | `cps/templates/read.html`、`readpdf.html` | 逐页 include css+js（先例：`read.html:531` 的 `{% include 'ai_chat_panel.html' %}`） |
-| 手动入口 | `cps/templates/layout.html:103-111` 的 `#top_mb_settings` 下拉内 | 新增 `<li><a id="top_onboarding" href="#"> 使用引导 <small class="text-muted">Onboarding Tour</small></a></li>` |
+| 手动入口 | `cps/templates/layout.html` 的 `#top_mb_settings` 下拉内 | `<li><a id="top_onboarding" href="#">{{ _('Onboarding Tour') }}</a></li>`（R112 起走 gettext 单语，不再是「使用引导 + small 英文」双写） |
 
 v1 不覆盖：`readtxt.html`、`readcbr.html`、`listenmp3.html`、`basic_layout.html`（simple 主题）、OPDS。这些页面结构差异大或走独立 layout，收益低；后续按同一 include 姿势扩展。
 
@@ -64,7 +64,7 @@ IIFE + 原生 DOM，与 `achievements.js`/`credits.js` 的 magicbook 自有惯�
 
 ## 6. 步骤表（v1，共 20 步）
 
-双语遵循 R102 惯例：**中文为主 + 英文辅助双写，不走 Babel**（`layout.html:95-97` 已注释说明原因）。每步文案两段，同气泡内渲染。
+文案（R112 起）：步骤表存**英文 msgid**，气泡渲染前经 `mbT()` 查 `window.MB_I18N` 种子（`cps/templates/i18n_seed.html`），按账号 `locale` 出对应语言，缺词条回退英文。初版（R109）沿用 R102 的「中文为主 + 英文辅助双写」，实测在阅读器里一步要读中英两屏字，且与账号语言设置无关，已由 R112 统一收进 gettext 链路——机制细节见 `docs/feat/language-i18n/design/language-i18n.md`。
 
 **A. 首页 / 浏览**（`/`，锚点见 `layout.html`、`index.html`）
 
@@ -131,7 +131,7 @@ IIFE + 原生 DOM，与 `achievements.js`/`credits.js` 的 magicbook 自有惯�
 1. layout 挂载：`onboarding.css`、`onboarding.js` 在设置页出现且各只出现一次。
 2. 状态注入：登录账号 `view_settings={}` 时 `data-onboarding-seen="0"`；预置 `{"onboarding":{"seen":true}}` 后为 `"1"`。
 3. `view_settings` 为 `NULL` / 匿名访问 `/login` 时页面 200，不抛 UndefinedError（守住第 3 节的 Jinja 兜底链）。
-4. 手动入口：`#top_onboarding` 在 `#top_mb_settings` 块内、且双语标签齐备；匿名不渲染（下拉框本身对匿名隐藏）。
+4. 手动入口：`#top_onboarding` 在 `#top_mb_settings` 块内、标签单语（R112：en 账号出 `Onboarding Tour` 且无中文回流，zh 账号出「使用引导」）；匿名不渲染（下拉框本身对匿名隐藏）。
 5. 阅读器挂载：`read.html`、`readpdf.html` 模板源码含 include（模板文件级断言，避免构造完整书库）。
 6. 持久化契约：登录态 `POST /ajax/view {"onboarding":{"seen":true}}` 返回 200 且 `current_user.view_settings['onboarding']['seen'] is True` —— 锁住我们依赖的既有端点不被上游改动破坏。
 7. 匿名不写服务端：匿名（开启 anonbrowse）POST 后，`ROLE_ANONYMOUS` 用户行的 `view_settings` 不变（守住第 3 节的污染风险；若前端无法自证，则断言该端点对该场景的行为并在测试注释说明由前端 gating 保证）。
@@ -212,3 +212,101 @@ IIFE + 原生 DOM，与 `achievements.js`/`credits.js` 的 magicbook 自有惯�
 这些路由 500）——阅读器段是用「同页注入阅读器锚点」驱动真实引擎跑的，控件 id 与
 `read.html` 的一致性由 `test_reader_step_anchors_exist_in_template` 锁；窄屏（<768）的
 居中路径与完成卡共用同一分支，已随缺陷 2 一并修复但未在真实小视口下截图。
+
+## 12. R111：阅读器段视觉重做（用户反馈「图书内的导览太丑了」）
+
+> 对应需求：`requests.md` R111。方向经用户选定为「降噪微调，保留挖洞」——形态不动
+> （仍是 spotlight 逐步导览），只把四个具体痛点按数值压下去。
+
+### 12.1 痛点与对策
+
+| # | 痛点（用户原话逐项确认） | 对策 | 落点 |
+| --- | --- | --- | --- |
+| 1 | 蒙层太重：整屏 `rgba(0,0,0,.62)` 盖住正在读的书页 | 主段降到 `.38`；阅读器段 `.18`；居中/完成卡 `.45 / .30`。深色主题下黑压黑无对比，改极淡白纱 `.10 / .08` | `onboarding.css` 的 `.onb-side` / `.onb-dim` 四组规则 |
+| 2 | 挖洞的 2px `#4285f4` 蓝描边像截图标注工具 | 环不再描边：`inset 0 0 0 1px` 细内描边 + `inset 0 2px 5px` 内影 + `0 0 10px 4px` 外柔影，颜色走 `--onb-ring-edge/--onb-ring-glow` 变量 | `#onb-mask .onb-ring` |
+| 3 | 360px 纯白圆角卡 + 投影是 Bootstrap 味，与阅读器排版两套语言 | 卡片对齐阅读器里已有的 `.reading-translation-popover` 语汇（`radius 6px`、`0 4px 18px rgba(0,0,0,.22)`、accent `#4a90d9`），宽度 300px（阅读器段 258px、居中卡 320px），字号 13px/1.5 | `#onb-bubble` / `.onb-card` |
+| 4 | 文字太多：中英两段正文 + 四个按钮，一步读一屏字 | 英文正文行删掉；卡片只留标题＋一段正文＋按钮。按钮自带 `.onb-btn` 样式（`read.html` 不引 bootstrap，原来的 `.btn` 在阅读器里渲染成浏览器原生灰按钮，是「丑」的直接来源之一） | `buildBubble()` + `.onb-btn` |
+
+### 12.2 两段作用域与深浅色卡
+
+- `body.onb-seg-main` / `body.onb-seg-reader`（`setSegmentScope()`）区分两段，蒙层浓度、
+  卡片宽度、亮区规则全部挂在作用域类上，互不影响；`teardown()` 连同 `onb-chrome-dark`
+  一起清掉，避免类残留让书库页沿用阅读器的轻蒙层。
+- `body.onb-chrome-dark` **只在阅读器段**出现（`applyChromePalette()`）：书库页的气泡本来就
+  浮在蒙层上，不存在压住正文的问题。判定按 `#main` 的实际计算底色算亮度
+  （`0.299R+0.587G+0.114B < 140`）而不是再抄一份主题对照表——`read.html` 有 5 套主题加
+  可任取颜色的 `customTheme`，查表必漏。`#main` 取到透明值时退到 `body`，仍透明按亮底处理。
+
+### 12.3 亮区（protect）与环（ring）分离
+
+`drawMask(protect, ring)` 用 4 块 `.onb-side` 围出「亮区」，环只勾目标本身（外扩 4px）。
+两者不再等同，是这一轮几何上的关键变化：
+
+- 主段：`protect = expand(rect, 12)`，亮区≈目标。
+- 阅读器段：`protectFor()` 取目标所在的**整条工具带**（`closest("#titlebar, #sidebar, .read-footer")`），
+  整条留亮——用户能看到目标旁边的兄弟控件，书页只吃一层薄纱。目标不在工具带里
+  （翻页箭头、AI 悬浮球）退化为 `expand(rect, 18)`。
+- `visualRect()` 去掉「不可见的点击热区」：`.arrow` 带 160px 上下、80px 左右内边距
+  （`main.css:115-141`），照 border-box 挖洞会圈出一大块空白，环看起来像画错了。
+  **只在元素自身没有背景色/背景图时**才按 padding 内缩——按钮的底色铺在自己的 padding 上，
+  内缩会把「控件」高亮成「控件里的几个字」。
+- 环必须 `position: fixed`（本轮重写 CSS 时漏过一次，环画在 `0,0` 64×64）且
+  `pointer-events: none`（否则盖住自己圈住的那个可点控件）。两条都进了回归锁。
+
+### 12.4 验证方式：静态夹具 + 无头截图
+
+本机没有 calibre 书库，`/read/...` 真实页面起不来，因此用 `docs/temp/reader_fixture.html`
+（gitignored，`.gitignore:51`）按 `read.html:186-276` 1:1 复刻静态 DOM（`#sidebar/#panels/#show-Toc/
+#titlebar/#prev/#viewer/#next/.read-footer/#ai-companion-fab`），引真实 `main.css/reader.css/
+onboarding.css/onboarding.js`，用 `?tour=1&at=N&dark=1&debug=1` 驱动到第 N 步并把 target/side/ring/bubble
+的 rect 打进 `<pre id="dbg">`。截图 `chrome --headless=new --window-size=1440,987
+--virtual-time-budget=25000 --screenshot`；几何量用 browser-use 的 `evaluate_script` 读 `#dbg`。
+
+实跑数据（`?tour=1&at=0`，视口 831×741）：`#sidebar` = `(0,0,300,741)` 即亮区，
+环 = `(2,9,26,28)` 只勾 `#show-Toc`（18×20），气泡 258×116 贴在洞右侧 `x=314`。
+翻页一步的亮区由 `#next` 原始 `(709,178,101×393)` 内缩为约 `60×115`，与截图一致。
+
+三个只有实跑才暴露的缺陷（环画在 0,0、箭头热区圈出大块空白、深色主题无对比）均已修复，
+截图为证：`/tmp/r_f_{toc,paging,ai}.png`、`/tmp/r_dark2.png`。
+
+### 12.5 与 R112（语言模块）的边界
+
+R111 只动视觉（`onboarding.css` 全部 + `onboarding.js` 的 `setSegmentScope/applyChromePalette/
+expand/protectFor/visualRect/paintMask/drawMask` 与 `.onb-btn` 按钮标记）；文案的取词链路
+（`mbT()` / `MB_I18N` 种子 / po）属 R112。两拨改动已在同一工作区合并，`tests/test_onboarding_tour.py`
+里「中文为主 + 英文辅助双写」的断言由 R112 改写为走 gettext 单语，R111 的 4 项回归锁未受影响。
+
+### 12.6 回归锁与未验项
+
+新增 `tests/test_onboarding_reader_visual.py`（15 项，源码级）：蒙层浓度单调关系、深色白纱、
+**级联顺序（规则字节位置）**、环无硬描边且 fixed/pointer-events、卡片宽度相对关系、配色走变量、
+`read.html` 不引 bootstrap 且按钮自给自足、工具带亮区、`visualRect` 内缩条件、作用域类的设置与清理、
+亮度探测、常驻「?」的重算次序、气泡 z-index 高于蒙层、蒙层容器放行点击而四边拦截。
+全量单测 278 passed（含并行 R112 的 i18n 契约用例）。
+
+未验：真实 calibre 书库下的端到端观感（本机无 `metadata.db`）；主段（layout 页）在真实页面上的
+截图——其 R111 差异只有蒙层 `.38` 与亮区 `expand(rect,12)` 两个数值，已由源码级断言覆盖，
+但观感仍需用户在线上走一遍确认。
+
+### 12.7 交叉 review 吸收（独立 agent 视角）
+
+review 抓到 3 个 P1 + 1 处对比度回退，全部已修并补断言：
+
+1. **级联顺序**：`body.onb-chrome-dark #onb-mask.onb-dim` 与 `body.onb-seg-reader #onb-mask.onb-dim`
+   特异度相同（`body.x #id.y`），原先写在前面 → 深色主题的居中卡仍是黑压黑 `.30`，白纱永不生效。
+   已把 chrome-dark 那组移到段规则之后并就地注释「必须排在后面」；
+   `test_dark_gauze_rule_wins_the_cascade_tie` 用**规则字节位置**而不是数值来锁（已做变异测试：
+   把顺序换回来该断言即红）。这是源码级断言最容易漏的一类 bug——数值都对，生效的不是它。
+2. **常驻「?」配色回跳**：`teardown()` 摘掉 `onb-chrome-dark`，而 `showReaderHelp()` 在
+   `if ($("#onb-help").length) return` 之后才 `applyChromePalette()` → 导览结束后那个按钮从暗色卡
+   跳回白底浮在深色主题上。重算移到提前返回之前，`test_help_button_palette_is_recomputed_before_early_return` 锁顺序。
+3. **R112 交叉死代码**：`#onb-invite .onb-invite-title small`（双写 `<small>` 已被 `mbT()` 取代）
+   与 `#onb-bubble .onb-title-en` 一并删除。
+4. **深色环的指引太弱**：`--onb-ring-glow` 原为 `rgba(0,0,0,.42)`，黑底上等于没有，目标只剩 1px
+   白内描边。深色主题改为 `rgba(255,255,255,.16)` 淡白光晕（落在洞外蒙层上），
+   截图 `/tmp/r_d2_{band,paging}.png` 对比确认：翻页箭头一步的目标明显「亮起来」，浅色主题不受影响（变量按主题分覆盖）。
+
+未采纳（记入遗留）：`applyChromePalette()` 只在 `render/showInvite/showReaderHelp` 触发，用户在
+「主题」一步现场换主题时，卡片配色要到下一步才跟上——修法要么监听 `#themes` 变更、要么给 `#main`
+挂 `style` 属性的 MutationObserver，属新增监听面，本轮不扩大改动；`.onb-btn` 次要按钮 `opacity:.62`
+在两种卡面上的对比度约 4.4:1，略低于 WCAG AA 的 4.5:1，与 R109 之前一致，未在本轮调整。

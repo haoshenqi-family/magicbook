@@ -1,8 +1,17 @@
-/* magicbook 引导模式样式（R109），配合 js/onboarding.js。
+/* magicbook 引导模式样式（R109 / R111），配合 js/onboarding.js。
    Why: 蒙层要盖住包括阅读器与 AI 抽屉在内的一切浮层，但被高亮的控件必须留在
         蒙层之上（用户可以直接点它），因此 z-index 分层必须显式声明而不是随手给值。
         AI 伴读按钮用的是 2147483646（cps/static/css/ai_chat.css:8），这里压不住，
-        所以在导览期间直接禁掉它的指针事件，避免绕过导览。 */
+        所以在导览期间直接禁掉它的指针事件，避免绕过导览。
+
+        R111 视觉重做（用户反馈「图书内的导览太丑了」）：
+        1. 蒙层 .62 → .38，阅读器段再降到 .18——气泡正压在用户要读的书页上；
+        2. 高亮环去掉 2px 蓝色实描边（像截图标注工具），改细内阴影 + 外柔影；
+        3. 卡片不用 Bootstrap 的 .btn/.panel 语汇，对齐阅读器里已有的
+           .reading-translation-popover（read.html 根本没引 bootstrap，那套 .btn
+           在阅读器里渲染成浏览器原生灰按钮）；
+        4. 阅读器段按 #main 底色切暗色卡（body.onb-chrome-dark，见 onboarding.js）。
+        作用域：body.onb-seg-main / body.onb-seg-reader 区分两段，互不影响。 */
 
 #onb-mask {
   position: fixed;
@@ -12,27 +21,79 @@
   pointer-events: none;
 }
 
+:root {
+  --onb-accent: #4a90d9;
+  /* 环的边缘色随阅读器主题切换；主段永远是亮底那组 */
+  --onb-ring-edge: rgba(0, 0, 0, .18);
+  --onb-ring-glow: rgba(0, 0, 0, .20);
+  --onb-card-bg: #fff;
+  --onb-card-border: rgba(127, 127, 127, .30);
+  --onb-fg: #222;
+  --onb-fg-muted: #777;
+  --onb-hairline: rgba(127, 127, 127, .22);
+}
+
+body.onb-chrome-dark {
+  --onb-ring-edge: rgba(255, 255, 255, .40);
+  /* 黑底上的黑色柔影等于没有：目标只剩 1px 白内描边，指引太弱。改成一圈淡白光晕，
+     落在洞外的蒙层上，深色主题里目标才是「亮起来」而不是「描个边」。 */
+  --onb-ring-glow: rgba(255, 255, 255, .16);
+  --onb-card-bg: #232427;
+  --onb-card-border: rgba(255, 255, 255, .16);
+  --onb-fg: #e8eaed;
+  --onb-fg-muted: #9aa0a6;
+  --onb-hairline: rgba(255, 255, 255, .14);
+}
+
 #onb-mask .onb-side {
   position: fixed;
-  background: rgba(0, 0, 0, 0.62);
+  background: rgba(17, 17, 17, .38);
   pointer-events: auto;
-  transition: all 0.18s ease-out;
+  transition: all .18s ease-out;
+}
+
+/* 阅读器段：书页是主角，压暗只是为了让工具带跳出来，不是为了让屏幕变黑 */
+body.onb-seg-reader #onb-mask .onb-side {
+  background: rgba(17, 17, 17, .18);
+}
+
+/* 深色主题下「黑压黑」没有对比度，整条工具带会跟书页糊成一片：改成极淡的白纱，
+   亮区（工具带）仍然比周围干净。onb-chrome-dark 只在阅读器页出现（见 onboarding.js）。 */
+body.onb-chrome-dark #onb-mask .onb-side {
+  background: rgba(255, 255, 255, .10);
 }
 
 #onb-mask.onb-dim {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.62);
+  background: rgba(17, 17, 17, .45);
   pointer-events: auto;
 }
 
-/* 高亮环：勾出洞的边界 */
+body.onb-seg-reader #onb-mask.onb-dim {
+  background: rgba(17, 17, 17, .30);
+}
+
+/* 必须排在 onb-seg-reader 那条之后：两条特异度相同（body.x #id.y），后写的才赢。
+   onb-chrome-dark 只可能在阅读器段出现（applyChromePalette 里判过 isReaderPage），
+   所以深色那组永远该压过段规则。 */
+body.onb-chrome-dark #onb-mask.onb-dim {
+  background: rgba(255, 255, 255, .08);
+}
+
+/* 高亮环：不描边，靠极细内描边 + 一圈外柔影让目标像从纸面上抬起来（R111）。
+   原来的 2px #4285f4 实线像截图标注工具；柔影落在洞内的留白上，
+   所以洞要比目标大一圈（onboarding.js 的 expand），否则会被蒙层切掉。
+   pointer-events 必须为 none，否则环会盖住它圈住的那个可点控件。 */
 #onb-mask .onb-ring {
   position: fixed;
-  border: 2px solid #4285f4;
   border-radius: 6px;
   pointer-events: none;
-  transition: all 0.18s ease-out;
+  box-shadow:
+    inset 0 0 0 1px var(--onb-ring-edge),
+    inset 0 2px 5px rgba(0, 0, 0, .10),
+    0 0 10px 4px var(--onb-ring-glow);
+  transition: all .18s ease-out;
 }
 
 /* 跳转类步骤盖在洞上的点击捕获：原生点击会开出 modal / 新标签，
@@ -48,80 +109,111 @@
   position: fixed;
   z-index: 2147483645;
   display: none;
-  max-width: 360px;
-  width: 360px;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+}
+
+/* 阅读器段再收一档：气泡越小，越不像在打断阅读 */
+body.onb-seg-reader #onb-bubble {
+  width: 258px;
 }
 
 #onb-bubble.onb-centered {
   top: 50% !important;
   left: 50% !important;
   transform: translate(-50%, -50%);
-  width: 420px;
+  width: 320px;
   max-width: calc(100vw - 24px);
 }
 
 #onb-bubble .onb-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 14px 16px 10px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  padding: 9px 11px 6px;
+  border: 1px solid var(--onb-card-border);
+  border-radius: 6px;
+  background: var(--onb-card-bg);
+  color: var(--onb-fg);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .22);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 #onb-bubble .onb-head {
   display: flex;
   align-items: baseline;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: 5px;
+  margin-bottom: 3px;
 }
 
 #onb-bubble .onb-title {
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: #222;
-}
-
-/* 双语遵循 R102 惯例：中文为主、英文辅助，不走 Babel */
-#onb-bubble .onb-title-en {
-  color: #999;
-  font-size: 12px;
 }
 
 #onb-bubble .onb-count {
   margin-left: auto;
-  color: #aaa;
-  font-size: 12px;
+  color: var(--onb-fg-muted);
+  font-size: 11px;
   white-space: nowrap;
 }
 
 #onb-bubble .onb-text {
   margin: 0 0 6px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: #333;
-}
-
-#onb-bubble .onb-text-en {
-  margin: 0 0 6px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #8a8a8a;
 }
 
 #onb-bubble .onb-guide {
   margin: 0 0 6px;
-  font-size: 13px;
+  font-size: 12px;
+}
+
+#onb-bubble .onb-guide a {
+  color: var(--onb-accent);
 }
 
 #onb-bubble .onb-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  border-top: 1px solid #f0f0f0;
-  padding-top: 6px;
+  gap: 2px;
+  margin-top: 1px;
+  padding-top: 5px;
+  border-top: 1px solid var(--onb-hairline);
 }
 
-#onb-bubble .onb-spacer, #onb-invite .onb-spacer {
+.onb-spacer, #onb-invite .onb-spacer {
   flex: 1;
+}
+
+/* 按钮自带样式：read.html 不引 bootstrap，靠 .btn 会在阅读器里变成原生灰按钮 */
+.onb-btn {
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 7px;
+  cursor: pointer;
+  opacity: .62;
+}
+
+.onb-btn:hover {
+  opacity: 1;
+}
+
+.onb-btn:focus-visible {
+  outline: 2px solid var(--onb-accent);
+  outline-offset: 1px;
+}
+
+.onb-btn.onb-primary {
+  opacity: 1;
+  background: var(--onb-accent);
+  color: #fff;
+}
+
+body.onb-chrome-dark .onb-btn.onb-primary {
+  background: #e8eaed;
+  color: #202124;
 }
 
 /* AI 伴读按钮/抽屉用的是 2147483646/647（cps/static/css/ai_chat.css:8,18），比蒙层还高，
@@ -147,57 +239,44 @@ body.onboarding-active.onb-step-ai #ai-companion-fab {
   left: 16px;
   bottom: 16px;
   z-index: 2147483643;
-  max-width: 340px;
+  max-width: 320px;
 }
 
 #onb-invite .onb-invite-card {
   position: relative;
-  background: #fff;
-  border-radius: 8px;
-  padding: 14px 16px 12px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-  border: 1px solid #e6e6e6;
+  padding: 12px 14px 10px;
+  border: 1px solid var(--onb-card-border);
+  border-radius: 6px;
+  background: var(--onb-card-bg);
+  color: var(--onb-fg);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .22);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 #onb-invite .onb-invite-title {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
-  color: #222;
-  margin-bottom: 6px;
-}
-
-#onb-invite .onb-invite-title small {
-  color: #999;
-  font-weight: 400;
+  margin-bottom: 4px;
 }
 
 #onb-invite .onb-invite-text {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #444;
   margin: 0 0 8px;
-}
-
-#onb-invite .onb-invite-text small {
-  display: block;
-  color: #8a8a8a;
-  font-size: 12px;
-  line-height: 1.5;
 }
 
 #onb-invite .onb-invite-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 #onb-invite .onb-invite-x {
   position: absolute;
-  top: 4px;
-  right: 8px;
+  top: 2px;
+  right: 6px;
   border: 0;
   background: transparent;
-  color: #bbb;
+  color: var(--onb-fg-muted);
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
@@ -210,16 +289,22 @@ body.onboarding-active.onb-step-ai #ai-companion-fab {
   left: 16px;
   bottom: 16px;
   z-index: 2147483640;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: #fff;
-  color: #4285f4;
-  font-size: 18px;
-  font-weight: 700;
+  border: 1px solid var(--onb-card-border);
+  background: var(--onb-card-bg);
+  color: var(--onb-fg-muted);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
+  opacity: .78;
+}
+
+#onb-help:hover {
+  opacity: 1;
 }
 
 /* ---------------- 窄屏 ---------------- */

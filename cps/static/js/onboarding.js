@@ -14,103 +14,88 @@
   var PROGRESS_TTL_MS = 24 * 3600 * 1000;
   var cfg = window.MagicbookOnboarding || {};
   var GUIDE_BOOK_ID = cfg.guideBookId || 0;
+  // R112：文案走 i18n_seed.html 注入的 MB_I18N（英文 msgid → 用户 locale 译文），
+  // 种子缺失时回退 msgid 本身，保证纯静态调试页不炸
+  var mbT = window.mbT || function (id) { return id; };
 
   /* ---------------- 步骤表 ----------------
      sel 为 null → 渲染居中卡（收尾卡）。
      act: "goto" → 洞上盖点击捕获，由 gotoTarget 统一决定怎么跳（见 holeCatcher）。
      handoff: 跳转后把进度落到「另一段导览」的某步——阅读器是新标签，
-              若沿用本段下一步会在无关页面上错误续览。 */
+              若沿用本段下一步会在无关页面上错误续览。
+     文案（R112）：title/body 都是英文 msgid，经 mbT 按用户 locale 单语言渲染，
+     中文译文在 i18n_seed.html + zh_Hans_CN po——替代旧的「中英双写」方案。
+     */
 
   var STEPS_MAIN = [
     { id: "browse", sel: "#scnd-nav",
-      zh: "浏览分类", en: "Browse categories",
-      body: "这里按「最新 / 热门 / 高分 / 已读 / 未读 / 随机」等维度切换书库视图，是找书的第一站。",
-      bodyEn: "Switch the library by newest, hot, rated, read, unread, random, author, series and more." },
+      title: "Browse",
+      body: "Switch library views by newest / trending / top rated / read / unread / random — your first stop for finding books." },
     { id: "search", sel: "#query",
-      zh: "搜索书库", en: "Search the library",
-      body: "输入书名或作者即可全库检索，结果页沿用同样的排序与书架操作。",
-      bodyEn: "Type a title or author to search the whole library." },
+      title: "Search",
+      body: "Search the whole library by title or author; the results page keeps the same sorting and shelf actions." },
     { id: "advsearch", sel: "#advanced_search",
-      zh: "高级搜索", en: "Advanced search",
-      body: "需要按作者 / 系列 / 出版社 / 语言 / 评分多条件组合过滤时用这里。",
-      bodyEn: "Combine author, series, publisher, language and rating filters here." },
+      title: "Advanced search",
+      body: "Use it to combine filters by author / series / publisher / language / rating." },
     { id: "wall", sel: ".book.session",
-      zh: "书墙", en: "Book wall",
-      body: "封面网格就是书库（首页那排是随机推荐）。点封面看详情，鼠标悬停可快速操作。",
-      bodyEn: "The cover grid is the library (the home row is a random pick). Click a cover for details." },
+      title: "Book wall",
+      body: "The cover grid is your library. Click a cover for details; hover for quick actions." },
     { id: "sort", sel: ".filterheader",
-      zh: "排序", en: "Sort",
-      body: "按新旧、书名、作者、出版社排序；选择会被记住，下次进来还是这个顺序。",
-      bodyEn: "Sort by date, title, author or publisher. The choice is remembered per account." },
+      title: "Sort",
+      body: "Sort by age, title, author or publisher; your choice is saved to your account." },
     { id: "openbook", sel: ".book.session a", act: "goto",
-      zh: "进入一本书", en: "Open a book",
-      body: "点这里任选一本书进入详情页，导览会在详情页接着讲。",
-      bodyEn: "Pick any book to open its detail page — the tour continues there." },
+      title: "Open a book",
+      body: "Pick any book to open its detail page; the tour continues there." },
     { id: "meta", sel: "#detailcover",
-      zh: "详情与元数据", en: "Details and metadata",
-      body: "封面右侧是书名、作者、系列、标签、评分与出版社等 Calibre 元数据。",
-      bodyEn: "Beside the cover: title, authors, series, tags, rating and publisher." },
+      title: "Details",
+      body: "Right of the cover: title, authors, series, tags, rating and publisher." },
     // 单格式书渲染的是 #Download，多格式才是 #btnGroupDrop1（detail.html:26/39）
     { id: "download", sel: "#btnGroupDrop1, #Download",
-      zh: "下载与传书", en: "Download and send",
-      body: "下载 EPUB / PDF / TXT 等已有格式；配了 Kindle 邮箱还能一键传书。",
-      bodyEn: "Download available formats, or send the book to your Kindle e-reader." },
+      title: "Download",
+      body: "Download EPUB / PDF / TXT, or send straight to your Kindle email." },
     { id: "read_online", sel: "#readbtn, #read-in-browser", act: "goto",
       handoff: { segment: "reader", step: "toc" },
-      zh: "在浏览器里读", en: "Read in browser",
-      body: "点开阅读器无需下载；进阅读器后由第二段导览接手，讲翻页、主题与 AI 伴读。",
-      bodyEn: "Read without downloading. A second tour takes over inside the reader." },
+      title: "Read in browser",
+      body: "Open the reader without downloading; the second tour takes over inside." },
     { id: "shelf", sel: "#shelf-actions",
-      zh: "书架", en: "Shelves",
-      body: "书架是你自己组织的书单（想读 / 在读 / 收藏），左侧栏可随时切换。",
-      bodyEn: "Shelves are your own booklists — want-to-read, reading, favorites." },
+      title: "Shelves",
+      body: "Shelves are your own curated lists (want-to-read / reading / favorites), switchable in the sidebar." },
     { id: "have_read", sel: "#have_read_cb",
-      zh: "标记已读完", en: "Mark as read",
-      body: "读完勾一下，「未读 / 已读」筛选、统计与成就都依赖它。",
-      bodyEn: "Tick it when you finish — read/unread filters, stats and achievements rely on it." },
+      title: "Mark as read",
+      body: "Tick it when you finish; read/unread filters and stats rely on it." },
     { id: "settings_menu", sel: "#top_mb_settings",
-      zh: "设置入口", en: "Settings menu",
-      body: "阅读设置、成就、积分都收在这个下拉里；管理员还能看到外观设置。",
-      bodyEn: "Reading settings, achievements and credits live in this dropdown." },
+      title: "Settings",
+      body: "Reading settings, achievements and credits all live in this dropdown." },
     { id: "finish", sel: null, guide: true,
-      zh: "导览完成", en: "Tour complete",
-      body: "剩下的交给习惯。打开阅读器时还有第二段导览（翻页 / 主题 / AI 伴读）。",
-      bodyEn: "Explore from here. A second tour waits inside the reader." }
+      title: "Done",
+      body: "Leave the rest to habit. A second tour awaits inside the reader." }
   ];
 
   var STEPS_READER = [
     { id: "toc", sel: "#show-Toc",
-      zh: "目录面板", en: "Table of contents",
-      body: "左侧栏可切目录、书签与搜索，长书靠它跳转章节。",
-      bodyEn: "The sidebar holds contents, bookmarks and in-book search." },
+      title: "Contents",
+      body: "The sidebar switches between table of contents, bookmarks and in-book search." },
     { id: "paging", sel: "#next",
-      zh: "翻页", en: "Page turning",
-      body: "点左右箭头或用键盘方向键翻页，进度会自动记忆。",
-      bodyEn: "Use the arrows or the keyboard; your position is saved automatically." },
+      title: "Paging",
+      body: "Click the arrows or use the left/right arrow keys; progress is saved automatically." },
     { id: "theme", sel: "#setting",
-      zh: "阅读设置", en: "Reading settings",
-      body: "主题配色、字号字体、版式与段落朗读（TTS）都在这里。",
-      bodyEn: "Themes, font size and family, layout and read-aloud live here." },
+      title: "Reading Settings",
+      body: "Colors, font size, layout and read-aloud all live here." },
     { id: "translate", sel: "#immersive-translate",
-      zh: "沉浸式翻译与划词", en: "Immersive translation",
-      body: "开沉浸式翻译看双语段落；选中任意词句可直接查释义、加生词。",
-      bodyEn: "Toggle bilingual paragraphs, or select text for instant definition and vocabulary." },
+      title: "Translate",
+      body: "Turn on bilingual paragraphs; select a word or phrase for definitions and unknown words." },
     { id: "bookmark", sel: "#bookmark",
-      zh: "书签", en: "Bookmarks",
-      body: "在关键处打个书签，之后从目录面板一键回到这里。",
-      bodyEn: "Mark important spots and jump back to them from the sidebar." },
+      title: "Bookmark",
+      body: "Mark key spots and jump back with one click from the sidebar." },
     { id: "fullscreen", sel: "#fullscreen",
-      zh: "全屏", en: "Fullscreen",
-      body: "全屏去掉浏览器 chrome，只留阅读区。",
-      bodyEn: "Hide browser chrome and keep only the reading area." },
+      title: "Fullscreen",
+      body: "Hide the browser chrome and keep only the reading area." },
     { id: "ai", sel: "#ai-companion-fab",
-      zh: "AI 伴读", en: "AI reading companion",
-      body: "蓝色按钮打开伴读抽屉：就当前这本书提问、切换多个会话、查看它为你记下的长期记忆。",
-      bodyEn: "The blue button opens the companion drawer: ask about this book, switch conversations, review its memory of you." },
+      title: "AI Companion",
+      body: "Ask questions about this book; it remembers your preferences." },
     { id: "reader-finish", sel: null,
-      zh: "阅读愉快", en: "Happy reading",
-      body: "导览到此结束。想重看可随时点左下角的「?」。",
-      bodyEn: "That's it. Tap the “?” at the bottom left to run this tour again." }
+      title: "Happy reading",
+      body: "Tap the “?” at the bottom-left any time to replay the tour." }
   ];
 
   /* ---------------- 存储 ---------------- */
@@ -270,9 +255,43 @@
     });
   }
 
+  /** 两段导览的视觉分开（R111）：main 在书库页，整屏压暗无妨；reader 压在用户正在
+      读的书页上，蒙层必须更轻、工具条整条留亮。样式全靠这两个类作用域。 */
+  function setSegmentScope(segment) {
+    $("body").removeClass("onb-seg-main onb-seg-reader")
+      .addClass(segment === "reader" ? "onb-seg-reader" : "onb-seg-main");
+  }
+
+  /** 只有阅读器段跟着主题走（R111）：书库页的气泡本来就浮在蒙层上，不存在压住正文
+      的问题；read.html 却有 5 套主题（含可任取颜色的 customTheme），白卡落在深色主题
+      上很刺眼。按 #main 的实际底色算亮度，而不是再抄一份主题对照表——查表必漏 customTheme。 */
+  function applyChromePalette() {
+    var dark = false;
+    if (isReaderPage()) {
+      var rgb = pageBackground();
+      dark = !!rgb && (rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114) < 140;
+    }
+    $("body").toggleClass("onb-chrome-dark", dark);
+  }
+
+  /** #main 是主题色的落点（selectTheme 直接写它的内联背景）。
+      取到透明值说明主题还没应用、走的是 CSS 默认，退到 body；仍是透明就按亮底处理。 */
+  function pageBackground() {
+    var nodes = [document.getElementById("main"), document.body];
+    for (var i = 0; i < nodes.length; i++) {
+      if (!nodes[i]) continue;
+      var m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+))?\s*\)/
+        .exec(window.getComputedStyle(nodes[i]).backgroundColor);
+      if (!m) continue;
+      if (m[4] !== undefined && parseFloat(m[4]) === 0) continue;
+      return [Number(m[1]), Number(m[2]), Number(m[3])];
+    }
+    return null;
+  }
+
   function teardown() {
     // #onb-help 不删：它是阅读器段的常驻入口，导览期间靠 body 类隐藏
-    $("body").removeClass("onboarding-active");
+    $("body").removeClass("onboarding-active onb-seg-main onb-seg-reader onb-chrome-dark");
     clearStepClass();
     $("#onb-mask, #onb-bubble").remove();
     current = null;
@@ -285,20 +304,21 @@
   function buildBubble(step, index, total) {
     var isLast = index >= total - 1;
     var html = '<div class="onb-card">'
-      + '<div class="onb-head"><span class="onb-title" id="onb-title" lang="zh-Hans">' + esc(step.zh) + '</span>'
-      + ' <small class="onb-title-en" lang="en">' + esc(step.en) + '</small>'
+      + '<div class="onb-head"><span class="onb-title" id="onb-title">' + esc(mbT(step.title)) + '</span>'
       + '<span class="onb-count">' + (index + 1) + ' / ' + total + '</span></div>'
       + '<div aria-live="polite">'
-      + '<p class="onb-text" lang="zh-Hans">' + esc(step.body) + '</p>'
-      + '<p class="onb-text-en" lang="en">' + esc(step.bodyEn) + '</p></div>'
+      + '<p class="onb-text">' + esc(mbT(step.body)) + '</p>'
       + (step.guide && GUIDE_BOOK_ID ? '<p class="onb-guide"><a href="' + appPath() + '/book/' + GUIDE_BOOK_ID
-          + '">延伸阅读：《Magicbook User Guide》</a></p>' : '')
+          + '">' + esc(mbT("Further reading: Magicbook User Guide")) + '</a></p>' : '')
+      + '</div>'
+      // 按钮走自己的类，不带 Bootstrap 的 .btn：read.html 没有引入 bootstrap，
+      // 原来那几个 .btn 在阅读器里根本没样式，渲染成浏览器的原生灰按钮
       + '<div class="onb-actions">'
-      + (index > 0 ? '<button type="button" class="btn btn-link btn-xs onb-back">上一步 Back</button>' : '')
-      + '<button type="button" class="btn btn-link btn-xs onb-skip">跳过 Skip</button>'
+      + (index > 0 ? '<button type="button" class="onb-btn onb-back">' + esc(mbT("Previous step")) + '</button>' : '')
+      + '<button type="button" class="onb-btn onb-skip">' + esc(mbT("Skip")) + '</button>'
       + '<span class="onb-spacer"></span>'
-      + '<button type="button" class="btn btn-primary btn-xs onb-next">'
-      + (step.act === "goto" ? '点我试试 Go' : (isLast ? '完成 Done' : '下一步 Next'))
+      + '<button type="button" class="onb-btn onb-primary onb-next">'
+      + esc(step.act === "goto" ? mbT("Try it") : (isLast ? mbT("Done") : mbT("Next step")))
       + '</button></div></div>';
 
     var bubble = $('<div id="onb-bubble" role="dialog" aria-modal="true" aria-labelledby="onb-title"></div>').html(html);
@@ -364,13 +384,15 @@
     bubble.css({ top: top, left: left, visibility: "visible" });
   }
 
-  /** 4 块遮罩围出中间的「洞」：比 SVG mask 简单，滚动时只改尺寸不重建 path。
-      返回洞的矩形，供跳转类步骤在上面盖一层点击捕获（见 holeCatcher）。 */
-  function drawMask(rect) {
-    var pad = 8;
-    var l = Math.max(0, rect.left - pad), t = Math.max(0, rect.top - pad);
-    var r = Math.min(window.innerWidth, rect.right + pad);
-    var b = Math.min(window.innerHeight, rect.bottom + pad);
+  /** 4 块遮罩围出「亮区」(protect)，环 (ring) 单独勾出真正的目标。
+      Why: 两段视觉不同——main 段亮区就是目标外扩 12px（整屏压暗没问题）；reader 段
+      把整条工具条留给用户看清（见 protectFor），只压暗工具条之外的区域，正在读的
+      书页不再被黑幕盖住，同时目标仍靠环指出来。
+      返回亮区（与视口求交后）的矩形，供气泡贴着它定位。 */
+  function drawMask(protect, ring) {
+    var l = Math.max(0, protect.left), t = Math.max(0, protect.top);
+    var r = Math.min(window.innerWidth, protect.right);
+    var b = Math.min(window.innerHeight, protect.bottom);
     var h = Math.max(0, b - t);
     var mask = $("#onb-mask").empty();
     [
@@ -381,10 +403,57 @@
     ].forEach(function (p) {
       mask.append($('<div class="onb-side"></div>').css(p));
     });
-    mask.append($('<div class="onb-ring"></div>').css({
-      left: l, top: t, width: Math.max(0, r - l), height: h
-    }));
+    if (ring) {
+      // 环也要跟视口求交：高于视口的目标（侧栏导航）原始 rect 的 top 是负值，
+      // 不夹就会画成一个只露出底边的残缺框
+      var rl = Math.max(0, ring.left), rt = Math.max(0, ring.top);
+      var rw = Math.min(window.innerWidth, ring.right) - rl;
+      var rh = Math.min(window.innerHeight, ring.bottom) - rt;
+      if (rw > 0 && rh > 0) {
+        mask.append($('<div class="onb-ring"></div>').css({ left: rl, top: rt, width: rw, height: rh }));
+      }
+    }
     return { left: l, top: t, width: Math.max(0, r - l), height: h, right: r, bottom: b };
+  }
+
+  /** 目标矩形外扩 pad（left/top/width/height/right/bottom 都补齐，
+      原始 DOMRect 不能直接改，且后续求交要用到 right/bottom）。 */
+  function expand(rect, pad) {
+    return {
+      left: rect.left - pad, top: rect.top - pad,
+      width: rect.width + pad * 2, height: rect.height + pad * 2,
+      right: rect.right + pad, bottom: rect.bottom + pad
+    };
+  }
+
+  /** 阅读器段的亮区＝目标所在的那一条工具带（标题栏 / 侧栏 / 底部页码条）：
+      整条留亮，用户能看到目标旁边的兄弟控件，书页只吃一层薄纱。
+      目标不在工具带里（翻页箭头、AI 悬浮球）就退化为按元素外扩。 */
+  function protectFor(el, segment, rect) {
+    if (segment !== "reader") return expand(rect, 12);
+    var band = $(el).closest("#titlebar, #sidebar, .read-footer");
+    if (!band.length) return expand(rect, 18);
+    return expand(band.get(0).getBoundingClientRect(), 0);
+  }
+
+  /** 目标矩形：去掉「不可见的点击热区」。
+      Why: 翻页箭头 .arrow 带 160px 上下、80px 左右内边距（main.css:115-141），
+      照 border-box 挖洞会圈出一大块空白，环看起来像画错了。
+      只在元素自身没有背景时才按 padding 内缩——按钮的底色铺在自己的 padding 上，
+      内缩会把「控件」高亮成「控件里的几个字」。 */
+  function visualRect(el) {
+    var rect = el.getBoundingClientRect();
+    var cs = window.getComputedStyle(el);
+    var bg = cs.backgroundColor;
+    if (bg && bg !== "transparent" && !/rgba\(0,\s*0,\s*0,\s*0(\.\d+)?\)/.test(bg)) return rect;
+    if (cs.backgroundImage && cs.backgroundImage !== "none") return rect;
+    var l = parseFloat(cs.paddingLeft) || 0, r = parseFloat(cs.paddingRight) || 0;
+    var t = parseFloat(cs.paddingTop) || 0, b = parseFloat(cs.paddingBottom) || 0;
+    return {
+      left: rect.left + l, top: rect.top + t,
+      width: Math.max(0, rect.width - l - r), height: Math.max(0, rect.height - t - b),
+      right: rect.right - r, bottom: rect.bottom - b
+    };
   }
 
   /** 跳转类步骤盖在洞上的点击捕获：原生点击会开出 modal / 新标签，
@@ -394,6 +463,12 @@
       { left: hole.left, top: hole.top, width: hole.width, height: hole.height });
     catcher.on("click", function () { gotoTarget(step, el); });
     $("#onb-mask").append(catcher);
+  }
+
+  /** 画蒙层：亮区按段规则取（protectFor），环只勾目标本身（外扩 4px）。
+      返回亮区矩形，气泡定位与点击捕获都以它为准。 */
+  function paintMask(el, rect) {
+    return drawMask(protectFor(el, current.segment, rect), expand(rect, 4));
   }
 
   function render(index) {
@@ -416,6 +491,7 @@
     $("body").addClass("onboarding-active");
     clearStepClass();
     $("body").addClass("onb-step-" + step.id);
+    applyChromePalette();
     $("#onb-mask, #onb-bubble").remove();
 
     if (!target.length) {
@@ -434,9 +510,8 @@
 
     var el = target.get(0);
     scrollTargetIntoView(el);
-    var rect = el.getBoundingClientRect();
     $("body").append('<div id="onb-mask"></div>');
-    var hole = drawMask(rect);
+    var hole = paintMask(el, visualRect(el));
     if (step.act === "goto") holeCatcher(hole, step, el);
     var bubble = buildBubble(step, index, list.length);
     $("body").append(bubble);
@@ -450,9 +525,9 @@
     if (!step || !step.sel) return;
     var target = findVisible(step.sel);
     if (!target.length) return;  // 该步已划出视野：保持原位，滚回来即可
-    var rect = target.get(0).getBoundingClientRect();
-    var hole = drawMask(rect);   // drawMask 会清空蒙层，点击捕获需重贴
-    if (step.act === "goto") holeCatcher(hole, step, target.get(0));
+    var el = target.get(0);
+    var hole = paintMask(el, visualRect(el));  // 清空蒙层，点击捕获需重贴
+    if (step.act === "goto") holeCatcher(hole, step, el);
     position($("#onb-bubble"), hole);
   }
 
@@ -471,6 +546,7 @@
     // AI 抽屉 z-index 高于气泡，开着会盖住气泡；导览一律从关闭态开始
     $("#ai-companion-drawer").removeClass("open");
     current = { segment: segment, index: 0 };
+    setSegmentScope(segment);
     render(fromStepId ? Math.max(0, findStepIndex(segment, fromStepId)) : 0);
   }
 
@@ -495,22 +571,19 @@
   /* ---------------- 邀请卡与常驻入口 ---------------- */
 
   function showInvite(segment) {
+    applyChromePalette();
     var isReader = segment === "reader";
-    var card = $('<div id="onb-invite" role="dialog" aria-label="使用引导"><div class="onb-invite-card">'
-      + '<button type="button" class="onb-invite-x" title="关闭 Close" aria-label="关闭">×</button>'
-      + '<div class="onb-invite-title" lang="zh-Hans">花 2 分钟学会 magicbook'
-      + ' <small lang="en">2-min tour</small></div>'
-      + '<p class="onb-invite-text" lang="zh-Hans">'
-      + (isReader ? "带你在阅读器里翻页、换主题、用 AI 伴读。"
-                  : "带你在真实界面上走一遍找书、加书架、下载与阅读。")
-      + '<small lang="en">'
-      + (isReader ? "Learn paging, themes and the AI companion."
-                  : "Walk the real UI: find, shelve, download, read.")
-      + '</small></p><div class="onb-invite-actions">'
-      + '<button type="button" class="btn btn-xs btn-link onb-invite-never">不再提示 Never</button>'
+    var card = $('<div id="onb-invite" role="dialog" aria-label="' + esc(mbT("Onboarding Tour")) + '"><div class="onb-invite-card">'
+      + '<button type="button" class="onb-invite-x" title="' + esc(mbT("Close")) + '" aria-label="' + esc(mbT("Close")) + '">×</button>'
+      + '<div class="onb-invite-title">' + esc(mbT("Learn magicbook in 2 minutes")) + '</div>'
+      + '<p class="onb-invite-text">'
+      + esc(isReader ? mbT("Flip pages, switch themes and use the AI companion, right inside the reader.")
+                     : mbT("Walk through finding books, shelves, download and reading on the real interface."))
+      + '</p><div class="onb-invite-actions">'
+      + '<button type="button" class="onb-btn onb-invite-never">' + esc(mbT("Never show again")) + '</button>'
       + '<span class="onb-spacer"></span>'
-      + '<button type="button" class="btn btn-xs btn-default onb-invite-later">以后再说 Later</button> '
-      + '<button type="button" class="btn btn-xs btn-primary onb-invite-start">开始引导 Start</button>'
+      + '<button type="button" class="onb-btn onb-invite-later">' + esc(mbT("Later")) + '</button>'
+      + '<button type="button" class="onb-btn onb-primary onb-invite-start">' + esc(mbT("Start Tour")) + '</button>'
       + '</div></div></div>');
 
     card.on("click", ".onb-invite-start", function () { card.remove(); startTour(segment); });
@@ -523,8 +596,12 @@
 
   /** 阅读器页没有 layout 的「设置」下拉，用常驻「?」代替手动入口。 */
   function showReaderHelp() {
+    // 配色要在「已存在就直接 return」之前算：teardown 会摘掉 onb-chrome-dark，
+    // 导览结束后不重算，那个「?」会从暗色卡回跳成浮在深色主题上的白按钮
+    applyChromePalette();
     if (!isReaderPage() || $("#onb-help").length) return;
-    $("body").append('<button type="button" id="onb-help" title="使用引导 Onboarding" aria-label="使用引导">?</button>');
+    $("body").append('<button type="button" id="onb-help" title="' + esc(mbT("Onboarding Tour")) + '" aria-label="' + esc(mbT("Onboarding Tour")) + '">?</button>');
+    $("body").append('<button type="button" id="onb-help" title="' + esc(mbT("Onboarding Tour")) + '" aria-label="' + esc(mbT("Onboarding Tour")) + '">?</button>');
     $("#onb-help").on("click", function () { clearLater("reader"); showInvite("reader"); });
   }
 
