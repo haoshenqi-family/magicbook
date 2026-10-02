@@ -1,0 +1,231 @@
+/* magicbook 引导模式样式（R109），配合 js/onboarding.js。
+   Why: 蒙层要盖住包括阅读器与 AI 抽屉在内的一切浮层，但被高亮的控件必须留在
+        蒙层之上（用户可以直接点它），因此 z-index 分层必须显式声明而不是随手给值。
+        AI 伴读按钮用的是 2147483646（cps/static/css/ai_chat.css:8），这里压不住，
+        所以在导览期间直接禁掉它的指针事件，避免绕过导览。 */
+
+#onb-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483644;
+  /* 容器本身不吃点击：洞里的控件必须可点，只有 4 块边 (.onb-side) 拦截点击 */
+  pointer-events: none;
+}
+
+#onb-mask .onb-side {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.62);
+  pointer-events: auto;
+  transition: all 0.18s ease-out;
+}
+
+#onb-mask.onb-dim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.62);
+  pointer-events: auto;
+}
+
+/* 高亮环：勾出洞的边界 */
+#onb-mask .onb-ring {
+  position: fixed;
+  border: 2px solid #4285f4;
+  border-radius: 6px;
+  pointer-events: none;
+  transition: all 0.18s ease-out;
+}
+
+/* 跳转类步骤盖在洞上的点击捕获：原生点击会开出 modal / 新标签，
+   那些层级都在蒙层之下或之外，必须由脚本统一接管跳转 */
+#onb-mask .onb-catch {
+  position: fixed;
+  cursor: pointer;
+  pointer-events: auto;
+  background: transparent;
+}
+
+#onb-bubble {
+  position: fixed;
+  z-index: 2147483645;
+  display: none;
+  max-width: 360px;
+  width: 360px;
+}
+
+#onb-bubble.onb-centered {
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%);
+  width: 420px;
+  max-width: calc(100vw - 24px);
+}
+
+#onb-bubble .onb-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 14px 16px 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+#onb-bubble .onb-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+#onb-bubble .onb-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+}
+
+/* 双语遵循 R102 惯例：中文为主、英文辅助，不走 Babel */
+#onb-bubble .onb-title-en {
+  color: #999;
+  font-size: 12px;
+}
+
+#onb-bubble .onb-count {
+  margin-left: auto;
+  color: #aaa;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+#onb-bubble .onb-text {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #333;
+}
+
+#onb-bubble .onb-text-en {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #8a8a8a;
+}
+
+#onb-bubble .onb-guide {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+#onb-bubble .onb-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 6px;
+}
+
+#onb-bubble .onb-spacer, #onb-invite .onb-spacer {
+  flex: 1;
+}
+
+/* 导览期间冻结 AI 浮层：它用的是 2147483646 这种顶级 z-index，蒙层压不住，
+   不禁用指针事件就能绕过导览直接点它。
+   注意：不冻结页面滚动——scrollIntoView 需要页面能滚，洞的位置由 scroll 监听跟随重算。 */
+body.onboarding-active #ai-companion-fab,
+body.onboarding-active #ai-companion-drawer {
+  pointer-events: none;
+}
+
+/* ---------------- 邀请卡（非阻塞） ---------------- */
+
+#onb-invite {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 2147483643;
+  max-width: 340px;
+}
+
+#onb-invite .onb-invite-card {
+  position: relative;
+  background: #fff;
+  border-radius: 8px;
+  padding: 14px 16px 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  border: 1px solid #e6e6e6;
+}
+
+#onb-invite .onb-invite-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 6px;
+}
+
+#onb-invite .onb-invite-title small {
+  color: #999;
+  font-weight: 400;
+}
+
+#onb-invite .onb-invite-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #444;
+  margin: 0 0 8px;
+}
+
+#onb-invite .onb-invite-text small {
+  display: block;
+  color: #8a8a8a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+#onb-invite .onb-invite-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+#onb-invite .onb-invite-x {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  border: 0;
+  background: transparent;
+  color: #bbb;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ---------------- 阅读器常驻「?」入口 ---------------- */
+
+#onb-help {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 2147483640;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #4285f4;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+/* ---------------- 窄屏 ---------------- */
+
+@media (max-width: 767px) {
+  #onb-bubble {
+    width: calc(100vw - 24px);
+    max-width: none;
+  }
+
+  #onb-invite {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-width: none;
+  }
+}

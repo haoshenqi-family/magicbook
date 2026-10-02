@@ -529,5 +529,8 @@
       <script src="{{ url_for('static', filename='js/libs/reader.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
     {% include 'ai_chat_panel.html' %}
+    {# R109 阅读器导览段：jQuery 已在上方 :158 载入；readpdf/readtxt/readcbr 无 jQuery
+       且控件锚点不同（#previous 而非 #show-Toc/#setting），本段只覆盖 EPUB 阅读器 #}
+    {% include 'onboarding_mount.html' %}
     </body>
 </html>

@@ -104,6 +104,8 @@
                     <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> 阅读设置 <small class="text-muted">Reading Settings</small></a></li>
                     <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> 成就 <small class="text-muted">Achievements</small></a></li>
                     <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> 积分 <small class="text-muted">Credits</small></a></li>
+                    {# R109 使用引导：常驻手动入口，点击后由 onboarding.js 接管 #}
+                    <li><a id="top_onboarding" href="#"><span class="glyphicon glyphicon-education"></span> 使用引导 <small class="text-muted">Onboarding Tour</small></a></li>
                     {% if current_user.role_admin() %}
                     <li class="divider"></li>
                     <li><a id="top_translate_all" href="{{url_for('web.translate_all_page')}}"><span class="glyphicon glyphicon-globe"></span> 整本翻译 <small class="text-muted">Book Translation</small></a></li>
@@ -243,5 +245,7 @@
       <script src="{{ url_for('static', filename='js/caliBlur.js') }}"></script>
     {% endif %}
     {% block js %}{% endblock %}
+    {# R109 引导模式：必须在 jQuery 之后（onboarding.js 依赖 $），故放在 block js 之后 #}
+    {% include 'onboarding_mount.html' %}
   </body>
 </html>
