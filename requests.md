@@ -262,3 +262,7 @@
 107. 采纳 R106 的 A 方案（magicbook 新增内部导入 API），编写 Halo→magicbook 书籍连接器 LLD 设计文档。仅写文档，不开发。
 
 108. 登录页文案：①删掉「注册采用邀请制，请使用管理员发放的邀请链接 / Registration is invite-only...」提示句；②"Sign in with your Authentik account" 简化为 "Sign in"；③"Log in with Authentik" 同理简化。（占号时误写 103，与并行会话冲突，按纪律续编 108）
+
+109. 为 magicbook 做一个前端引导模式（onboarding），引导用户学习使用这个系统。
+
+110. 把工作区并行会话的未提交改动提交并推送：R107 halo-book-connector（内部导入 API + connector 工具）、R109 前端 onboarding 引导（代为验证、提交、部署）。

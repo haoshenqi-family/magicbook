@@ -404,3 +404,14 @@
 - **交付**：推 develop；生产生效需 fnOS 手动构建链。
 - **对 requests.md/response.md 的总结**：requests.md 占号 R108（首次误写 103 与并行会话冲突，按纪律续编，条目内已注明）；response.md 本条；保留窗口 R98–R108（未到 10 整倍数，无归档动作）。
 - **冲突记录**：占号时 R103 已被并行会话（邀请注册入口）占用，本条续编 R108；并行会话在 admin.py/main.py/conftest.py 等文件有未提交改动（halo-book-connector），本条未触碰。
+
+## 2026-09-30（并行会话产出代提交推送）
+
+### R110（代提交：R107 halo-book-connector + R109 onboarding）
+
+- **需求**：把工作区并行会话的未提交改动提交并推送。
+- **盘点与归属**：工作区改动属两个已完成实现的功能——① R107 halo-book-connector（并行会话在 R106 咨询/R107 LLD 基础上实施了内部导入 API）：`cps/book_import.py`（245 行）+ `main.py`/`admin.py` 接线 + `tests/test_book_import.py`（204 行）+ `tools/connector/`（Halo 侧连接器服务，含 compose/Dockerfile）+ `docs/feat/halo-book-connector/design/`；② R109 前端 onboarding 引导：`onboarding.js/css` + `onboarding_mount.html` + layout/read 模板挂载 + `tests/test_onboarding_tour.py`（177 行）+ `docs/feat/onboarding-tour/design/`。
+- **验证**：全量 **251 passed**（224 存量 + 并行会话新增 27 项）；关键安全点确认——`main.py` 按 `BOOK_IMPORT_KEY` fail-closed 注册导入 API（生产未配置该变量 → 路由不注册、不暴露），`admin.py` 将其加入免 db_configuration 劫持白名单保持 JSON 错误契约，`conftest.py` 仅测试环境无条件注册蓝图。
+- **交付**：拆两个代码提交 `0806da06`（R107）/ `44cd4721`（R109）+ 本记录提交，单次推送 develop；push 后 fnOS webhook-builder 链自动构建部署（进度见 /app/codelib/logs/magicbook.log）。
+- **对 requests.md/response.md 的总结**：requests.md 占号 R110；response.md 本条；保留窗口 R94–R110（未到 10 整倍数，无归档动作）。
+- **冲突记录**：无。R109 会话的 response 未写（会话已结束），本条仅代提交与验证，功能层面的回应留待原会话补登或按需追记；R108（登录页文案简化）仍占号未实施。
