@@ -42,6 +42,8 @@
     {% block body %}
     {% endblock %}
   </div>
+  {# R114 输入法守卫：IME 组合期间的回车不提交搜索表单 #}
+  <script src="{{ url_for('static', filename='js/ime_guard.js') }}"></script>
 </body>
 
 </html>

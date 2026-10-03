@@ -46,4 +46,6 @@
   };
 </script>
 <script src="{{ url_for('static', filename='js/ai_page_extract.js') }}"></script>
+{# R114 输入法守卫：read 系模板不继承 layout.html，随面板引入，挡住聊天输入框的组合回车 #}
+<script src="{{ url_for('static', filename='js/ime_guard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ai_chat.js') }}"></script>
