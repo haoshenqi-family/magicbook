@@ -176,3 +176,26 @@
   生成 `?q=`，新 JS 上线后用户无需强刷即可拿到——反过来说，本轮之前用户强刷也只会拿到同一份坏代码。
 - **对 requests.md/response.md 的总结**：requests.md 占号 R113（会话开始时登记，编号无冲突）；response.md 本条；
   保留窗口 R102–R113（113%10≠0，无归档动作）。
+
+## 2026-10-03（R114 输入法回车误提交优化：全局 IME 守卫）
+
+### R114（「我经常在输入法中输入回车，magicbook 就自动提交了搜索条件，想完全写完再提交」）
+
+- **根因**：全仓自有 JS/模板无任何 composition/isComposing 处理。中文 IME 用回车确认候选词时，
+  keydown(Enter) 会连带触发原生 form 隐式提交或元素级 Enter 监听，涉及 5 类入口：
+  `layout.html` header 搜索（GET 跳转）、`basic_layout.html` 精简主题搜索、`search_form.html`
+  高级搜索（POST）、`book_edit.html` meta-search + typeahead 下拉回车选中、`ai_chat.js` 裸 Enter 发送。
+- **方案（用户选定「IME 守卫」而非全面禁回车）**：新增 `cps/static/js/ime_guard.js`——
+  document **捕获阶段**监听 keydown：keyCode 229 一律拦截；无修饰键的 Enter 在
+  isComposing/composition 标记期间 `preventDefault + stopPropagation`（同时挡住原生提交与
+  typeahead 等元素级监听）；compositionstart/end 维护标记，compositionend 后留 100ms 宽限
+  （兼容候选先上屏、再补发裸 Enter 的 IME 时序）。非组合输入的 Enter 行为完全不变。
+- **接入**：`layout.html`（覆盖主主题全部页面）、`basic_layout.html`（精简主题）、
+  `ai_chat_panel.html`（read/readpdf/readtxt 系独立模板，随面板引入）。不改 typeahead.bundle.js 库源码。
+- **验证**：`node --check` 语法通过；无头 Chrome 夹具 `docs/temp/ime_guard_fixture.html` 合成事件 5 项断言
+  全过（composing 拦截 / 229 兜底拦截 / Ctrl+Enter 放行 / 宽限期内拦截 / 宽限期后放行）——首轮夹具曾暴露
+  「229 事件 key 非 Enter 被提前返回漏拦」，据此重写守卫判定顺序。全量 pytest **281 passed**。
+- **未验（诚实边界）**：真实 IME 组合输入无法在无头浏览器复现，端到端手感（Windows 微信键盘/搜狗等）
+  需上线后用户实测；本轮以合成事件夹具替代。
+- **对 requests.md/response.md 的总结**：requests.md 占号 R114；response.md 本条；
+  保留窗口 R102–R114（114%10≠0，无归档动作）。
