@@ -599,10 +599,16 @@
     // 配色要在「已存在就直接 return」之前算：teardown 会摘掉 onb-chrome-dark，
     // 导览结束后不重算，那个「?」会从暗色卡回跳成浮在深色主题上的白按钮
     applyChromePalette();
-    if (!isReaderPage() || $("#onb-help").length) return;
-    $("body").append('<button type="button" id="onb-help" title="' + esc(mbT("Onboarding Tour")) + '" aria-label="' + esc(mbT("Onboarding Tour")) + '">?</button>');
-    $("body").append('<button type="button" id="onb-help" title="' + esc(mbT("Onboarding Tour")) + '" aria-label="' + esc(mbT("Onboarding Tour")) + '">?</button>');
-    $("#onb-help").on("click", function () { clearLater("reader"); showInvite("reader"); });
+    if (!isReaderPage()) return;
+    // 去重要在 DOM 里查，不能用 $("#onb-help").length：jQuery 的 ID 选择器走
+    // getElementById 只返回第一个节点，重复追加时它仍数到 1，守卫形同失效
+    if (document.getElementById("onb-help")) return;
+    // 监听绑在建好的节点上，不靠 #id 反查：71d126cb（R111 提交，正与 R112 会话同文件
+    // 并发写入）把这行 append 写了两遍，两个同位置按钮只有第一个拿到监听，
+    // 点到的永远是盖在上层的空壳（R113 线上事故）
+    var help = $('<button type="button" id="onb-help" title="' + esc(mbT("Onboarding Tour")) + '" aria-label="' + esc(mbT("Onboarding Tour")) + '">?</button>');
+    help.on("click", function () { clearLater("reader"); showInvite("reader"); });
+    $("body").append(help);
   }
 
   /** 指南书可能已不在书库里：探一次，非 200（或被登录页 302 兜走）就摘掉链接。 */

@@ -247,6 +247,51 @@ def test_scroll_listener_uses_capture_phase():
     assert 'resize.onboarding scroll.onboarding' not in src
 
 
+def _js_code(text):
+    """去掉注释后的 JS 文本：Why 注释里会复述被禁止的旧写法（`$("#onb-help")`），
+    全文匹配会把「已经修好」判成「仍有缺陷」。只对 showReaderHelp 这类小函数体用。"""
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    return re.sub(r"(^|\s)//[^\n]*", "", text, flags=re.M)
+
+
+def _reader_help_fn():
+    """圈出 showReaderHelp 函数体：入口契约只该由它自己的代码满足，全文件匹配会被
+    teardown 的 remove 选择器、CSS 选择器等无关文本误满足。"""
+    with open(JS_PATH, encoding="utf-8") as fh:
+        src = fh.read()
+    m = re.search(r"function showReaderHelp\(\) \{.*?\n  \}", src, re.S)
+    assert m, "showReaderHelp 不存在"
+    return _js_code(m.group(0))
+
+
+def test_reader_help_entry_appended_exactly_once():
+    """R113 线上事故：阅读器左下角常驻「?」点了没反应，强制刷新也无效。
+    Why: 提交 71d126cb（R111，当时 onboarding.js 正被 R112 会话同文件并发改写）里
+         showReaderHelp 的 append 出现两行逐字符相同的代码 → 页面有两个同位置按钮；
+         `$("#onb-help")` 走 getElementById 只返回第一个节点，监听只绑到它，
+         而 DOM 靠后的那个盖在上层接收全部点击 → 入口永久是死按钮。localStorage 不随
+         强刷清空，所以「刷新也没用」正是这个状态的指纹。
+    锁：入口节点在函数体内只追加一次（字符串建一次、append 两遍同样要抓到）。"""
+    body = _reader_help_fn()
+    assert "applyChromePalette" in body, "函数体切片失效（没圈到 showReaderHelp 全文）"
+    assert 'id="onb-help"' in body, "常驻「?」入口未渲染"
+    assert body.count('$("body").append(') == 1, \
+        "常驻「?」被追加了多次：两个同位置按钮会让点击落到没有监听的那个"
+
+
+def test_reader_help_handler_bound_to_created_node():
+    """锁 R113 的失效机制本身：监听必须绑在建好的节点上，去重守卫必须查 DOM。
+    Why: 靠 `$("#onb-help").on(...)` 反查 + `$("#onb-help").length` 守卫这一对写法，
+         在出现重复节点时既是失效原因（只绑第一个）又是失效帮凶（守卫数出 1 个，
+         以为已经存在）。绑节点 + getElementById 让重复追加最多是「两个都能点」，
+         而不是「两个都点不动」。"""
+    body = _reader_help_fn()
+    assert 'document.getElementById("onb-help")' in body, "去重守卫要查 DOM，别用 jQuery ID 选择器"
+    assert '$("#onb-help")' not in body, "不要再按 #id 反查入口节点"
+    assert re.search(r'help\.on\("click",.*?\n\s*\$\("body"\)\.append\(help\);', body, re.S), \
+        "监听要在 append 之前绑到 help 节点本身"
+
+
 def _mb_i18n(page):
     """解析 i18n_seed.html 注入的 MB_I18N 字典（tojson 会把中文转义，全文匹配不可靠）。"""
     m = re.search(r"window\.MB_I18N = (\{.*?\});\n\s*window\.mbT", page, re.S)
