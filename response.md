@@ -116,3 +116,63 @@
 - **未验（诚实边界）**：本机无 calibre 书库，`/`、`/book/<id>`、`/read/...` 起不来，zh 账号在真实阅读器里的中文渲染未做浏览器实跑（由 `test_i18n_seed_renders_chinese_for_zh_user` 的渲染层断言 + 契约测试覆盖）；`epub.js` 里注释与注释掉的代码仍留中文（不参与渲染，故意不动）。种子内联约 9KB/页，词条再膨胀时改独立 JSON + fetch。
 - **对 requests.md/response.md 的总结**：requests.md 占号 R112（会话开始时登记）；response.md 本条；保留窗口 R102–R112（未到 10 整倍数，无归档动作）。
 - **冲突记录**：① **本条推翻 R102 的一条决策**——R102 因「admin 账号 locale=en、magicbook 词条未入 po，纯 Babel 对实际用户永远英文」选了双写；本轮把词条补进 po 并让用户改用 zh_Hans_CN locale 后，双写失去存在理由，按 R112 需求删除。R102 条目文字保留不改（记录不回改）。② 与并行 R111 会话同文件并发写入（`onboarding.js` / `layout.html` / `read.html` / `messages.po(.mo)` / `tests/test_onboarding_tour.py`），Edit 工具多次提示 "file changed since your last read"；本条改动（步骤表 msgid 化、种子注入）与 R111 的视觉几何（`drawMask(protect, ring)` / `.onb-btn` / 作用域类）在合并后的工作区互不覆盖，全量 275 passed 含 R111 的 12 项视觉断言。③ 两拨改动均未提交；`cps/templates/i18n_seed.html`、`tests/test_i18n_seed_contract.py` 是新增文件，提交时需显式 `git add`（未擅自提交/推送，线上生效还需 fnOS 构建链）。
+
+## 2026-10-02（R113 线上事故：阅读器常驻「?」点了没反应）
+
+### R113（「阅读部分的引导模式卡死，点击？没有反应，已经强制刷新浏览器」）
+
+- **症状**：线上阅读器页左下角常驻「?」完全点不动，用户已自行强制刷新仍无效，因而无法重放/开启阅读器段导览。
+- **根因（一行 `append` 被写了两遍，且两个环节互相掩护）**：`showReaderHelp()` 里
+  `$("body").append('<button id="onb-help" …>')` 出现两行逐字符相同的代码。① 监听用
+  `$("#onb-help").on("click", …)` 反查节点，而 jQuery 的 ID 选择器走 `document.getElementById`
+  **只返回第一个**匹配节点 → 只有 A 号按钮拿到监听；B 号是 DOM 靠后、`position:fixed` 同坐标的节点，
+  按文档序画在 A 之上，是真正命中点击的那个 → 点击全落在没有监听的空壳上。② 去重守卫
+  `if ($("#onb-help").length) return` 同样只数到 1，既没拦住重复，也让源码看上去只有一处渲染入口。
+  「强刷无效」是这状态的指纹：入口是否渲染取决于 `localStorage` 的 `seen`，硬刷新不清 localStorage。
+  顺带排除遮挡嫌疑：`#onb-help` z-index 2147483640 高于阅读器自身全部 chrome（`reader.css` 最大 10001），
+  只有右下角 AI FAB(…646)/抽屉(…647) 更高，不可能盖住左下角入口——重复节点是唯一成因。
+- **归因（谁引入的）**：**本会话 R111 的提交 `71d126cb`**，不是 R112。交叉 review 逐 commit 数
+  `^+.*id="onb-help"`：`44cd4721`=1、`7668aec7`=1、`31027d00`（R112，未触碰 `onboarding.js`）=0、
+  `71d126cb`=**2**。`onboarding.js` 当时正被两会话同文件并发改写（Edit 多次提示 "file changed since your
+  last read"），R111 提交时把合并残留一并带进仓库并推送上线；R111 条目的「冲突记录」只写了并发冲突、
+  没发现重复行，属当轮 review 漏检（记录不回改，更正记在本条）。线上容器实测
+  `docker exec magicbook grep -c 'id="onb-help"' /app/cps/static/js/onboarding.js` → 2，`develop` 与
+  `origin/develop` 齐平，即缺陷版本已构建部署。
+- **修复（不做「只删一行」）**：`cps/static/js/onboarding.js:598-611`——入口节点建到局部变量 `help`，
+  **监听绑在节点本身**再 `$("body").append(help)`；去重守卫改 `document.getElementById("onb-help")`
+  （在 DOM 里真数节点）；`if (!isReaderPage()) return` 与重复守卫拆成两行。差别在于：将来若再产生
+  重复节点，最坏是「两个都能点」，而不是「两个都点不动」。`applyChromePalette()` 仍在两个提前返回之前
+  （保住 R111 §12.7-2 的暗卡配色锁）。
+- **验证（真浏览器实跑，夹具 `docs/temp/reader_fixture.html?seen=1`）**：修复前——`querySelectorAll('#onb-help').length===2`、
+  `jQuery('#onb-help').length===1`、两 rect 逐位重合 `(16,691,34×34)`、`elementFromPoint(圆心)` 返回 `nodes[1]`
+  （`withHandler:[true,false]`）、向其 dispatch 真实 click 后 `#onb-invite` 仍为 0 → 症状完整复现。
+  修复后——`#onb-help` 1 个且带监听、它就是自身圆心处的命中元素、点它出邀请卡 → Start Tour → 8 步走到
+  「Happy reading」→ teardown 干净（`body.className` 空、`progress` 清空、`seen` 落盘）→ 再点「?」仍可重放；
+  把 `#main` 改深色后邀请卡为 `rgb(35,36,39)`（暗卡配色未破）；console 无报错。
+- **测试**：新增 3 条锁。`tests/test_onboarding_tour.py::test_reader_help_entry_appended_exactly_once`
+  （函数体内 `$("body").append(` 恰好一次，另带 `applyChromePalette` 存在性作**切片自检**，防正则圈空即静默通过）、
+  `::test_reader_help_handler_bound_to_created_node`（守卫必须 `getElementById`、函数体内不得出现 `$("#onb-help")`、
+  `help.on("click", …)` 排在 `append(help)` 之前）、**新文件** `tests/test_no_duplicate_js_lines.py`
+  （全仓自有 JS 的「相邻同文有效代码行」结构守卫，比较前丢掉空行与纯注释行，短行按 `MIN_LEN=20` 放行，
+  上游 `caliBlur.js:143-144` 那对幂等 `.remove()` 走显式白名单并注明理由）。变异实测四种形态全部转红：
+  线上原始两行字面 append、「字符串建一次 + append 两遍」、被注释隔开的两遍 append、以及只删重复行不改绑法时
+  机制锁仍红。源码级断言统一先经 `_js_code()` 去注释（Why 注释里会复述被禁写法，全文匹配会把已修好判成缺陷）。
+  全量 **281 passed**。
+- **交叉 Code Review（独立 agent 视角）**：无 P0。**P1 一条被采纳并已改**——原本节/JS 注释/测试 docstring
+  三处都把成因归给「R112 合并 / `31027d00`」，reviewer 用逐 commit 计数证伪，实为 `71d126cb`（R111 自己），
+  归因错误会误导后续「该约束谁」，故三处文案统一更正。P2 采纳两条：切片自检断言、全仓结构守卫
+  （reviewer 实测今天全仓自有 JS 仅 1 处命中且无害，成本可控）。P2 不采纳三条并记入设计稿 §13.5 遗留：
+  ① `esc()` 不转义 `"` 却用于属性拼接（R112 已列为遗留，要改应连 `showInvite` 一起改 `.attr()` 构造，
+  不在事故修复里做半套）；② `init()` 的提前 `return` 分支不渲染常驻「?」，首访用户在阅读器里点「以后再说」
+  后本次会话内既无蒙层也无入口、需刷新才出现——修法要先给 `showInvite` 补去重守卫（`onboarding.js:573`
+  目前无守卫，直接同调会造两张叠卡），且它改变「看过才给 ?」的语义，应单独一轮定 AC，不与本次混提交；
+  ③ 不引入 eslint/prettier（无前端构建链，格式 churn 会掩盖真实 diff）。确认 R111/R112 契约未破。
+- **文档**：`docs/feat/onboarding-tour/design/onboarding-tour.md` 新增 §13（13.1 根因与失效链两环 + 夹具实测数据 +
+  逐 commit 归因证据、13.2 修法与「为什么不只删一行」、13.3 三条回归锁与四种变异、13.4 同类风险扫描与实跑、
+  13.5 交叉 review 吸收与不采纳）。
+- **未验（诚实边界）**：修复仍在工作区，**未提交未推送**（线上那份坏代码要等构建部署后才替换），故线上
+  真实阅读器页的「?」点击无法在本轮复验；本轮以 z 序审计 + 夹具真浏览器实跑替代。控制浏览器无该站登录会话，
+  因此未做线上只读复现（线上证据是容器内文件计数）。部署侧提醒：`cps/cache_buster.py:52` 按文件内容 md5
+  生成 `?q=`，新 JS 上线后用户无需强刷即可拿到——反过来说，本轮之前用户强刷也只会拿到同一份坏代码。
+- **对 requests.md/response.md 的总结**：requests.md 占号 R113（会话开始时登记，编号无冲突）；response.md 本条；
+  保留窗口 R102–R113（113%10≠0，无归档动作）。
