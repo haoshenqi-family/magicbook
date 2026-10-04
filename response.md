@@ -302,9 +302,12 @@
     200/206/416、lyric、课表 JSON），store 全 monkeypatch 不依赖真 MinIO；全量 303 passed。真实 MinIO 直读
     验证：四册 manifest 计数正确、book1/001-002 Range 读 1024B（ID3 头）、lrc 首行正确。
   - **AC 对照**（LLD §9）：1–5 有单测/实测证据；6（公网 Traefik 链路播放）待部署后浏览器实测。
-- **未验（诚实边界）**：播放页真实浏览器端到端（本机无 calibre 书库，阅读器链路靠生产首验）；生产 fnOS
-  compose/.env 尚未加 MINIO_* 三键（部署时补，凭据复用 moon-well 同桶账号，不外显）。
-- **交付状态**：本地 develop 提交；**推送待用户单独确认**（push 触发 webhook 自动构建上线）。
+- **部署与生产首验（2026-10-04 晚，经用户确认推送+部署）**：
+  - fnOS `.env` 增 `MINIO_ENDPOINT/MINIO_ACCESS_KEY/MINIO_SECRET_KEY`（值从 moon-well `.env` 直拷、未回显；备份 .env.bak-nce-20261004）。
+  - 推送 develop 触发 webhook 构建，builder 侧 `git fetch` 三次死于 GitHub TLS 劣化（ai-fix 已登记）；人工修复=构建仓库 `git config http.proxy http://192.168.31.11:12811`（固化），手动重跑 `build-magicbook.sh` → 镜像推送 ACR、deploy SUCCESS、容器自动重建。
+  - 生产浏览器实测（公网 HTTPS 链路）：`/nce/93` 播放页 96 课+时长正确；点课即播（时长 78.6s 与 manifest 一致）、`/audio/01` 返回 **206** audio/mpeg、拖动 seek（45s）成功、播到尾部自动连播至第 02 课；`/book/93` 详情页有 Lesson Audio 按钮、`/book/2` 无；匿名 `/nce/93` 302→/login。**AC 1–6 全部通过**（5 以单测+fail-closed 隔离背书，未真停机 MinIO）。
+- **未验（诚实边界）**：MinIO 真停机时生产 503（仅单测覆盖）；四册全量 276 课逐课试听（抽检 2 课）。
+- **交付状态**：`5f7e24b2` 已推送 develop 并构建上线（`magichouse/magicbook:latest`，容器 healthy）。
 
 ### 总结
 
