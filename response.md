@@ -199,3 +199,116 @@
   需上线后用户实测；本轮以合成事件夹具替代。
 - **对 requests.md/response.md 的总结**：requests.md 占号 R114；response.md 本条；
   保留窗口 R102–R114（114%10≠0，无归档动作）。
+
+## 2026-10-04（R115 引入《新概念英语》全四册到线上书库）
+
+### R115（「我想引入新概念英语 到magicbook」）
+
+- **来源（用户选定「联网检索下载」）**：GitHub `tangx/New-Concept-English`（非 LFS 直存四册教材 PDF +
+  276 课 mp3/lrc 音频）。下载至 `docs/temp/nce/`（9.3/19/14/16MB，%%EOF 完整、字节数与仓库 blob 一致）。
+- **入库通道**：先走网页 UI（用户登录 authentik→导航栏隐藏 `#btn-upload` 显形→自动提交），第一册 9.3MB
+  成功入库 #92；第二/三册（19MB、13.5MB）POST /upload 均中断（xhr status 0，前端报「File size may be too big」），
+  重试一次仍失败——**确定性失败**，阈值在 9.3–13.5MB 之间，magicbook 应用本身无大小配置项，系公网
+  Traefik(Server 2)→fnOS Tornado 链路限制。**遗留问题**：>10MB 文件无法经 UI 上传，待修复链路（记入待办）。
+- **剩余三册（用户改选「ssh fnOS 原文件入库」）**：scp 内网到 /tmp/nce → `docker cp` 进 magicbook 容器 →
+  `calibredb add --library-path /calibre-library` 入库为 #93/#94/#95（web 实时识别，无需重启）；
+  `calibredb set_metadata --field` 统一四册元数据：title「新概念英语 N 副书名」、authors L. G. Alexander、
+  出版社外语教学与研究出版社、丛书「新概念英语」#1–4、tags 英语学习/教材、languages en。
+  临时文件已清理（主机与容器 /tmp）。
+- **验证**：`/ajax/listbooks?search=新概念` 四册字段正确（旧 PDF 元数据的 NUL 尾巴已被覆盖）；
+  `/download/<id>/pdf` HEAD 四册均 200 且 Content-Length 与原始字节数一致；书库目录
+  `/app/magicbook/library/L. G. Alexander/` 落盘 4 个 PDF。
+- **未验（诚实边界）**：阅读器内 PDF 翻页体验（扫描件体积大、无书签导航）未逐册实测；未做线上封面/详情页截图。
+- **可选后续**：四册均无封面（has_cover 0），可用 ImageGen 生成统一丛书封面（先例 R104 book#89）。
+- **对 requests.md/response.md 的总结**：requests.md 占号 R115；response.md 本条；
+  保留窗口 R102–R115（115%10≠0，无归档动作）。
+
+---
+
+## R117（2026-10-04）ES 日志级别分析（magicbook 侧）
+
+- **需求**：requests.md R117（与 moon-well R96 同任务）。
+- **结论**：app-log-magicbook 全量仅 5363 条/13 天（warn 1695 / info 822 / error 71，无 debug/trace；另 2775 条为多行日志续行如 Python warnings 堆栈，filebeat 不打级别），量级太小，**不建议调整级别**。warn 主要是 db.py:937 "Author not found" 上游噪音与 uploader.py:251 ImageMagick policy 限制，可忽略；error 主要是 helper.py:953 File not found——**book 92–95（《新概念英语》四册）源文件在 /calibre-library 缺失**，属真实数据问题（与 book 2/19/20 待重传同类），建议列入重传清单。
+- **冲突记录**：无。
+
+### 总结
+
+- **requests.md**：占号 R117。
+- **response.md**：本条。
+
+## 2026-10-04（Chrome 插件可行性评估）
+
+### R118（magicbook 非 calibre-web 阅读能力做成 Chrome 插件——可行性评估，只读不改码）
+
+- **需求**：把 magicbook 非 calibre-web 部分（词汇表、翻译、语音生成等阅读能力）做成 Chrome 插件，自由翻译任意 web 页面的单词/段落，逻辑与 magicbook 一致。
+- **架构事实**（调研结论）：
+  - magicbook 的阅读能力后端全部是 moon-well 薄代理（`cps/web.py` `_moonwell_proxy`）：生词判定 `/vocabulary/reading/analyze`、划词翻译 `/vocabulary/reading/translate`、批量段落翻译 `/vocabulary/reading/translate-batch`、词标记 `GET /vocabulary/known|unknown/{word}`、TTS `/tts/speak`、阅读设置 `/vocabulary/reading/settings(+/hard-level)`。前端逻辑集中在 `cps/static/js/reading/epub.js`（2063 行，含划词气泡、段落译文注入、生词波浪线标注、TTS 状态机、并发池）。
+  - moon-well 认证三通道：JWT Bearer（access 7 天 / refresh 30 天，`/auth/oidc/exchange` 用 Authentik id_token 换取，`/auth/refreshToken` 续期）、`mk-` 静态 API-key（存 user.token，无签发 HTTP 端点）、内网信任头 X-User-*（`INTERNAL_TRUST_ENABLED=true`，仅内网语义，公网入口未定义 moon-well 路由——插件不能依赖信任头）。
+  - CORS 全开（`allowedOrigins("*")`）；所有相关端点均为 POST + JSON、`Result{success,result}` 包装；段落缓存 ES 幂等（同段落命中缓存不重复计费）；analyze 的 bookId/bookName/chapter 全部可空（网页场景可直接复用，bookId 缺省为 0）。
+- **可行性结论**：**可行，且工程量小**——推荐「插件直连 moon-well + 复用既有 API + 前端逻辑从 epub.js 移植」方案。不需要后端改造（或仅需新增 1 个 API-key 自助签发端点）。核心移植面约 600–800 行 JS；MV3 插件结构天然规避 CORS/CSRF/iframe 三大障碍（epub.js 里的 CSRF 自愈、iframe 坐标换算在插件里全部消失，content script 直插主文档）。
+- **主要风险与对策**：① moon-well 无公网 HTTPS 入口（fnOS 8082 仅内网）→ 需在 Traefik 加一条路由（如 `api.haoshenqi.top` → 100.x/192.168.31.9:8082）或仅限内网/Tailscale 环境使用；② JWT 刷新 30 天窗口 → 插件需静默 refreshToken + 过期引导重登；③ TTS 65s 超时对长段/慢网需 loading 态与降级（浏览器 speechSynthesis 兜底，epub.js 已有同款逻辑可移植）；④ MV3 Service Worker 生命周期 → 音频播放/状态机放 content script 或 offscreen document。
+- **产出**：评估报告（对话内交付），含架构图、API 映射表、移植清单、分期建议（P0 划词翻译+词标记 → P1 段落翻译+生词标注 → P2 TTS+设置页）。未改任何代码。
+- **命名（同日新会话补充）**：复核端点（`ReadingVocabularyController` /vocabulary/reading/{analyze,translate,translate-batch}、`VocabularyController` /known|/unknown/{word}、cps `/tts/speak` 代理）确认 R118 事实仍成立；交付命名建议：首推 **MagicLens（词镜）**——magic- 家族命名 + 透镜隐喻，Chrome 商店无同名翻译插件（仅 MangaLens 漫画 OCR 不冲突）；备选拾词（谐音诗词）、WordWell（呼应 moon-well）；AnyBook、MagicScroll 已有同名占用，不推荐。
+
+### 总结
+
+- **requests.md**：占号 R118。
+- **response.md**：本条。
+- **冲突记录**：无。
+
+## 2026-10-04（Chrome 插件 AI 伴读聊天移植评估）
+
+### R119（追加 R118：AI 伴读聊天移植到插件的可行性）
+
+- **链路事实**（实读代码确认）：
+  - magicbook 侧只是薄皮：`ai_chat.js`（576 行 UI/SSE 消费）+ `ai_page_extract.js`（76 行 epub/pdf/txt 页面文本采集）+ `cps/ai/proxy.py`（180 行透传，SSE 流式转发）。真正智能全在 moon-well：`AgentChatService`（332 行）+ `AgentLoop`（411 行有界循环）+ 7 工具（lookup_word/get_paragraph_translation/list_annotations/add_annotation/save_memory/recall_memory/reflect）+ MySQL 会话/消息/记忆/学情 + SSE 分型事件（delta/tool_call/tool_result/final/error）。
+  - 关键宽容性：`AgentChatRequest` 除 message 外全部可空——bookId null=非书场景（落 0）、bookTitle/authors/chapter/pageText/unfamiliarWords 全可选；会话列表 bookId null=全部会话；学情摘要 bookId≤0 直接返回空串；工具结果与记忆注入全部进程内 Service 直调，userId 行级隔离自动生效。**moon-well 对「非 magicbook 前端」零耦合**。
+  - system prompt 模板硬编码「英文书伴读助手」「《{{bookTitle}}》的『{{chapter}}』章节」——网页场景语义错位（书名会显示「未知书名」），这是唯一需要 moon-well 侧改动的地方（模板加场景分支或新增 web 场景模板）。
+  - SSE 消费端 ai_chat.js 是标准 fetch+ReadableStream 手写 SSE 解析（event:/data: 帧、[DONE]、降级裸文本），零 jQuery 依赖核心，可整体移植；CORS 全开 + SSE 端点 `SseEmitter(0L)` 不设超时，插件 fetch 直连无障碍。
+  - 写确认是「非交互式门」：`write-confirm-required=true` 时写工具直接被服务端拒绝并引导模型把内容展示给用户——不是暂停等确认，插件 UI 无需实现确认交互。
+- **结论**：**高度可行，比 R118 词汇/翻译部分更顺**——后端零改动即可跑通（网页场景 bookId 传 null，7 个工具里 lookup_word/记忆三件套/reflect 天然可用，get_paragraph_translation 命中段落缓存照样工作，add_annotation/list_annotations 按段落文本定位与书无关）。体验层面的优化（web 场景 system prompt、页面上下文采集策略）是小改。前端移植面 ~1.2k 行（ai_chat.js 去 jQuery 化 + 页面提取器重写为通用 DOM 正文提取 + Shadow DOM 面板）。
+- **新增风险**：① SSE 长连接与 MV3 Service Worker 生命周期——fetch 流应在 content script 侧消费（与页面同生命周期），或 offscreen document；不在 background 里挂 300s 流。② 网页正文提取质量参差（spa/懒加载/正文噪声），P0 先做「选中文本+视口段落」双通道。③ token 事件带 usage（计费可见）——插件侧正常展示即可。④ 长对话 memoryExtractOnFinish 会照常运行，网页会话也会被抽取记忆（合理，记忆本就跨书）。⑤ ai.agent.enabled 生产开关需为 true。
+- **产出**：评估报告（对话内交付），未改任何代码。
+
+### 总结
+
+- **requests.md**：占号 R119。
+- **response.md**：本条。
+- **冲突记录**：无。
+
+## 2026-10-04（上传链路 100MB + 新概念课级音频播放）
+
+### R116（①上传限制改 100MB；②封面先不动；③NCE mp3 入 MinIO + 课级音频播放）
+
+- **① 上传链路（已完成，生产验证）**：根因非应用配置——magicbook 无大小上限项，掐断点在 Server 2
+  Traefik 静态配置 `transport.respondingTimeouts.readTimeout` 默认 60s，13.5MB 上传在超时窗口内传不完被
+  RST（前端 xhr status 0 表现为「File size may be too big」）。修复：`/app/app-manager/docker-compose.yml`
+  websecure entryPoint 增 read/write/idleTimeout=15m，重启 Traefik 生效（重启时机经用户确认）。验证：登录 UI
+  实传 19.8MB PDF 成功入库（#101），随后经 `/ajax/deletebook` 清理测试书，闭环。
+- **② 封面**：用户令「先不动」，未做。
+- **③ NCE 课级音频（US1 完成，待部署）**：
+  - **素材入库**：GitHub `tangx/New-Concept-English` 276 课美音 mp3+lrc 共 552 文件（~620MiB）按仓库 tree
+    blob size 全量校验（首轮 34 个空文件、若干截断，多轮补拉后 fixed=26 failed=0；GitHub 直连劣化时改走
+    Ubuntu 192.168.31.11:12811 naive 代理）。逐册生成 `manifest.json`（title 取仓库文件名、duration 取
+    ffprobe，四册 72/96/60/48 课）后 `mc mirror` 至 MinIO `magicbook/nce-audio/book{1..4}/`，
+    `mc ls --recursive` 核对 556 对象，抽验 mp3 头/时长/lrc 均可读。
+  - **实现**（LLD `docs/feat/nce-audio/design/lld.md`，并行会话按 LLD 实装、本会话审查）：新增 `cps/nce/`
+    蓝图（series.py 映射 series「新概念英语」+series_index 1–4→册号；store.py MinIO 惰性单例+manifest TTL
+    缓存；routes.py 播放页/课表/audio Range 流/lyric 四端点，全 `@user_login_required`+manifest 白名单）；
+    `main.py` 仅在 MINIO_* 三键齐备时注册（fail-closed）；`detail.html` NCE 书详情页增「Lesson Audio」入口；
+    播放器 `nce_player.html`（原生 audio：播放/上下课/拖动 seek/自动连播/localStorage 记忆位置）。
+    `requirements.txt` 增 `minio>=7.2.0,<9.0.0`。
+  - **测试**：`tests/test_nce.py` 22 项（映射纯函数、_parse_range、登录 302、非 NCE 404、MinIO 故障 503、
+    200/206/416、lyric、课表 JSON），store 全 monkeypatch 不依赖真 MinIO；全量 303 passed。真实 MinIO 直读
+    验证：四册 manifest 计数正确、book1/001-002 Range 读 1024B（ID3 头）、lrc 首行正确。
+  - **AC 对照**（LLD §9）：1–5 有单测/实测证据；6（公网 Traefik 链路播放）待部署后浏览器实测。
+- **未验（诚实边界）**：播放页真实浏览器端到端（本机无 calibre 书库，阅读器链路靠生产首验）；生产 fnOS
+  compose/.env 尚未加 MINIO_* 三键（部署时补，凭据复用 moon-well 同桶账号，不外显）。
+- **交付状态**：本地 develop 提交；**推送待用户单独确认**（push 触发 webhook 自动构建上线）。
+
+### 总结
+
+- **requests.md**：占号 R116（本条），无新号。
+- **response.md**：本条；116%10≠0，无归档轮转。
+- **冲突记录**：R116 编号与词汇量测试会话（requests.md 双 116 行）并存，按只追加约定共号不同任务；
+  nce 实现由并行会话按本会话 LLD 实装，本会话负责下载/入库/审查/测试验证，未重复写码。

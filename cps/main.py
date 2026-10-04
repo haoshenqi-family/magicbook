@@ -89,6 +89,11 @@ def main():
     if os.environ.get("BOOK_IMPORT_KEY"):
         from cps.book_import import bookimport
         app.register_blueprint(bookimport)
+    # 课级音频播放（nce-audio R116③）：fail-closed，未配置 MINIO_* 凭据不注册
+    if os.environ.get("MINIO_ENDPOINT") and os.environ.get("MINIO_ACCESS_KEY") \
+            and os.environ.get("MINIO_SECRET_KEY"):
+        from cps.nce.routes import nce
+        app.register_blueprint(nce)
     from cps import ai
     ai.seed_default_config()
     # Release the AI scoped session at the end of each request (AI-only hook).

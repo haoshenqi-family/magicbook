@@ -33,3 +33,6 @@ Flask-SimpleLDAP>=1.4.0,<2.2.0
 # AI companion: MySQL driver for independent AI data storage + .env loading
 PyMySQL>=1.0.0,<1.2.0
 python-dotenv>=0.21.0,<1.1.0
+
+# nce-audio (R116③): 课级音频播放，MinIO 对象读取
+minio>=7.2.0,<9.0.0

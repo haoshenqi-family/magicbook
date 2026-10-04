@@ -192,6 +192,14 @@ def _app_instance(tmp_path_factory):
     except ImportError:
         pass
 
+    # 课级音频播放（nce-audio R116③）——main.py 按 MINIO_* fail-closed 注册；
+    # 测试环境始终注册，MinIO 访问由 test 桩替换 cps.nce.store。
+    try:
+        from cps.nce.routes import nce
+        app.register_blueprint(nce)
+    except ImportError:
+        pass
+
     # AI tables are created by cps.ai.database.init_ai_db() inside create_app()
     # (they live on their own AiBase + AI_DATABASE_URL engine, not ub.Base).
     # Seed AI default config (providers + AiConfig row) if the package supports it.

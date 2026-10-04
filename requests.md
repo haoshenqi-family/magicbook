@@ -274,3 +274,13 @@
 113. 阅读部分的引导模式卡死：阅读器页点左下角「?」没有反应，强制刷新浏览器无效。
 
 114. 输入法回车误提交优化：中文 IME 确认候选词的回车不应触发搜索/表单提交，需加 IME 守卫（header 搜索、高级搜索、元数据检索、AI 聊天、app-manager SearchDialog 等）。
+115. 引入《新概念英语》到 magicbook 书库。
+
+116. 在 https://magicbook.haoyuhang.top/reading/settings 引入一个词汇量测试环节，帮助用户更清晰地认识自己的词汇量。
+116. ①magicbook 上传链路限制修改为 100MB；②封面先不动；③把新概念英语 mp3 音频下载到 MinIO，并为 magicbook 增加文章（课）级别的音频播放功能。
+
+117. 分析 ES app-log-magicbook 日志级别合理性（与 moon-well ES 日志级别分析为同一任务）：全量 5363 条级别分布与 warn/error 样本聚类，评估是否需要调整日志级别。
+
+118. 评估把 magicbook 非 calibre-web 部分（词汇表、翻译、语音生成等阅读能力）做成 Chrome 插件的可行性：自由翻译任意 web 页面的单词、段落，逻辑与 magicbook 一致（只评估，暂不开发）。
+
+119. 追加评估 R118 Chrome 插件方案中的 AI 伴读聊天（agent 后端化后的对话面板）：移植到任意 web 页面的可行性，重点评估 SSE 流式、页面上下文提取、记忆与工具链在插件形态下的表现（只评估，暂不开发）。

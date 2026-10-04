@@ -134,6 +134,13 @@
                             {% endif %}
                         </div>
                     {% endif %}
+                    {% if nce_book_no %}
+                        {# 课级音频入口（R116③）：字面路径——nce 蓝图 fail-closed 注册，
+                           url_for 在未配置 MINIO_* 的部署会 BuildError #}
+                        <div class="btn-group" role="group">
+                            <a href="/nce/{{ entry.id }}" id="nce-listenbtn" class="btn btn-primary" role="button"><span class="glyphicon glyphicon-headphones"></span> {{ _('Lesson Audio') }}</a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
             <h2 id="title">{{ entry.title }}</h2>

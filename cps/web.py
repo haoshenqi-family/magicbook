@@ -47,6 +47,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from . import constants, logger, isoLanguages, services, limiter
 from . import db, ub, config, app, csrf
 from . import calibre_db, kobo_sync_status
+from .nce.series import resolve_nce_book_no
 from .search import render_search_results, render_adv_search_results
 from .gdriveutils import getFileFromEbooksFolder, do_gdrive_download
 from .helper import check_valid_domain, check_email, check_username, \
@@ -2579,6 +2580,7 @@ def show_book(book_id):
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',
                                      title=entry.title,
                                      books_shelfs=book_in_shelves,
+                                     nce_book_no=resolve_nce_book_no(entry),
                                      page="book")
     else:
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
