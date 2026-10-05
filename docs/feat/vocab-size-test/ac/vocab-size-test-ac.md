@@ -23,9 +23,21 @@
 | 条目 | 结论 | 佐证（2026-10-05 实测） |
 | --- | --- | --- |
 | AC-A1 | ✅ 通过（区间判据已按实态修订，见上「差异留痕」） | `total=31754`、`ranked=25000`、`sentinel(level_id=10)=13409`、`exam_rows(level_id 0-9)=18345`（原行零删改）、`MIN/MAX/DISTINCT(freq_rank)=1/25000/25000`（无空洞无重复）、`source_book='FrequencyWords_top25k'` 恰 13,409 行 |
-| AC-A2 | ⏳ **未达门槛，等生产侧 LLM 补漏** | 秩词例句 `23,985/25,000 = 95.94%`（门槛 ≥99%）；缺口精确 1,015 词 = `raw/llm-gap-words.txt`，需 `NEW_API_KEY` 跑 `us1_sentences_llm.py --apply`（先出抽检件、人工 ≥5% 通过再写库）。30 条例句人工抽检按 us1-report §6 并入 US5/AC-D 执行 |
+| AC-A2 | ⏳ **未达门槛，等生产侧 LLM 补漏** | 秩词例句 `23,985/25,000 = 95.94%`（门槛 ≥99%）；缺口精确 1,015 词 = `raw/llm-gap-words.txt`，需 `NEW_API_KEY` 跑 `us1_sentences_llm.py --apply`（先出抽检件、人工 ≥5% 通过再写库）。30 条例句抽检已脚本化：`moon-well .../sql/us1_audit_sample.py`（只读、分层取样、重跑同一份样本）产出底账 `raw/us1-audit-30.md`，机械层已代跑完（**29/30**），人工只剩「通顺/义项」一栏 |
 | AC-A3 | ✅ 通过 | us1-report §4 八档锚点表（level 1→8 中位秩 1,618→17,345 单调递增）+ 显式决策「偏移未超半档宽，band 区间与锚点文案**不修订**」；考研档样本仅 119，维持原锚点 |
 | AC-A4 | ✅ 通过 | us1-report §3 记 3 轮全量重跑终态一致；本次复核补一条硬约束证据：`freq_rank IS NULL AND example_sentence IS NOT NULL` 行数 **= 0**（跌出秩集的脏例句已统一清空），且两个例句脚本的写库语句都带 `AND example_sentence IS NULL` → 人工修正不被覆盖 |
+
+- ⚠️ **抽检暴露的管线缺陷（2026-10-05，A 段复检新发现，待用户定夺）**：
+  `us1_sentences.inflections()` 的 `word+"es"` 无条件下发，把**另一个词的复数**认成本词变形——
+  秩词例句里只靠它命中的 119 条中 **61 条是误绑**（`refuge`←refugees、`sit`←sites、`cloth`←clothes），
+  占 25,000 秩词 **0.24%**，按每卷 ≤70 题估单卷出到 ≥1 条坏题的概率 ≈16%；61 条里 49 条是
+  `level_id=10` 哨兵行，含 `j`/`y`/`se`/`ft` 等非通用英语词。因 `us1_attest.py` 用**同一个函数**做证词准入，
+  准入侧同样被污染（假词占配额、挤掉真词），秩集构成需在修规则后重出一版，故 AC-A1/A2/A3 的数字
+  **可复现但不最终**。详见 `moon-well/docs/feat/vocab-size-test/release/release-checklist.md` §3.0
+  （A 改规则重跑 / B 带缺陷上线）与 `raw/us1-report.md` §9。
+  - 判据教训：抽检第一版机械层整层复用了 `inflections()`，于是 30/30 全绿、`refuge` 恰好漏检——
+    **拿入库函数的输出去验入库函数的输出是空转**。现改为「词形集减去 `+es` 的差集」复检，
+    其余判据（句长/中文/编码/标点）仍与 §3.1 同源。
 
 ## B. 算法与 API（US2/US3，对 moon-well 直连验证）
 
