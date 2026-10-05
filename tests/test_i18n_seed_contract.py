@@ -1,4 +1,4 @@
-"""R112: JS 层 i18n 种子（i18n_seed.html）的三条一致性契约。
+"""R112: JS 层 i18n 种子（i18n_seed.html）的一致性契约（现 5 条）。
 
 Why: epub.js / ai_chat.js / onboarding.js 是静态 JS，拿不到 Jinja 的 `_()`，
      R112 新增 window.MB_I18N 种子 + mbT(msgid) 取词通道。这条链路有两个
@@ -10,6 +10,7 @@ Why: epub.js / ai_chat.js / onboarding.js 是静态 JS，拿不到 Jinja 的 `_(
      两者都不会让页面报错，运行时也不易察觉，所以用源码级断言锁住。
 """
 import ast
+import gettext
 import os
 import re
 
@@ -19,6 +20,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SEED_PATH = os.path.join(ROOT, "cps", "templates", "i18n_seed.html")
 PO_PATH = os.path.join(ROOT, "cps", "translations", "zh_Hans_CN",
                        "LC_MESSAGES", "messages.po")
+MO_PATH = os.path.join(ROOT, "cps", "translations", "zh_Hans_CN",
+                       "LC_MESSAGES", "messages.mo")
 JS_FILES = [
     os.path.join(ROOT, "cps", "static", "js", "onboarding.js"),
     os.path.join(ROOT, "cps", "static", "js", "reading", "epub.js"),
@@ -106,6 +109,22 @@ def test_seed_msgids_have_zh_translation():
             empty.append(msgid)
     assert not missing, "msgid 不在 zh_Hans_CN po：%r" % missing
     assert not empty, "msgid 在 po 里译文为空：%r" % empty
+
+
+def test_seed_msgids_survive_mo_compilation():
+    """契约 5：种子 msgid 必须在**编译后的 .mo** 里也有译文——契约 3 只查 po。
+
+    Why: `pybabel compile` 忘了跑（或只 compile 了别的 locale）时，po 看起来完好、
+         契约 3 全绿，运行时 `_()` 却因旧 .mo 回吐英文。这类「改了 po 没重编译」的
+         缺串只在页面上暴露，R116/AC-C8 复核时确认它是真实存在的失效模式。
+    """
+    with open(MO_PATH, "rb") as fh:
+        catalog = gettext.GNUTranslations(fh)
+    untranslated = sorted({msgid for _, msgid in _seed_pairs()
+                           if catalog.gettext(msgid) == msgid})
+    assert not untranslated, (
+        "msgid 在编译后的 .mo 里查不到译文，请重跑 "
+        "`pybabel compile -d cps/translations -l zh_Hans_CN`：%r" % untranslated)
 
 
 def test_onboarding_step_strings_are_seeded():
