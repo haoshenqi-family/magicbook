@@ -33,6 +33,7 @@
 - AC-B2 answer：顺序推进（请求体必带 `seq`）；重发同一题号回放不重复计数；对**已 finished** 会话的重复提交=幂等回放库存报告（不是错误）；对他人/已作废/已超时会话返回 50302；`seq` 跳到前面返回 **50304**（前端据此重新对齐题号继续答，不丢会话）；`answer∉{0,1}` 拒绝。
   - ⚠️ 差异留痕（2026-10-05，US3 定稿）：原条把「对 finished 会话作答」归入 50302，实现按幂等回放处理（结果页刷新/网络重试要能拿回同一份报告）；50304 是从 50302 里新拆的码。业务错误统一 **HTTP 500 + `Result.code`** 出口，参数域错误才是 HTTP 400 + `code=400`——前端判读看 `code` 不看状态码。
 - AC-B3 状态机路径：机器人三型用户（高/低/中词汇）分别命中 FINISH(CONVERGED)/FINISH(CEILINGED_LOW)/R6 补测形态；任一会话题量 ≤70。
+  - ⚠️ 差异留痕（2026-10-05 复核）：实现按**状态机路径穷举**断言（`allAnswerPathsTerminateInsideCap…` 证明所有应答路径题量 <70 且每个非防御性终止原因都可达），**没有**「画像→形态」的一一映射用例；两者等价性靠「路径全覆盖 ⊇ 三型各自走的那条路」成立，故本条判据按实态理解为路径级。题量上限是 `< MAX_QUESTIONS(70)` 而非 `≤70`（触顶即强制止损属防御分支，实测不可达）。
 - AC-B4 finish：报告字段齐全（estimatedSize/ciLow/ciHigh/capped/**bandResults**/addedToNotebook）；重复 finish 幂等回放；提前交卷时**累计答题 <6 题（一个完整探测组）返回 50303**。
   - ⚠️ 差异留痕（2026-10-05，US3 定稿）：原条写「0 题 finish 返回 50303」。后端门槛不是 0 题而是不足 `PROBE_SIZE=6` 题——不足一组时当前 band 通过率无可估样本，给出的区间宽到没有信息量（理由见 moon-well 主 LLD §6 与 us3 设计 §8）。
 - AC-B5 落本：`addUnknown=true` 时不认识词出现在 `vocabulary_notebook`，hard_level 按「教学档位优先、缺档回落 band 映射」（`VocabTestParams.BAND_HARD_LEVEL`）；`false` 时零写入。
@@ -41,6 +42,28 @@
     2. 原条「已存在词不覆盖 familiarity」**与实现不符**：落本口径与 `VocabularyService.unknown` 一致（存在即把 `familiarity` 置 `UNKNOWN`、刷新 `last_study_time`）。也就是说测试里点「不认识」会把此前标过熟练的词打回生词本。防重复打回靠**每会话至多落本一次**（`notebook_added_at` 令牌，重复 finish 只回放报告不再写本）；这条语义需用户复核确认（见文末「待复核」）。
 - AC-B6 history：仅本用户 finished 会话、≤10 条、时间倒序；超 30 分钟 active 会话在下一次 history/start 时转 abandoned。
 - AC-B7 单测全绿（`mvn test`，corretto-21）；`ReadingVocabularyServiceTest`/`WordLevelCacheServiceTest` 既有用例无回归。
+
+### B-结果（US2/US3 本机证据底账，2026-10-05 复核）
+
+> 复核方式：把每条 B 项落到**具体测试方法**上（逐个打开方法体确认断言的就是 AC 写的那个码值/行为），
+> 并按项目纪律用 corretto-21.0.9 + `-Djava.version=21` 重跑 `mvn clean test`。
+> ⚠️ **证据级别统一说明**：B 段全部是「单测 + 真库彩排」级，**没有一条是 HTTP 端到端**——
+> 四端点的真实调用要等后端部署后跑 `tests/modules/15-vocab-test.sh`（该脚本从未执行过）。
+
+| 条目 | 结论 | 证据（测试方法名） |
+| --- | --- | --- |
+| AC-B1 start | ✅ 单测级 / ⛔ HTTP 级待部署 | 首题+sessionId：`VocabularyTestControllerTest#startUsesContextUserIdAndWrapsServicePayload`、`VocabularyTestHttpContractTest#startMapsPathAndWrapsFirstQuestionInResultEnvelope`；二次 start 抢占→旧会话 abandoned：`VocabularyTestServiceTest#startAbandonsPreviousActiveSessionAndReturnsFirstQuestion`；缓存降级 50301：`#startIsRefusedWhenWordTableNotReady`（`testReady()=false`）+ `#startFailsWhenSamplingPoolIsEmpty`（桶池为空，同一码值两条路径） |
+| AC-B2 answer | ✅ 单测级全覆盖 | 顺序推进与重发回放不重复计数 `#retriedAnswerReplaysSameNextQuestionWithoutDoubleRecording`；**对 finished 会话重复提交=幂等回放** `#answerOnFinishedSessionReplaysStoredReport`；他人/超时/作废 50302 `#answerOnSomeoneElsesSessionIsRejected`、`#answerAfterTimeoutIsRejectedAndLeftForLazyMarking`、`#finishOnAbandonedSessionIsRejected`；跳题 50304 `#answerWithFutureSeqIsRejected`（断言码值 + 文案含「第 1 题」+ **item 表零写入**）；`answer∉{0,1}` `#answerWithIllegalValueIsRejected` + `VocabularyTestControllerTest#answerRequestRequiresSessionSeqAndBinaryAnswer` + `VocabularyTestHttpContractTest#invalidAnswerValueIsRejectedByValidationBeforeTheServiceRuns` |
+| AC-B3 状态机路径 | ✅（但断言维度与原文不同，见备注） | 路径穷举 `VocabTestPlannerTest#allAnswerPathsTerminateInsideCapAndCoverEveryNonDefensiveReason`（所有应答路径最大题量 **< `MAX_QUESTIONS`=70**，且每个非防御性 `FinishReason` 都可达）；CEILINGED_LOW `#threeConsecutiveAllUnknownProbesStopLow`；R6 邻档补测→CONVERGED `#boundaryMiddleRateProbesAdjacentBandsThenConverges`；band8 封顶 `#band8LowProbeTopsOut`；机器人精度与预算 `VocabTestRobotSimulationTest` 三用例（中位误差 <1.5 档宽、低词汇不会被报成高词汇、随机人群不爆题量）；真库彩排 28/22 题收敛（主 LLD §9）。**备注**：AC 原文按「三型用户画像分别命中三种终止形态」表述，实现是按**状态机路径**穷举的，画像→形态没有专门映射用例；判据等价性成立（路径全覆盖 ⊇ 三型可达），表述已按实态校正 |
+| AC-B4 finish | ✅ 单测级 | 字段齐全 `VocabularyTestHttpContractTest#reportDistinguishesNotebookWriteCountFromAbsent` + `VocabularyTestControllerTest#finishCarriesNotebookSwitchAndReportCount`；重复 finish 幂等回放同 B2；**不足 6 题 50303** `VocabularyTestServiceTest#finishBeforeEnoughAnswersIsRejected`（并断言会话仍为 ACTIVE，不作废）；≥6 题提前交卷走部分应答估算 `#earlySubmitEstimatesFromPartialAnswersWithNullReason` |
+| AC-B5 落本 | ✅ 单测级 | 档位「教学优先、缺档回落 band 映射」`#notebookHardLevelPrefersTeachingLevelThenBandMapping`；大小写不敏感 upsert（撞唯一索引那条缺陷）`#notebookMatchingIsCaseInsensitiveSoExistingRowIsUpdatedNotReinserted`；开关时序 `#notebookSwitchOffDelaysTheWriteAndTurningItOnLaterStillLandsOnce`、D5 缺陷回归 `#naturallyTerminatedSessionStillLandsUnknownWordsOnTheResultPageSubmit`、提前交卷落本 `#unknownWordsFromAnEarlySubmitFinishLandInTheNotebook`。「打回生词本」语义已按 §F1 定稿**维持现状** |
+| AC-B6 history | ✅ 单测级 | `#historyListsFinishedSessionsAndLazyAbandonsStaleActives`；超时口径按**最近作答时间**而非开考时间 `#historyKeepsLongRunningSessionThatAnsweredRecently`；≤N 与默认值 `#historyHonoursLimitAndDefaults`；HTTP 层 `?limit=` 绑定 `VocabularyTestHttpContractTest#historyBindsTheLimitQueryParamAndPassesNullWhenAbsent` |
+| AC-B7 全量单测 | ✅ **2026-10-05 重跑** | `JAVA_HOME=corretto-21.0.9`、`mvn clean test -Djava.version=21` → **657 tests / 0 failures / 0 errors / 0 skipped**（73 个测试类）；`ReadingVocabularyServiceTest`、`WordLevelCacheServiceTest` 既有用例无回归 |
+
+- 集成脚本 `tests/modules/15-vocab-test.sh` 的断言已覆盖 B1/B2/B4/B6 的 HTTP 形状（首题 band3/seq1、
+  抢占后旧会话 50302、重发回放、跳题 50304、`answer` 域外 400、`bandResults` 存在、
+  `addedToNotebook` 首次 `1` → 重放 `null`、history 内 `addedToNotebook` 恒 null），
+  走 `api_login` 的 token 路径不依赖内网信任头；**待后端部署后执行并回填本表**。
 
 ## C. magicbook 前端（US4）
 
