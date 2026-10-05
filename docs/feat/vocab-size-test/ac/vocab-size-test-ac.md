@@ -30,7 +30,9 @@
 - ⚠️ **抽检暴露的管线缺陷（2026-10-05，A 段复检新发现，待用户定夺）**：
   `us1_sentences.inflections()` 的 `word+"es"` 无条件下发，把**另一个词的复数**认成本词变形——
   秩词例句里只靠它命中的 119 条中 **61 条是误绑**（`refuge`←refugees、`sit`←sites、`cloth`←clothes），
-  占 25,000 秩词 **0.24%**，按每卷 ≤70 题估单卷出到 ≥1 条坏题的概率 ≈16%；61 条里 49 条是
+  占 25,000 秩词 **0.24%**；按真实出题分桶（后端常量 `VocabTestParams.BAND_UPPER/PROBE_SIZE`）估，
+  典型卷（8 档 × 探测 6 题 = 48 题）**≥1 条坏题的概率 11%**、期望 0.12 题/卷，最重的 band5 单题坏率 0.45%。
+  61 条里 49 条是
   `level_id=10` 哨兵行，含 `j`/`y`/`se`/`ft` 等非通用英语词。因 `us1_attest.py` 用**同一个函数**做证词准入，
   准入侧同样被污染（假词占配额、挤掉真词），秩集构成需在修规则后重出一版，故 AC-A1/A2/A3 的数字
   **可复现但不最终**。详见 `moon-well/docs/feat/vocab-size-test/release/release-checklist.md` §3.0
