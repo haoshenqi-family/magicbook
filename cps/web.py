@@ -309,6 +309,8 @@ def reading_tts():
 def reading_settings():
     """阅读设置独立页：用户难度档位等 per-user 阅读偏好（后续配置统一挂这里）。"""
     settings, error = _moonwell_settings_fetch()
+    # 词汇量测试卡片不在这里拉历史：服务端同步拉等于给首屏再加一次上游超时预算（最坏 10s×2），
+    # 历史只是摘要，交给模板里的 vocab-test.js 异步取、失败静默降级（成就页 /ajax/achievements-* 同模式）
     return render_title_template("reading_settings.html", title=_("Reading Settings"),
                                  settings=settings, load_error=error)
 
@@ -552,6 +554,96 @@ def reading_settings_update_hard_level():
         return jsonify({"success": False, "message": "hardLevel is required"}), 400
     return _moonwell_proxy("/vocabulary/reading/settings/hard-level", payload, 10,
                            "reading settings update")
+
+
+# ---------- 词汇量测试代理（R116/US4）----------
+#
+# Why 薄透传、不在代理层翻译错误码：出题状态机、会话归属、超时判定全在 moon-well，
+# 50301/50302/50303/50304 的语义只有它知道；代理复制一份判定等于把状态机搬错地方，
+# 还会与后端演进脱节。代理只做参数域校验（挡住明显非法请求，省一次内网往返），
+# 业务错误按原状态码与 Result 信封透传，前端按 Result.code 分支。
+
+
+def _vt_positive_int(value):
+    """取 JSON 里的正整数 id，非法返回 None。
+
+    Why 显式排除 bool：Python 里 bool 是 int 的子类，客户端传 {"sessionId": true}
+    会被 isinstance(x, int) 接受成 1，进而打到别人的会话上（归属校验会拒绝，但
+    错误形态不该靠后端兜）。
+    """
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return value
+
+
+@web.route("/ajax/vocab-test/start", methods=["POST"])
+@user_login_required
+def vocab_test_start():
+    """Proxy the vocab size test start: creates a session and returns the first question.
+
+    Why 原样 return 而不解包：_moonwell_proxy 的失败分支返回 (jsonify, 503) 二元组
+    （未配置 / RequestException），解包三元组会抛 ValueError 变成 500 白页；
+    Flask 视图对两种返回形态都能直接透传。
+    """
+    return _moonwell_proxy("/vocabulary/test/start", {}, 10, "vocab test start")
+
+
+@web.route("/ajax/vocab-test/answer", methods=["POST"])
+@user_login_required
+def vocab_test_answer():
+    """Proxy one answer; payload {"sessionId": id, "seq": N, "answer": 0|1}.
+
+    Why 必透传 seq：它是后端区分「同题重发（幂等回放）」与「跳题（50304）」的唯一依据，
+    代理层丢掉它会让断网重试变成串序污染。请求体不含 word——题面由服务端按 seq 定位。
+    """
+    payload = request.get_json(silent=True) or {}
+    session_id = _vt_positive_int(payload.get("sessionId"))
+    seq = _vt_positive_int(payload.get("seq"))
+    answer = payload.get("answer")
+    if session_id is None:
+        return jsonify({"success": False,
+                        "message": "sessionId must be a positive integer"}), 400
+    if seq is None:
+        return jsonify({"success": False, "message": "seq must be a positive integer"}), 400
+    if isinstance(answer, bool) or answer not in (0, 1):
+        return jsonify({"success": False, "message": "answer must be 0 or 1"}), 400
+    # 5s：答题是一次内存态机重放 + 单行 insert，短超时快失败（用户正等着下一题）
+    return _moonwell_proxy("/vocabulary/test/answer",
+                           {"sessionId": session_id, "seq": seq, "answer": answer},
+                           5, "vocab test answer")
+
+
+@web.route("/ajax/vocab-test/finish", methods=["POST"])
+@user_login_required
+def vocab_test_finish():
+    """Proxy the submit; payload {"sessionId": id, "addUnknownToNotebook": bool}.
+
+    Why 开关必填：它决定不认识词是否进生词本，允许缺省等于替用户决定（后端 DTO 同口径）。
+    """
+    payload = request.get_json(silent=True) or {}
+    session_id = _vt_positive_int(payload.get("sessionId"))
+    add_unknown = payload.get("addUnknownToNotebook")
+    if session_id is None:
+        return jsonify({"success": False,
+                        "message": "sessionId must be a positive integer"}), 400
+    if not isinstance(add_unknown, bool):
+        return jsonify({"success": False,
+                        "message": "addUnknownToNotebook must be true or false"}), 400
+    return _moonwell_proxy("/vocabulary/test/finish",
+                           {"sessionId": session_id, "addUnknownToNotebook": add_unknown},
+                           10, "vocab test finish")
+
+
+@web.route("/ajax/vocab-test/history", methods=["GET"])
+@user_login_required
+def vocab_test_history():
+    """Proxy the recent finished sessions (backend already caps at 10, newest first).
+
+    原样透传（同 vocab_test_start）：解包三元组会让上游不可达时变成 500 白页，
+    而这份数据只是卡片摘要，前端拿到任何非 2xx 都静默降级为无历史态。
+    """
+    return _moonwell_proxy("/vocabulary/test/history", None, 10,
+                           "vocab test history", method="GET")
 
 
 def _whole_book_closures():

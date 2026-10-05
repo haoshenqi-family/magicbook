@@ -19,7 +19,7 @@
 
 位置：难度档位卡片下方，同栏同宽。默认态（未测试/有历史）：
 
-- 一句话说明 + 预计时长（~4 min）；
+- 一句话说明 + 预计时长（按后端实测写「2–4 分钟 · 20–40 题」；原稿「~4 min」与机器人对拍的 20–38 题均值不符，2026-10-05 修订）；
 - 上次结果摘要：`~8,600 words (7,200–10,000) · Oct 4, 2026`，无历史则不显示该行；
 - 按钮 `Start test`（主）与 `History`（次，折叠展开历次会话列表：日期/估算值/题量）。
 
@@ -46,10 +46,13 @@
 | magicbook 路径 | 方法 | moon-well 目标 |
 | --- | --- | --- |
 | `/ajax/vocab-test/start` | POST | `POST /vocabulary/test/start` |
-| `/ajax/vocab-test/<session_id>/answer` | POST | `POST /vocabulary/test/{id}/answer` |
-| `/ajax/vocab-test/<session_id>/finish` | POST | `POST /vocabulary/test/{id}/finish` |
-| `/ajax/vocab-test/history` | GET | `GET /vocabulary/test/history` |
+| `/ajax/vocab-test/answer` | POST | `POST /vocabulary/test/answer`（body `{sessionId, seq, answer}`） |
+| `/ajax/vocab-test/finish` | POST | `POST /vocabulary/test/finish`（body `{sessionId, addUnknownToNotebook}`） |
+| `/ajax/vocab-test/history` | GET | `GET /vocabulary/test/history`（不带 limit，后端默认 10 条） |
 
+- **对账修订（2026-10-05）**：原表写的是 `/ajax/vocab-test/<session_id>/answer` → `POST /vocabulary/test/{id}/answer`。
+  后端主 LLD §6 定稿「去 @PathVariable」，US3 交付的 Controller 只有四个平铺路径，sessionId 只在请求体里；
+  且 answer 的 `seq` 是 DTO 必填的幂等锚点，原表漏记。代理层因此不做路径拼接。
 - 均 `@user_login_required`；请求/响应体原样透传（含 `Result.code`），错误码翻译沿用前端现有约定。
 - `reading_settings()` 首屏增加一次 history 拉取（服务端同步、失败静默降级为无历史态，与 `load_error` 同风格，不阻塞档位下拉渲染）。
 
@@ -58,15 +61,16 @@
 | 文件 | 改动 |
 | --- | --- |
 | `cps/web.py` | +4 代理路由（照 `/ajax/reading-settings` 模式）；`reading_settings()` 首屏补 history |
-| `cps/templates/reading_settings.html` | +测试卡片 + 浮层/结果视图容器 + JS（页面内 `<script>`，照现有 96-133 行风格；若超 ~250 行则拆 `cps/static/js/vocab-test.js`） |
+| `cps/templates/reading_settings.html` | +测试卡片 + 浮层/结果视图容器（JS 已定稿拆到独立文件，见下行） |
+| `cps/static/js/vocab-test.js` | 新建状态机；文案走 `mbT()` 种子通道，并把该文件加入 `tests/test_i18n_seed_contract.py` 的 `JS_FILES`（US4 §2.3） |
 | 样式 | 复用现有卡片/modal 类；仅进度条与条形图需少量新 CSS，写模板内 `<style>` 或现有 css 文件（以现有页面组织为准） |
 
-## 5. 与后端契约的对齐点（评审时逐条核对）
+## 5. 与后端契约的对齐点（2026-10-05 已按 US3 源码逐字段核实，权威展开见 US4 §4）
 
-1. start/answer 响应中的题对象字段名（`word`,`sentence`）与进度字段。
+1. 题对象 `Question{word, sentence, seq, band}`，进度 `Progress{answered, known, band}`（无总数分母）。
 2. `finished` 信号语义（answer 返回 question=null）与前端切结果视图的触发。
 3. finish 幂等回放（重复 finish 返回同一报告）——前端网络重试依赖此。
-4. `capped`、`ci_low/ci_high`、`band_result` 数组结构。
+4. `capped`、`ciLow`/`ciHigh`（驼峰，非 `ci_low`）、`bandResults[{band,questions,known,rate,contribution}]`（键名是 `bandResults`，非 `bandResult`）；注意 `answer` 的 `Estimation.size` 与 `Report.estimatedSize` 是同一含义的不同字段名。
 5. history 列表项字段（默认最近 10 条，前端不翻页）。
 
 ## 6. 验收要点（AC 草案，正式 AC 验收阶段落 `ac/` 目录）

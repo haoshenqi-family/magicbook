@@ -23,6 +23,8 @@ JS_FILES = [
     os.path.join(ROOT, "cps", "static", "js", "onboarding.js"),
     os.path.join(ROOT, "cps", "static", "js", "reading", "epub.js"),
     os.path.join(ROOT, "cps", "static", "js", "ai_chat.js"),
+    # R116/US4：词汇量测试状态机的文案全部走 mbT，不列入清单则它的本地化无人守（AC-C8 假绿）
+    os.path.join(ROOT, "cps", "static", "js", "vocab-test.js"),
 ]
 
 

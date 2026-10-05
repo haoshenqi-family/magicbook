@@ -51,11 +51,120 @@
       </div>
     </div>
 
+    {# ---------- 词汇量测试卡片（R116/US4）---------- #}
+    {# 历史由 vocab-test.js 异步取（data-history-url），拉不到就是无历史态，不影响档位设置与首屏耗时 #}
+    <div class="panel panel-default" id="vt-root"
+         data-start-url="{{ url_for('web.vocab_test_start') }}"
+         data-answer-url="{{ url_for('web.vocab_test_answer') }}"
+         data-finish-url="{{ url_for('web.vocab_test_finish') }}"
+         data-history-url="{{ url_for('web.vocab_test_history') }}">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Vocabulary Size Test')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted">
+          {{_('Estimate how many English words you know, by judging real words against their example sentences. About 2–4 minutes, 20–40 words.')}}
+        </p>
+
+        <p class="help-block vt-el" id="vt-last-line" hidden>
+          {{_('Last result')}}: <strong id="vt-last"></strong>
+        </p>
+
+        <div class="form-group">
+          <label for="vt-add-unknown">
+            <input type="checkbox" id="vt-add-unknown">
+            {{_('Add unknown words to my notebook')}}
+          </label>
+        </div>
+
+        <div class="form-group">
+          <button type="button" id="vt-start" class="btn btn-primary">{{_('Start test')}}</button>
+          <a href="#" id="vt-toggle-history" class="vt-el" style="margin-left:12px" hidden>{{_('History')}}</a>
+          <span id="vt-status" class="text-muted" style="margin-left:10px"></span>
+        </div>
+
+        <ul class="list-unstyled vt-history vt-el" id="vt-history-list" hidden></ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+{# ---------- 答题浮层与结果视图（默认隐藏，由 vocab-test.js 驱动）---------- #}
+{# 用 bootstrap 原生 modal 结构，而不是自造蒙层：caliBlur 主题（config_theme=1）对
+   .modal-content/.modal-body/.modal-backdrop 有成套深色规则，自造 .panel 蒙层会拿到
+   「浅色面板 + 白色文字」的低对比（无头截图实测）；复用 modal 才真的跟随宿主主题，
+   且本页不必写任何配色（UI 纪律）。 #}
+{# data-keyboard=false：Esc 交给 vocab-test.js，避免与 bootstrap 双重隐藏 #}
+<div class="modal fade" id="vt-overlay" tabindex="-1" role="dialog" aria-hidden="true"
+     data-keyboard="false" data-backdrop="static">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-body">
+        <div id="vt-asking" class="vt-el">
+          <button type="button" id="vt-exit" class="btn btn-link btn-xs vt-exit">{{_('Exit test')}}</button>
+          <div class="progress vt-progress">
+            <div class="progress-bar" id="vt-progress-fill" role="progressbar" style="width:0"></div>
+          </div>
+          <p class="text-muted vt-count">{{_('Answered')}}: <span id="vt-progress-count">0</span></p>
+          <h1 class="vt-word" id="vt-word"></h1>
+          <p class="text-muted vt-sentence" id="vt-sentence"></p>
+          <p>
+            <button type="button" id="vt-known" class="btn btn-primary">{{_('I know it')}}</button>
+            <button type="button" id="vt-unknown" class="btn btn-default">{{_('Not sure')}}</button>
+          </p>
+          <p id="vt-error-line" class="text-danger vt-error vt-el" hidden>
+            {{_('Something went wrong — retry this word.')}}
+          </p>
+        </div>
+
+        <div id="vt-result" class="vt-el" hidden>
+          <p class="text-muted">{{_('Your vocabulary size')}}</p>
+          <h1 class="vt-word" id="vt-size"></h1>
+          <p class="text-muted vt-el" id="vt-range"></p>
+          <p class="help-block vt-el" id="vt-capped-note" hidden>
+            {{_('25,000 is the top of this scale, so the real number may be higher.')}}
+          </p>
+          <p class="text-muted vt-chart-title">{{_('Words known per frequency band')}}</p>
+          <div id="vt-band-chart" class="vt-chart"></div>
+          <p class="text-muted vt-el" id="vt-notebook-line" hidden></p>
+          <button type="button" id="vt-done" class="btn btn-primary">{{_('Done')}}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
 
+{% block header %}
+{{ super() }}
+<style>
+  /* 词汇量测试：只补布局，颜色一律来自 bootstrap/主题已有类（UI 纪律：轻蒙层、无实色描边） */
+  /* Why 这条兜底：block header 排在 bootstrap.min.css 之后，而 bootstrap 给 .help-block 写了
+     display:block——同一 author 层、同特异度时后出现者胜，会把 normalize 的
+     [hidden]{display:none} 盖掉，导致「隐藏态」的节点一加载就显示。
+     规则：本页靠 hidden 切换显隐的节点一律带 .vt-el，由这条显式兜住。 */
+  .vt-el[hidden] { display: none; }
+  /* Why: caliBlur 把 .modal-dialog 上外边距改成 0（caliBlur.css:5491），弹层顶到视口上沿、
+     被 60px 固定导航栏压住（无头截图实测）。用 id 提高特异度，两个主题统一留出导航栏高度。 */
+  #vt-overlay > .modal-dialog { margin-top: 70px; }
+  .vt-exit { float: right; margin: -6px -8px 0 0; opacity: .6; }
+  .vt-progress { height: 4px; margin: 18px 0 6px; }
+  .vt-count { font-size: 12px; margin: 0; }
+  .vt-word { font-size: 34px; margin: 18px 0 6px; word-break: break-word; }
+  .vt-sentence { min-height: 2em; margin-bottom: 22px; }
+  .vt-error { cursor: pointer; }
+  .vt-chart-title { font-size: 12px; margin: 22px 0 6px; }
+  .vt-bar-row { display: flex; align-items: center; margin-bottom: 6px; }
+  .vt-bar-label { flex: 0 0 108px; font-size: 12px; }
+  .vt-bar-track { flex: 1 1 auto; height: 6px; margin: 0; }
+  .vt-bar-count { flex: 0 0 52px; text-align: right; font-size: 12px; }
+  .vt-history li { font-size: 13px; margin-bottom: 4px; }
+</style>
+{% endblock %}
+
 {% block js %}
+<script src="{{ url_for('static', filename='js/vocab-test.js') }}"></script>
 <script>
 (function () {
     var form = document.getElementById('reading-settings-form');
