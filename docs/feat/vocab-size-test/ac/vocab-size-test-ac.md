@@ -99,17 +99,50 @@
 | AC-B6 history | ✅ 单测级 | `#historyListsFinishedSessionsAndLazyAbandonsStaleActives`；超时口径按**最近作答时间**而非开考时间 `#historyKeepsLongRunningSessionThatAnsweredRecently`；≤N 与默认值 `#historyHonoursLimitAndDefaults`；HTTP 层 `?limit=` 绑定 `VocabularyTestHttpContractTest#historyBindsTheLimitQueryParamAndPassesNullWhenAbsent` |
 | AC-B7 全量单测 | ✅ **2026-10-05 重跑** | `JAVA_HOME=corretto-21.0.9`、`mvn clean test -Djava.version=21` → **657 tests / 0 failures / 0 errors / 0 skipped**（73 个测试类）；`ReadingVocabularyServiceTest`、`WordLevelCacheServiceTest` 既有用例无回归 |
 
-- 集成脚本 `tests/modules/15-vocab-test.sh` 的断言已覆盖 B1/B2/B4/B6 的 HTTP 形状（首题 band3/seq1、
-  抢占后旧会话 50302、重发回放、跳题 50304、`answer` 域外 400、`bandResults` 存在、
-  `addedToNotebook` 首次 `1` → 重放 `null`、history 内 `addedToNotebook` 恒 null），
-  走 `api_login` 的 token 路径不依赖内网信任头；**待后端部署后执行并回填本表**。
+- **AC-B HTTP 级首跑（2026-10-05 13:17，`tests/modules/15-vocab-test.sh` → ✅ 33/33）**。
+  这份脚本此前**从未在任何环境执行过**，本次首跑即抓出两条工装缺陷（见下），修完才跑通。
+  - 环境：`7c37816`（即已上线那一笔代码）的隔离 git worktree，`corretto-21.0.9` + `-Djava.version=21`
+    `spring-boot:run`；`SPRING_CONFIG_IMPORT=` 置空断开 Nacos，数据源指彩排容器 `vt-us1-mysql`，
+    Redis 用本机一次性容器 `vt-redis:6381`，ES/MinIO/NewAPI/Proxy 全填 dummy —— **全程不碰生产**，
+    这也顺带证伪了本文件 §C 前言里「本地起服务即连生产库」那句（已就地更正）。
+    `ddl-auto=update` 补出彩排库里没有的 `app_user` 等表；跑前跑后词表都是
+    **31,668 行 / 秩 25,000 / 例句 23,997**（与 §A 终态逐项吻合，未被 Hibernate 改动）。
+  - 断言覆盖（真 HTTP + 真库，非 mock）：首题 band3/seq1 带英文例句、二次 start 抢占、
+    旧会话作答 50302、seq 3 重发回放到「当时的下一题」且进度不变、答满 6 题计数一次、
+    跳题 50304、`answer=2` 被 DTO 拦下 400、finish 报告四件套 + `bandResults`、
+    `addedToNotebook` 首次 `1`/重放 `null`、history 只列 finished 且不带 per-call 落本数。
+  - 落库对账（彩排库实测）：`vocabulary_test_session` id=5 → `status=1 question_count=6 known_count=5
+    estimated_size=2833 ci_low=2333 ci_high=3333 capped=0 notebook_added_at=21:17:57.394`，
+    `band_result` = band1/band2 未探测按 `rate=1.0` 各贡献 1000、band3 `5/6=0.833`→833，
+    **1000+1000+833=2833 与 estimated_size 精确闭合**；被抢占的 id=4 `status=2`。
+    `vocabulary_test_item`（session 5）六题 band 全 3、第 6 题 `answer=0`；
+    `vocabulary_notebook` 落 `word=extremely, familiarity=1(UNKNOWN), hard_level=2` —— AC-F1
+    「打回生词本」的口径在真库上拿到了 HTTP 级佐证。
+  - **首跑抓出的两条缺陷（已修，属测试工装不是业务代码）**：
+    ① `tests/lib/api.sh` 发的是 `token: Bearer …`，而 `AuthHandlerInterceptor` 取的是
+      `request.getHeader(Common.TOKEN)`、`Common.TOKEN = "authorization"`；同一枚 JWT 实测
+      `Authorization` 头 200、`token` 头 `code=102 未登录`。这一条让**全部 15 个模块**的身份接口
+      都不可能通过，是这套脚本「从未跑过」的直接原因。`api_upload` 里同样的头一并改了。
+    ② `assert_status "200" "$HTTP_STATUS"` 紧跟 `local response=$(api_request …)` 时**必然失真**：
+      子 shell 里设的全局传不回来，取到的要么是空、要么是上一条直接调用 `api_request` 的残值
+      （残值更危险——它显示 ✓ 却什么都没验）。本模块的 4 处改成断言响应体 `.code`，
+      与本项目「业务错误判读看 `Result.code` 不看 HTTP 状态」的口径一致。
+    ③ 附带：`15-vocab-test.sh` 原来只 `api_login`，而 `accounts.sh` 每次进程重算时间戳用户名、
+      全库只有 `01-auth.sh` 注册，单跑本模块时账号不存在 → 模块改成自带 `ensure_account`
+      （注册后登录，账号已存在则忽略）。
+  - **HTTP 级仍未覆盖**（别当已通过）：AC-B3 机器人三型终止形态（只有单测）、AC-B1 的 50301
+    降级分支（本地彩排库有秩数据，构造不出「词表未就绪」）、AC-B5 开关 `false` 时零写入
+    （脚本固定传 `true`）、AC-F1「把既有熟练词打回」的大小写不敏感更新路径（仅单测）。
 
 ## C. magicbook 前端（US4）
 
-> **本机验证边界（2026-10-05 定）**：US4 在本机只能验「代理层单测 + 无头 Chrome 视觉截图」。
-> moon-well 的数据源由 Nacos 生产 `moon-well.yaml` 下发（本地起服务即连生产库 `magichouse`），
-> 因此 **AC-C2/C3/C4/C5/C6 的运行时行为与 `tests/modules/15-vocab-test.sh` 都要等后端部署后执行**，
-> 验收报告须逐条标注「本机未验证」，不得记为通过。AC-C8（zh 缺串）可由种子契约测试在本机守住。
+> **本机验证边界（2026-10-05 定，同日 13:20 修订）**：US4 在本机只能验「代理层单测 + 无头 Chrome 视觉截图」。
+> ~~moon-well 的数据源由 Nacos 生产 `moon-well.yaml` 下发（本地起服务即连生产库 `magichouse`）~~
+> **这句已被证伪**：`SPRING_CONFIG_IMPORT=` 置空即可绕开 Nacos，数据源由 `DATASOURCE_URL` 显式给出
+> （已在 `7c37816` 上实测跑通，见 §B「AC-B HTTP 级首跑」）。因此 AC-C2～C6 的运行时行为
+> **本机就能验**——magicbook 本地起 + 代理基址指向本机 moon-well 实例 + 彩排库；
+> 生产部署只用于 AC-D 段。`tests/modules/15-vocab-test.sh` 也已在本机跑通，不再依赖部署。
+> 未跑成的条目仍须逐条标注「未验证」并写清卡在哪一步，不得记为通过。AC-C8（zh 缺串）可由种子契约测试在本机守住。
 
 - AC-C1 `/reading/settings` 渲染测试卡片；moon-well 不可达时档位区走 `load_error`、测试卡片静默降级为无历史态，页面不报错。
 - AC-C2 完整答题流：Start → 浮层逐题（单词+英文例句，**屏上无任何中文释义**）→ 结果视图（估算大字、区间或 25,000+、8 行频段条形图、落本提示）→ Done 回卡片显示 Last result。
