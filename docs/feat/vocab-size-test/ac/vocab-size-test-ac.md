@@ -152,6 +152,31 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
 - AC-B4 finish：报告字段齐全（estimatedSize/ciLow/ciHigh/capped/**bandResults**/addedToNotebook）；重复 finish 幂等回放；提前交卷时**累计答题 <6 题（一个完整探测组）返回 50303**。
   - ⚠️ 差异留痕（2026-10-05，US3 定稿）：原条写「0 题 finish 返回 50303」。后端门槛不是 0 题而是不足 `PROBE_SIZE=6` 题——不足一组时当前 band 通过率无可估样本，给出的区间宽到没有信息量（理由见 moon-well 主 LLD §6 与 us3 设计 §8）。
 - AC-B5 落本：`addUnknown=true` 时不认识词出现在 `vocabulary_notebook`，hard_level 按「教学档位优先、缺档回落 band 映射」（`VocabTestParams.BAND_HARD_LEVEL`）；`false` 时零写入。
+  - 🆕 **18:17 「`false` 时零写入」已从「仅单测」升级为真 HTTP 实测，并配了差分对照**（同一台本机彩排实例，
+    实例与造数口径见上面 AC-B1 那条；词表造了 band3 十词 + band4 十词 ⇒ 加载行
+    `22 level words, 21 ranked words, 2 bands`，**哨兵行 `water`(l10) 依旧不进 level 视图**）：
+    - **关**：一次性账号会话 1，逐题 `answer=0` 共 8 题，`finish {"sessionId":1,"addUnknownToNotebook":false}`
+      ⇒ `code 200` / `addUnknown:false` / **`addedToNotebook:null`**（语义=本次没执行，不是 0），
+      同刻直查 `vocabulary_notebook WHERE user_id=<该账号>` = **0 行**。
+    - **开（差分对照，缺了它上面那条就是空转）**：同账号会话 2，6 题全 `answer=0`，
+      `finish … addUnknownToNotebook:true` ⇒ `addedToNotebook:6`，生词本恰 **6 行**
+      （`ubiquitous,w2,w5,w6,w9,w10`）⇒ 同一套探针**会**写，所以 0 行是真零写入。
+    - **顺带钉两处契约实况**（比本文此前散文口径更精确）：
+      ① `finish` 的**请求**字段名是 **`addUnknownToNotebook`**，响应里才叫 `addUnknown`
+      （`VocabTestFinishRequest:24-25 @NotNull` + `vocab-test.js:379` 逐字对上）；
+      少传该字段实测回 **HTTP 200 + `{"code":400,"message":"参数错误：addUnknownToNotebook 不能为空"}`**
+      ——它不走 503xx 那族，是 DTO 校验层，前端漏传会被 `code!==200` 分支吃掉。
+      ② **R9 就近降级在真 HTTP 上跑出来了**：造数只有 band 3/4 两桶，被测者全答「不认识」把目标档压到 band 2，
+      服务端仍从 band 3 桶取词 ⇒ 该账号的 `vocabulary_test_item` 里 **`band <> word_band` 有 2 条**，
+      `bandResults` 里 `band 2: questions 2 / contribution 0`。
+      ⇒ 本文 AC-D2 那条「生产真实会话 `band <> word_band` = **0**」的**空白现在有了真 HTTP 证据（本机造数，非生产）**，
+      但它**不替代**生产样本（生产那一半仍待 10-07 04:00+08 之后的只读复查，见 D.1 与 task 记录），
+      也**不覆盖**「band→**档位** fallback」（落本时给纯频率词派生 `hard_level`，另一分支，证据不可互用）。
+    - 附带一条与 US4/R103 有关的新实测：`finish` 响应体里 **`recommendedHardLevel:1` / `recommendedHardLevelName:"初中"`**
+      在真 HTTP 上返回（估算 1,000 → band 1 → 初中），即 R103 的后端侧字段路径实测成立；
+      magicbook 侧显示与一键应用（R125）仍是代码级 ✅、真机 ⏳。
+  - ⇒ **B 段那四条「HTTP 级未覆盖」现在只剩两条**：B3 机器人三型终止形态、AC-F1 大小写不敏感打回路径
+    （B1 的 50301 与 B5 的 `false` 零写入已在本轮关掉）。
   - ⚠️ 差异留痕（2026-10-05，US3 交付后按源码校正，原条两处失实）：
     1. 映射方向按 `HardLevel` **枚举码序单调排**：band1–2→初中(1)、band3→高中(2)、band4→CET4(3)、band5→CET6(4)、**band6→托福(6)、band7→雅思(8)**、band8→GRE(9)。早期 D5 文案的「6→雅思、7→托福」是反的——生词判定按「词的档位 > 用户阈值」做数值比较，照文案映射会让 band7 的词比 band6 更容易被判「已掌握」，档位与频段单调性相反。
     2. 原条「已存在词不覆盖 familiarity」**与实现不符**：落本口径与 `VocabularyService.unknown` 一致（存在即把 `familiarity` 置 `UNKNOWN`、刷新 `last_study_time`）。也就是说测试里点「不认识」会把此前标过熟练的词打回生词本。防重复打回靠**每会话至多落本一次**（`notebook_added_at` 令牌，重复 finish 只回放报告不再写本）；这条语义需用户复核确认（见文末「待复核」）。
@@ -486,8 +511,9 @@ B 段 B1/B2/B4/B5/B6/B7 的本机与彩排证据部分、C1/C7/C8、**D1（两�
 | 需要单独点头的写生产/上线动作 | push 底账**不在本文写死数字**（写死即自指失效：本文每提交一笔，计数就少一）——执行前实测：`git rev-list --count @{u}..HEAD` + `git log --oneline @{u}..HEAD` 逐笔判类（docs / 运行代码）。18:10 那一刻的实况：magicbook 未 push 的里有并行会话 `7bb1853a` **R125 运行代码**，其余为本 AC 的 docs 笔；moon-well 两笔**全是 docs**。⚠️ 推 magicbook 会连带把 R125 上线（两仓库都走 fnOS webhook-builder，push = 重建部署） | 用户点头后逐仓库确认 |
 | 已知瑕疵 / 分支空白（可选代码笔） | #29 题面小写折叠（233 个专名以小写上屏）、#29 撇号放宽（可回收 11 词）、#30 **band→档位 fallback** 无生产实证（注意与 `:292`/R9 就近降级是两个分支，证据不可互用）、#28 moon-well 双构建链一次 push bounce 两次（非本特性） | 用户定夺要不要做 |
 
-B 段那四条「HTTP 级未覆盖」**一条没减少**（B3 三型终止形态、B1 的 50301 降级、B5 开关 `false` 零写入、
-F1 大小写不敏感打回），本地夹具演练（D1）不冲抵它们——夹具测的是前端消费侧，50301 那格是前端读码值。
+B 段那四条「HTTP 级未覆盖」**已被 18:1x 两轮本机彩排实例减到两条**（B1 的 50301、B5 的 `addUnknownToNotebook=false`
+零写入 + 差分对照，见上面 B 段各自的新条目），**剩两条**：B3 机器人三型终止形态、F1 大小写不敏感打回路径。
+本地夹具演练（D1）不冲抵它们——夹具测的是前端消费侧，50301 那格是前端读码值。
 
 ## E. 完成定义
 
