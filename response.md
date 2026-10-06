@@ -312,3 +312,18 @@
 - **测试**：新增 tests/test_session_permanent.py 4 例（config 生效/cookie 带 Expires≈lifetime/钩子注册/登出清空+删除头）；全量 335 通过。已知边界：cw_login remember_token 恢复路径当次请求不标记 permanent，下一请求自愈。
 - **部署**：push develop → fnOS webhook-builder 自动构建部署；上线后需重新登录一次（旧 cookie 仍为浏览器会话级），此后浏览器重启不再掉登录。
 - **总结**：requests.md 占号 R123（并行撞号已按纪律处置）；response.md 本条 + 收录并行会话 R124 部署补记；冲突记录：编号撞号已注明，无内容冲突。
+
+## 2026-10-06（R125 词汇测试结果页难度推荐 + 一键应用）
+
+### R125（结果页展示推荐难度，一键应用到阅读设置）
+
+- **回应**：词汇量测试完成后，结果页按 moon-well R103 报告新字段 `recommendedHardLevel/Name` 展示推荐并支持一键应用（对应 requests.md R125）：
+  - **DOM**：`#vt-result` 内增 `#vt-reco-line`（推荐/确认/失败文案，className 携带 `vt-el` 保 `[hidden]` 兜底）与 `#vt-apply-level` 按钮；按钮 msgid 用 `Apply suggested level`——po 里上游 `"Apply"` 已被误译为「查询」，撞上即回错词。
+  - **渲染**（`renderLevelRecommendation`）：旧后端无字段 → 静默不显示（先行部署降级态）；与当前档位一致 → 只显示「当前难度等级与该测试结果一致。」不递按钮；不同 → 「建议难度等级: {name}」+ 按钮。当前档位取 `#hard-level-select`。
+  - **应用**：POST `data-level-url`（= 既有 `web.reading_settings_update_hard_level`，**零新代理路由**），复用 `post()` 的 CSRF 头/自愈与 401 判读；成功 `markCurrentLevel` 同步下拉选中值、清各 option `(default)` 后缀、更新 `#rs-current-level` 行、隐藏 `#rs-default-label`，行文案变「难度等级已更新」；失败（网络/业务码）行变红可重试。
+  - **交叉审查**（独立 agent）：P1 已修——apply 请求纳入 epoch 作废纪律（发请求捕获 `mine=epoch`；`.then/.catch` 先复位在途锁再判 stale，迟到响应不得写新一轮结果页或吞按钮；stale 但业务成功仍先 `markCurrentLevel` 反映服务端真值）；P2 已修（`(default)` 后缀残留）；P3 采纳 `pendingRecoName` 复位；P3「load_error 态应用成功后设置卡仍显错误横幅」接受不改（浮层内已有确认，功能不受影响）。
+  - **i18n**：4 个 mbT 词条入 `i18n_seed.html` + zh_Hans_CN po（补丁脚本 `docs/temp/scripts/vt_r125_i18n_patch_po.py`，width=76 原子口径）+ `pybabel compile` 重编 .mo；`test_i18n_seed_contract` 五契约全绿。
+  - **测试**：`test_vocab_test_proxy.py` 增 `test_result_view_renders_level_recommendation_surface`（DOM 面 + `data-level-url` + `rs-current-level` 锚点）并给 `REPORT` fixture 补两字段守透传形状；全量 pytest **336 通过**。
+  - **文档**：us4 设计 §4 报告形状补字段 + 新增 §6 R125 增量节；ac 文档新增 G 节 8 条（含端到端待部署后核与交叉审查留痕）。
+- **部署**：未 push——push develop 触发 fnOS webhook-builder 自动构建部署，按「提交≠推送」纪律待用户确认；对旧后端已做静默降级，先推前端亦安全。
+- **总结**：requests.md 占号 R125（无撞号）；response.md 本条；冲突记录：无。

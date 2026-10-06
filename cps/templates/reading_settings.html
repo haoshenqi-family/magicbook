@@ -43,9 +43,9 @@
         </form>
 
         {% if settings %}
-        <p class="help-block">
-          {{_('Current level')}}: <strong>{{ settings.hardLevel }} - {{ settings.hardLevelName }}</strong>
-          {% if settings.usingDefault %}<span class="label label-info">{{_('default (not saved)')}}</span>{% endif %}
+        <p class="help-block" id="rs-current-line">
+          {{_('Current level')}}: <strong id="rs-current-level">{{ settings.hardLevel }} - {{ settings.hardLevelName }}</strong>
+          {% if settings.usingDefault %}<span class="label label-info" id="rs-default-label">{{_('default (not saved)')}}</span>{% endif %}
         </p>
         {% endif %}
       </div>
@@ -57,7 +57,8 @@
          data-start-url="{{ url_for('web.vocab_test_start') }}"
          data-answer-url="{{ url_for('web.vocab_test_answer') }}"
          data-finish-url="{{ url_for('web.vocab_test_finish') }}"
-         data-history-url="{{ url_for('web.vocab_test_history') }}">
+         data-history-url="{{ url_for('web.vocab_test_history') }}"
+         data-level-url="{{ url_for('web.reading_settings_update_hard_level') }}">
       <div class="panel-heading">
         <h3 class="panel-title">{{_('Vocabulary Size Test')}}</h3>
       </div>
@@ -128,6 +129,11 @@
           <p class="text-muted vt-chart-title">{{_('Words known per frequency band')}}</p>
           <div id="vt-band-chart" class="vt-chart"></div>
           <p class="text-muted vt-el" id="vt-notebook-line" hidden></p>
+          {# R125 难度推荐：后端按估算词汇量派生建议档位；与当前档位不同时给一键应用。
+             按钮文案用独特 msgid——po 里上游的 "Apply" 已被误译为「查询」，撞上就回错词 #}
+          <p class="text-muted vt-el" id="vt-reco-line" hidden></p>
+          <button type="button" id="vt-apply-level" class="btn btn-default btn-sm vt-el"
+                  style="margin-bottom:16px" hidden>{{_('Apply suggested level')}}</button>
           <button type="button" id="vt-done" class="btn btn-primary">{{_('Done')}}</button>
         </div>
       </div>

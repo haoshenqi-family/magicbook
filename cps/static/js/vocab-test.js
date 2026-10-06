@@ -22,7 +22,8 @@
    'vt-toggle-history', 'vt-history-list', 'vt-overlay', 'vt-asking', 'vt-result',
    'vt-word', 'vt-sentence', 'vt-progress-fill', 'vt-progress-count', 'vt-known',
    'vt-unknown', 'vt-exit', 'vt-error-line', 'vt-size', 'vt-range', 'vt-capped-note',
-   'vt-band-chart', 'vt-notebook-line', 'vt-done'].forEach(function (id) {
+   'vt-band-chart', 'vt-notebook-line', 'vt-reco-line', 'vt-apply-level', 'vt-done']
+    .forEach(function (id) {
     els[id] = document.getElementById(id);
   });
 
@@ -32,6 +33,10 @@
   var sessionId = null;
   var question = null;     // {word, sentence, seq, band}：seq 是幂等锚点
   var retry = null;        // 最近一次失败的动作，供错误行重试
+  // R125 难度推荐：结果页待应用的档位（renderLevelRecommendation 写入，应用成功即清）
+  var pendingRecoLevel = null;
+  var pendingRecoName = '';
+  var applyInFlight = false;
 
   // ---------- 小工具 ----------
 
@@ -424,8 +429,106 @@
     } else {
       show(els['vt-notebook-line'], false);
     }
+    renderLevelRecommendation(report);
     renderLast(report);
   }
+
+  // ---------- 难度推荐（R125）----------
+  //
+  // 后端（moon-well Report.recommendedHardLevel）按落库估算值派生建议档位；
+  // 应用 = 调档位设置既有端点（data-level-url），不新开代理路由。
+
+  function currentHardLevel() {
+    var select = document.getElementById('hard-level-select');
+    if (!select || select.value === '') return null;
+    var level = parseInt(select.value, 10);
+    return isNaN(level) ? null : level;
+  }
+
+  // 旧后端没有推荐字段时静默不显示（前端先行部署的降级态）；与当前档位一致时
+  // 只给「已匹配」确认，不再递按钮——推荐的本意是「建议修改」，无需修改就不打扰
+  function renderLevelRecommendation(report) {
+    pendingRecoLevel = null;
+    pendingRecoName = '';
+    if (!els['vt-reco-line'] || !els['vt-apply-level']) return;
+    var recommended = report ? report.recommendedHardLevel : null;
+    if (typeof recommended !== 'number') {
+      show(els['vt-reco-line'], false);
+      show(els['vt-apply-level'], false);
+      return;
+    }
+    var name = (report.recommendedHardLevelName &&
+                typeof report.recommendedHardLevelName === 'string')
+        ? report.recommendedHardLevelName : String(recommended);
+    els['vt-reco-line'].className = 'text-muted vt-el';
+    show(els['vt-reco-line'], true);
+    if (currentHardLevel() === recommended) {
+      els['vt-reco-line'].textContent =
+          window.mbT('Your current difficulty level already matches this result.');
+      show(els['vt-apply-level'], false);
+      return;
+    }
+    els['vt-reco-line'].textContent =
+        window.mbT('Suggested difficulty level') + ': ' + name;
+    pendingRecoLevel = recommended;
+    pendingRecoName = name;
+    els['vt-apply-level'].disabled = false;
+    show(els['vt-apply-level'], true);
+  }
+
+  // 应用成功后同步档位卡片：下拉选中值、「Current level」行、以及「default (not saved)」
+  // 标签（已保存就不是 default 了）——不然浮层内外两处档位各说各话。
+  // 下拉里旧默认档 option 的 "(default)" 后缀一并清掉（档位名不含括号，按结尾括号段清理安全）
+  function markCurrentLevel(level, name) {
+    var select = document.getElementById('hard-level-select');
+    if (select) {
+      Array.prototype.forEach.call(select.options, function (opt) {
+        opt.text = opt.text.replace(/\s*\([^()]*\)$/, '');
+      });
+      select.value = String(level);
+    }
+    var strong = document.getElementById('rs-current-level');
+    if (strong) strong.textContent = level + ' - ' + name;
+    var defaultLabel = document.getElementById('rs-default-label');
+    if (defaultLabel) defaultLabel.style.display = 'none';
+  }
+
+  els['vt-apply-level'].addEventListener('click', function () {
+    if (pendingRecoLevel === null || applyInFlight) return;
+    var mine = epoch;
+    var level = pendingRecoLevel;
+    var name = pendingRecoName;
+    applyInFlight = true;
+    els['vt-apply-level'].disabled = true;
+    post(root.dataset.levelUrl, {hardLevel: level}).then(function (wrap) {
+      // 在途锁先于 stale 判定复位：迟到响应不能再把下一次应用的入口锁死
+      applyInFlight = false;
+      els['vt-apply-level'].disabled = false;
+      var code = codeOf(wrap);
+      if (code === 401) { handleUnauthorized(); return; }
+      if (reloadIfCsrfBlocked(wrap)) return;
+      if (code !== 200) {
+        if (stale(mine)) return; // 浮层已换会话：失败文案不写进新一轮结果页
+        els['vt-reco-line'].textContent = window.mbT('Apply failed, please try again.');
+        els['vt-reco-line'].className = 'text-danger vt-el';
+        return;
+      }
+      // 落库已发生：设置卡先反映服务端真值，再判这轮结果页是否已被作废
+      markCurrentLevel(level, name);
+      if (stale(mine)) return;
+      els['vt-reco-line'].className = 'text-muted vt-el';
+      els['vt-reco-line'].textContent =
+          window.mbT('Difficulty level updated') + ': ' + name;
+      pendingRecoLevel = null;
+      show(els['vt-apply-level'], false);
+    }).catch(function () {
+      applyInFlight = false;
+      els['vt-apply-level'].disabled = false;
+      if (stale(mine)) return;
+      els['vt-reco-line'].textContent = window.mbT('Apply failed, please try again.');
+      els['vt-reco-line'].className = 'text-danger vt-el';
+    });
+  });
 
   function renderBandChart(bandResults) {
     els['vt-band-chart'].innerHTML = '';

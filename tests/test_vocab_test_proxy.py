@@ -34,7 +34,9 @@ REPORT = {"sessionId": 42, "status": 1, "startedAt": "2026-10-05 01:10:00",
           "finishReason": "CONVERGED", "addUnknown": True,
           "bandResults": [{"band": 3, "questions": 6, "known": 4, "rate": 0.6667,
                            "contribution": 500}],
-          "addedToNotebook": 3}
+          "addedToNotebook": 3,
+          # R125 难度推荐：按估算值派生的建议档位（moon-well Report 新增字段），代理层原样透传
+          "recommendedHardLevel": 4, "recommendedHardLevelName": "CET6"}
 
 
 def _envelope(result):
@@ -238,6 +240,31 @@ def test_page_renders_card_with_single_upstream_call(admin_client, moonwell_conf
     assert 'id="vt-history-list"' in html
     assert "data-last" not in html
     assert "2026-10-05" not in html
+
+
+def test_result_view_renders_level_recommendation_surface(admin_client, moonwell_configured,
+                                                          monkeypatch):
+    """R125：结果页 DOM 携带难度推荐面——推荐行、一键应用按钮、档位端点与
+    「Current level」同步锚点。
+
+    推荐值由 moon-well 按估算词汇量派生（Report.recommendedHardLevel），代理层零业务；
+    JS 行为（比较/应用/失败重试）由 vocab-test.js 承担，mbT 词条由 i18n 种子契约守住。
+    按钮文案用独特 msgid：po 里上游的 "Apply" 已被误译为「查询」，新词条撞上就会回错词。
+    """
+    import cps.web as w
+
+    def proxy(path, payload, timeout, label, binary=False, method="POST", **kwargs):
+        body, status = _settings_reply()
+        return body, status, _json_headers()
+
+    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+
+    html = admin_client.get("/reading/settings").get_data(as_text=True)
+    assert 'data-level-url' in html, "应用推荐要调档位设置既有端点"
+    assert 'id="vt-reco-line"' in html
+    assert 'id="vt-apply-level"' in html
+    assert "Apply suggested level" in html
+    assert 'id="rs-current-level"' in html, "应用成功后 JS 同步「Current level」行"
 
 
 def test_card_survives_settings_load_failure(admin_client, moonwell_configured,

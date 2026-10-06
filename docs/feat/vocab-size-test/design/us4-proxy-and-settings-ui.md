@@ -134,8 +134,9 @@ states: idle → asking(currentQuestion) → scoring → result | error(可重�
 1. `Question{word, sentence, seq, band}`；`Progress{answered, known, band}`（无总数分母，进度条按固定刻度弱对比）。
 2. `AnswerResult{question, finished, progress, estimation}`：`finished=true` 时 `question=null`，前端即调 finish。
 3. ⚠️ **两个形状的字段名不同**：`answer` 给的 `Estimation{size, ciLow, ciHigh, capped, reason, bandResults}` 字段是 `size`；
-   `finish`/`history` 给的 `Report{sessionId, status, startedAt, finishedAt, questionCount, knownCount, estimatedSize, ciLow, ciHigh, capped, finishReason, addUnknown, bandResults, addedToNotebook}` 字段是 `estimatedSize`。
+   `finish`/`history` 给的 `Report{sessionId, status, startedAt, finishedAt, questionCount, knownCount, estimatedSize, ciLow, ciHigh, capped, finishReason, addUnknown, bandResults, addedToNotebook, recommendedHardLevel, recommendedHardLevelName}` 字段是 `estimatedSize`。
    结果视图**只从 Report 渲染**（那次 `finish` 必然返回 Report），不要把 `estimation.size` 当 Report 字段用。
+   （R125 增量：Report 末尾新增 `recommendedHardLevel/recommendedHardLevelName` 两个推荐字段；旧后端无该键时前端静默降级。）
 4. `BandResult{band, questions, known, rate, contribution}`：条形图用 `rate`（0–1 小数，×100 显示），8 行含未测档（未测低档也在数组里，`questions=0`）。
 5. `finish` 幂等回放同一报告（前端网络重试路径依赖）；`addedToNotebook` 非空当且仅当本次调用真的落本（§2.2 显示规则）。
 6. 请求体键名：answer = `{sessionId, seq, answer}`，finish = `{sessionId, addUnknownToNotebook}`（必填，缺省等于替用户决定）；报告回显键是 `addUnknown`，与请求键不同名。
@@ -153,3 +154,16 @@ states: idle → asking(currentQuestion) → scoring → result | error(可重�
 - 后端部署前置（否则前端一调用就错，属 US3 遗留清单）：生产 Nacos `moon-well.yaml` 若定义 `resource.ignoring.internalUri` 是**整体覆盖**本地列表，必须同步加 `/vocabulary/test/**`；`app.auth.internal-trust-enabled` 生产实态待测。
 - 合入纪律：US4 代码可进本地 `develop`，**不 push**——后端未上线时点入口即 500，与主 LLD §7「入口按钮区在后端就绪前不合入」同源，也与本次「暂不 push」的决定一致。
 - 回归：档位设置卡片、IME 守卫无串扰（浮层的 document 监听与 `ime_guard.js` 的 INPUT 域互不影响）、`load_error` 场景测试卡片仍可用。
+
+## 6. R125 增量：结果页难度推荐 + 一键应用（2026-10-06）
+
+需求（magicbook R125 / moon-well R103）：词汇量测试完成后，按结果推荐修改阅读难度等级。
+
+- **后端出参**：moon-well `Report` 末尾新增 `recommendedHardLevel`（口径 = `hardLevelOfBand(bandOf(estimatedSize))`，capped 直接顶格 GRE；派生不落列，`finish`/`history` 同源）与 `recommendedHardLevelName`。本仓库**不重复实现口径**，只消费。
+- **DOM**（`#vt-result` 内，notebook 行之后）：`#vt-reco-line`（推荐/确认/失败文案，`className` 在 `text-muted vt-el` 与 `text-danger vt-el` 间切换——`vt-el` 必须保留，否则 `[hidden]` 兜底失效）＋ `#vt-apply-level` 按钮（`hidden` 默认，递出才显示）。按钮文案 msgid 用 `Apply suggested level`：po 里上游的 `"Apply"` 已被误译为「查询」，撞上即回错词（§2.2 msgid 纪律的再现）。
+- **JS**（`vocab-test.js`）：`renderLevelRecommendation(report)` 在 `renderResult` 里、`renderLast` 之前调用——
+  - 降级：`typeof report.recommendedHardLevel !== 'number'`（旧后端/异常）→ 两节点保持隐藏，`pendingRecoLevel` 清空；
+  - 比较：当前档位取 `#hard-level-select`（`currentHardLevel()`），等于推荐 → 只显示「已匹配」确认、不递按钮（推荐的本意是「建议修改」，无需修改就不打扰）；不同 → 「建议难度等级: {name}」+ 按钮；
+  - 应用：POST `data-level-url`（= 既有 `web.reading_settings_update_hard_level`，**不新开代理路由**），复用 `post()` 的 CSRF 头/自愈与 `codeOf` 的 401 判读；**纳入 epoch 作废纪律**（R125 交叉审查 P1）：发请求前捕获 `mine = epoch`，`.then/.catch` 先复位在途锁再判 `stale(mine)`——迟到响应不得把失败文案写进新一轮结果页、也不得吞掉新一轮推荐的按钮；stale 但业务成功时仍先 `markCurrentLevel`（落库已发生，设置卡反映服务端真值）再跳过浮层改写。成功 → 同步下拉选中值、清各 option 的 `(default)` 后缀、更新 `#rs-current-level` 行、隐藏 `#rs-default-label`（已保存就不是 default），行文案变「难度等级已更新」并隐藏按钮；失败（网络或业务码）→ 行变红可重试。
+- **i18n**：4 个 mbT 词条（`Suggested difficulty level` / `Your current difficulty level already matches this result.` / `Difficulty level updated` / `Apply failed, please try again.`）入种子 + po + `.mo` 重编译；补丁脚本 `docs/temp/scripts/vt_r125_i18n_patch_po.py`（width=76 原子口径）。
+- **测试**：`tests/test_vocab_test_proxy.py` 增 `test_result_view_renders_level_recommendation_surface`（DOM 面 + `data-level-url` + `rs-current-level` 锚点），`REPORT` fixture 补两字段守透传形状；AC 增量见 ac 文档 G 节。

@@ -287,3 +287,22 @@ US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top*
    已用「每会话至多落本一次」限制重复打回，但首次打回是设计内的。定夺理由：测试是**自评校准**场景，
    判「不认识」即视为生词，与阅读页点「不认识」同一口径，不改后端、不产生第二套生词语义。
 2. **`addedToNotebook = 0` 与 `null` 在结果页都静默**（US4 §2.2，2026-10-05 已确认）：后端保留两种语义（0=执行了落本但本会话无生词，null=本次没执行），仅 UI 不区分。
+
+## G. R125 增量：结果页难度推荐（2026-10-06，moon-well R103 联动）
+
+需求：词汇量测试完成后，按测试结果推荐用户修改阅读难度等级（moon-well R103 报告新增 `recommendedHardLevel/Name`，本仓库负责展示与一键应用）。
+
+| # | AC | 验证 | 结果 |
+| --- | --- | --- | --- |
+| G1 | 推荐口径由后端派生（bandOf(est)→hardLevelOfBand，capped→GRE(9)，≤0 钳初中），本仓库不重复实现 | moon-well `VocabTestParamsTest` +3 条（锚点映射/全值域单调/钳位顶格）、`VocabularyTestServiceTest` +1 条与两处断言、`VocabularyTestHttpContractTest` +2 字段 jsonPath；moon-well 全量 677 绿 | ✅ |
+| G2 | 结果页展示「建议难度等级: {name}」；旧后端无该字段时静默不显示（前端先行部署的降级态） | `vocab-test.js` `renderLevelRecommendation`（`typeof recommended !== 'number'` 早退）；视觉验收待部署后真机 | ✅（代码级）/ ⏳（真机） |
+| G3 | 与当前档位一致 → 显示「当前难度等级与该测试结果一致。」且不递按钮 | `renderLevelRecommendation` 的 `currentHardLevel() === recommended` 分支 | ✅（代码级） |
+| G4 | 一键应用调**既有** `/ajax/reading-settings/hard-level` 端点（`data-level-url`，复用 `post()` 的 CSRF/401/CSRF 自愈口径），无新代理路由 | `tests/test_vocab_test_proxy.py::test_result_view_renders_level_recommendation_surface` 断言 `data-level-url`；代理层零改动 | ✅ |
+| G5 | 应用成功后同步档位卡片：下拉选中值、清各 option 的 `(default)` 后缀、「Current level」行、隐藏「default (not saved)」标签；行文案变「难度等级已更新: {name}」 | `markCurrentLevel`（交叉审查 P2 采纳：后缀清理）；`rs-current-level`/`rs-default-label` 锚点入模板断言 | ✅（代码级） |
+| G6 | 应用失败（网络/业务码）行变红「应用失败，请重试。」且按钮可重试；重试成功后颜色复位 | apply handler 的 `code !== 200` 与 `.catch` 分支 | ✅（代码级） |
+| G7 | i18n：4 个 mbT 词条进种子且 zh po/.mo 非空；模板按钮 msgid 用 `Apply suggested level` 避开上游误译的 `Apply`（「查询」） | `test_i18n_seed_contract.py` 全绿；po 补丁 `docs/temp/scripts/vt_r125_i18n_patch_po.py`（width=76）+ `pybabel compile` | ✅ |
+| G8 | 全量回归 | magicbook pytest 336 绿（含 REPORT fixture 新字段透传） | ✅ |
+
+- **交叉审查留痕（2026-10-06，独立 Agent 评审）**：P1（apply 请求纳入 epoch 作废纪律，迟到响应先复位在途锁、stale 但业务成功仍 markCurrentLevel）与 P2（`(default)` 后缀残留）已修；P3#6（设置卡 load_error 态应用成功后卡片仍显示错误横幅，功能不受影响）**接受不改**——设置加载失败时用户本就会被引导先重试加载，浮层内已有成功确认。moon-well 侧评审结论「无保留意见」，其 P3 注释失实两条（null 防护不可达、band<1 防御分支）已一并修正。
+- **端到端待部署后核**：真机完成一次测试 → 推荐行出现 → 应用 → 阅读设置立即生效（G2/G5 的真机证据）。
+- 文档同步：us4 §4 报告形状补两字段；本节即 AC 增量。
