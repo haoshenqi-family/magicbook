@@ -142,13 +142,53 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
       「本服务成功与业务错误都返回 HTTP 200，所以判 `.code` 不判 `$HTTP_STATUS`」）：
       **50301 这一条实际回 HTTP 500**。判 `.code` 的做法仍然正确（LLD §6 就是「HTTP 500 + `Result.code`」），
       但那句注释的「都返回 200」以偏概全——按本轮实测把 50301 归到 500 一侧，别再照抄注释。
-    - **本条没有一并关掉的四条 HTTP 级空白，现在只剩三条**：B3 机器人三型终止形态、
+    - **本条没有一并关掉的四条 HTTP 级空白，当时只剩三条**：B3 机器人三型终止形态、
       B5 `addUnknown=false` 零写入、F1 大小写不敏感打回（B1 的 50301 已在此关掉）。
+      ⇒ 后两条已于 18:17 / 18:32 关掉，四条空白现已全部关闭，见下面 AC-B5 与 AC-B3 各自的 🆕 条目。
       D.1 底账表里那条「需要点头/等待」清单不受影响。
 - AC-B2 answer：顺序推进（请求体必带 `seq`）；重发同一题号回放不重复计数；对**已 finished** 会话的重复提交=幂等回放库存报告（不是错误）；对他人/已作废/已超时会话返回 50302；`seq` 跳到前面返回 **50304**（前端据此重新对齐题号继续答，不丢会话）；`answer∉{0,1}` 拒绝。
   - ⚠️ 差异留痕（2026-10-05，US3 定稿）：原条把「对 finished 会话作答」归入 50302，实现按幂等回放处理（结果页刷新/网络重试要能拿回同一份报告）；50304 是从 50302 里新拆的码。业务错误统一 **HTTP 500 + `Result.code`** 出口，参数域错误才是 HTTP 400 + `code=400`——前端判读看 `code` 不看状态码。
 - AC-B3 状态机路径：机器人三型用户（高/低/中词汇）分别命中 FINISH(CONVERGED)/FINISH(CEILINGED_LOW)/R6 补测形态；任一会话题量 ≤70。
   - ⚠️ 差异留痕（2026-10-05 复核）：实现按**状态机路径穷举**断言（`allAnswerPathsTerminateInsideCap…` 证明所有应答路径题量 <70 且每个非防御性终止原因都可达），**没有**「画像→形态」的一一映射用例；两者等价性靠「路径全覆盖 ⊇ 三型各自走的那条路」成立，故本条判据按实态理解为路径级。题量上限是 `< MAX_QUESTIONS(70)` 而非 `≤70`（触顶即强制止损属防御分支，实测不可达）。
+  - 🆕 **18:32 「三型终止形态」升级为真 HTTP 实测，并把「画像→形态」这层空白真补上了**（第二台本机彩排实例：
+    scratch MySQL `vt-b3-mysql:3397` + `vt-redis2:6382`，代码同走 `/tmp/mw-vt2` 隔离 worktree（`origin/develop`），
+    启动脚本 `moon-well/docs/temp/b3_boot.sh`，造数 `b3_words.sql`；**生产零接触**）。
+    - 造数形态：**band 1–8 × 每档 12 词 = 96 行**（`wt<band>x<nn>`，秩 500/1500/2500/4000/6000/10000/15000/22000 起各 +i，
+      `level_id` 取 `BAND_HARD_LEVEL` 同源值），加载行实测 `word level cache loaded (startup): 96 level words, 96 ranked words, 8 bands in 78 ms`。
+      八档齐全是这条的前提——第一台实例只有 band 3/4 两桶，探不到 band8。
+      ⚠️ 两遍启动纪律照旧：先空库起服务让 Hibernate 建表 → 灌数 → **重启**（缓存无手工重载入口）。
+    - 五个画像 × 真 `Authorization: Bearer` 一次性账号（逐题 HTTP `answer`，`seq` 单调 1..N 全部实测为真）：
+
+      | sid | 画像 | `finishReason` | 题量 | 认识 | 估算 | CI | `capped` | 落本开关 | `addedToNotebook` |
+      | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+      | 1 | 全「认识」 | CONVERGED | 36 | 36 | **25000** | [21500, **25000**] | **1** | true | 执行了但本会话无生词 ⇒ 生词本 0 行 |
+      | 2 | band≤4 认识 / ≥5 不认识 | CONVERGED | 18 | 12 | 5000 | [4000,6000] | 0 | true | 6 |
+      | 3 | 全「不认识」 | **CEILINGED_LOW** | 18 | 0 | 0 | [0,500] | 0 | true | 18 |
+      | 4 | band≤7 认识 / band8 不认识 | **TOPPED_OUT** | 36 | 30 | 18000 | [15000,21000] | 0 | false | **null**（`notebook_added_at` 为 NULL） |
+      | 5 | 全「不认识」（F1 专用账号） | CEILINGED_LOW | 18 | 0 | 0 | [0,500] | 0 | true | 18（见下 AC-B5 的 F1 条） |
+
+      ⇒ AC 原文要的**三型**（CONVERGED / CEILINGED_LOW / R6 补测形态）在 HTTP 上各有实例：每话题量都是
+      **`PROBE_SIZE=6` 的整数倍且每档恰好 6 题**（sid 1/4 跨 band 3–8 共 36 题，sid 2 走 3/4/5，sid 3/5 走 1/2/3），
+      这就是 R6 邻档补测组的实态；`TOPPED_OUT` 的判据逐字对上 `VocabTestPlanner:267-269`
+      （sid 4 的 band8 六题 `known=0` ⇒ `probeRate=0 ≤ TOPPED_OUT_RATE(0.2)`）。
+    - **两处既有口径需要精确化**（本轮按源码 + 实测校正）：
+      ① 上面那句「触顶即强制止损属防御分支，实测不可达」**把两个不同的东西混在一起了**：
+      估计器侧的 `capped=true`（sid 1 真跑出来了：估算钉在 `MAX_RANK=25000`、`ci_high` 同值）**可达**；
+      计划器侧的 `FinishReason.FORCED`（`:240` 唯一产出点）才是不可达防御分支——`VocabTestParams:34` 是
+      `public static final int MAX_QUESTIONS = 70`，无 `@Value`/配置注入口，运行期改不动，
+      所以真实 HTTP 只能由 `VocabTestPlannerTest:378-381` 那条注释说的「人为压低上限」触达（`:398` 是它的断言）。
+      ② `FORCED` 不可达是**结构性结论**（源码 + 四画像最大 36 题），不是「还没测到」；别为它再排期。
+    - 完整性反查（`vocabulary_test_item` 八场会话全表）：`items == COUNT(DISTINCT word)` 逐场成立（**零重复出题**）、
+      `MIN(seq)=1 / MAX(seq)=题量`、`answer IS NULL` 计数 0、题面词带空例句计数 0；
+      `band<>word_band` 计数 **0**——这是**造数决定的**（每桶 12 词 ≫ 单档最多消耗 6 题），
+      不是 R9 未生效；R9 那一半的证据仍在第一台实例（`band<>word_band`=2）与 10-07 04:00+08 之后的生产复查（task #31）。
+    - 🆕 **顺带把 `addedToNotebook` 的「history 恒 null」在 HTTP 上证实**（属既定设计，别当缺陷排障）：
+      同一批账号 `GET /vocabulary/test/history?limit=5` 回的两份报告，`addedToNotebook` **全是 null**——
+      包括当时真的落了 18 词的 sid 5。根因是 `VocabularyTestService:269` 走 `toReport(session)` 单参重载
+      （`:507-508` 写死 `null`），且 moon-well 主 LLD `:219` 早已把「history 列表」列为三种 null 情况之一、
+      HLD `:42` 同口径；前端 `vocab-test.js:424-426` 的判据是 `typeof added === 'number' && added >= 1`，
+      所以 **null 与 0 一样静默**（§F.2 用户已确认）。⇒  practical 后果：**C 段真人验收从历史卡片回看旧会话时，
+      「已加入生词本 (+N)」那一行永远不会出现，即使当时落过词**。这一条要按设计解读，不要提缺陷。
 - AC-B4 finish：报告字段齐全（estimatedSize/ciLow/ciHigh/capped/**bandResults**/addedToNotebook）；重复 finish 幂等回放；提前交卷时**累计答题 <6 题（一个完整探测组）返回 50303**。
   - ⚠️ 差异留痕（2026-10-05，US3 定稿）：原条写「0 题 finish 返回 50303」。后端门槛不是 0 题而是不足 `PROBE_SIZE=6` 题——不足一组时当前 band 通过率无可估样本，给出的区间宽到没有信息量（理由见 moon-well 主 LLD §6 与 us3 设计 §8）。
 - AC-B5 落本：`addUnknown=true` 时不认识词出现在 `vocabulary_notebook`，hard_level 按「教学档位优先、缺档回落 band 映射」（`VocabTestParams.BAND_HARD_LEVEL`）；`false` 时零写入。
@@ -175,8 +215,46 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
     - 附带一条与 US4/R103 有关的新实测：`finish` 响应体里 **`recommendedHardLevel:1` / `recommendedHardLevelName:"初中"`**
       在真 HTTP 上返回（估算 1,000 → band 1 → 初中），即 R103 的后端侧字段路径实测成立；
       magicbook 侧显示与一键应用（R125）仍是代码级 ✅、真机 ⏳。
-  - ⇒ **B 段那四条「HTTP 级未覆盖」现在只剩两条**：B3 机器人三型终止形态、AC-F1 大小写不敏感打回路径
-    （B1 的 50301 与 B5 的 `false` 零写入已在本轮关掉）。
+  - 🆕 **18:32 AC-F1「把既有熟练词打回」的大小写不敏感更新路径升级为真 HTTP 实测**（第二台彩排实例，环境见上面 AC-B3 那条），
+    **并配了反事实对照**——这是本条最硬的部分，光看「行数没变」证明不了唯一索引真的会拦：
+    - 造的前置态：账号 `user_id=4` 的 `vocabulary_notebook` 先塞 **96 行**，`word` 一律**大写**形态（`WT1X03`…），
+      `familiarity=10`(MASTERED)、`hard_level=3`、`study_times=5`、`first_study_time='2026-01-02 03:04:05'`、`last_study_time=NULL`
+      （`b3_notebook_f1.sql`）。会话（sid 5）逐题答「不认识」18 题 ⇒ `finish addUnknownToNotebook=true` ⇒ `addedToNotebook:18`，
+      而 `vocabulary_test_item.word` 落的是**小写** key（题面来自缓存的小写桶，`WordLevelCacheService:101`）。
+    - 落库实测（`user_id=4` 聚合）：`rows_total=96`（**没有新增孪生行**）、`distinct_word=96`、
+      `word=BINARY(word)` 计数 **96** ⇒ 全部**仍是大写形态**（若是「删了重建」会变成小写）、
+      `familiarity=1` 计数 **18** / `familiarity=10` 计数 **78**（只有被答过「不认识」的 18 行被打回）、
+      `hard_level=3` 计数 **96** 与 `study_times=5` 计数 **96**（命中既有行 ⇒ 走 `VocabularyTestService:417-424` 的
+      `notebook != null` 分支，**不重派生档位、不动学习次数**）、`last_study_time IS NOT NULL` 恰 **18**、
+      `first_study_time` 原值保留 **96**。全表 `GROUP BY user_id, LOWER(word) HAVING COUNT(*)>1` → **空**。
+    - **反事实对照（证明「修前必回 500」不是口头推理）**：手工发一条小写 INSERT
+      `INSERT INTO vocabulary_notebook (user_id, word, …) VALUES (4,'wt1x03',…)` ⇒
+      **`ERROR 1062 (23000) Duplicate entry '4-wt1x03' for key 'vocabulary_notebook.idx_user_id_word'`**。
+      索引元数据同场核对：`SHOW INDEX` 里 `idx_user_id_word` 的 `Non_unique=0`（**名字像普通索引、实际是唯一索引**），
+      列排序规则 `utf8mb4_0900_ai_ci`（大小写不敏感）⇒ 修复前那版拿原形大小写查表、再插小写，确实会撞唯一键把 `finish` 打成 500；
+      修复后同一场景 HTTP 200 + 上面那组「只 UPDATE 不 INSERT」的计数。
+      ⚠️ 顺带一条对表名的更正价值：本文此前只说过「`(user_id, word)` 大小写不敏感唯一索引」，现在有了**索引实名**
+      （`idx_user_id_word`）与 `Non_unique=0` 的取证姿势，下次别再靠猜约束是否存在。
+  - 🆕 **18:32 同场补一个「D5 档位派生」两个分支的差分实测**（这条原本只有单测 `#notebookHardLevelPrefersTeachingLevelThenBandMapping`）：
+    把 band 3 的 12 词中途分三组改写词表（**不需要重启**——`teachingLevelsOf` 走 `magicbookWordLevelRepository.findByWordIn`
+    现读 DB，`VocabularyTestService:437`，与缓存无关），再开三个新账号各跑一场全「不认识」会话（sid 6/7/8，各落 18 词）：
+
+    | 组 | `magicbook_word_level.level_id` | 该组词落本后 `hard_level` | 归因 |
+    | --- | --- | --- | --- |
+    | `wt3x01/03/05` | **9** | **9** | 教学档位分支（回落会给 2 ⇒ 可区分） |
+    | `wt3x02/04/06` | **NULL** | **2** | **band→档位 fallback 分支**（`BAND_HARD_LEVEL[2]=2`） |
+    | `wt3x07/08/09` | **10**（`FREQ_ONLY` 哨兵） | **2** | 哨兵被 `teachingLevelsOf` 跳过 ⇒ 同样回落 |
+    | `wt3x10/11/12` | 2（未改，对照组） | 2 | **构造同值，不可归因，不作证据** |
+
+    ⇒ 「纯频率词（无教学档位）也能出题、并且落本时拿到 band 派生档位」这条链路第一次有 HTTP 级实例；
+    同时**实测否掉一个直觉**：`level_id=NULL` 的词**照旧可出题**（分桶只看 `freq_rank` + 例句，`WordLevelCacheService:95-103`），
+    被排除的只是**判档视图**——不要把「NULL 不入判档」读成「NULL 不入词桶」。
+    ⚠️ 边界要说死：这是**本机造数**的 HTTP 证据，**不是生产实证**，task #30 仍开着（生产那一半要写生产库，需点头）；
+    它与 sid 4 的 `capped`、第一台实例的 R9 降级是三件不同的事，证据不可互用。
+  - ⇒ **B 段那四条「HTTP 级未覆盖」现已全部关掉**：B1 的 50301（18:15）、B5 的 `false` 零写入（18:17）、
+    B3 的三型终止形态与 F1 的大小写不敏感打回（18:32）。
+    **但「关掉」的含义要按级别读**：全部是**本机一次性彩排实例 + 造数**，生产侧的对应样本另计（D 段）；
+    `FORCED` 那格属结构性不可达，不列入待办。
   - ⚠️ 差异留痕（2026-10-05，US3 交付后按源码校正，原条两处失实）：
     1. 映射方向按 `HardLevel` **枚举码序单调排**：band1–2→初中(1)、band3→高中(2)、band4→CET4(3)、band5→CET6(4)、**band6→托福(6)、band7→雅思(8)**、band8→GRE(9)。早期 D5 文案的「6→雅思、7→托福」是反的——生词判定按「词的档位 > 用户阈值」做数值比较，照文案映射会让 band7 的词比 band6 更容易被判「已掌握」，档位与频段单调性相反。
     2. 原条「已存在词不覆盖 familiarity」**与实现不符**：落本口径与 `VocabularyService.unknown` 一致（存在即把 `familiarity` 置 `UNKNOWN`、刷新 `last_study_time`）。也就是说测试里点「不认识」会把此前标过熟练的词打回生词本。防重复打回靠**每会话至多落本一次**（`notebook_added_at` 令牌，重复 finish 只回放报告不再写本）；这条语义需用户复核确认（见文末「待复核」）。
@@ -187,16 +265,19 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
 
 > 复核方式：把每条 B 项落到**具体测试方法**上（逐个打开方法体确认断言的就是 AC 写的那个码值/行为），
 > 并按项目纪律用 corretto-21.0.9 + `-Djava.version=21` 重跑 `mvn clean test`。
-> ⚠️ **证据级别统一说明**：B 段全部是「单测 + 真库彩排」级，**没有一条是 HTTP 端到端**——
+> ⚠️ **证据级别统一说明**（2026-10-05 写下时成立，**现已被下面两条推翻**，保留只为留痕）：B 段全部是「单测 + 真库彩排」级，**没有一条是 HTTP 端到端**——
 > 四端点的真实调用要等后端部署后跑 `tests/modules/15-vocab-test.sh`（该脚本从未执行过）。
+> ⇒ 实况更新：该脚本 2026-10-05 13:17 在彩排实例首跑 33/33、2026-10-06 03:22Z 打生产 33/33；
+> 18:15/18:17/18:32 三轮本机实例又把 B1 的 50301、B5 的 `false` 零写入、B3 的三型终止、F1 的大小写打回
+> 四条从「仅单测」升到 HTTP 级。下表「HTTP 级」一列以这三条 🆕 条目为准。
 
 | 条目 | 结论 | 证据（测试方法名） |
 | --- | --- | --- |
-| AC-B1 start | ✅ 单测级 / ⛔ HTTP 级待部署 | 首题+sessionId：`VocabularyTestControllerTest#startUsesContextUserIdAndWrapsServicePayload`、`VocabularyTestHttpContractTest#startMapsPathAndWrapsFirstQuestionInResultEnvelope`；二次 start 抢占→旧会话 abandoned：`VocabularyTestServiceTest#startAbandonsPreviousActiveSessionAndReturnsFirstQuestion`；缓存降级 50301：`#startIsRefusedWhenWordTableNotReady`（`testReady()=false`）+ `#startFailsWhenSamplingPoolIsEmpty`（桶池为空，同一码值两条路径） |
+| AC-B1 start | ✅ 单测级 + ✅ **HTTP 级 50301（18:15 本机造数实例）** | 首题+sessionId：`VocabularyTestControllerTest#startUsesContextUserIdAndWrapsServicePayload`、`VocabularyTestHttpContractTest#startMapsPathAndWrapsFirstQuestionInResultEnvelope`；二次 start 抢占→旧会话 abandoned：`VocabularyTestServiceTest#startAbandonsPreviousActiveSessionAndReturnsFirstQuestion`；缓存降级 50301：`#startIsRefusedWhenWordTableNotReady`（`testReady()=false`）+ `#startFailsWhenSamplingPoolIsEmpty`（桶池为空，同一码值两条路径） |
 | AC-B2 answer | ✅ 单测级全覆盖 | 顺序推进与重发回放不重复计数 `#retriedAnswerReplaysSameNextQuestionWithoutDoubleRecording`；**对 finished 会话重复提交=幂等回放** `#answerOnFinishedSessionReplaysStoredReport`；他人/超时/作废 50302 `#answerOnSomeoneElsesSessionIsRejected`、`#answerAfterTimeoutIsRejectedAndLeftForLazyMarking`、`#finishOnAbandonedSessionIsRejected`；跳题 50304 `#answerWithFutureSeqIsRejected`（断言码值 + 文案含「第 1 题」+ **item 表零写入**）；`answer∉{0,1}` `#answerWithIllegalValueIsRejected` + `VocabularyTestControllerTest#answerRequestRequiresSessionSeqAndBinaryAnswer` + `VocabularyTestHttpContractTest#invalidAnswerValueIsRejectedByValidationBeforeTheServiceRuns` |
-| AC-B3 状态机路径 | ✅（但断言维度与原文不同，见备注） | 路径穷举 `VocabTestPlannerTest#allAnswerPathsTerminateInsideCapAndCoverEveryNonDefensiveReason`（所有应答路径最大题量 **< `MAX_QUESTIONS`=70**，且每个非防御性 `FinishReason` 都可达）；CEILINGED_LOW `#threeConsecutiveAllUnknownProbesStopLow`；R6 邻档补测→CONVERGED `#boundaryMiddleRateProbesAdjacentBandsThenConverges`；band8 封顶 `#band8LowProbeTopsOut`；机器人精度与预算 `VocabTestRobotSimulationTest` 三用例（中位误差 <1.5 档宽、低词汇不会被报成高词汇、随机人群不爆题量）；真库彩排 28/22 题收敛（主 LLD §9）。**备注**：AC 原文按「三型用户画像分别命中三种终止形态」表述，实现是按**状态机路径**穷举的，画像→形态没有专门映射用例；判据等价性成立（路径全覆盖 ⊇ 三型可达），表述已按实态校正 |
+| AC-B3 状态机路径 | ✅ 单测级 + ✅ **HTTP 级（18:32 本机造数实例）** | 路径穷举 `VocabTestPlannerTest#allAnswerPathsTerminateInsideCapAndCoverEveryNonDefensiveReason`（所有应答路径最大题量 **< `MAX_QUESTIONS`=70**，且每个非防御性 `FinishReason` 都可达）；CEILINGED_LOW `#threeConsecutiveAllUnknownProbesStopLow`；R6 邻档补测→CONVERGED `#boundaryMiddleRateProbesAdjacentBandsThenConverges`；band8 封顶 `#band8LowProbeTopsOut`；机器人精度与预算 `VocabTestRobotSimulationTest` 三用例（中位误差 <1.5 档宽、低词汇不会被报成高词汇、随机人群不爆题量）；真库彩排 28/22 题收敛（主 LLD §9）。**HTTP 级**：96 词八档造数 + 五画像真 HTTP 会话，CONVERGED / CEILINGED_LOW / TOPPED_OUT 各有实例、每档恰 6 题、`capped=1` 亦实测（详见上面 AC-B3 的 🆕 条目）。**备注**：AC 原文按「三型用户画像分别命中三种终止形态」表述，实现是按**状态机路径**穷举的，画像→形态没有专门映射用例；判据等价性成立（路径全覆盖 ⊇ 三型可达），表述已按实态校正；18:32 那五个画像把「画像→形态」这层补成了实测 |
 | AC-B4 finish | ✅ 单测级 | 字段齐全 `VocabularyTestHttpContractTest#reportDistinguishesNotebookWriteCountFromAbsent` + `VocabularyTestControllerTest#finishCarriesNotebookSwitchAndReportCount`；重复 finish 幂等回放同 B2；**不足 6 题 50303** `VocabularyTestServiceTest#finishBeforeEnoughAnswersIsRejected`（并断言会话仍为 ACTIVE，不作废）；≥6 题提前交卷走部分应答估算 `#earlySubmitEstimatesFromPartialAnswersWithNullReason` |
-| AC-B5 落本 | ✅ 单测级 | 档位「教学优先、缺档回落 band 映射」`#notebookHardLevelPrefersTeachingLevelThenBandMapping`；大小写不敏感 upsert（撞唯一索引那条缺陷）`#notebookMatchingIsCaseInsensitiveSoExistingRowIsUpdatedNotReinserted`；开关时序 `#notebookSwitchOffDelaysTheWriteAndTurningItOnLaterStillLandsOnce`、D5 缺陷回归 `#naturallyTerminatedSessionStillLandsUnknownWordsOnTheResultPageSubmit`、提前交卷落本 `#unknownWordsFromAnEarlySubmitFinishLandInTheNotebook`。「打回生词本」语义已按 §F1 定稿**维持现状** |
+| AC-B5 落本 | ✅ 单测级 + ✅ **HTTP 级（18:17 开关零写入 / 18:32 F1 大小写打回 + D5 两分支差分，均本机造数）** | 档位「教学优先、缺档回落 band 映射」`#notebookHardLevelPrefersTeachingLevelThenBandMapping`；大小写不敏感 upsert（撞唯一索引那条缺陷）`#notebookMatchingIsCaseInsensitiveSoExistingRowIsUpdatedNotReinserted`；开关时序 `#notebookSwitchOffDelaysTheWriteAndTurningItOnLaterStillLandsOnce`、D5 缺陷回归 `#naturallyTerminatedSessionStillLandsUnknownWordsOnTheResultPageSubmit`、提前交卷落本 `#unknownWordsFromAnEarlySubmitFinishLandInTheNotebook`。「打回生词本」语义已按 §F1 定稿**维持现状** |
 | AC-B6 history | ✅ 单测级 | `#historyListsFinishedSessionsAndLazyAbandonsStaleActives`；超时口径按**最近作答时间**而非开考时间 `#historyKeepsLongRunningSessionThatAnsweredRecently`；≤N 与默认值 `#historyHonoursLimitAndDefaults`；HTTP 层 `?limit=` 绑定 `VocabularyTestHttpContractTest#historyBindsTheLimitQueryParamAndPassesNullWhenAbsent` |
 | AC-B7 全量单测 | ✅ **2026-10-05 重跑** | `JAVA_HOME=corretto-21.0.9`、`mvn clean test -Djava.version=21` → **657 tests / 0 failures / 0 errors / 0 skipped**（73 个测试类）；`ReadingVocabularyServiceTest`、`WordLevelCacheServiceTest` 既有用例无回归 |
 
@@ -248,9 +329,10 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
     - **清理已执行并验证残留 0**：按 `user_id` 逐表删（`item 6 → session 2 → notebook 1 → app_user 1`），
       删后 `vocabulary_test_session` / `vocabulary_test_item` **全表计数归零** → 反证本特性是这两张表的唯一写入者。
       `vocabulary_notebook` 与阅读页共用，只删该 uid 那一行。
-    - ⚠️ 上面「HTTP 级仍未覆盖」四条**一条都没因这次生产运行而减少**；其中 AC-B1 的 50301 分支现在
-      **永久无法在 HTTP 级构造**（生产缓存已就绪，再造出「词表未就绪」只能删生产数据）→ 该条判定按
-      「单测级即为终态验收」归档，不要再排期。
+    - ⚠️ 上面「HTTP 级仍未覆盖」四条**一条都没因这次生产运行而减少**；其中 AC-B1 的 50301 分支**在生产上**
+      永久无法构造（生产缓存已就绪，再造出「词表未就绪」只能删生产数据）→ 该条判定的**生产侧**按
+      「单测级即为终态验收」归档，不要再排期；**HTTP 级本身已在 18:15 由本机 scratch 实例关掉**
+      （造 US1 中间态「有档位、无秩」的词表即可，见上面 AC-B1 的 🆕 条目，方法可复用）。
 
 ## C. magicbook 前端（US4）
 
@@ -509,11 +591,14 @@ B 段 B1/B2/B4/B5/B6/B7 的本机与彩排证据部分、C1/C7/C8、**D1（两�
 | 需要真人 OIDC 登录 + 浏览器 | AC-C2 完整答题流、C3 键盘/IME、C4 断网重试、C5 Exit 重进、C6 勾选态零落本、**AC-D2「量级相符」那句要用户自己点头**（库里那条 id=3 会话归属未证） | 仅用户本人（本机拿不到 `moonwell_access_token`，且无身份探针会造影子账号） |
 | 需要等时间 | AC-D4 观察窗收口 **2026-10-07 09:26Z**；`:292` 陈旧桶窗口在 **2026-10-07 04:00(+08)** 日更后必然关闭（顺带可能被动取得 R9 降级样本） | 到点只读复查即可 |
 | 需要单独点头的写生产/上线动作 | push 底账**不在本文写死数字**（写死即自指失效：本文每提交一笔，计数就少一）——执行前实测：`git rev-list --count @{u}..HEAD` + `git log --oneline @{u}..HEAD` 逐笔判类（docs / 运行代码）。18:10 那一刻的实况：magicbook 未 push 的里有并行会话 `7bb1853a` **R125 运行代码**，其余为本 AC 的 docs 笔；moon-well 两笔**全是 docs**。⚠️ 推 magicbook 会连带把 R125 上线（两仓库都走 fnOS webhook-builder，push = 重建部署） | 用户点头后逐仓库确认 |
-| 已知瑕疵 / 分支空白（可选代码笔） | #29 题面小写折叠（233 个专名以小写上屏）、#29 撇号放宽（可回收 11 词）、#30 **band→档位 fallback** 无生产实证（注意与 `:292`/R9 就近降级是两个分支，证据不可互用）、#28 moon-well 双构建链一次 push bounce 两次（非本特性） | 用户定夺要不要做 |
+| 已知瑕疵 / 分支空白（可选代码笔） | #29 题面小写折叠（233 个专名以小写上屏）、#29 撇号放宽（可回收 11 词）、#30 **band→档位 fallback** 无**生产**实证（18:32 已拿到本机造数的 HTTP 级三组差分：教学 9→9 / NULL→2 / 哨兵 10→2，见 AC-B5 的 🆕 条目；生产那一半要写生产库，仍需点头。注意与 `:292`/R9 就近降级是两个分支，证据不可互用）、#28 moon-well 双构建链一次 push bounce 两次（非本特性） | 用户定夺要不要做 |
 
-B 段那四条「HTTP 级未覆盖」**已被 18:1x 两轮本机彩排实例减到两条**（B1 的 50301、B5 的 `addUnknownToNotebook=false`
-零写入 + 差分对照，见上面 B 段各自的新条目），**剩两条**：B3 机器人三型终止形态、F1 大小写不敏感打回路径。
+B 段那四条「HTTP 级未覆盖」**已于 18:15 / 18:17 / 18:32 三轮本机彩排实例全部关掉**
+（B1 的 50301、B5 的 `addUnknownToNotebook=false` 零写入 + 差分对照、B3 的三型终止形态、F1 的大小写不敏感打回 + D5 两分支差分，
+见上面 B 段各自的 🆕 条目）。**级别要说死**：这四条的证据级别是「本机一次性容器 + 造数 + 真 HTTP」，
+不是生产；`FinishReason.FORCED` 属结构性不可达（`MAX_QUESTIONS` 是 `static final`，无配置注入口），不排期。
 本地夹具演练（D1）不冲抵它们——夹具测的是前端消费侧，50301 那格是前端读码值。
+⇒ **技术上已无待办的验证项**：剩下的全部落在上面那张「四类」表里（真人登录、等时间、点头 push、可选代码笔）。
 
 ## E. 完成定义
 
