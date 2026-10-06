@@ -26,7 +26,7 @@
 | 条目 | 结论 | 佐证（2026-10-05 实测） |
 | --- | --- | --- |
 | AC-A1 | ✅ 通过（区间判据已按实态修订，见上「差异留痕」） | `total=31668`、`ranked=25000`、`sentinel(level_id=10)=13323`、`exam_rows(level_id 0-9)=18345`（原行零删改）、`exam∩rank=11677`、`未入秩长尾=6668`、`MIN/MAX/DISTINCT(freq_rank)=1/25000/25000`（无空洞无重复）、`source_book='FrequencyWords_top25k'` 恰 13,323 行 |
-| AC-A2 | ⏳ **未达门槛，但达标路径已演练通过——只剩人工判读 + `--apply` 点头** | **⚠️ 2026-10-06 17:02 更新（本行原文按当日 01:21 的生产实态写，保留作过程留痕）**：LLM 补漏**生成侧已跑完**——1,003 缺口先由 Tatoeba 免费重绑收回 **227** 词（生产只读复测：有例句 `24,224/25,000 = 96.90%`，非秩行带例句仍 0，秩 1..25,000 无空洞），剩 776 词走 `/llm/task` A 路（fnOS 常驻执行器 + zhipu/glm-5.3-flash，**不走 `NEW_API_KEY`、本机零凭据**）**39 批全部 COMPLETED → 762 句合格 / 14 拒**。`--apply` 已在生产同形态副本端到端演练：写 762 → **`24,986/25,000 = 99.94%` 过 ≥99% 闸**、幂等重跑 delta 0。执行与取证全文在 moon-well `design/us1-llm-gapfill-via-llm-task.md` §12/§13，命令与两道人工闸在 moon-well `release/release-checklist.md` §3.3 (d)。**原行文字**：秩词例句 `23,997/25,000 = 95.99%`（门槛 ≥99%）；缺口精确 1,003 词（4.01%，低于 5% 复核闸口）= `raw/llm-gap-words.txt`，需 `NEW_API_KEY` 跑 `us1_sentences_llm.py --apply`（先出抽检件、人工 ≥5% 通过再写库）。30 条例句抽检已脚本化：`moon-well .../sql/us1_audit_sample.py`（只读、分层取样、重跑同一份样本）产出底账 `raw/us1-audit-30.md`，机械层已代跑完（返工后 **30/30**；返工前 29/30，红的那条正是误绑的 `refuge`），人工只剩「通顺/义项」一栏。**跨版本可比性**：取样盐键没变，但秩集换了 353 词，样本随之重排，返工前那 30 条的人工结论不可累积到本版。**跨库可比性已证（2026-10-06）**：生产 23,997 条 `(freq_rank, example_sentence)` 按秩拼接的 MD5 与彩排库**完全相同**（`6aaccd21091f35f30f7539c5f1ca5cae`）⇒ 抽检所对的那批例句就是生产在用的那批，人工结论可直接累积。**抽检口径本轮已升级**：≥5% 均匀抽 40 条对「短词/专名/元语言」这类分层风险是**结构性盲区**（那 40 条检不出），改为分层红旗件判读 `raw/llm-sentence-audit-suspects.md`（并集 105/762 = 13.8%，全读；建议剔 5 条后写 757 条仍 `24,981/25,000 = 99.92%` 达标） |
+| AC-A2 | ✅ **通过（生产终态实测 2026-10-06 17:28：`24,981/25,000 = 99.92%` ≥ 99%；后半判据换了口径——见本行末**） | **终局（同一条只读通道直算，17:28）**：`--apply` 已在生产执行完毕——762 句写入 → `24,986/25,000 = 99.94%`；3 条错义句（`AD`/`AIDS`/`I`）置 NULL 后以独立 manifest 重出 1 批（taskId 117382）3/3 合格写库，覆盖净不变；再采纳分层判读的「5 条不入库」（`ora`/`mou`/`nom`/`nss`/`def`）置 NULL ⇒ **终态 `24,981/25,000 = 99.924%`**，`no_sent` 恰 19 = 校验层拒 14 + 主动剔 5，`orphan_sent_on_nonranked` 仍 **0**，秩 1..25,000 无空洞。**过程留痕（17:02 那次只读复测）**：LLM 补漏**生成侧已跑完**——1,003 缺口先由 Tatoeba 免费重绑收回 **227** 词（生产只读复测：有例句 `24,224/25,000 = 96.90%`，非秩行带例句仍 0，秩 1..25,000 无空洞），剩 776 词走 `/llm/task` A 路（fnOS 常驻执行器 + zhipu/glm-5.3-flash，**不走 `NEW_API_KEY`、本机零凭据**）**39 批全部 COMPLETED → 762 句合格 / 14 拒**。`--apply` 已在生产同形态副本端到端演练：写 762 → **`24,986/25,000 = 99.94%` 过 ≥99% 闸**、幂等重跑 delta 0。执行与取证全文在 moon-well `design/us1-llm-gapfill-via-llm-task.md` §12/§13，命令与两道人工闸在 moon-well `release/release-checklist.md` §3.3 (d)。**原行文字**：秩词例句 `23,997/25,000 = 95.99%`（门槛 ≥99%）；缺口精确 1,003 词（4.01%，低于 5% 复核闸口）= `raw/llm-gap-words.txt`，需 `NEW_API_KEY` 跑 `us1_sentences_llm.py --apply`（先出抽检件、人工 ≥5% 通过再写库）。30 条例句抽检已脚本化：`moon-well .../sql/us1_audit_sample.py`（只读、分层取样、重跑同一份样本）产出底账 `raw/us1-audit-30.md`，机械层已代跑完（返工后 **30/30**；返工前 29/30，红的那条正是误绑的 `refuge`），人工只剩「通顺/义项」一栏。**跨版本可比性**：取样盐键没变，但秩集换了 353 词，样本随之重排，返工前那 30 条的人工结论不可累积到本版。**跨库可比性已证（2026-10-06）**：生产 23,997 条 `(freq_rank, example_sentence)` 按秩拼接的 MD5 与彩排库**完全相同**（`6aaccd21091f35f30f7539c5f1ca5cae`）⇒ 抽检所对的那批例句就是生产在用的那批，人工结论可直接累积。**抽检口径本轮已升级**：≥5% 均匀抽 40 条对「短词/专名/元语言」这类分层风险是**结构性盲区**（那 40 条检不出），改为分层红旗件判读 `raw/llm-sentence-audit-suspects.md`（并集 105/762 = 13.8%，全读；建议剔 5 条后写 757 条仍 `24,981/25,000 = 99.92%` 达标）。**后半判据归档口径**：原句「抽样 30 条人工核对通顺且含目标词 ≥ 28/30」已被**分层判读取代**（覆盖面 13.8% > 5%，且正对均匀抽样的结构性盲区）——机械层 30 条 30/30、`+es` 差集恒 0，人工那一栏落在 105 条红旗件上并经用户 17:2x「1 批准」点头收口（moon-well §12.6）；**没有单独再签一份 30 条的人工表**，归档按「替代口径」记，勿写成原判据逐条签字。 |
 | AC-A3 | ✅ 通过 | us1-report **§11**（生产口径；§10 为彩排口径）八档锚点表 + 显式决策「偏移未超半档宽，band 区间与锚点文案**不修订**」；考研档样本 130（返工前 119），仍维持原锚点。⚠️ **锚点的 level 标签必须按生产读**：生产是 1/2/3/4/5/**6(托福 2,215,中位 15,171)**/**8(雅思 483,14,932)**/**9(GRE 1,805,17,162)**，彩排库把同一批词标成 7/6/8——`(n, median)` 元组集两边相同、仅标签位移，所以用彩排标签描述「level 1→8」在的生产语境下是失实的 |
 | AC-A4 | ✅ 通过 | us1-report §3 记 3 轮全量重跑终态一致；本次复核补一条硬约束证据：`freq_rank IS NULL AND example_sentence IS NOT NULL` 行数 **= 0**（跌出秩集的脏例句已统一清空），且两个例句脚本的写库语句都带 `AND example_sentence IS NULL` → 人工修正不被覆盖。**返工新增前置纪律**：改词形规则后必须**先整列清空 `example_sentence` 再重跑** `us1_sentences.py`，否则 `IS NULL` 守卫会把旧误绑例句原样留在库里——「幂等」不等于「规则变更后自愈」（本轮整列清空后重跑，例句数才从返工前的 23,985 变成终态 23,997） |
 
@@ -44,6 +44,14 @@
 （合计 24,224；227 重绑把 band 1 补满到 1,000，最小桶变成 band 2 的 999），后续 `--apply` 只会让桶继续变大，
 所以「最小桶 ≫ 单档最多消耗 10 题」
 这条不阻塞出题的结论始终成立（逐 band 残余缺口实测：band 8 从 505 词 7.21% 降到 7 词 0.10%，见 moon-well §13.5）。
+**终态直算（2026-10-06 17:26–17:28，补漏写库 + 5 条不入库之后，同一只读通道）**：
+`band1..8 = 1000 / 1000 / 1000 / 2000 / 2998 / 3999 / 5995 / 6989`，合计 **24,981**（与覆盖率对账一致），
+**最小桶 1,000**（band 1–3 已装满，band 5 起才有余量）——17:12 那组 999 的短板已被补满，
+「单档最多消耗 10 题」的裕度从 99 倍升到 100 倍，逐档覆盖率 band 1–4 已 **100.00%**、最低 band 8 也 99.84%。
+剩余 19 个无句词的档位分布（直算）：band 5 两个（`sakes`/`wah`）、band 6 一个（`chet`）、
+band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、band 8 十一个
+（`berk`/`nom`/`positioning`/`ora`/`mortem`/`mou`/`nss`/`veneration`/`annals`/`muss`/`contrition`）
+⇒ **缺口全部压在长尾档**（band 5–8），band 1–4 满桶，对出题与估算无影响。
 执行细节、备份（`~/vt-backup/magicbook_word_level-prod-20261006.sql.gz` 727,463 B，已回灌验证）与
 「先预演再动手」的做法见 moon-well 发布清单 **§3.3**。三条必须记住的生产实况：
 
@@ -247,7 +255,7 @@ US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top*
 | 条目 | 结论 | 佐证 |
 | --- | --- | --- |
 | AC-C1 | ✅ 本机通过 | `tests/test_vocab_test_proxy.py::test_page_renders_card_with_single_upstream_call`（首屏只拉 settings，卡片渲染）、`::test_card_survives_settings_load_failure`（settings 失败时走 `load_error`，`id="vt-root"` 仍在）、截图 `docs/temp/vt_us4_shots/vt_us4_fixture__idle.png` |
-| AC-C2 完整答题流 | ⛔ **本机未验证** | 需后端在线（边界见上）。代码路径已按 US3 契约逐字段核对，夹具用同形状假响应拍到 asking/result 两态 |
+| AC-C2 完整答题流 | ⛔ **本机未验证**（UI 侧仍需真人过眼） | 代码路径已按 US3 契约逐字段核对，夹具用同形状假响应拍到 asking/result 两态。**17:2x 更新**：后端半边已由生产真实会话 id=3 背书（22 题全程落库、`CONVERGED`、估算与 `band_result` 自洽、落本去重成立，见 §D「AC-D2」）；未升级的部分是纯 UI 判据——「屏上无任何中文释义」「结果视图四件套」「Done 回卡片显示 Last result」必须用眼睛确认，DB 证不了 |
 | AC-C3 键盘 + IME | ⛔ **本机未验证**（IME 需真人中文输入法） | 键位与 `isComposing`/`keyCode 229` 判定已实现（`vocab-test.js`），夹具拍到键盘不参与的点击路径 |
 | AC-C4 断网重试 | ⛔ **本机未验证**（真拔线） | 错误分支用 fetch 桩拍到：`vt_us4_fixture__error.png` / `..._blur__error.png`（词头保留、红色重试行、进度不清零） |
 | AC-C5 Exit / 重进 | ⛔ **本机未验证** | Exit 走 `modal('hide')` + 状态机复位 `idle`，需真实会话才能验「旧会话 abandoned 不阻塞」 |
@@ -269,6 +277,35 @@ US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top*
     `app-log-magicbook` 与 `app-log-moon-well` 的 `ERROR` 命中数**均为 0**。
     「新前端对旧后端静默降级」**未演练**（后端始终比前端新，构造不出该组合），仍按本机单测口径归档，勿记为通过。
 - AC-D2 真实用户完整测试一次（browser-use + 用户登录，按项目数据访问纪律），结果数值与人工预期「量级相符」共识判定。
+  - **生产已存在一条完整真实会话（2026-10-06 17:2x 只读直查，本特性后端全链路首次在线上跑通并留下自洽数据）**：
+    `vocabulary_test_session` **id=3 / user_id=1**，`15:54:22 → 15:56:23`（本地，+08:00），
+    22 题 / 认识 17 / `estimated_size=4033` / CI `[3033, 5033]` / `capped=0` / `finish_reason=CONVERGED` /
+    `add_unknown=1` / `notebook_added_at` 非空。id 1、2 是 §C 段彩排后按 `user_id` 逐表清理掉的测试数据
+    （`AUTO_INCREMENT=4` 与此吻合），**这条是新数据**。
+    - **估算自洽**：`band_result` 四行 `1000 + 1000 + 700 + 1333 = 4033`——band 1 未出题按满档计入、
+      band 2 六题全知、band 3 十题七知（0.7）、band 4 六题四知，与 `VocabTestEstimator` 的加权口径逐项对上。
+    - **档位映射在真实数据上零错位**：22 个题面词的 `freq_rank` 全部落在其出题 band 的区间内
+      （band 2 = 1,016–1,924、band 3 = 2,240–2,920、band 4 = 3,447–4,827），且
+      `band <> word_band`（R9 就近降级）的条目 **0**——`BAND_UPPER` 与桶构建过滤在生产上成立。
+    - **落本（US3）线上成立**：5 个「不认识」词 `cab`/`conference`/`gather`/`trauma`/`mansion`
+      在 `vocabulary_notebook` 各占一行、`last_study_time` 全为 `15:56:23`；其中 `trauma`/`mansion`
+      的 `first_study_time` 同为该刻（新词），另三个只有 `last_study_time` 被推进（此前已在生词本 ⇒ **去重生效**）。
+      该用户生词本总量 4,113 行，而这五个词各**只有一行**（未重复插入）；至于是净增 2 还是净增 5，
+      仅凭 `first_study_time`/`last_study_time` 两列断不了（三行的 `first_study_time` 本就是 NULL），不记为结论。⇒ 「每会话至多落一次 + 去重」由数据而非单测背书。
+    - ⚠️ **归属未证 / 人工判据仍缺**：从库里看不出这条会话是本人还是另一会话经 browser 驱动的，
+      所以 AC-D2 的「量级相符」**要用户自己点头**才算打钩；本条只钉住「后端全链路已在生产跑通」这半边。
+    - 🆕 **读库顺带抓到一条显示保真缺陷（新特性外，非阻塞）**：词桶存的是**小写折叠键**
+      （`WordLevelCacheService:101` `.add(key)`，key = `word.toLowerCase(ROOT)`），
+      而生产 25,000 秩词里有 **233 个首字母大写词全部在桶内**（`ranked_capitalized_in_buckets=233`），
+      会以小写上屏。**证据就是这条会话的第 12 题**：库里词形 `Katherine`（rank 4,786），
+      `vocabulary_test_item.word` 落的是 `katherine`。两类可能的危害已实测排除——秩集内
+      `LOWER(word)` **零碰撞**（`bucket_keys_dup=0` / `rankmap_keys_collide=0`）⇒ 不重复出题、不串秩；
+      剩下的是语义保真：band 1 的 `I`(2)/`OK`(206)/`Jesus`(635)/`TV`(748)/`Christmas`(766)/`America`(888)/
+      `English`(942)/`French`(965) 会以 `i`/`ok`/`jesus`/`tv`… 出题（失真面 233/25,000 ≈ 0.93%）。
+      反向收益：它让 moon-well §12.5 对 `AD`/`AIDS`「仍是小写常见义」的 🟡 判读**变成自洽**——
+      题面既然显示 `ad`/`aids`，配「广告／帮助」义例句正是该词形的真实高频义。
+      修法（桶内并存原形词：出题与落本用原形、查秩仍走小写键）属代码笔，**等点头**；不修就按「已知瑕疵」归档。
+
 - AC-D3 阅读页划词/生词判定、难度档位保存回归无恙（重点：词表新增 13,323 条 `level_id=10` 哨兵行后判档行为不变——原文写「level-NULL」，与定稿的枚举哨兵方案不符，已校正；行数 2026-10-05 由返工前 13,409 校正为终态 13,323）。
 - AC-D4 ES `app-log-moon-well` 无本功能新增 ERROR（发版后观察 ≥1 天）。
   - **观察窗重算（2026-10-06 03:40）**：本特性 push 后生产 moon-well 被**重启两次**
@@ -280,6 +317,20 @@ US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top*
     的竞态里（第一次启动被第二次重启打断）；第二次启动后未复现。⇒ 记为**发版链并存的副作用**，
     不计入本特性的新增 ERROR，但值得单独议题：moon-well 同时挂着 GHA 与 fnOS webhook-builder，
     **一次 push 会让线上 bounce 两次**（magicbook 只有后者，GHA 已 `disabled_manually`）。
+  - **观察窗再顺延（2026-10-06 17:2x 实测）**：今日 `app-log-moon-well` 里 `Started MagicbookApplication`
+    共三次成功启动——`07:11:26Z` / `07:14:26Z`（双构建链对同一次 push 各部署一次）/ **`09:25:55Z`**
+    （§12.6 记的那次 push，夹带 R103 feat）。按「以最后一次重启为准」的既有口径，
+    **满 1 天的时刻变成 2026-10-07 09:26Z**（原记 03:36Z 作废）。
+    窗口内计数（`02:41Z` 起，`size=0` 只取 hits.total，日志正文不入对话）：
+    `app-log-moon-well` 的 `ERROR` 命中 **9 条**，其中含子串 `ocabulary` 的 **0 条**；
+    按异常名提取只出现 `InterruptedException`（启动被第二次部署打断，属上面那条归因）与 `GlobalException`。
+    ⇒ 「无本功能新增 ERROR」目前**持续为真**，但收口时刻已到 10-07 09:26Z，别提前打钩。
+  - 📌 顺带被动验证到 AC-D1 的另一半：moon-well **R103**（`VocabTestViews.Report` 末尾新增
+    `recommendedHardLevel` / `recommendedHardLevelName`，不落列、按落库估算值即时派生）已随 push 上线，
+    而 magicbook **R125**（结果页显示建议难度 + 一键应用）仍在本地未 push ⇒ 生产当前正是「老前端 + 新后端」组合；
+    实测 `app-log-magicbook` 的 `ERROR` 命中数在「US4 上线 03:37Z 起」与「最后一次 moon-well 重启 09:25:55Z 起」
+    两个窗口内**都是 0**（additive 字段被旧前端忽略）——这是 D1「老前端对新后端无感」的第二次实测，
+    而且这次连契约形状都变了（不只是新增列）。
 - AC-D5 文档同步：✅ **三级文档已就位（2026-10-06 02:10，纯 docs）**。L1 `moon-well/docs/readme/vocabulary.md`——「能做什么」增补词汇量测试条目（自适应二元自评、估算+区间、交卷时可勾选收生词本、中途退出/30 分钟无作答作废、历史可回看），「谁在用」补上阅读设置页入口。L2 `moon-well/docs/vocabulary/hld/hld.md`——新增 `### 5. 词汇量测试（/vocabulary/test/*）`：出题池与 8 档/70 题口径、四端点与 DTO、`seq` 幂等三分支（重发回放/串序 50304/并发撞唯一索引 50304）、提前交卷累计 ≥6 题否则 50303、报告形状含 `addedToNotebook` **null ≠ 0**、30 分钟超时与「作废只由 `start`/`history` 两条必然提交路径落库」、错误码 HTTP 500+`Result.code` 与 401 的分界，以及 ⚠️ 调用方约束「缓存只在启动与每日 04:00（生产本地 +08:00）重载、无手工入口 → 词表数据刚导入完 `start` 必回 50301」；L3 索引补挂本特性主 LLD。L3 = `docs/feat/vocab-size-test/design/vocab-size-test-lld.md`（§5/§6 早已就位）。逐条契约均按 `VocabularyTestService`/`VocabTestParams`/`VocabTestError` 源码复核，未凭记忆。**剩「本 AC 打钩归档」一项，待 D 段跑完再做。**
 
 ## E. 完成定义
