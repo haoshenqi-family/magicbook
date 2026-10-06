@@ -343,6 +343,26 @@ US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top*
     ⚠️ 归因留痕：本轮先跑的 `mvn -o -q test` 退出码 1，起因是 `AgentConversationControllerTest.class`
     由并行会话用 **Java 25** 编译（class file 69.0，JDK 21 上限 65），而 `target/surefire-reports/*.xml`
     里还挂着上一遍 16:46 的「677/0/0」**陈旧报告** ⇒ **陈旧报告与管道退出码都不是判据**，只认 clean 全量。
+  - **第四个消费方（划词/单词详解路径）单独取证**——它不读词表、读生词本自带的档位：
+    `VocabularyNotebookRepository:38` `unknownWords()` 的条件是
+    `vn.familiarity < 7 AND vn.hardLevel >= :hardLevel`，键在 `vocabulary_notebook.hard_level` 这一份
+    **反范式列**上 ⇒ 词表新增 13,323 条哨兵行**结构上影响不到它**（不同表）。生产实测（09:46Z）：
+    `hard_level` 值域为 `{1,2,3,4,5,6,7,8}`（`6` 占 8,427 行是历史批量初始化），
+    **无 0/9/10、无 NULL、`NOT BETWEEN 0 AND 9` 命中 0 行** ⇒ 本特性从未把哨兵值写进阈值列。
+  - **`vocabulary_notebook.hard_level` 的写入分支已被真实会话逐词对上**（session id=3 的 5 个落本词，09:46Z）：
+    `trauma` 词表档位 8（雅思）→ 落本存 8、`mansion` 词表档位 4（CET6）→ 落本存 4，
+    即 `VocabularyTestService:408,422` 的 **teachingLevels 分支实证**；
+    `cab`/`conference`/`gather` 落本存 6，而词表档位分别是 2/1/2 —— 差值**不是缺陷**：
+    这三行是**既有行**（`addUnknownWordsToNotebook` 只在 `notebook == null` 时派生档位，:417-424），
+    upsert 只改 `familiarity`/`last_study_time`、保留用户早先的 6，与 AC-F1「打回既有熟练词」同一语义。
+    ⚠️ 反过来也就说明：**band→档位 fallback 分支（纯频率词无教学档位时按 `BAND_HARD_LEVEL={1,1,2,3,4,6,8,9}` 回落）
+    在生产尚未被真实会话走到**（这 5 个词全有教学档位），该分支目前只有单测覆盖，别当成已端到端验证。
+  - ⚠️ **两条生词判定路径的比较符本来就不一致**（既有事实，本特性未引入，但 D3 归档必须写明，
+    以免被读成「同一口径」）：阅读页用 **严格大于**（`ReadingVocabularyService:230`
+    `wordLevel > hardLevel`，词表档位），划词/详解用 **大于等于**（`VocabularyNotebookRepository:38`
+    `vn.hardLevel >= hardLevel`，生词本自带档位）。同档位的词在阅读页判「认识」、在详解页判「不认识」。
+    本特性对两处都**零改动**，故回归无恙；但它意味着「测试落本后该词立刻出现在划词生词列表」
+    的可见性取决于落本存进去的那个档位（见上一条两个分支）。
   - **本条未做的部分（别当已通过）**：没有真人登录翻页**目视**核对生词标注样式与档位下拉框，
     那属 AC-C 段同类、需用户本人 OIDC 会话；本条判据是「行为不变」，由代码路径 + 数据不变式 +
     生产档位域三者证明，而非由人眼证明。ES 侧「无相关新增 ERROR」由 AC-D4 的计数背书（含 `ocabulary` 0 条）。
