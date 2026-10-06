@@ -297,3 +297,18 @@
   - **i18n**：14 个新词条入 i18n_seed.html + zh_Hans_CN po（译文补全）+ pybabel 重编译 .mo，`test_i18n_seed_contract` 五契约全绿。
   - **测试**：新增 5 个 word-detail 测试（登录门禁/非法词 400/归一化转发 GET+30s+禁代理/上游故障 503/阅读器接线契约——含「seq 取号后不得再自增」「非空 innerHTML 禁入」两条防回归断言）；全量 334 通过。
 - **总结**：requests.md 占号 R124（撞号更正：本会话初占 123 与并行会话「会话 cookie 持久化」R123 撞号，按纪律不改既有记录、续编 124，重复的 123 条目保留并在 124 中标注）；response.md 本条；冲突记录：编号撞号如上，无需求内容冲突（并行会话改 cps/__init__.py/reverseproxy.py，本任务改 web.py/epub.js 等互不重叠）。未 push——push develop 将触发 fnOS webhook-builder 自动构建部署，待用户确认。
+
+### R124 补记（部署上线）
+
+- **部署链**：push develop（d55a8cd9）→ fnOS webhook-builder 自动构建（11:38:48 推镜像 :latest）→ app-manager deploy SUCCESS → 容器 healthy；`POST /ajax/reading-word-detail` 未登录请求 400（CSRF 门控，对照不存在路由 404 确认路由匹配），登录用户可正常使用。
+- **验收提示**：阅读器划词 → 气泡点「详」→ 六板块面板；重点 ran/running 变体还原与二次查询秒回。
+
+### R123 会话 cookie 持久化（修「一天就要重新登录」）
+
+- **根因**（承接 moon-well R101 诊断）：moon-well access/refresh token 存在 magicbook Flask 签名会话 cookie 内，未配 session.permanent → cookie 无 Expires/Max-Age（浏览器会话级），浏览器一关登录态连同 token 全丢。ES 日志佐证：近 30 天 moon-well 服务端 0 次 JWT 过期拦截，而 magicbook 近 16 天中 14 天每天 1–4 次 token exchange（每日重登）。
+- **修复**：`PERMANENT_SESSION_LIFETIME` 默认 30 天（`SESSION_PERMANENT_DAYS` 可调）+ `SESSION_REFRESH_EACH_REQUEST=True` 滑动续发 + 全局 before_request 钩子对**非空**会话标记 permanent（空会话不动——permanent setter 写 _permanent 置 modified，会破坏内部 M2M 端点「响应不携带会话 cookie」契约）。与 moon-well JWT access 30 天/refresh 90 天（R101）对齐。
+- **顺带修复**：①`ReverseProxied.script_name` 构造期未初始化，session_transaction 等绕过 WSGI 的 save_session 路径会 AttributeError（潜在雷，生产未触发）；②登出 `/logout` 只清 flask-login 身份键不清 moonwell token——持久化后 token 会在 cookie 里滞留 30 天滑动续期，登出改为 `session.clear()`（save_session 对空+modified 会话下发删除头）。
+- **审查记录**：独立 agent 交叉审查 1 P1（登出 token 滞留，已随本修复一并修）+ 8 P3（采纳：钩子跳过已标记会话、注释机制描述更正、测试断言相对 config 生效值免受本地 .env 干扰；记录取舍：strong session protection 对 permanent 会话退化为 basic（flask-login 上游刻意设计），个人工具接受；SESSION_COOKIE_SECURE 未加——保留 fnOS 内网 http://192.168.31.9:8083 直连可用性，如确认纯 HTTPS 访问可加）。占号冲突：本会话初占 123 后并行会话「单词详解」也占 123，对方按纪律续编 124（见 requests.md），本任务沿用 123，无文件冲突。
+- **测试**：新增 tests/test_session_permanent.py 4 例（config 生效/cookie 带 Expires≈lifetime/钩子注册/登出清空+删除头）；全量 335 通过。已知边界：cw_login remember_token 恢复路径当次请求不标记 permanent，下一请求自愈。
+- **部署**：push develop → fnOS webhook-builder 自动构建部署；上线后需重新登录一次（旧 cookie 仍为浏览器会话级），此后浏览器重启不再掉登录。
+- **总结**：requests.md 占号 R123（并行撞号已按纪律处置）；response.md 本条 + 收录并行会话 R124 部署补记；冲突记录：编号撞号已注明，无内容冲突。

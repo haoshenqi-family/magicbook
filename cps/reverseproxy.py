@@ -58,6 +58,11 @@ class ReverseProxied(object):
     def __init__(self, application):
         self.app = application
         self.proxied = False
+        # Why: ScriptNameSessionInterface.get_cookie_path 在任何 save_session 时机
+        # 都会读 script_name——不止真实请求（测试客户端 session_transaction 等绕过
+        # WSGI 中间件的路径也会），属性必须在构造期就存在；__call__ 再按
+        # X-Script-Name 头覆盖为实际前缀。
+        self.script_name = "/"
 
     def __call__(self, environ, start_response):
         self.proxied = False

@@ -26,8 +26,9 @@ import os
 import sys
 import mimetypes
 import threading
+from datetime import timedelta
 
-from flask import Flask
+from flask import Flask, session
 from flask.sessions import SecureCookieSessionInterface
 from .MyLoginManager import MyLoginManager
 from flask_principal import Principal
@@ -89,6 +90,16 @@ app = Flask(__name__)
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
+    # R123: 会话 cookie 持久化——moon-well access/refresh token 存在 Flask 签名
+    # 会话 cookie 内，未配 permanent 时该 cookie 无 Expires/Max-Age（浏览器会话级），
+    # 浏览器关闭即登录态连同 token 全丢，体感「一天就要重新登录」（R123 前的
+    # 线上行为）。持久化默认 30 天（SESSION_PERMANENT_DAYS 可调），与 moon-well
+    # JWT access 30 天 / refresh 90 天（R101）对齐；每次响应滑动续发（下项），
+    # 只要 30 天内有访问就不再重登。
+    PERMANENT_SESSION_LIFETIME=timedelta(days=int(os.environ.get('SESSION_PERMANENT_DAYS', '30'))),
+    # Why 滑动续发: 固定过期会在「登录满 30 天」时强制重登活跃用户；
+    # 每次响应重发 cookie（Expires 刷新）后只有连续 30 天不用才掉登录。
+    SESSION_REFRESH_EACH_REQUEST=True,
     REMEMBER_COOKIE_SAMESITE='Strict',
     WTF_CSRF_SSL_STRICT=False,
     # EPUB 阅读器页面长期保持打开（生词标注/划词翻译的 CSRF token 嵌入
@@ -100,6 +111,26 @@ app.config.update(
     SESSION_COOKIE_NAME=os.environ.get('COOKIE_PREFIX', "") + "session",
     REMEMBER_COOKIE_NAME=os.environ.get('COOKIE_PREFIX', "") + "remember_token"
 )
+
+
+@app.before_request
+def _make_session_permanent():
+    # R123: 对已有内容且尚未标记的会话标记 permanent（见上方
+    # PERMANENT_SESSION_LIFETIME 注释）。
+    # Why 全局钩子而非逐登录点设置: OIDC 回调、remember_token 恢复、本地登录
+    # 等多条路径都会重建会话，逐点设置必漏。
+    # Why 仅非空会话: permanent 的 setter 会把 _permanent 写入会话（置
+    # modified），对空会话也会让 save_session 下发 Set-Cookie（空+modified 走
+    # delete_cookie 删除头），破坏内部 M2M 端点「响应不携带会话 cookie」的
+    # 安全契约（test_book_import 评审项）。
+    # Why 跳过已标记: 滑动续期由 SESSION_REFRESH_EACH_REQUEST 走正规语义
+    # （permanent + refresh 即重发），无需每请求改写 modified。
+    # 时序说明: cw_login 的 _load_user 是首次访问 current_user 时懒触发而非
+    # before_request，故 remember_token 恢复路径当次请求不标记（会话在钩子
+    # 之后才重建），下一请求起钩子见非空会话即补标——一次请求自愈。
+    if session and not session.permanent:
+        session.permanent = True
+
 
 lm = MyLoginManager()
 
