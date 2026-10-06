@@ -175,7 +175,7 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
       于是 `startFinalize`/`drainFinalize`（`:338-360`）那段补测**一行都没跑**。真 R6 会话的形态特征是
       **边界档出现 10 题组**（`BOUNDARY_TOTAL=10`，`VocabTestParams:31`），所以「每话题量都是 6 的整数倍」
       恰好是**它没发生的证据**。sid 2 的收敛是 `shift` 进已完成档（`Planner:330`），也不是补测。
-      ⇒ **这一型仍只有单测**（`VocabTestPlannerTest#boundaryMiddleRateProbesAdjacentBandsThenConverges`）；
+      ⇒ 当时**这一型仍只有单测**（`VocabTestPlannerTest#boundaryMiddleRateProbesAdjacentBandsThenConverges`）；**该缺口已在 18:57 关闭**（见文末附记）；
       HTTP 级要造它，画像必须写成「**同一档内 3 认识 / 3 不认识**（组内 rate=0.5）」而非按 band 切——
       配方已记进发布清单 §4.0 与 task，下轮一击即中。
       `TOPPED_OUT` 的判据逐字对上 `VocabTestPlanner:267-269`（sid 4 的 band8 六题 `known=0`
@@ -271,7 +271,7 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
     B3 的终止形态与 F1 的大小写不敏感打回（18:32）。
     **但「关掉」的含义要按级别读，且 B3 有一处保留**：全部是**本机一次性彩排实例 + 造数**，生产侧的对应样本另计（D 段）；
     AC 原文 B3 要的第三型「**R6 邻档补测形态**」这五场画像造不出来（组内通过率必须落中间带，见上面 18:45 的更正），
-    **该型仍只有单测**。`FinishReason.FORCED` 属结构性不可达（`MAX_QUESTIONS` 无运行期注入口），不列入待办。
+    **该型已由 18:57 第三台彩排实例造出真 HTTP 实例（三画像全中，见文末附记）**。`FinishReason.FORCED` 属结构性不可达（`MAX_QUESTIONS` 无运行期注入口），不列入待办。
   - ⚠️ 差异留痕（2026-10-05，US3 交付后按源码校正，原条两处失实）：
     1. 映射方向按 `HardLevel` **枚举码序单调排**：band1–2→初中(1)、band3→高中(2)、band4→CET4(3)、band5→CET6(4)、**band6→托福(6)、band7→雅思(8)**、band8→GRE(9)。早期 D5 文案的「6→雅思、7→托福」是反的——生词判定按「词的档位 > 用户阈值」做数值比较，照文案映射会让 band7 的词比 band6 更容易被判「已掌握」，档位与频段单调性相反。
     2. 原条「已存在词不覆盖 familiarity」**与实现不符**：落本口径与 `VocabularyService.unknown` 一致（存在即把 `familiarity` 置 `UNKNOWN`、刷新 `last_study_time`）。也就是说测试里点「不认识」会把此前标过熟练的词打回生词本。防重复打回靠**每会话至多落本一次**（`notebook_added_at` 令牌，重复 finish 只回放报告不再写本）；这条语义需用户复核确认（见文末「待复核」）。
@@ -615,7 +615,7 @@ B 段那四条「HTTP 级未覆盖」**已于 18:15 / 18:17 / 18:32 三轮本机
 见上面 B 段各自的 🆕 条目）。**两处保留要说死**：① 证据级别是「本机一次性容器 + 造数 + 真 HTTP」，不是生产；
 ② **AC 原文 B3 的第三型「R6 邻档补测形态」并没有被那五场画像覆盖**（18:45 独立交叉审查按源码判出：
 画像全是「按 band 一刀切」⇒ 组内通过率恒 1.0/0.0 ⇒ 进不了 `BandPhase.BOUNDARY`，补测段一行没跑；
-真 R6 会话的特征是边界档 10 题组）⇒ **该型仍只有单测**，HTTP 级要造它得写「同档内 3 认识 / 3 不认识」的画像。
+真 R6 会话的特征是边界档 10 题组）⇒ 当时该型仍只有单测，**已在 18:57 关闭**（同档内混合速率画像，见文末附记）。
 `FinishReason.FORCED` 属结构性不可达（`MAX_QUESTIONS` 是 `static final`，无运行期注入口），不排期。
 本地夹具演练（D1）不冲抵它们——夹具测的是前端消费侧，50301 那格是前端读码值。
 ⇒ **技术上只剩一项本机可造的验证项**（R6 补测形态那一型，方法已知、上一轮没做完），其余全部落在上面那张
@@ -651,3 +651,25 @@ B 段那四条「HTTP 级未覆盖」**已于 18:15 / 18:17 / 18:32 三轮本机
 - **交叉审查留痕（2026-10-06，独立 Agent 评审）**：P1（apply 请求纳入 epoch 作废纪律，迟到响应先复位在途锁、stale 但业务成功仍 markCurrentLevel）与 P2（`(default)` 后缀残留）已修；P3#6（设置卡 load_error 态应用成功后卡片仍显示错误横幅，功能不受影响）**接受不改**——设置加载失败时用户本就会被引导先重试加载，浮层内已有成功确认。moon-well 侧评审结论「无保留意见」，其 P3 注释失实两条（null 防护不可达、band<1 防御分支）已一并修正。
 - **端到端待部署后核**：真机完成一次测试 → 推荐行出现 → 应用 → 阅读设置立即生效（G2/G5 的真机证据）。
 - 文档同步：us4 §4 报告形状补两字段；本节即 AC 增量。
+
+---
+
+## 附：18:57 「R6 邻档补测形态」真 HTTP 实例（第三台本机彩排实例，task #33）
+
+- 实例：`vt-r6-mysql`(127.0.0.1:3396) + `vt-redis-r6`(6383) + worktree `/tmp/mw-r6` @ `origin/develop`（`a7dde03`），应用端口 8081；两阶段启动（空库建表 → 灌 96 词造数 → 重启），加载行 `word level cache loaded (startup): 96 level words, 96 ranked words, 8 bands in 69 ms`；`SPRING_CONFIG_IMPORT=` 空值 ⇒ 生产 Nacos/库零接触；跑完无条件 teardown（驱动脚本在 `/tmp`，未入库）。
+- 造型关键：**组内混合速率**。前几场画像「按 band 一刀切」⇒ 组内通过率恒 1.0/0.0 ⇒ 进不了 `BandPhase.BOUNDARY`（`VocabTestPlanner:272,278`）；本轮把画像写成**同档内 1/0 交替**，令边界档组内 rate=0.5。三场分别把混合带放在 band5 / band4 / band4+5。
+- **判据命中：三场全部造出边界档 10 题组**（`BOUNDARY_TOTAL=10`，`VocabTestParams:31`），组内 rate=0.5 ⇒ `BandPhase.BOUNDARY` + `startFinalize`/`drainFinalize`（`VocabTestPlanner:338-360`）真跑；上面 18:45 那条「该型仍只有单测」在此**作废**。
+- 库侧逐档反查（`vocabulary_test_item`，session 1，列 = band | 题数 | min(seq) | max(seq) | known）：
+- `3 | 6 | 1 | 6 | 6`
+- `4 | 6 | 7 | 12 | 6`
+- `5 | 10 | 13 | 22 | 5`
+- `6 | 6 | 23 | 28 | 0`
+- 真 HTTP 会话（`POST /vocabulary/test/{start,answer,finish}`，Bearer，`addUnknownToNotebook=false`，全部 `CONVERGED`）：
+
+| 画像 | finishReason | 题量 | 逐档题数 | 最大单档题数 | estimatedSize / ci / capped |
+| --- | --- | --- | --- | --- | --- |
+| r6h5 | CONVERGED | 28 | b3:6 b4:6 b5:10 b6:6 | 10 | 6500 / [5000, 8000] / capped=False |
+| r6h4 | CONVERGED | 22 | b3:6 b4:10 b5:6 | 10 | 4000 / [3000, 5000] / capped=False |
+| r6h45 | CONVERGED | 22 | b3:6 b4:10 b5:6 | 10 | 5500 / [4000, 7000] / capped=False |
+
+- 由此，本文上面三处「仍只有单测」（18:32 表内、18:45 汇总、D.1 保留项）的口径按本次结果**改为 HTTP 级已覆盖**；`FinishReason.FORCED` 仍属结构性不可达（`MAX_QUESTIONS` 无运行期注入口），不列入待办。
