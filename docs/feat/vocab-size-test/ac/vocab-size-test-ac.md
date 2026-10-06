@@ -213,6 +213,29 @@
 - AC-C7 视觉：两套主题下卡片/浮层/图表渲染正常，浮层继承宿主主题（无自造实色描边，遵守 UI 纪律）；截图存 `docs/temp` 并附验收报告。
 - AC-C8 zh 翻译补全后切换语言无缺串。
 
+### C-上线事实（2026-10-06 03:39，只读复核）
+
+US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top**（8083）。时间线与判据：
+
+- `03:35:14Z` push（`5f7e24b2..35300f7d`，22 笔）→ `03:35:17Z` 仓库 webhook 投递返回 **202** → 约 2 分钟后线上出现新产物。
+- **⚠️ 更正我此前的记载**：magicbook 的构建链**不是 GitHub Actions**。实测 `Build and Push to Aliyun`
+  状态为 `disabled_manually`，且本次 push **没有产生任何 GHA run**（`gh run list` 最新一条仍停在 2026-09-23）；
+  真正生效的是 fnOS webhook-builder（`push → webhook.haoshenqi.top → fnOS :9877 → build-magicbook.sh → ACR →
+  controller project-update`，权威口径 `ops/apps/app-magicbook.md`）。此前 `deploy/DEPLOY.md` 与本文件按 workflow
+  文本推断「push 即 GHA 构建」属**以静态文本代替实测**，已在 `deploy/DEPLOY.md` §CI/CD 更正留痕。
+- 只读探针（全部零写入，未进入任何业务 handler）：
+  | 探针 | 返回 | 读法 |
+  | --- | --- | --- |
+  | `GET /static/js/vocab-test.js` | `200`，19,252 B | 新静态资源在镜像里 → 本次构建已上线 |
+  | `GET /ajax/vocab-test/start` | `405` | 路由已注册、仅收 POST（Werkzeug 路由层拦下，未进视图） |
+  | `GET /ajax/vocab-test/finish` | `405` | 同上 |
+  | `GET /ajax/vocab-test/history` | `302` | GET 路由已注册、`login_required` 跳登录 |
+  | `GET /ajax/vocab-test/item` | `404` | **是我猜错了路由名**，第四条实为 `/ajax/vocab-test/answer`（`cps/web.py:591`）；此 404 不是缺陷 |
+- 后端侧同批复核（moon-well 因两把链并存被重启两次，`11:35:29`/`11:35:47 +08:00`）：两次启动日志的缓存行
+  **都是** `word level cache loaded (startup): 18345 level words, 25000 ranked words, 8 bands`，双向判据保持成立；
+  窗口内 `app-log-magicbook` ERROR **0** 条。
+- ⇒ AC-C2～C6 的前置条件（生产在线）**已具备**，但仍未逐条打钩：它们需要真人 OIDC 登录 + 浏览器操作（见 D 段）。
+
 ### C-结果（US4 本机验收，2026-10-05）
 
 | 条目 | 结论 | 佐证 |
@@ -234,9 +257,23 @@
 ## D. 端到端与回归（US5）
 
 - AC-D1 生产发布顺序演练（主 LLD §10，**逐条执行清单见 moon-well `docs/feat/vocab-size-test/release/release-checklist.md`**）：DDL+数据 → moon-well → magicbook 前端；每步后旧功能可用（老前端对新后端无感，新前端对旧后端静默降级）。
+  - **实况（2026-10-06 03:39 复核）**：实际顺序 = **moon-well 闸口代码（`7c37816`，01:14Z 上线）→ 生产 DDL+数据导入（01:16–01:17Z）→ 缓存生效（02:41Z 双向判据成立）→ magicbook US4（03:37Z）**，与「闸口代码必须先于数据上线」的定稿一致。
+    「老前端对新后端无感」这一半**已被被动验证**：01:14Z→03:35Z 约 2 小时里生产跑的是新后端 + 旧前端，
+    实测 ES 该窗口（按 `@timestamp`，即 filebeat **入库时间**，非日志正文时刻）内
+    `app-log-magicbook` 与 `app-log-moon-well` 的 `ERROR` 命中数**均为 0**。
+    「新前端对旧后端静默降级」**未演练**（后端始终比前端新，构造不出该组合），仍按本机单测口径归档，勿记为通过。
 - AC-D2 真实用户完整测试一次（browser-use + 用户登录，按项目数据访问纪律），结果数值与人工预期「量级相符」共识判定。
 - AC-D3 阅读页划词/生词判定、难度档位保存回归无恙（重点：词表新增 13,323 条 `level_id=10` 哨兵行后判档行为不变——原文写「level-NULL」，与定稿的枚举哨兵方案不符，已校正；行数 2026-10-05 由返工前 13,409 校正为终态 13,323）。
 - AC-D4 ES `app-log-moon-well` 无本功能新增 ERROR（发版后观察 ≥1 天）。
+  - **观察窗重算（2026-10-06 03:40）**：本特性 push 后生产 moon-well 被**重启两次**
+    （`11:35:29` / `11:35:47 +08:00` 两条 `Starting MagicbookApplication`，终态实例 `11:36:01` 启动完成），
+    判据缓存行两次都是 `18345 level words, 25000 ranked words, 8 bands`。所以观察窗以**最后一次重启**为准：
+    **到 2026-10-07 03:36Z 才算满 1 天**（此前记的 02:41Z 起算作废）。
+  - 窗口内唯一 ERROR：`11:35:40 +08:00 ReadingParagraphCacheService: 阅读缓存 bucket 初始化失败:
+    java.lang.InterruptedException`——属**与本特性无关**的模块，且落在「两把发版链对同一次 push 各部署一次」
+    的竞态里（第一次启动被第二次重启打断）；第二次启动后未复现。⇒ 记为**发版链并存的副作用**，
+    不计入本特性的新增 ERROR，但值得单独议题：moon-well 同时挂着 GHA 与 fnOS webhook-builder，
+    **一次 push 会让线上 bounce 两次**（magicbook 只有后者，GHA 已 `disabled_manually`）。
 - AC-D5 文档同步：✅ **三级文档已就位（2026-10-06 02:10，纯 docs）**。L1 `moon-well/docs/readme/vocabulary.md`——「能做什么」增补词汇量测试条目（自适应二元自评、估算+区间、交卷时可勾选收生词本、中途退出/30 分钟无作答作废、历史可回看），「谁在用」补上阅读设置页入口。L2 `moon-well/docs/vocabulary/hld/hld.md`——新增 `### 5. 词汇量测试（/vocabulary/test/*）`：出题池与 8 档/70 题口径、四端点与 DTO、`seq` 幂等三分支（重发回放/串序 50304/并发撞唯一索引 50304）、提前交卷累计 ≥6 题否则 50303、报告形状含 `addedToNotebook` **null ≠ 0**、30 分钟超时与「作废只由 `start`/`history` 两条必然提交路径落库」、错误码 HTTP 500+`Result.code` 与 401 的分界，以及 ⚠️ 调用方约束「缓存只在启动与每日 04:00（生产本地 +08:00）重载、无手工入口 → 词表数据刚导入完 `start` 必回 50301」；L3 索引补挂本特性主 LLD。L3 = `docs/feat/vocab-size-test/design/vocab-size-test-lld.md`（§5/§6 早已就位）。逐条契约均按 `VocabularyTestService`/`VocabTestParams`/`VocabTestError` 源码复核，未凭记忆。**剩「本 AC 打钩归档」一项，待 D 段跑完再做。**
 
 ## E. 完成定义

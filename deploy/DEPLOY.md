@@ -93,7 +93,23 @@ LOG_PATH=./logs
 
 ## CI/CD
 
-推送到 `develop` 后，GitHub Actions 自动（workflow 的 `on.push.branches` 写的是 `[develop, main]`，
+> ⚠️ **2026-10-06 03:39 实测更正：本仓库当前走的不是 GitHub Actions，而是 fnOS webhook-builder。**
+> 判据三条（都是只读查出来的，别再按下面的 workflow 文本推断）：
+> ① `GET /repos/haoshenqi-family/magicbook/actions/workflows` → `Build and Push to Aliyun` 状态是
+>    **`disabled_manually`**（可随时恢复）；
+> ② 仓库 webhook（id 683576412）`https://webhook.haoshenqi.top/github`、events=`push`、`active=true`，
+>    2026-10-06 03:35:17Z 那次 push 的投递返回 **202**，而 GitHub Actions **没有产生任何 run**
+>    （`gh run list` 最新一条仍停在 2026-09-23）；
+> ③ 线上约 2 分钟后就出现了新构建的产物（`/static/js/vocab-test.js` 返 200 / 19,252 B），
+>    说明部署确实由另一条链完成。
+> 权威口径见项目组运维手册 `ops/apps/app-magicbook.md` §部署 与 `ops/runbook.md` §1：
+> **push `develop`/`main` → `webhook.haoshenqi.top`（Server 2 Traefik）→ Tailscale → fnOS `:9877`
+> 的 `webhook-builder` systemd 服务 → `build-magicbook.sh` 本地 buildx → 推 ACR `magichouse/magicbook`
+> → 回调 controller `project-update` 部署 → Bark**；构建日志在 fnOS `/app/codelib/logs/magicbook.log`，
+> 手动重跑 `/app/codelib/webhook-builder/build-magicbook.sh <ref> <完整sha>`。
+
+下面这段是 **workflow 文件本身的行为**（当前处于停用状态，恢复 GHA 后才会生效，届时仍需复核是否两条链并存）：
+推送到 `develop` 后（workflow 的 `on.push.branches` 写的是 `[develop, main]`，
 但**本仓库没有 `main` 分支**，远端只有 `develop` 与 `master`，所以实际只有 `develop` 会触发；
 注意发布用的 `master` **不在触发列表里**，合并到 `master` 不会构建，需要 `workflow_dispatch` 手动跑）：
 
