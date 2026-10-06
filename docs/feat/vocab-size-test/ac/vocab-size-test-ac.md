@@ -176,6 +176,23 @@
   - **HTTP 级仍未覆盖**（别当已通过）：AC-B3 机器人三型终止形态（只有单测）、AC-B1 的 50301
     降级分支（本地彩排库有秩数据，构造不出「词表未就绪」）、AC-B5 开关 `false` 时零写入
     （脚本固定传 `true`）、AC-F1「把既有熟练词打回」的大小写不敏感更新路径（仅单测）。
+  - ✅ **同一脚本打生产：33/33 全绿（2026-10-06 03:22Z，用户点头「跑并当场一并清理」）**。
+    目标 `https://moon-well.haoshenqi.top`，走 `/auth/register` 的一次性账号（不落内网信任头）。
+    这不是彩排那一遍的重复：缓存已按发布清单 §3.4 取证 5 实际生效，所以 50302/50304/400 三条分支与
+    「落本条数恰为 1」都是**在生产数据上**第一次被真 HTTP 验到，且不存在 §4.1 警告的假绿形态
+    （`test_start` 6 条全绿、`history` 的 `.nonEmpty` 也是真绿）。
+    - **写库footprint 与台账逐格对上**：`(app_user, session, item, notebook) = (1, 2, 6, 1)`；
+      两条会话 `status=2`（被第二次 start 抢占，`question_count=0`）与 `status=1`（6 题 5 认识）；
+      六条 item 全在 `band=3`、答案 `1,1,1,1,1,0`、唯一未知词 `cave`。
+    - **量级 sanity（给 AC-D2 当前置参照）**：这个「band3 连认识 5/6 题」的画像在生产库上估出
+      `estimated_size=2833`、CI `[2333, 3333]`、`capped=0`、`finish_reason=NULL`
+      （只有 6 题就 finish，走的正是提前交卷路径，与 §6 约定一致）——落在 band3 上界 3,000 附近，符合预期。
+    - **清理已执行并验证残留 0**：按 `user_id` 逐表删（`item 6 → session 2 → notebook 1 → app_user 1`），
+      删后 `vocabulary_test_session` / `vocabulary_test_item` **全表计数归零** → 反证本特性是这两张表的唯一写入者。
+      `vocabulary_notebook` 与阅读页共用，只删该 uid 那一行。
+    - ⚠️ 上面「HTTP 级仍未覆盖」四条**一条都没因这次生产运行而减少**；其中 AC-B1 的 50301 分支现在
+      **永久无法在 HTTP 级构造**（生产缓存已就绪，再造出「词表未就绪」只能删生产数据）→ 该条判定按
+      「单测级即为终态验收」归档，不要再排期。
 
 ## C. magicbook 前端（US4）
 
