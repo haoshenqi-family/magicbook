@@ -336,6 +336,11 @@ US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top*
     `inScope = wordLevel != null && wordLevel > hardLevel` ⇒ 无档位 = 默认认识 = 不写阅读事件，
     与「表外词」同一路径，哨兵行因此与表外词**不可区分**（这正是设计意图）；
     ③ 档位保存：`ReadingSettingsService:48-51` + `HardLevel:50 isSelectable` 拒绝 10，
+    且 18:0x 逐点复核 ⇒ 全仓 **`app_user.setHardLevel()` 在生产代码里只有一个调用点**
+    （`ReadingSettingsService:53`，前一行 `:49` 就是守卫；其余 12 处 `setHardLevel` 全在 `src/test/`，
+    另有 `VocabularyTestService:422 notebook.setHardLevel` 属**生词本反范式列**、不是用户阈值，
+    其值域由 `VocabTestParams:63 BAND_HARD_LEVEL` 给出、`VocabTestParamsTest:66/:101` 断言其全部 `isSelectable`）
+    ⇒ 这条「唯一写点 + 前置守卫」是**结构性**的，不依赖数据巧合；
     生产 `app_user.hard_level` 实际取值 `{2, 5, 6, NULL}`（3 行为 NULL → 走默认 CET4），
     **无 10、无越界** ⇒ 哨兵值不可能被存成用户阈值。
   - **数据侧不变式**：`COUNT(*) WHERE level_id IS NOT NULL AND level_id <> 10` = **18,345**，
