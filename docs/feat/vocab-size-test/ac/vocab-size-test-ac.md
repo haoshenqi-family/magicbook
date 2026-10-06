@@ -126,6 +126,25 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
 
 ## B. 算法与 API（US2/US3，对 moon-well 直连验证）
 - AC-B1 start：正常返回首题（band3 词）+ sessionId；二次 start 抢占，旧会话转 abandoned；缓存降级时返回 50301。
+  - 🆕 **18:15 「缓存降级返回 50301」已从「仅单测」升级为「真 HTTP 实测」**（本机一次性彩排实例，
+    **不碰生产、不碰 Nacos**：`SPRING_CONFIG_IMPORT=` 空值让 config-data 列表为空，数据源由 `DATASOURCE_URL` 给出；
+    代码取 `origin/develop` 的隔离 worktree `/tmp/mw-vt`，scratch MySQL `vt-norank-mysql:3398`、
+    `vt-redis:6381`，脚本 `moon-well/docs/temp/norank_boot.sh` + `norank_probe.sh`）。
+    - 造的数据形态是 **US1 中间态**（词表有教学档位、`freq_rank` 全 NULL），启动加载行实测
+      `word level cache loaded (startup): 2 level words, 0 ranked words, 0 bands`——插了 **3** 行
+      （`the` l1 / `ubiquitous` l3 / `water` **l10 哨兵**），level 视图只算到 **2**
+      ⇒ 闸口① 在**活 JVM 的加载路径**上第二次成立（此前只有 SQL 行数与日志判据两种静态证据）。
+    - `POST /vocabulary/test/start`（真 `Authorization: Bearer` 一次性账号）实测：
+      **HTTP `500`** + `{"success":false,"code":50301,"message":"词汇量测试暂不可用：分级词表未就绪","result":null}`；
+      对照组同实例同 token 的 `GET /vocabulary/test/history` = **HTTP `200` + `result: []`**
+      ⇒ 降级只挡开考这一条路径，历史读取无恙、无异常抛出。
+    - ⚠️ **顺带更正一处既有记载的口径**（`tests/modules/15-vocab-test.sh` 顶部注释写
+      「本服务成功与业务错误都返回 HTTP 200，所以判 `.code` 不判 `$HTTP_STATUS`」）：
+      **50301 这一条实际回 HTTP 500**。判 `.code` 的做法仍然正确（LLD §6 就是「HTTP 500 + `Result.code`」），
+      但那句注释的「都返回 200」以偏概全——按本轮实测把 50301 归到 500 一侧，别再照抄注释。
+    - **本条没有一并关掉的四条 HTTP 级空白，现在只剩三条**：B3 机器人三型终止形态、
+      B5 `addUnknown=false` 零写入、F1 大小写不敏感打回（B1 的 50301 已在此关掉）。
+      D.1 底账表里那条「需要点头/等待」清单不受影响。
 - AC-B2 answer：顺序推进（请求体必带 `seq`）；重发同一题号回放不重复计数；对**已 finished** 会话的重复提交=幂等回放库存报告（不是错误）；对他人/已作废/已超时会话返回 50302；`seq` 跳到前面返回 **50304**（前端据此重新对齐题号继续答，不丢会话）；`answer∉{0,1}` 拒绝。
   - ⚠️ 差异留痕（2026-10-05，US3 定稿）：原条把「对 finished 会话作答」归入 50302，实现按幂等回放处理（结果页刷新/网络重试要能拿回同一份报告）；50304 是从 50302 里新拆的码。业务错误统一 **HTTP 500 + `Result.code`** 出口，参数域错误才是 HTTP 400 + `code=400`——前端判读看 `code` 不看状态码。
 - AC-B3 状态机路径：机器人三型用户（高/低/中词汇）分别命中 FINISH(CONVERGED)/FINISH(CEILINGED_LOW)/R6 补测形态；任一会话题量 ≤70。
