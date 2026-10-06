@@ -351,7 +351,41 @@ US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top*
     教学侧 5 = `nss`(level 6)、`cliché`/`proclamation`/`pedigree`/`contrition`(level 9)；
     哨兵侧 14 = `sakes/wah/chet/christening/def/berk/nom/positioning/ora/mortem/mou/veneration/annals/muss`。
     ⇒ 这 19 词在**缓存构建期**就被挡在词桶外（`WordLevelCacheService:99`），
-    `VocabularyTestService:292` 的出题时跳过分支在现网数据结构下不可能被触发（保留作防回归）。
+    所以 `VocabularyTestService:292` 的跳过分支**在稳态下取不到**。
+  - ⚠️ **自我更正（18:0x 复核，原记载过强）**：上一条我原本写的是「`:292` 在现网数据结构下
+    **不可能**被触发（保留作防回归）」——这句和代码自己的注释冲突（`:292` 行尾写的是
+    `// 仅日更窗口内可能出现`），复核后按实测改写：**「构建期过滤」保证的是「加载那一刻桶里没有无句词」，
+    不是「桶里的词在 DB 里永远有句」**——`sentenceOf(word)` 是**现读 DB**（`:291`），
+    所以任何一次「把 `example_sentence` 改成空」的写库，都会在下一次缓存加载之前造出一个命中窗口。
+    而今天恰好就发生了这样一次写库（§12.6：`ora`/`mou`/`def`/`nom`/`nss` 五行置 NULL）。
+    - **排序取证结论：这一窗口的开合时刻「无法由现存证据判定」，因此不能记为未触发**：
+      ES `app-log-moon-well` 里 `word level cache loaded` 近 14 小时共 13 条（含 filebeat 重放的重复行，
+      按本文件 A 段既有的日志时序纪律——同一行会被 filebeat 重放索引两次，时序只看正文里的 `+08:00` 时刻），**最后一条 = `2026-10-06T17:25:51.441+08:00 (startup)`**；
+      5 行 NULL 的写库时刻只夹在两个本地锚点之间——`docs/temp/vocab-sentence-audit-3w.jsonl`
+      mtime `17:20:06`（3 词重出句已回读）与「终态只读直算 24,981」的 `17:28`——
+      **17:25:51 正落在这个区间里**；`magicbook_word_level` 表**没有** `update_time` 列（实测 SHOW COLUMNS 十列，
+      最后列为 `freq_rank`），DB 侧不留写时刻 ⇒ 既不能证明 NULL 早于加载（则桶干净），也不能证明晚于加载
+      （则桶里仍留着这 5 个词形、`sentenceOf` 回 NULL、分支正命中）。
+    - **命中了会怎样（按 `:283-295` 逐行读，不是推测）**：`continue` 只跳过**该 source band**、
+      继续走 R9 就近降级序（`sourceOrder`：目标档 → +1 → −1 → +2 → −2…），
+      **不消耗该 band 的索引**（`consumed` 只读不写，item 表也无新行）⇒ 不重复出题、不死循环、不抛错；
+      代价是该 band 在这一会话里被永久绕开（每次都取同一个陈旧槽位、每次都跳），
+      估算器会收到 `band <> word_band` 的降级样本——**这恰好是上面 AC-D2 真实会话取证里
+      「`band <> word_band`（R9 就近降级）条目 0」那条缺的证据**（注意：与本条末尾另一处
+      「band→档位 fallback 无生产实证」不是同一分支，后者是落本时给生词派生 `hard_level`，
+      两者不可混用同一份证据）：若此刻桶真还留着这 5 个词，任何一次打到 band 7/8 的会话
+      都会自然留下 R9 降级记录（无需为它写库彩排）。
+      5 词落在的档位（现读 DB，秩→档按 `VocabTestParams:19 BAND_UPPER` =
+      1000/2000/3000/5000/8000/12000/18000/25000）：`def`(17,071)→**band 7**，
+      `ora`(20,383)/`nom`(19,021)/`mou`(21,875)/`nss`(22,256)→**band 8**——全在最高两档的长尾，
+      只有被测者答到最高档才可能撞上，所以**影响面小、且可自愈**。
+    - **自愈时刻是实测的，不是约定**：ES 里今天有正文 `2026-10-06T04:00:00.070+08:00` 的
+      `word level cache loaded (daily-4am): …` 一条 ⇒ `@Scheduled(cron = "0 0 4 * * ?")`
+      （`WordLevelCacheService:66-69`）**在生产确实触发**（此前只有代码证据），
+      故最迟 **2026-10-07 04:00 +08:00** 桶与 DB 必然一致、分支重新变为不可达。
+    - ⇒ 归档口径改为：「`:292` 分支**不是死代码**，它是为『日更窗口内 DB 例句变空』准备的活守卫；
+      今日 17:2x 的 NULL 写库使其当前可达性**不可判定**，最迟 10-07 04:00(+08) 加载后归零」。
+      本条更正**不改变 AC-D3 的 ✅ 判定**（三闸口与回归判据与这 5 行长尾无涉），只修一句失实记载。
   - 🆕 **量化后判为「无需动作」的一条新数据事实**：词桶集合 24,981 个可出题词形中
     **22 个（0.088%）不在 `words_alpha` 白名单**，逐条为缩写（`DNA`/`DVD`/`UK`）、现代复合词
     （`website`/`caregiver`/`cyberspace`/`supermodel`/`stuntman`/`upfront`/`walkman`）、
