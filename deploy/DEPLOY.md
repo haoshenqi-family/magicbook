@@ -97,7 +97,10 @@ LOG_PATH=./logs
 
 1. 读取 `deploy/.snapshot-version` 作为版本号
 2. 构建并推送镜像到阿里云镜像仓库（双 tag：版本号 + `latest`）
-3. **仅 develop 分支**：SSH 到部署服务器执行 `docker compose pull && up -d`
+3. 调用 app-manager webhook 触发部署：`POST https://ctl.haoshenqi.top/api/webhooks/project-update`
+   （`build-and-push.yml:72-76`；该步**没有分支条件**，`develop` 与 `main` 的 push 都会让线上容器重建）。
+   旧的「SSH 到部署服务器执行 `docker compose pull && up -d`」已停用，改由 app-manager 统一接管
+   （见 `build-and-push.yml:79` 注释），下表 `DEPLOY_SSH_*` 三个 Secret 因此不再被这一步使用。
 4. Bark 推送构建结果通知
 
 ### 必需的 GitHub Secrets
