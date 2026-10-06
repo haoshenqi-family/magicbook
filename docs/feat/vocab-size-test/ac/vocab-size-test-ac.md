@@ -159,13 +159,13 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
       ⚠️ 两遍启动纪律照旧：先空库起服务让 Hibernate 建表 → 灌数 → **重启**（缓存无手工重载入口）。
     - 五个画像 × 真 `Authorization: Bearer` 一次性账号（逐题 HTTP `answer`，`seq` 单调 1..N 全部实测为真）：
 
-      | sid | 画像 | `finishReason` | 题量 | 认识 | 估算 | CI | `capped` | 落本开关 | `addedToNotebook` |
-      | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-      | 1 | 全「认识」 | CONVERGED | 36 | 36 | **25000** | [21500, **25000**] | **1** | true | 执行了但本会话无生词 ⇒ 生词本 0 行 |
-      | 2 | band≤4 认识 / ≥5 不认识 | CONVERGED | 18 | 12 | 5000 | [4000,6000] | 0 | true | 6 |
-      | 3 | 全「不认识」 | **CEILINGED_LOW** | 18 | 0 | 0 | [0,500] | 0 | true | 18 |
-      | 4 | band≤7 认识 / band8 不认识 | **TOPPED_OUT** | 36 | 30 | 18000 | [15000,21000] | 0 | false | **null**（`notebook_added_at` 为 NULL） |
-      | 5 | 全「不认识」（F1 专用账号） | CEILINGED_LOW | 18 | 0 | 0 | [0,500] | 0 | true | 18（见下 AC-B5 的 F1 条） |
+    | sid | 画像 | `finishReason` | 题量 | 认识 | 估算 | CI | `capped` | 落本开关 | `addedToNotebook` |
+    | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+    | 1 | 全「认识」 | CONVERGED | 36 | 36 | **25000** | [21500, **25000**] | **1** | true | 执行了但本会话无生词 ⇒ 生词本 0 行 |
+    | 2 | band≤4 认识 / ≥5 不认识 | CONVERGED | 18 | 12 | 5000 | [4000,6000] | 0 | true | 6 |
+    | 3 | 全「不认识」 | **CEILINGED_LOW** | 18 | 0 | 0 | [0,500] | 0 | true | 18 |
+    | 4 | band≤7 认识 / band8 不认识 | **TOPPED_OUT** | 36 | 30 | 18000 | [15000,21000] | 0 | false | **null**（`notebook_added_at` 为 NULL） |
+    | 5 | 全「不认识」（F1 专用账号） | CEILINGED_LOW | 18 | 0 | 0 | [0,500] | 0 | true | 18（见下 AC-B5 的 F1 条） |
 
       ⇒ AC 原文要的**三型**（CONVERGED / CEILINGED_LOW / R6 补测形态）在 HTTP 上各有实例：每话题量都是
       **`PROBE_SIZE=6` 的整数倍且每档恰好 6 题**（sid 1/4 跨 band 3–8 共 36 题，sid 2 走 3/4/5，sid 3/5 走 1/2/3），
