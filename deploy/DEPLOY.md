@@ -93,7 +93,9 @@ LOG_PATH=./logs
 
 ## CI/CD
 
-推送到 `develop` 或 `main` 分支后，GitHub Actions 自动：
+推送到 `develop` 后，GitHub Actions 自动（workflow 的 `on.push.branches` 写的是 `[develop, main]`，
+但**本仓库没有 `main` 分支**，远端只有 `develop` 与 `master`，所以实际只有 `develop` 会触发；
+注意发布用的 `master` **不在触发列表里**，合并到 `master` 不会构建，需要 `workflow_dispatch` 手动跑）：
 
 1. 读取 `deploy/.snapshot-version` 作为版本号
 2. 构建并推送镜像到阿里云镜像仓库（双 tag：版本号 + `latest`）
