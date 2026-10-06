@@ -210,7 +210,7 @@
 - AC-D2 真实用户完整测试一次（browser-use + 用户登录，按项目数据访问纪律），结果数值与人工预期「量级相符」共识判定。
 - AC-D3 阅读页划词/生词判定、难度档位保存回归无恙（重点：词表新增 13,323 条 `level_id=10` 哨兵行后判档行为不变——原文写「level-NULL」，与定稿的枚举哨兵方案不符，已校正；行数 2026-10-05 由返工前 13,409 校正为终态 13,323）。
 - AC-D4 ES `app-log-moon-well` 无本功能新增 ERROR（发版后观察 ≥1 天）。
-- AC-D5 文档同步：moon-well 三级文档（L1 `docs/readme/vocabulary.md` 增补功能段 / L2 `docs/vocabulary/hld/hld.md` 增补测试接口契约 / L3 已就位）+ 本 AC 打钩归档。
+- AC-D5 文档同步：✅ **三级文档已就位（2026-10-06 02:10，纯 docs）**。L1 `moon-well/docs/readme/vocabulary.md`——「能做什么」增补词汇量测试条目（自适应二元自评、估算+区间、交卷时可勾选收生词本、中途退出/30 分钟无作答作废、历史可回看），「谁在用」补上阅读设置页入口。L2 `moon-well/docs/vocabulary/hld/hld.md`——新增 `### 5. 词汇量测试（/vocabulary/test/*）`：出题池与 8 档/70 题口径、四端点与 DTO、`seq` 幂等三分支（重发回放/串序 50304/并发撞唯一索引 50304）、提前交卷累计 ≥6 题否则 50303、报告形状含 `addedToNotebook` **null ≠ 0**、30 分钟超时与「作废只由 `start`/`history` 两条必然提交路径落库」、错误码 HTTP 500+`Result.code` 与 401 的分界，以及 ⚠️ 调用方约束「缓存只在启动与每日 04:00（生产本地 +08:00）重载、无手工入口 → 词表数据刚导入完 `start` 必回 50301」；L3 索引补挂本特性主 LLD。L3 = `docs/feat/vocab-size-test/design/vocab-size-test-lld.md`（§5/§6 早已就位）。逐条契约均按 `VocabularyTestService`/`VocabTestParams`/`VocabTestError` 源码复核，未凭记忆。**剩「本 AC 打钩归档」一项，待 D 段跑完再做。**
 
 ## E. 完成定义
 
