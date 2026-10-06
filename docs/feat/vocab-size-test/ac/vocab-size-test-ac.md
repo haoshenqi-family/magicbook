@@ -275,7 +275,28 @@ US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top*
     「老前端对新后端无感」这一半**已被被动验证**：01:14Z→03:35Z 约 2 小时里生产跑的是新后端 + 旧前端，
     实测 ES 该窗口（按 `@timestamp`，即 filebeat **入库时间**，非日志正文时刻）内
     `app-log-magicbook` 与 `app-log-moon-well` 的 `ERROR` 命中数**均为 0**。
-    「新前端对旧后端静默降级」**未演练**（后端始终比前端新，构造不出该组合），仍按本机单测口径归档，勿记为通过。
+    「新前端对旧后端静默降级」**当时未演练**（生产上后端始终比前端新，构造不出该组合），按本机单测口径归档；
+    **该结论已被下面 09:55Z 的本地夹具演练取代，上面两句留作过程留痕**。
+  - ✅ **该组合已于 2026-10-06 09:55Z 在本地构造并跑通**（本机夹具，不碰生产、不写库）。
+    做法可复用：JS 取**线上实装件**（`git show origin/develop:cps/static/js/vocab-test.js`，486 行、不含本地未推的 R125 +104 行），
+    夹具用 `docs/temp/vt_us4_fixture.html` 的 DOM（与线上件匹配，`vt-reco` 引用数 0），
+    在 `window.fetch` 边界注入四种后端实况，点一次 Start 后把判据写进 `#vt-probe`，
+    `chrome --headless=new --dump-dom --virtual-time-budget=8000` 取回文本。
+    生成器 `docs/temp/scripts/vt_legacy_fixture.py`（docs 纪律：夹具与产物留在 `docs/temp/`，不提交）。
+    | state | 注入的后端实况 | 未捕获异常 | 卡片文案 | 浮层 | 历史入口 | 档位下拉框 |
+    | --- | --- | --- | --- | --- | --- | --- |
+    | `ok`（**对照组**） | `success:true` + 首题 | `[]` | 空 | **打开**、出词 `ubiquitous` | 隐藏 | 在位 `value=3/10 options` |
+    | `legacy404` | Spring 默认 404 错误体（旧 moon-well 无该路由，代理原样透传） | `[]` | 「Start failed, please try again.」 | 未打开 | 隐藏 | 在位 |
+    | `unreach503` | 代理自造 503 `{"success":false,…}`（后端不可达） | `[]` | 同上 | 未打开 | 隐藏 | 在位 |
+    | `notready` | HTTP 500 + `code:50301`（词表未就绪） | `[]` | 「Test unavailable right now, please try again later.」 | 未打开 | 隐藏 | 在位 |
+    - **判读**：`legacy404` 与 `unreach503` 即「新前端 × 旧后端」的两个真实形态（`cps/web.py:1194` 三元组
+      原样透传上游状态码、`:1144`/`:1198` 自造 503），两者都**不进入浮层、Start 按钮保持可重试、旧功能（档位设置）
+      在同页仍可用、零未捕获异常** ⇒ AC-D1 的「静默降级」这半边从「未演练」升级为「本机夹具端到端验证」。
+    - ⚠️ **三条边界写清楚，别夸大**：① 夹具是在 JS 的 `fetch` 边界注入响应，证明的是**前端消费侧**，
+      代理层透传由 `tests/test_vocab_test_proxy.py`（`:199-215` 业务码透传、`:273-281` 网络失败 503）背书；
+      ② **没有减少 B 段「HTTP 级仍未覆盖」那四条中的任何一条**——`notready` 那行是前端读 50301 的分支，
+      不是后端真造出 50301（那条仍只有单测 `#startIsRefusedWhenWordTableNotReady`）；
+      ③ 对照组 `ok` 是必须的：没有它，「四格全静默」也可能只是夹具本身坏了。
 - AC-D2 真实用户完整测试一次（browser-use + 用户登录，按项目数据访问纪律），结果数值与人工预期「量级相符」共识判定。
   - **生产已存在一条完整真实会话（2026-10-06 17:2x 只读直查，本特性后端全链路首次在线上跑通并留下自洽数据）**：
     `vocabulary_test_session` **id=3 / user_id=1**，`15:54:22 → 15:56:23`（本地，+08:00），
