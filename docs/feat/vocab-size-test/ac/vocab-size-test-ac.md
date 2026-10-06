@@ -150,7 +150,7 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
   - ⚠️ 差异留痕（2026-10-05，US3 定稿）：原条把「对 finished 会话作答」归入 50302，实现按幂等回放处理（结果页刷新/网络重试要能拿回同一份报告）；50304 是从 50302 里新拆的码。业务错误统一 **HTTP 500 + `Result.code`** 出口，参数域错误才是 HTTP 400 + `code=400`——前端判读看 `code` 不看状态码。
 - AC-B3 状态机路径：机器人三型用户（高/低/中词汇）分别命中 FINISH(CONVERGED)/FINISH(CEILINGED_LOW)/R6 补测形态；任一会话题量 ≤70。
   - ⚠️ 差异留痕（2026-10-05 复核）：实现按**状态机路径穷举**断言（`allAnswerPathsTerminateInsideCap…` 证明所有应答路径题量 <70 且每个非防御性终止原因都可达），**没有**「画像→形态」的一一映射用例；两者等价性靠「路径全覆盖 ⊇ 三型各自走的那条路」成立，故本条判据按实态理解为路径级。题量上限是 `< MAX_QUESTIONS(70)` 而非 `≤70`（触顶即强制止损属防御分支，实测不可达）。
-  - 🆕 **18:32 「三型终止形态」升级为真 HTTP 实测，并把「画像→形态」这层空白真补上了**（第二台本机彩排实例：
+  - 🆕 **18:32 「终止形态」升级为真 HTTP 实测（三个 `FinishReason` 全中；但 AC 原文第三型「R6 补测形态」仍缺，见下）**（第二台本机彩排实例：
     scratch MySQL `vt-b3-mysql:3397` + `vt-redis2:6382`，代码同走 `/tmp/mw-vt2` 隔离 worktree（`origin/develop`），
     启动脚本 `moon-well/docs/temp/b3_boot.sh`，造数 `b3_words.sql`；**生产零接触**）。
     - 造数形态：**band 1–8 × 每档 12 词 = 96 行**（`wt<band>x<nn>`，秩 500/1500/2500/4000/6000/10000/15000/22000 起各 +i，
@@ -167,20 +167,33 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
     | 4 | band≤7 认识 / band8 不认识 | **TOPPED_OUT** | 36 | 30 | 18000 | [15000,21000] | 0 | false | **null**（`notebook_added_at` 为 NULL） |
     | 5 | 全「不认识」（F1 专用账号） | CEILINGED_LOW | 18 | 0 | 0 | [0,500] | 0 | true | 18（见下 AC-B5 的 F1 条） |
 
-      ⇒ AC 原文要的**三型**（CONVERGED / CEILINGED_LOW / R6 补测形态）在 HTTP 上各有实例：每话题量都是
-      **`PROBE_SIZE=6` 的整数倍且每档恰好 6 题**（sid 1/4 跨 band 3–8 共 36 题，sid 2 走 3/4/5，sid 3/5 走 1/2/3），
-      这就是 R6 邻档补测组的实态；`TOPPED_OUT` 的判据逐字对上 `VocabTestPlanner:267-269`
-      （sid 4 的 band8 六题 `known=0` ⇒ `probeRate=0 ≤ TOPPED_OUT_RATE(0.2)`）。
+      ⇒ **三个非防御性 `FinishReason`（CONVERGED / CEILINGED_LOW / TOPPED_OUT）都拿到了 HTTP 实例**，
+      但 **AC 原文要的第三型「R6 邻档补测形态」并没有被这五场覆盖**（18:45 独立交叉审查按源码判出；
+      我原先写「每档恰好 6 题就是 R6 补测组的实态」**方向是反的**）：五个画像全是「按 band 一刀切」的应答
+      （band≤N 全认识 / band>N 全不认识），每个探测组要么 6/6 要么 0/6 ⇒ 组内通过率恒为 1.0 或 0.0，
+      只会走升档/降档/止损分支，**进不了 `BandPhase.BOUNDARY`**（`VocabTestPlanner:272,278` 要求组内通过率落在中间带），
+      于是 `startFinalize`/`drainFinalize`（`:338-360`）那段补测**一行都没跑**。真 R6 会话的形态特征是
+      **边界档出现 10 题组**（`BOUNDARY_TOTAL=10`，`VocabTestParams:31`），所以「每话题量都是 6 的整数倍」
+      恰好是**它没发生的证据**。sid 2 的收敛是 `shift` 进已完成档（`Planner:330`），也不是补测。
+      ⇒ **这一型仍只有单测**（`VocabTestPlannerTest#boundaryMiddleRateProbesAdjacentBandsThenConverges`）；
+      HTTP 级要造它，画像必须写成「**同一档内 3 认识 / 3 不认识**（组内 rate=0.5）」而非按 band 切——
+      配方已记进发布清单 §4.0 与 task，下轮一击即中。
+      `TOPPED_OUT` 的判据逐字对上 `VocabTestPlanner:267-269`（sid 4 的 band8 六题 `known=0`
+      ⇒ `probeRate=0 ≤ TOPPED_OUT_RATE(0.2)`，比较符实测是 `<=` 不是 `<`）。
     - **两处既有口径需要精确化**（本轮按源码 + 实测校正）：
       ① 上面那句「触顶即强制止损属防御分支，实测不可达」**把两个不同的东西混在一起了**：
       估计器侧的 `capped=true`（sid 1 真跑出来了：估算钉在 `MAX_RANK=25000`、`ci_high` 同值）**可达**；
       计划器侧的 `FinishReason.FORCED`（`:240` 唯一产出点）才是不可达防御分支——`VocabTestParams:34` 是
       `public static final int MAX_QUESTIONS = 70`，无 `@Value`/配置注入口，运行期改不动，
-      所以真实 HTTP 只能由 `VocabTestPlannerTest:378-381` 那条注释说的「人为压低上限」触达（`:398` 是它的断言）。
-      ② `FORCED` 不可达是**结构性结论**（源码 + 四画像最大 36 题），不是「还没测到」；别为它再排期。
+      所以真实 HTTP **永远碰不到它**——`FORCED` 只在单测里人为压低上限时触达
+      （`VocabTestPlannerTest#forcedStopAtQuestionCap` `:293-303`、`#capTakesPrecedenceOverBoundaryProgress` `:305-314`；
+      包级可见的 `recordAnswer(…, int maxQuestions)`（`Planner:201`）就是那条注入口，**HTTP 侧够不着**）。
+      ② `FORCED` 不可达是**结构性结论**（源码无运行期注入口 + 五画像最大 36 题），不是「还没测到」；别为它再排期。
+      ⚠️ 原文 `:378-381`/`:398` 的引用是我引错的：`:398` 那条断言的是「所有路径都在上限内收敛」，**不是** FORCED 断言。
     - 完整性反查（`vocabulary_test_item` 八场会话全表）：`items == COUNT(DISTINCT word)` 逐场成立（**零重复出题**）、
       `MIN(seq)=1 / MAX(seq)=题量`、`answer IS NULL` 计数 0、题面词带空例句计数 0；
-      `band<>word_band` 计数 **0**——这是**造数决定的**（每桶 12 词 ≫ 单档最多消耗 6 题），
+      `band<>word_band` 计数 **0**——这是**造数决定的**（每桶 12 词 ≫ 单档**设计**最大消耗 10 题 = `BOUNDARY_TOTAL`；
+      本轮五画像实际每档只吃 6 题，见上面 R6 那条），
       不是 R9 未生效；R9 那一半的证据仍在第一台实例（`band<>word_band`=2）与 10-07 04:00+08 之后的生产复查（task #31）。
     - 🆕 **顺带把 `addedToNotebook` 的「history 恒 null」在 HTTP 上证实**（属既定设计，别当缺陷排障）：
       同一批账号 `GET /vocabulary/test/history?limit=5` 回的两份报告，`addedToNotebook` **全是 null**——
@@ -224,8 +237,9 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
     - 落库实测（`user_id=4` 聚合）：`rows_total=96`（**没有新增孪生行**）、`distinct_word=96`、
       `word=BINARY(word)` 计数 **96** ⇒ 全部**仍是大写形态**（若是「删了重建」会变成小写）、
       `familiarity=1` 计数 **18** / `familiarity=10` 计数 **78**（只有被答过「不认识」的 18 行被打回）、
-      `hard_level=3` 计数 **96** 与 `study_times=5` 计数 **96**（命中既有行 ⇒ 走 `VocabularyTestService:417-424` 的
-      `notebook != null` 分支，**不重派生档位、不动学习次数**）、`last_study_time IS NOT NULL` 恰 **18**、
+      `hard_level=3` 计数 **96** 与 `study_times=5` 计数 **96**（命中既有行 ⇒ `VocabularyTestService:417-424` 那段
+      `notebook == null` 的**新建**分支整段跳过，只执行 `:426-427` 的 `familiarity=UNKNOWN` + `last_study_time`，
+      所以档位与学习次数天然不动）、`last_study_time IS NOT NULL` 恰 **18**、
       `first_study_time` 原值保留 **96**。全表 `GROUP BY user_id, LOWER(word) HAVING COUNT(*)>1` → **空**。
     - **反事实对照（证明「修前必回 500」不是口头推理）**：手工发一条小写 INSERT
       `INSERT INTO vocabulary_notebook (user_id, word, …) VALUES (4,'wt1x03',…)` ⇒
@@ -251,10 +265,11 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
     被排除的只是**判档视图**——不要把「NULL 不入判档」读成「NULL 不入词桶」。
     ⚠️ 边界要说死：这是**本机造数**的 HTTP 证据，**不是生产实证**，task #30 仍开着（生产那一半要写生产库，需点头）；
     它与 sid 4 的 `capped`、第一台实例的 R9 降级是三件不同的事，证据不可互用。
-  - ⇒ **B 段那四条「HTTP 级未覆盖」现已全部关掉**：B1 的 50301（18:15）、B5 的 `false` 零写入（18:17）、
-    B3 的三型终止形态与 F1 的大小写不敏感打回（18:32）。
-    **但「关掉」的含义要按级别读**：全部是**本机一次性彩排实例 + 造数**，生产侧的对应样本另计（D 段）；
-    `FORCED` 那格属结构性不可达，不列入待办。
+  - ⇒ **B 段那四条「HTTP 级未覆盖」现已全部拿到真 HTTP 实例**：B1 的 50301（18:15）、B5 的 `false` 零写入（18:17）、
+    B3 的终止形态与 F1 的大小写不敏感打回（18:32）。
+    **但「关掉」的含义要按级别读，且 B3 有一处保留**：全部是**本机一次性彩排实例 + 造数**，生产侧的对应样本另计（D 段）；
+    AC 原文 B3 要的第三型「**R6 邻档补测形态**」这五场画像造不出来（组内通过率必须落中间带，见上面 18:45 的更正），
+    **该型仍只有单测**。`FinishReason.FORCED` 属结构性不可达（`MAX_QUESTIONS` 无运行期注入口），不列入待办。
   - ⚠️ 差异留痕（2026-10-05，US3 交付后按源码校正，原条两处失实）：
     1. 映射方向按 `HardLevel` **枚举码序单调排**：band1–2→初中(1)、band3→高中(2)、band4→CET4(3)、band5→CET6(4)、**band6→托福(6)、band7→雅思(8)**、band8→GRE(9)。早期 D5 文案的「6→雅思、7→托福」是反的——生词判定按「词的档位 > 用户阈值」做数值比较，照文案映射会让 band7 的词比 band6 更容易被判「已掌握」，档位与频段单调性相反。
     2. 原条「已存在词不覆盖 familiarity」**与实现不符**：落本口径与 `VocabularyService.unknown` 一致（存在即把 `familiarity` 置 `UNKNOWN`、刷新 `last_study_time`）。也就是说测试里点「不认识」会把此前标过熟练的词打回生词本。防重复打回靠**每会话至多落本一次**（`notebook_added_at` 令牌，重复 finish 只回放报告不再写本）；这条语义需用户复核确认（见文末「待复核」）。
@@ -593,12 +608,16 @@ B 段 B1/B2/B4/B5/B6/B7 的本机与彩排证据部分、C1/C7/C8、**D1（两�
 | 需要单独点头的写生产/上线动作 | push 底账**不在本文写死数字**（写死即自指失效：本文每提交一笔，计数就少一）——执行前实测：`git rev-list --count @{u}..HEAD` + `git log --oneline @{u}..HEAD` 逐笔判类（docs / 运行代码）。18:10 那一刻的实况：magicbook 未 push 的里有并行会话 `7bb1853a` **R125 运行代码**，其余为本 AC 的 docs 笔；moon-well 两笔**全是 docs**。⚠️ 推 magicbook 会连带把 R125 上线（两仓库都走 fnOS webhook-builder，push = 重建部署） | 用户点头后逐仓库确认 |
 | 已知瑕疵 / 分支空白（可选代码笔） | #29 题面小写折叠（233 个专名以小写上屏）、#29 撇号放宽（可回收 11 词）、#30 **band→档位 fallback** 无**生产**实证（18:32 已拿到本机造数的 HTTP 级三组差分：教学 9→9 / NULL→2 / 哨兵 10→2，见 AC-B5 的 🆕 条目；生产那一半要写生产库，仍需点头。注意与 `:292`/R9 就近降级是两个分支，证据不可互用）、#28 moon-well 双构建链一次 push bounce 两次（非本特性） | 用户定夺要不要做 |
 
-B 段那四条「HTTP 级未覆盖」**已于 18:15 / 18:17 / 18:32 三轮本机彩排实例全部关掉**
-（B1 的 50301、B5 的 `addUnknownToNotebook=false` 零写入 + 差分对照、B3 的三型终止形态、F1 的大小写不敏感打回 + D5 两分支差分，
-见上面 B 段各自的 🆕 条目）。**级别要说死**：这四条的证据级别是「本机一次性容器 + 造数 + 真 HTTP」，
-不是生产；`FinishReason.FORCED` 属结构性不可达（`MAX_QUESTIONS` 是 `static final`，无配置注入口），不排期。
+B 段那四条「HTTP 级未覆盖」**已于 18:15 / 18:17 / 18:32 三轮本机彩排实例全部拿到真 HTTP 实例**
+（B1 的 50301、B5 的 `addUnknownToNotebook=false` 零写入 + 差分对照、B3 的终止形态、F1 的大小写不敏感打回 + D5 两分支差分，
+见上面 B 段各自的 🆕 条目）。**两处保留要说死**：① 证据级别是「本机一次性容器 + 造数 + 真 HTTP」，不是生产；
+② **AC 原文 B3 的第三型「R6 邻档补测形态」并没有被那五场画像覆盖**（18:45 独立交叉审查按源码判出：
+画像全是「按 band 一刀切」⇒ 组内通过率恒 1.0/0.0 ⇒ 进不了 `BandPhase.BOUNDARY`，补测段一行没跑；
+真 R6 会话的特征是边界档 10 题组）⇒ **该型仍只有单测**，HTTP 级要造它得写「同档内 3 认识 / 3 不认识」的画像。
+`FinishReason.FORCED` 属结构性不可达（`MAX_QUESTIONS` 是 `static final`，无运行期注入口），不排期。
 本地夹具演练（D1）不冲抵它们——夹具测的是前端消费侧，50301 那格是前端读码值。
-⇒ **技术上已无待办的验证项**：剩下的全部落在上面那张「四类」表里（真人登录、等时间、点头 push、可选代码笔）。
+⇒ **技术上只剩一项本机可造的验证项**（R6 补测形态那一型，方法已知、上一轮没做完），其余全部落在上面那张
+「四类」表里（真人登录、等时间、点头 push、可选代码笔）。
 
 ## E. 完成定义
 
