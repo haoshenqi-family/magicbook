@@ -775,3 +775,117 @@ def test_epub_js_annotation_wiring_contract():
     # 段落按钮注入
     assert "reading-annotation-btn" in source
     assert "✎" in source
+
+
+# ################################# /ajax/reading-word-detail（划词气泡「详」详解） ###
+
+def _post_detail(client, word="serendipity"):
+    """POST a word-detail payload to the proxy endpoint."""
+    return client.post("/ajax/reading-word-detail", json={"word": word})
+
+
+def test_word_detail_requires_login(app):
+    """Anonymous detail requests must be redirected to the login page."""
+    rv = _post_detail(app.test_client())
+    assert rv.status_code == 302
+
+
+def test_word_detail_rejects_invalid_words(admin_client, moonwell_configured):
+    """词会拼进 moon-well 的请求 path，非法输入必须 400 拒绝（与 word_mark 同口径）。"""
+    bad_payloads = [
+        {"word": ""},
+        {"word": "hello world"},
+        {"word": "你好"},
+        {"word": "../admin"},
+        {"word": "word?x=1"},
+        {"word": "a" * 65},
+        {"word": "12abc"},
+        {"word": None},
+        {"word": 123},
+        {"word": "apple'"},
+        {"word": "apple-"},
+        {},
+    ]
+    for payload in bad_payloads:
+        rv = admin_client.post("/ajax/reading-word-detail", json=payload)
+        assert rv.status_code == 400, f"{payload!r} must be rejected with 400"
+        body = rv.get_json()
+        assert body["success"] is False
+
+
+def test_word_detail_normalizes_word_and_proxies_get(admin_client,
+                                                     moonwell_configured,
+                                                     monkeypatch):
+    """「详」：词形归一化（弯撇号→直撇号、小写）后转发 moon-well
+    GET /vocabulary/detail/{word}（六板块详解，变体还原在 moon-well 侧）。"""
+    import requests
+
+    captured = {}
+
+    def fake_get(url, headers=None, timeout=None, proxies=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["proxies"] = proxies
+        captured["timeout"] = timeout
+        return _FakeMoonwellGet()
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    rv = _post_detail(admin_client, word="Apple\u2019s")
+    assert rv.status_code == 200
+    # 归一化：弯撇号 → 直撇号，大写 → 小写，再 URL 编码进 path
+    assert captured["url"].endswith("/vocabulary/detail/apple%27s")
+    # 内网纯信任：不携带 authorization，改携身份头
+    assert "authorization" not in captured["headers"]
+    assert captured["headers"].get("X-User-Email")
+    # moon-well 是内网服务：必须显式绕过环境代理
+    assert captured["proxies"] == {"http": None, "https": None}
+    # 缓存 miss 时 moon-well 现场生成（LLM 一次调用），超时须宽于 mark 的 8s
+    assert captured["timeout"] == 30
+
+
+def test_word_detail_returns_503_when_upstream_unavailable(admin_client,
+                                                           moonwell_configured,
+                                                           monkeypatch):
+    """Network failure to moon-well surfaces as 503, not a crash."""
+    import requests
+
+    def fake_get(url, headers=None, timeout=None, proxies=None):
+        raise requests.RequestException("connection refused")
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    rv = _post_detail(admin_client)
+    assert rv.status_code == 503
+    body = rv.get_json()
+    assert body["success"] is False
+
+
+def test_word_detail_reader_wiring_contract(moonwell_configured):
+    """阅读器接线契约：气泡挂「详」按钮 → POST /ajax/reading-word-detail
+    带 CSRF；详解内容必须 textContent 组装（LLM 内容禁入 innerHTML）。"""
+    import re
+
+    source = _reader_js_source("epub.js")
+    # 配置注入与按钮挂载（与生词标记同口径：仅单个英文单词）
+    assert re.search(r"readingWordDetailUrl && SINGLE_WORD_RE\.test\(text\)", source)
+    assert "appendWordDetailButton(popover, text)" in source
+    # 请求带 CSRF 头（生产环境 CSRF 全局启用，缺 token 会被 400 拦截）
+    assert re.search(r"readingWordDetailUrl[\s\S]{0,200}X-CSRFToken", source)
+    # 面板内容组装不得有非空 innerHTML 赋值（只允许清空容器）：
+    # 逐条取赋值右值断言（负向前瞻会被 \s* 回溯绕过，实测踩到）
+    render_body = re.search(r"function renderWordDetail[\s\S]*?positionWordDetailPanel", source)
+    assert render_body, "renderWordDetail must exist"
+    bad_inner = [m.group(1) for m in
+                 re.finditer(r"innerHTML\s*=\s*([^;]+);", render_body.group(0))
+                 if m.group(1).strip() not in ("''", '""')]
+    assert not bad_inner, "renderWordDetail 里出现了非空 innerHTML 赋值：%r" % bad_inner
+    # 响应守卫时序：openWordDetailPanel 里 seq 取号之后、发请求之前不得再自增
+    # 序号（否则响应被自己的守卫丢弃，面板永远停在 Loading——审查实测踩到）
+    open_body = re.search(r"function openWordDetailPanel[\s\S]*?\$\.ajax", source)
+    assert open_body, "openWordDetailPanel must exist"
+    assert "var seq = ++wordDetailRequest" in open_body.group(0)
+    assert "wordDetailRequest++" not in open_body.group(0), \
+        "seq 取号后又自增序号，会把本请求的响应一并作废"
+    # 面板存活期间挂起气泡自动隐藏（5s 倒计时否则必然收走 30s 级生成）
+    assert re.search(r"if \(wordDetailPanel\) return;", source)

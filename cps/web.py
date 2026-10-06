@@ -976,6 +976,30 @@ def reading_word_mark():
     return _moonwell_proxy(path, None, 8, "reading word mark", method="GET")
 
 
+@web.route("/ajax/reading-word-detail", methods=["POST"])
+@user_login_required
+def reading_word_detail():
+    """单词详解（R123，与 magiclens v0.4.0 同源）：六板块结构化内容。
+
+    划词气泡的「详」按钮调用；口径与 word_mark 一致（POST+JSON+CSRF，
+    词形归一化后转发 moon-well 的 GET /vocabulary/detail/{word}）。
+    变体词（ran/running）由 moon-well 的 LLM 还原词目并针对词目讲解，
+    缓存按词目落档（magicbook-vocabulary 索引），重复查询不再计费。
+    """
+    payload = request.get_json(silent=True) or {}
+    # word 必须是字符串（null 会被 str() 转成 "None" 拼进上游 path）
+    word = payload.get("word")
+    if not isinstance(word, str):
+        return jsonify({"success": False, "message": "invalid word"}), 400
+    # 弯撇号归一化为直撇号、小写：与 word_mark 及 moon-well 缓存词目口径一致
+    word = word.strip().replace("\u2019", "'").lower()
+    if not _READING_WORD_RE.match(word) or len(word) > 64:
+        return jsonify({"success": False, "message": "invalid word"}), 400
+    # 缓存 miss 时 moon-well 现场生成（一次 LLM 调用），30s 覆盖慢响应
+    return _moonwell_proxy("/vocabulary/detail/" + quote(word, safe=""), None, 30,
+                           "reading word detail", method="GET")
+
+
 def _moonwell_settings_fetch():
     """服务端拉取阅读设置（reading_settings 页面首屏渲染）；失败返回 (None, 提示文案)。"""
     try:

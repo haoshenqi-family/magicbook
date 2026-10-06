@@ -4573,3 +4573,42 @@ msgstr "估算区间"
 msgid "Unknown words were added to your notebook"
 msgstr "不认识的词已加入你的生词本"
 
+
+msgid "Word detail (etymology, phrases, forms…)"
+msgstr "单词详解（词源、搭配、变形……）"
+
+msgid "variant"
+msgstr "变体"
+
+msgid "Loading detail… (first lookup of a new word is generated on the fly, may take a few seconds)"
+msgstr "详解加载中…（生词首次查询需现场生成，需数秒）"
+
+msgid "Failed to load detail, please retry later"
+msgstr "详解加载失败，请稍后重试"
+
+msgid "Meaning"
+msgstr "基本意思"
+
+msgid "Etymology"
+msgstr "词源"
+
+msgid "Phrases · Usage · Idioms"
+msgstr "搭配 · 用法 · 习语"
+
+msgid "Forms & Derivatives"
+msgstr "变体与衍生词"
+
+msgid "Synonyms"
+msgstr "同义词"
+
+msgid "Antonyms"
+msgstr "反义词"
+
+msgid "Slang & Informal"
+msgstr "俚语与非正式用法"
+
+msgid "Fun Facts"
+msgstr "冷知识"
+
+msgid "No detail available"
+msgstr "（暂无详解内容）"

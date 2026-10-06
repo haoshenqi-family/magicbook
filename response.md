@@ -264,3 +264,36 @@
 - **requests.md**：占号 R120。
 - **response.md**：本条；120%10==0 触发轮转——R102–R110 搬入 `response-archive/response-R102-R110.md`，保留窗口 R111–R120。
 - **冲突记录**：无。
+
+## 2026-10-05（划词翻译 6 秒排查）
+
+### R122（/ajax/reading-translate 划词 evidence 耗时 6.13s 归因）
+
+- **现象**：用户读 NCE3 Lesson 1 划词 "evidence"，DevTools Timing：Queueing 0.84ms / Stalled 0.75ms / **Proxy negotiation 0.27ms** / Waiting 6.13s / Download 4.93ms。
+- **链路拆解（实测）**：magicbook `/ajax/reading-translate` 是纯代理（`_moonwell_proxy` → `MOON_WELL_READING_URL=http://192.168.31.9:8082` 本机直连）；moon-well `ReadingVocabularyService.translate`：ES 段落缓存查 → 单词走 iciba（3s 超时×2 词形还原）→ miss 才 LLM。
+- **moon-well 侧证据（app-log-moon-well，修正 REQ 行时间戳=完成时间）**：
+  - 20:31:20.349 到达、**161ms 完成**（source=dictionary：ES 缓存 miss + iciba 命中 + 缓存回写，全部健康）；20:31:53/59、20:33:23 三次重复划词 10/5/13ms（ES 缓存命中）。
+  - 反推浏览器发送时刻 ≈ 20:31:14.41 → **~5.94s 丢失在「浏览器发出 → moon-well 入口」之间**，翻译本身无罪。
+- **逐一排除（都有证据）**：moon-well 处理慢（同窗口 /llm/task/accept 260-310ms 正常基线，现在也是 ~250ms）；401→refreshToken→重试（HttpLoggingFilter @HIGHEST_PRECEDENCE+10 先于 Spring Security，401 必留痕——早上 08:56 三条 401 可证；20:31 窗口 0 条 401、0 条 /auth 调用）；magicbook 重启（容器 up 自 10-04 15:39）；fnOS 内核/IO 事件（journal 20:29-20:33 干净）；Tailscale 路径劣化/PMTU 黑洞（fnOS↔Server2 有 agent 30s 心跳保温；实测容器内 4KB POST 30ms、宿主机一致）；magicbook 鉴权（本地 session+本机 MySQL，无远程调用）。
+- **归因（剩余盲区）**：时间丢在浏览器→Traefik→magicbook→moon-well 入口这段，而这段当前**零观测**（Traefik 无 access log、magicbook 代理层成功请求不打耗时日志、magicbook ES 日志窗口为空）。DevTools 出现 "Proxy negotiation" 行证明浏览器走了本地代理（Clash/Surge 类）——**首选假设：本地代理/家庭网络瞬时抖动**（代理死节点 fallback 超时典型 5-6s，与 6.13s 高度吻合）；次选 Traefik→magicbook（Tailscale）瞬时抖动。事后无法二分定责。
+- **建议（未实施，待用户定夺）**：① 本地代理对 `*.haoshenqi.top`/`*.haoyuhang.top` 加 DIRECT 规则再观察；② Traefik 开 access log（一个 flag，拿到每请求后端耗时，补最大盲区）；③ magicbook `_moonwell_proxy` 成功路径记 INFO 耗时（>1s 记 WARN）。
+- **交付状态**：纯诊断，未改任何代码。
+
+### 总结
+
+- **requests.md**：占号 R122。
+- **response.md**：本条；122%10≠0，无归档轮转。
+- **冲突记录**：无。
+- **【2026-10-05 补充】R122 根因确认**：用户确认是本地代理问题（与排查结论首选假设一致）。服务端各环节均有证据排除，DevTools "Proxy negotiation" 行是关键指向；建议的 DIRECT 规则仍值得加上以防复发。
+
+## 2026-10-06（R124 阅读器单词详解）
+
+### R124（划词气泡「详」按钮 + 六板块详解面板）
+
+- **回应**：阅读器与 magiclens v0.4.0 同步获得单词详解能力（后端复用已上线的 moon-well R100，magicbook 侧零 LLM/存储改动）：
+  - **代理**：`cps/web.py` 增 `POST /ajax/reading-word-detail`（`@user_login_required` + CSRF），校验/归一化与 word_mark 完全同口径（`_READING_WORD_RE`、小写、弯撇号归一、≤64），转发 `GET /vocabulary/detail/{word}`（30s——缓存 miss 时 moon-well 现场生成）。
+  - **前端**（epub.js/reader.css/read.html/i18n）：气泡在 🔊/＋/－ 旁挂「详」按钮（仅单个英文单词）；详解面板六板块渲染与 magiclens 同构（lemma 标题、「变体」角标+说明行、不规则金色 chip、空板块隐藏、textContent 组装禁 innerHTML、请求序号防旧响应）。
+  - **交互耦合（审查修复）**：P0-1 seq 取号在 closeWordDetailPanel 之前会把自己的响应作废（面板永卡 Loading）→ 先清理后取号；P0-2 主文档 mousedown「点气泡外即收」会把兄弟节点的详解面板连带收走 → 豁免面板内点击；P1-1 气泡 5s 自动隐藏必然杀掉 30s 级生成 → 面板存活期间挂起计时、面板关闭恢复倒计时；P2-1 Esc 捕获层 stopImmediatePropagation（一次 Esc 只关面板这层）。
+  - **i18n**：14 个新词条入 i18n_seed.html + zh_Hans_CN po（译文补全）+ pybabel 重编译 .mo，`test_i18n_seed_contract` 五契约全绿。
+  - **测试**：新增 5 个 word-detail 测试（登录门禁/非法词 400/归一化转发 GET+30s+禁代理/上游故障 503/阅读器接线契约——含「seq 取号后不得再自增」「非空 innerHTML 禁入」两条防回归断言）；全量 334 通过。
+- **总结**：requests.md 占号 R124（撞号更正：本会话初占 123 与并行会话「会话 cookie 持久化」R123 撞号，按纪律不改既有记录、续编 124，重复的 123 条目保留并在 124 中标注）；response.md 本条；冲突记录：编号撞号如上，无需求内容冲突（并行会话改 cps/__init__.py/reverseproxy.py，本任务改 web.py/epub.js 等互不重叠）。未 push——push develop 将触发 fnOS webhook-builder 自动构建部署，待用户确认。

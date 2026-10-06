@@ -286,3 +286,13 @@
 119. 追加评估 R118 Chrome 插件方案中的 AI 伴读聊天（agent 后端化后的对话面板）：移植到任意 web 页面的可行性，重点评估 SSE 流式、页面上下文提取、记忆与工具链在插件形态下的表现（只评估，暂不开发）。
 
 120. 新概念 epub 整章音频：为三本《新概念英语85》epub（#102/#103/#104）在阅读器每章末尾增加整章 mp3 播放功能（复用 nce-audio MinIO 课级音频）。
+
+121. （R116 续）vocab-size-test US1 词形过度归属缺陷返工定夺并执行：选项 A（`-es` 只接 s/x/z/ch/sh/o 词尾）+ 选项 B+（准入只认原形证词 + 哨兵行最短词长 3），彩排库全量重跑 attest→merge→sentences，把新终态数字（秩集换掉 353 词、31,668 行、例句覆盖 95.99%）同步到 `docs/feat/vocab-size-test/ac/vocab-size-test-ac.md` A 段。
+
+122. 排查 `https://magicbook.haoyuhang.top/ajax/reading-translate`（evidence）为什么查询了 6 秒：定位该请求 6 秒耗时落在哪一环（magicbook → moon-well → LLM/ES），只诊断不改代码。
+
+123. 会话 cookie 浏览器级失效导致「一天就要重新登录」：配置 session.permanent + PERMANENT_SESSION_LIFETIME 使会话跨浏览器重启存活（moon-well token 随 session 一起持久化）。bug 修复。
+
+123. magicbook 阅读器同步上线「单词详解」（对齐 magiclens v0.4.0 / moon-well R100）：划词气泡加「详」按钮 → 新代理路由 /ajax/reading-word-detail 转发 moon-well GET /vocabulary/detail/{word} → 六板块详解面板（基本意思/词源/搭配·用法·习语/变体衍生（不规则高亮）/同反义词/俚语冷知识，变体词显示词目+角标）；含 i18n 词条与单测。
+
+124. （更正：上一条重复的 123「阅读器同步上线单词详解」系本会话所补，编号与并行会话的「会话 cookie 持久化」撞号，按纪律续编为 124）magicbook 阅读器同步上线「单词详解」（对齐 magiclens v0.4.0 / moon-well R100）：划词气泡「详」按钮 → /ajax/reading-word-detail 代理 → 六板块详解面板；含 i18n 词条与单测。
