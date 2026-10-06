@@ -307,6 +307,45 @@ US4（`5aea1a28`）已随 `develop` push 上到生产 **magicbook.haoyuhang.top*
       修法（桶内并存原形词：出题与落本用原形、查秩仍走小写键）属代码笔，**等点头**；不修就按「已知瑕疵」归档。
 
 - AC-D3 阅读页划词/生词判定、难度档位保存回归无恙（重点：词表新增 13,323 条 `level_id=10` 哨兵行后判档行为不变——原文写「level-NULL」，与定稿的枚举哨兵方案不符，已校正；行数 2026-10-05 由返工前 13,409 校正为终态 13,323）。
+  - ✅ **通过（代码路径 + 生产数据双向闭环，2026-10-06 09:4xZ 全程只读取证、未写库、未发任务）**。
+    三道闸口逐条对上生产实况：
+    ① `WordLevelCacheService:86-88` 判档视图排除 `level_id IS NULL` **与** `FREQ_ONLY(10)`，
+    而 `wordLevelsOf()`（`:146-148`）只读这一份视图 ⇒ 阅读页生词判定**结构性看不到**哨兵行；
+    ② `ReadingVocabularyService:348-350` 整页取档为纯内存查找（不打 DB），`:227-230`
+    `inScope = wordLevel != null && wordLevel > hardLevel` ⇒ 无档位 = 默认认识 = 不写阅读事件，
+    与「表外词」同一路径，哨兵行因此与表外词**不可区分**（这正是设计意图）；
+    ③ 档位保存：`ReadingSettingsService:48-51` + `HardLevel:50 isSelectable` 拒绝 10，
+    生产 `app_user.hard_level` 实际取值 `{2, 5, 6, NULL}`（3 行为 NULL → 走默认 CET4），
+    **无 10、无越界** ⇒ 哨兵值不可能被存成用户阈值。
+  - **数据侧不变式**：`COUNT(*) WHERE level_id IS NOT NULL AND level_id <> 10` = **18,345**，
+    与线上缓存判据行 `18345 level words, 25000 ranked words, 8 bands` **逐字对上**；
+    全表 31,668 = 教学 18,345 + 哨兵 13,323 + **NULL-level 0**（⇒ 排除完全靠哨兵值本身，
+    不存在「靠 NULL 兜底」的侥幸）；`level_id NOT BETWEEN 0 AND 10` 命中 **0** 行。
+  - **为什么这条闸口是承重的**（新取证，此前文档只有结论没有实例）：哨兵行里秩最小的十一个词是
+    `was`(23)/`got`(59)/`did`(64)/`going`(73)/`were`(83)/`had`(86)/`been`(88)/`gonna`(90)/`didn`(98)/`has`(102)/`said`(119)
+    ——全是 be/do/have 的屈折形式与口语缩约（生产查询取秩 1..10 时命中的是 `you`/`I`/`the`/`to`/`a`/`it`/`and`/`that`/`of`/`is`，
+    **十个都有教学档位 `level_id=1`「初中」**，所以必须往下看才能取到哨兵词——这一层区别我在取证时先搞错、按「top10 即哨兵」写过一版，已按实测校正）。若闸口①缺失，`10 > 任意阈值` 会让 CET4 用户**每一页**
+    都被这些基础词标成生词并写进事件流；实测它们 `level_id=10` 且不入判档视图 ⇒ 默认认识、不写事件。
+  - **顺带把 19 个无例句秩词按档位侧拆开**（与 moon-well §12.6「14 拒 + 5 主动排除」逐词对账一致）：
+    教学侧 5 = `nss`(level 6)、`cliché`/`proclamation`/`pedigree`/`contrition`(level 9)；
+    哨兵侧 14 = `sakes/wah/chet/christening/def/berk/nom/positioning/ora/mortem/mou/veneration/annals/muss`。
+    ⇒ 这 19 词在**缓存构建期**就被挡在词桶外（`WordLevelCacheService:99`），
+    `VocabularyTestService:292` 的出题时跳过分支在现网数据结构下不可能被触发（保留作防回归）。
+  - 🆕 **量化后判为「无需动作」的一条新数据事实**：词桶集合 24,981 个可出题词形中
+    **22 个（0.088%）不在 `words_alpha` 白名单**，逐条为缩写（`DNA`/`DVD`/`UK`）、现代复合词
+    （`website`/`caregiver`/`cyberspace`/`supermodel`/`stuntman`/`upfront`/`walkman`）、
+    专名（`Henderson`/`forbes`/`macdonald`/`lesley`/`allende`/`weldon`/`bryn`/`brea`/`Inuit`/`erectus`/`hur`）
+    与俚语 `knackered`。**零缩约残片**——我一度据 `didn`(秩 98) 怀疑 FrequencyWords 把 `didn't`
+    切成了残片，实测 `didn` **本身就在 `words_alpha` 里** ⇒ 该担忧作废，按失实记载留下不写进结论。
+    其中专名那一类与上面 AC-D2 的小写折叠是同一批词，**互为独立佐证**。
+  - **测试侧**：`mvn -o clean test -Djava.version=21`（corretto-21.0.9）
+    **677 tests / 0 failures / 0 errors / BUILD SUCCESS**（09:39Z 本机）。
+    ⚠️ 归因留痕：本轮先跑的 `mvn -o -q test` 退出码 1，起因是 `AgentConversationControllerTest.class`
+    由并行会话用 **Java 25** 编译（class file 69.0，JDK 21 上限 65），而 `target/surefire-reports/*.xml`
+    里还挂着上一遍 16:46 的「677/0/0」**陈旧报告** ⇒ **陈旧报告与管道退出码都不是判据**，只认 clean 全量。
+  - **本条未做的部分（别当已通过）**：没有真人登录翻页**目视**核对生词标注样式与档位下拉框，
+    那属 AC-C 段同类、需用户本人 OIDC 会话；本条判据是「行为不变」，由代码路径 + 数据不变式 +
+    生产档位域三者证明，而非由人眼证明。ES 侧「无相关新增 ERROR」由 AC-D4 的计数背书（含 `ocabulary` 0 条）。
 - AC-D4 ES `app-log-moon-well` 无本功能新增 ERROR（发版后观察 ≥1 天）。
   - **观察窗重算（2026-10-06 03:40）**：本特性 push 后生产 moon-well 被**重启两次**
     （`11:35:29` / `11:35:47 +08:00` 两条 `Starting MagicbookApplication`，终态实例 `11:36:01` 启动完成），
