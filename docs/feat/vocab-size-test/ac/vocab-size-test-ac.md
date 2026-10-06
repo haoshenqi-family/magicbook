@@ -251,7 +251,7 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
       （`idx_user_id_word`）与 `Non_unique=0` 的取证姿势，下次别再靠猜约束是否存在。
   - 🆕 **18:32 同场补一个「D5 档位派生」两个分支的差分实测**（这条原本只有单测 `#notebookHardLevelPrefersTeachingLevelThenBandMapping`）：
     把 band 3 的 12 词中途分三组改写词表（**不需要重启**——`teachingLevelsOf` 走 `magicbookWordLevelRepository.findByWordIn`
-    现读 DB，`VocabularyTestService:437`，与缓存无关），再开三个新账号各跑一场全「不认识」会话（sid 6/7/8，各落 18 词）：
+    现读 DB——方法体 `VocabularyTestService:438`、`findByWordIn` 在 `:440`，与缓存无关），再开三个新账号各跑一场全「不认识」会话（sid 6/7/8，各落 18 词）：
 
     | 组 | `magicbook_word_level.level_id` | 该组词落本后 `hard_level` | 归因 |
     | --- | --- | --- | --- |
@@ -261,8 +261,10 @@ band 7 五个（`christening`/`cliché`/`proclamation`/`pedigree`/`def`）、ban
     | `wt3x10/11/12` | 2（未改，对照组） | 2 | **构造同值，不可归因，不作证据** |
 
     ⇒ 「纯频率词（无教学档位）也能出题、并且落本时拿到 band 派生档位」这条链路第一次有 HTTP 级实例；
-    同时**实测否掉一个直觉**：`level_id=NULL` 的词**照旧可出题**（分桶只看 `freq_rank` + 例句，`WordLevelCacheService:95-103`），
+    同时**实测否掉一个直觉**：`level_id=NULL` 的词**照旧可出题**（分桶只看 `freq_rank`（`WordLevelCacheService:93`）+ 非空例句（`:99`）），
     被排除的只是**判档视图**——不要把「NULL 不入判档」读成「NULL 不入词桶」。
+    ⚠️ **但这一组不可迁移到生产**：`us1_ddl.sql:7` 把 `level_id` 定成 `NOT NULL`，生产纯频率词用的是**哨兵 10**（就是上表第 3 组那条路）；
+    NULL 组只在 scratch 库成立 ⇒ #30 生产那一半要验的是**哨兵 10 → band 派生**，不是 NULL。
     ⚠️ 边界要说死：这是**本机造数**的 HTTP 证据，**不是生产实证**，task #30 仍开着（生产那一半要写生产库，需点头）；
     它与 sid 4 的 `capped`、第一台实例的 R9 降级是三件不同的事，证据不可互用。
   - ⇒ **B 段那四条「HTTP 级未覆盖」现已全部拿到真 HTTP 实例**：B1 的 50301（18:15）、B5 的 `false` 零写入（18:17）、
