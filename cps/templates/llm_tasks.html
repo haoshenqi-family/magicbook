@@ -1,0 +1,324 @@
+{% extends "layout.html" %}
+{% block header %}
+<style>
+  /* 与 translate_all 同一轻量形制：只做状态着色，不加卡片描边与蒙层 */
+  .lr-ok { color: #3c763d; }
+  .lr-warn { color: #8a6d3b; }
+  .lr-bad { color: #a94442; }
+  .lr-meta { font-size: 12px; color: #777; }
+  .lr-field { margin-bottom: 12px; }
+  .lr-field label { display: block; font-weight: 600; margin-bottom: 2px; }
+  .lr-field .lr-meta { margin-top: 2px; }
+  .lr-stats { margin-bottom: 8px; }
+  #lr-alert { display: none; }
+</style>
+{% endblock %}
+{% block body %}
+{# R126 LLM 任务手动执行面板（对齐 moon-well R110 US3）。
+   文案统一走 _() 英文 msgid + zh_Hans_CN po 译文（R124 单词详解同一 i18n 成例）。
+   script 内的字符串必须由 Jinja 渲染（JS 字符串里嵌 _() 调用），裸写 _( ) 会在浏览器
+   ReferenceError —— 本项目没有 JS 侧的 _ 实现。
+   另：译文里不要出现撇号 ' —— Jinja autoescape 会把它变成 &#39; 塞进单引号 JS 字符串。 #}
+<input type="hidden" id="lr-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('LLM Task Runner')}}</h1>
+  <div class="col-md-12">
+    <p class="text-muted">
+      {{_('Manually consume the moon-well LLM task queue: pick a provider, a model, the concurrency and the per-batch limit, then start. The batch runs inside moon-well and stops itself when the limit is reached.')}}
+    </p>
+    <div id="lr-alert" class="alert"></div>
+    <div class="lr-stats lr-meta" id="lr-queue"></div>
+
+    <div class="col-md-6">
+      <div class="lr-field">
+        <label for="lr-provider">{{_('Provider')}}</label>
+        <select class="form-control" id="lr-provider"></select>
+      </div>
+      <div class="lr-field">
+        <label for="lr-model">{{_('Model')}}</label>
+        <input class="form-control" id="lr-model" list="lr-models" placeholder="{{_('async tier (configured default)')}}">
+        <datalist id="lr-models"></datalist>
+        <div class="lr-meta">{{_('Leave empty to use the provider async tier. Any model name can be typed in, because the provider model list is not reliable.')}}</div>
+      </div>
+      <div class="lr-field">
+        <label for="lr-caller">{{_('Caller filter')}}</label>
+        <select class="form-control" id="lr-caller"></select>
+        <div class="lr-meta">{{_('Empty takes the whole queue in priority order, TEXT tasks only.')}}</div>
+      </div>
+      <div class="lr-field">
+        <label for="lr-concurrency">{{_('Concurrency')}}</label>
+        <input class="form-control" type="number" id="lr-concurrency" min="1" value="2">
+        <div class="lr-meta" id="lr-concurrency-hint"></div>
+      </div>
+      <div class="lr-field">
+        <label for="lr-maxtasks">{{_('Max tasks this batch')}}</label>
+        <input class="form-control" type="number" id="lr-maxtasks" min="1" value="100">
+        <div class="lr-meta" id="lr-maxtasks-hint"></div>
+      </div>
+      <div class="lr-field">
+        <label class="lr-check" for="lr-replay"><input type="checkbox" id="lr-replay"> {{_('Replay failed tasks once the pending queue drains')}}</label>
+        <div class="lr-meta">{{_('Only failed rows that never reached the model are eligible, so nothing is charged twice.')}}</div>
+      </div>
+      {# 初始禁用：options 成功返回（且服务端 enabled + 白名单命中）后才可用。
+         上游不可达时按钮保持灰——否则管理员面对一个尚未确认过权限的面板也能点下去 #}
+      <button class="btn btn-primary" id="lr-start" disabled>{{_('Start Batch')}}</button>
+      <button class="btn btn-default" id="lr-refresh">{{_('Refresh')}}</button>
+      <button class="btn btn-danger" id="lr-stop" disabled>{{_('Stop Batch')}}</button>
+      <div class="lr-meta" style="margin-top:8px">{{_('Batches started from this panel are not charged to your credits, but they do consume real model quota.')}}</div>
+    </div>
+
+    <div class="col-md-12" style="margin-top:16px">
+      <table class="table table-striped">
+        <thead><tr>
+          <th>{{_('Claimed')}}</th><th>{{_('Succeeded')}}</th><th>{{_('Failed or timeout')}}</th>
+          <th>{{_('Still running')}}</th><th>{{_('Pending left')}}</th><th>{{_('State')}}</th>
+        </tr></thead>
+        <tbody id="lr-body"><tr><td colspan="6" class="text-muted">{{_('No batch started yet.')}}</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+    var CSRF = document.getElementById('lr-csrf').value;
+    var T = {
+        pending: '{{_('Pending tasks')}}',
+        replayable: '{{_('Replayable failed')}}',
+        limit: '{{_('Server limits')}}',
+        activeRun: '{{_('Active run')}}',
+        maxConcurrency: '{{_('Max concurrency')}}',
+        maxTasksCap: '{{_('Per-batch cap')}}',
+        wholeQueue: '{{_('Whole queue (priority order)')}}',
+        running: '{{_('Running')}}',
+        finished: '{{_('Finished')}}',
+        loadedFailed: '{{_('Request failed')}}',
+        started: '{{_('Batch started')}}',
+        stopped: '{{_('Stop requested')}}',
+        disabled: '{{_('not configured')}}',
+        offByAdmin: '{{_('Switched off on the server')}}',
+        noAdmin: '{{_('You are not on the moon-well admin whitelist')}}',
+        noProvider: '{{_('No provider is configured on moon-well')}}',
+        upstream404: '{{_('moon-well does not expose these endpoints yet — it needs a new release.')}}',
+        confirmStart: '{{_('Start a batch now? Claimed tasks will call the model and cannot be undone.')}}',
+        confirmStop: '{{_('Stop this batch? Tasks already calling the model will still finish.')}}'
+    };
+    var currentRun = null;
+    var poller = null;
+    var optionsSeq = 0;                  // 只让最后一次 loadOptions 的结果生效
+    var capability = {enabled: true, admin: true};
+    // Why 记住「管理员是否自己改过」：loadOptions 会把并发/上限填成服务端值，
+    // 而 maxTasksPerRun 默认是 5000 —— 填了 100 再切一次供应商就被冲成 5000，
+    // 点开始就是一批 5000 次真实模型调用。改动过的一律不再覆盖。
+    var touched = {concurrency: false, maxTasks: false};
+
+    function fail(message) {
+        var error = new Error(message);
+        error.handled = true;
+        return Promise.reject(error);
+    }
+
+    function note(kind, message) {
+        var box = document.getElementById('lr-alert');
+        box.className = 'alert alert-' + kind;
+        box.textContent = message || '';
+        box.style.display = message ? 'block' : 'none';
+    }
+
+    function reportError(error) {
+        note('danger', (error && error.message) || String(error));
+    }
+
+    function ajax(url, payload) {
+        // Why: CSRFProtect 全局启用，POST 必须带 token。moon-well 的业务异常是
+        // HTTP 200 + Result{success:false}，4xx 也是同形 JSON；两种都要抬出 message，
+        // 否则管理员只看到一个空表格不知道为什么（形态同 credits.js）
+        return fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+            body: JSON.stringify(payload || {})
+        }).then(function (resp) {
+            return resp.json().catch(function () {
+                // 非 JSON 响应：404 基本只有一种解释——moon-well 还没带上新接口发版
+                if (resp.status === 404) { return fail(T.upstream404); }
+                return fail('HTTP ' + resp.status);
+            });
+        }).then(function (response) {
+            if (!response || response.success !== true) {
+                return fail((response && response.message) || T.loadedFailed);
+            }
+            return response.result;
+        });
+    }
+
+    function value(id, next) {
+        document.getElementById(id).value = next;
+    }
+
+    function fillSelect(id, values, blankLabel) {
+        var select = document.getElementById(id);
+        select.innerHTML = '';
+        if (blankLabel) {
+            var blank = document.createElement('option');
+            blank.value = '';
+            blank.textContent = blankLabel;
+            select.appendChild(blank);
+        }
+        values.forEach(function (item) {
+            var option = document.createElement('option');
+            option.value = item.provider;
+            // 未配置（缺 key/base-url）的供应商照样列出来但禁用：
+            // 选中它点开始只会在服务端抛「Unsupported LLM provider」，不如提前挡掉
+            option.textContent = item.enabled ? item.provider : item.provider + ' (' + T.disabled + ')';
+            option.disabled = !item.enabled;
+            select.appendChild(option);
+        });
+    }
+
+    function modelNames(data, provider) {
+        var candidates = data.modelCandidates || {};
+        return candidates[provider] || [];
+    }
+
+    function renderCandidates(data) {
+        var provider = document.getElementById('lr-provider').value;
+        document.getElementById('lr-models').innerHTML =
+            modelNames(data, provider).map(function (name) {
+                return '<option value="' + name + '"></option>';
+            }).join('');
+    }
+
+    function renderQueue(data) {
+        var parts = [T.pending + ': ' + data.pendingCount,
+                     T.replayable + ': ' + data.replayableFailedCount,
+                     T.limit + ': ' + data.maxConcurrency + ' / ' + data.maxTasksPerRun];
+        if (data.activeRunId) { parts.push(T.activeRun + ': ' + data.activeRunId); }
+        document.getElementById('lr-queue').textContent = parts.join('   ·   ');
+        document.getElementById('lr-concurrency').max = data.maxConcurrency;
+        document.getElementById('lr-maxtasks').max = data.maxTasksPerRun;
+        document.getElementById('lr-concurrency-hint').textContent =
+            T.maxConcurrency + ': ' + data.maxConcurrency;
+        document.getElementById('lr-maxtasks-hint').textContent =
+            T.maxTasksCap + ': ' + data.maxTasksPerRun;
+    }
+
+    function applyCapability(data) {
+        capability = {enabled: !!data.enabled, admin: !!data.admin};
+        var start = document.getElementById('lr-start');
+        start.disabled = !capability.enabled || !capability.admin;
+        if (!capability.enabled) { note('warning', T.offByAdmin); }
+        else if (!capability.admin) { note('warning', T.noAdmin); }
+        else { note('', ''); }
+    }
+
+    function renderProgress(data) {
+        var label = data.running ? T.running : T.finished;
+        var stamp = data.finishedAt || data.startedAt || '';
+        var stateClass = data.running ? 'lr-warn' : (data.failed > 0 ? 'lr-bad' : 'lr-ok');
+        document.getElementById('lr-body').innerHTML =
+            '<tr><td>' + data.claimed + '</td><td class="lr-ok">' + data.succeeded + '</td>'
+            + '<td class="' + (data.failed > 0 ? 'lr-bad' : '') + '">' + data.failed + '</td>'
+            + '<td>' + data.inFlight + '</td><td>' + data.pendingRemaining + '</td>'
+            + '<td class="' + stateClass + '">' + label + ' ' + stamp + '</td></tr>';
+        document.getElementById('lr-stop').disabled = !data.running;
+        // run 结束后必须清掉 currentRun：否则 Stop 按钮打到的是早已结束的旧 runId，
+        // 而 options 里显示的 activeRunId 可能已经是别人刚启的另一个批次
+        if (!data.running && poller) {
+            clearInterval(poller);
+            poller = null;
+            currentRun = null;
+        }
+    }
+
+    function pollProgress(runId) {
+        return ajax('{{ url_for("web.llm_task_status") }}', {runId: runId}).then(renderProgress, reportError);
+    }
+
+    function watch(runId, summary) {
+        currentRun = runId;
+        document.getElementById('lr-stop').disabled = false;
+        note('success', T.started + ': ' + runId + (summary ? ' — ' + summary : ''));
+        if (poller) { clearInterval(poller); }
+        pollProgress(runId);
+        // 4s 一轮：手跑上千条时管理员看的是趋势不是终值
+        poller = setInterval(function () { pollProgress(runId); }, 4000);
+    }
+
+    function loadOptions() {
+        var seq = ++optionsSeq;
+        return ajax('{{ url_for("web.llm_task_options") }}', {}).then(function (data) {
+            if (seq !== optionsSeq) { return data; }   // 过期回包直接丢弃
+            var previousProvider = document.getElementById('lr-provider').value;
+            fillSelect('lr-provider', data.providers);
+            fillSelect('lr-caller', data.callers, T.wholeQueue);
+            if (previousProvider && data.providers.some(function (item) {
+                    return item.provider === previousProvider; })) {
+                value('lr-provider', previousProvider);
+            }
+            renderCandidates(data);
+            // 只填没被管理员改过的项（默认值取服务端 defaultConcurrency，上限值不默认填）
+            if (!touched.concurrency) { value('lr-concurrency', data.defaultConcurrency); }
+            if (!touched.maxTasks) { value('lr-maxtasks', Math.min(100, data.maxTasksPerRun)); }
+            renderQueue(data);
+            applyCapability(data);
+            if (data.activeRunId && data.activeRunId !== currentRun) { watch(data.activeRunId); }
+            return data;
+        }, function (error) {
+            if (seq === optionsSeq) { reportError(error); }
+            return null;
+        });
+    }
+
+    document.getElementById('lr-concurrency').addEventListener('input', function () {
+        touched.concurrency = true;
+    });
+    document.getElementById('lr-maxtasks').addEventListener('input', function () {
+        touched.maxTasks = true;
+    });
+    document.getElementById('lr-refresh').addEventListener('click', loadOptions);
+    document.getElementById('lr-provider').addEventListener('change', function () {
+        // 换网关必须清掉模型名：A 网关的模型名提交到 B 网关会整批 FAILED 且已消耗配额，
+        // 而 datalist 变了不代表输入框里的旧值消失了
+        value('lr-model', '');
+        loadOptions();
+    });
+
+    document.getElementById('lr-start').addEventListener('click', function () {
+        if (!capability.enabled || !capability.admin) { return; }
+        var provider = document.getElementById('lr-provider').value;
+        if (!provider) { note('danger', T.noProvider); return; }
+        if (!window.confirm(T.confirmStart)) { return; }
+        var button = this;
+        var concurrency = parseInt(document.getElementById('lr-concurrency').value, 10) || undefined;
+        var maxTasks = parseInt(document.getElementById('lr-maxtasks').value, 10) || undefined;
+        button.disabled = true;
+        ajax('{{ url_for("web.llm_task_run") }}', {
+            provider: provider,
+            model: document.getElementById('lr-model').value.trim(),
+            caller: document.getElementById('lr-caller').value,
+            concurrency: concurrency,
+            maxTasks: maxTasks,
+            replayFailed: document.getElementById('lr-replay').checked
+        }).then(function (result) {
+            // 回显服务端实际夹取后的值：静默夹取（并发超上限、上限超 maxTasksPerRun）
+            // 必须让管理员看到，否则他以为跑的是 2 并发其实是 4
+            var summary = T.maxConcurrency + ': ' + result.concurrency
+                + ', ' + T.maxTasksCap + ': ' + result.maxTasks;
+            watch(result.runId, summary);
+        }, reportError).then(function () {
+            button.disabled = !capability.enabled || !capability.admin;
+        });
+    });
+
+    document.getElementById('lr-stop').addEventListener('click', function () {
+        if (!currentRun || !window.confirm(T.confirmStop)) { return; }
+        var runId = currentRun;
+        ajax('{{ url_for("web.llm_task_stop") }}', {runId: runId}).then(function (data) {
+            renderProgress(data);
+            note('warning', T.stopped + ': ' + runId);
+        }, reportError);
+    });
+
+    loadOptions();
+})();
+</script>
+{% endblock %}

@@ -4632,3 +4632,133 @@ msgstr "应用失败，请重试。"
 
 msgid "AI is generating… (first lookup takes 15-30s, the panel stays open and shows the result automatically)"
 msgstr "AI 正常生成中…（首次查询约 15~30 秒，面板保持打开并自动显示结果）"
+
+# R126 LLM 任务手动执行面板（llm_tasks.html + 导航 Task Runner）
+
+msgid "Task Runner"
+msgstr "任务执行"
+
+msgid "LLM Task Runner"
+msgstr "LLM 任务执行"
+
+msgid "Manually consume the moon-well LLM task queue: pick a provider, a model, the concurrency and the per-batch limit, then start. The batch runs inside moon-well and stops itself when the limit is reached."
+msgstr "手动消费 moon-well 的 LLM 任务队列：选择供应商、模型、并发数与本批处理上限后开始。批次在 moon-well 进程内执行，达到上限自动结束。"
+
+msgid "Provider"
+msgstr "供应商"
+
+msgid "Model"
+msgstr "模型"
+
+msgid "async tier (configured default)"
+msgstr "异步档（配置默认值）"
+
+msgid "Leave empty to use the provider async tier. Any model name can be typed in, because the provider model list is not reliable."
+msgstr "留空即使用该供应商的异步档模型；模型名可手动填写，因为供应商返回的模型清单不可靠。"
+
+msgid "Caller filter"
+msgstr "调用方筛选"
+
+msgid "Whole queue (priority order)"
+msgstr "全队列（按优先级）"
+
+msgid "Empty takes the whole queue in priority order, TEXT tasks only."
+msgstr "留空则按优先级取全队列（仅 TEXT 任务）。"
+
+msgid "Concurrency"
+msgstr "并发数"
+
+msgid "Max concurrency"
+msgstr "并发上限"
+
+msgid "Max tasks this batch"
+msgstr "本批处理上限"
+
+msgid "Replay failed tasks once the pending queue drains"
+msgstr "待处理队列排空后重放失败任务"
+
+msgid "Only failed rows that never reached the model are eligible, so nothing is charged twice."
+msgstr "只重放从未真正调用过模型的失败任务，避免重复计费。"
+
+msgid "Start Batch"
+msgstr "开始执行"
+
+msgid "Refresh"
+msgstr "刷新"
+
+msgid "Stop Batch"
+msgstr "停止执行"
+
+msgid "Claimed"
+msgstr "已认领"
+
+msgid "Succeeded"
+msgstr "成功"
+
+msgid "Failed or timeout"
+msgstr "失败/超时"
+
+msgid "Still running"
+msgstr "仍在执行"
+
+msgid "Pending left"
+msgstr "队列剩余"
+
+msgid "State"
+msgstr "状态"
+
+msgid "No batch started yet."
+msgstr "尚未启动批次。"
+
+msgid "Pending tasks"
+msgstr "待处理任务"
+
+msgid "Replayable failed"
+msgstr "可重放失败"
+
+msgid "Server limits"
+msgstr "服务端上限"
+
+msgid "Active run"
+msgstr "正在执行"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "Batch started"
+msgstr "批次已启动"
+
+msgid "Request failed"
+msgstr "请求失败"
+
+msgid "Start a batch now? Claimed tasks will call the model and cannot be undone."
+msgstr "现在启动一批？被认领的任务会真实调用模型，无法撤销。"
+
+msgid "Stop this batch? Tasks already calling the model will still finish."
+msgstr "停止这一批？已在调用模型的任务仍会跑完。"
+
+msgid "Stop requested"
+msgstr "已请求停止"
+
+# R126 审查修复补充（M3/S3 面板状态文案）
+
+msgid "Per-batch cap"
+msgstr "本批上限"
+
+msgid "not configured"
+msgstr "未配置"
+
+msgid "Switched off on the server"
+msgstr "服务端已关闭手动执行（ai.llm.task-manual-run.enabled=false）"
+
+msgid "You are not on the moon-well admin whitelist"
+msgstr "你不在 moon-well 管理员白名单内（ai.llm.task-manual-run.admin-user-ids）"
+
+msgid "No provider is configured on moon-well"
+msgstr "moon-well 未配置任何可用供应商"
+
+msgid "moon-well does not expose these endpoints yet — it needs a new release."
+msgstr "moon-well 还没有这些接口，需要发新版本。"
+
+msgid "Batches started from this panel are not charged to your credits, but they do consume real model quota."
+msgstr "从这里启动的批次不扣积分，但会真实消耗模型配额。"

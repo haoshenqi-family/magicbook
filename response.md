@@ -340,3 +340,14 @@
   - 契约测试增两条防回归：closeTranslationPopover 不得调用 closeWordDetailPanel；点外关闭监听必须不存在。全量 336 通过。
 - **SSE 取舍说明**（用户提议「优先使用 SSE」）：暂缓。详解是单次结构化 JSON 输出，流式到达的半截 JSON 无法优雅增量渲染，逐板块流式需自写增量 JSON 解析器，收益低复杂度高；当前痛点（误关 + 静默等待）已由面板粘性 + 明确提示解决，且 thinking 关闭后生成仅 15~30s。若之后想「逐板块流式呈现」再立项 SSE 版（moon-well 流式接口 + 两端增量解析）。
 - **总结**：requests.md 占号 R125；response.md 本条；冲突记录：无。
+
+### R126（LLM 任务手动执行面板，对齐 moon-well R110 US3）
+
+- **交付**：`cps/web.py` 5 视图 + `_llm_task_admin_gate()`；`cps/templates/llm_tasks.html`（provider/model/caller/并发/上限/重放 + 开始·刷新·停止 + 4s 轮询进度）；`layout.html` admin 下拉新增 `top_llm_tasks`；42 条英文 msgid 进 `zh_Hans_CN` po 并**重编译 .mo**（重编译前先验证「当前 po 重编译产物与仓库内 .mo 逐字节一致」，确保 diff 只含新增）；`tests/test_llm_task_run_r126.py` 28 条。全量 `pytest tests/` → **364 passed**。
+- **薄代理边界**：请求体原样透传（不做 snake_case 映射层，否则两侧契约漂移无人发现），队列语义/夹取/退避/重放全在 moon-well；**不**把 `/llm/task/run*` 加进内网互信白名单——手跑真实消耗模型配额，必须带管理员本人 token 才能归因与拒绝。
+- **交叉审查抓到 3 条必须修**（都已在真浏览器夹具里实测修复）：① `loadOptions()` 每次覆盖并发/上限输入，而 `maxTasksPerRun` 默认 5000 ⇒ 管理员填 100、切一次供应商就变 5000，点开始就是一批 5000 次真实调用（改为 `touched` 脏标记 + 默认 `min(100,上限)`）；② 切 provider 不清模型名 ⇒ A 网关的模型名提交到 B 网关，整批 FAILED 且配额已耗（change 里清空）；③ 无视 options 的 `enabled`/`admin` ⇒ 面板看着可用、点什么都失败（Start 初始禁用，options 成功且白名单命中才解禁；未配置供应商 `<option disabled>`）。
+- **建议修一并处理**：JSON 端点从 `abort(403)`（HTML）改为 handler 内 JSON 403（对齐 `/ajax/credit/admin-adjust`），并加「门禁先于转发」断言；回显服务端实际夹取值（填 9 → 提示并发 4）；`renderProgress`/`watch` 异常接入 reject 分支；`currentRun` 在 run 结束时清零 + `optionsSeq` 丢弃过期回包（实测 10s 内 status 恰好 3 次，无叠加轮询）；404 专门提示「moon-well 需发新版」。
+- **新增跨仓库契约测试**（2 条）：面板提交的键与 moon-well `LlmTaskRunReqDTO` 字段名互锁、前端读取字段必须存在于三个响应 DTO。首跑就因正则不容嵌套泛型误报 `modelCandidates`，修正后确认两侧字段名对齐。
+- **浏览器夹具的一课**：第一版把打桩 `<script>` 插进了面板脚本的 `<script>` **内部**，浏览器当脚本文本处理、面板逻辑一行没跑，而 `providerOptions=[]` 看起来像「没数据」而不是「脚本没执行」——判据是桩里定义的 `window.__calls` 变成 undefined。插在开标签之前才对。夹具与临时用例已删（`docs/temp` 本就 gitignored）。
+- **待线上验收**（AC A14–A18）：moon-well 发版 + Nacos 加 `ai.llm.task-manual-run` 块后，用小上限（`maxTasks=20`、并发 2）跑一批，确认进度、停止、与自动模式互斥的文案。白名单口径已用生产数据预核：`app_user` 中 `user_id=1` = `hsq`（余额 1,007,760），`admin-user-ids` 配 `[1]`；OIDC 换票是否把本管理员落到 id=1 仍需线上点一次确认。
+- **台账**：`requests.md` 追加 R126（前一条 125 有并行会话重复编号，未回改）；`docs/feat/llm-task-run/design/admin-panel.md` + `ac/admin-panel-ac.md`；本文件。

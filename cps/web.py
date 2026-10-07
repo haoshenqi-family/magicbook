@@ -767,6 +767,90 @@ def translate_all_page():
                                  page="translate_all")
 
 
+# --------------------------------------------------------------------
+# LLM 任务手动执行面板（R126，对齐 moon-well R110 US3）：管理员选
+# provider / model / 并发 / 本批上限，手动消费 moon-well 的 llm task 队列，
+# 可查进度与停止。这里是薄代理——真正的门禁在 moon-well
+# （ai.llm.task-manual-run.admin-user-ids 白名单二次校验），magicbook 的
+# admin_required 只挡 UI 入口；与 /ajax/credit/admin-adjust 同一纵深防御形态。
+# Why 不把 /llm/task/run* 加进 moon-well 的内网互信白名单：手跑会真实消耗
+# 模型配额并把上万行改成 RUNNING，必须带着管理员本人的 token 才能归因。
+# --------------------------------------------------------------------
+
+_LLM_TASK_PATHS = {
+    "options": "/llm/task/run/options",
+    "run": "/llm/task/run",
+    "status": "/llm/task/run/status",
+    "stop": "/llm/task/run/stop",
+}
+
+
+@web.route("/llm-tasks", methods=["GET"])
+@user_login_required
+@admin_required
+def llm_task_runner_page():
+    return render_title_template("llm_tasks.html", title=(_("LLM Task Runner")), page="llm_tasks")
+
+
+def _llm_task_admin_gate():
+    """JSON 入口的管理员门禁。
+
+    Why 不用 @admin_required：它走 abort(403) 返回 HTML，前端 fetch 只能显示
+    「HTTP 403」；面板需要可读文案，故与 /ajax/credit/admin-adjust 同一形态
+    （handler 内判 role_admin 返回 JSON 403）。页面路由 /llm-tasks 仍用装饰器。
+    """
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": _("admin only")}), 403
+    return None
+
+
+@web.route("/ajax/llm-task/options", methods=["POST"])
+@user_login_required
+def llm_task_options():
+    """拉取面板初始数据：供应商/模型候选、并发与上限、队列现状、活跃 run。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    return _moonwell_proxy(_LLM_TASK_PATHS["options"], {}, 15, "llm task options")
+
+
+@web.route("/ajax/llm-task/run", methods=["POST"])
+@user_login_required
+def llm_task_run():
+    """受理一批手动执行（moon-well 立即返回 runId，执行在其进程内异步进行）。
+
+    Why 请求体原样透传不做字段映射：前端直接按 moon-well 的 DTO 命名
+    （provider/model/concurrency/maxTasks/caller/taskType/replayFailed）提交，
+    多一层 snake_case 映射只会让两边的契约漂移无人发现；范围校验由
+    moon-well 服务端夹取（并发硬上限、上限夹取、taskType 白名单）。
+    """
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy(_LLM_TASK_PATHS["run"], payload, 15, "llm task run")
+
+
+@web.route("/ajax/llm-task/status", methods=["POST"])
+@user_login_required
+def llm_task_status():
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy(_LLM_TASK_PATHS["status"], payload, 10, "llm task status")
+
+
+@web.route("/ajax/llm-task/stop", methods=["POST"])
+@user_login_required
+def llm_task_stop():
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy(_LLM_TASK_PATHS["stop"], payload, 15, "llm task stop")
+
+
 # moon-well 走内网直连（fnos:8082）。进程可能因封面下载等功能携带 http_proxy
 # 环境变量，requests 默认信任它，内网域名会被代理断连导致 503，必须显式绕过。
 _MOONWELL_NO_PROXY = {"http": None, "https": None}

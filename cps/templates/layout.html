@@ -110,6 +110,8 @@
                     {% if current_user.role_admin() %}
                     <li class="divider"></li>
                     <li><a id="top_translate_all" href="{{url_for('web.translate_all_page')}}"><span class="glyphicon glyphicon-globe"></span> {{_('Book Translation')}}</a></li>
+                    {# R126：LLM 任务手动执行面板，管理员专属（moon-well 侧另有白名单二次校验） #}
+                    <li><a id="top_llm_tasks" href="{{url_for('web.llm_task_runner_page')}}"><span class="glyphicon glyphicon-tasks"></span> {{_('Task Runner')}}</a></li>
                     {% endif %}
                   </ul>
                 </li>
