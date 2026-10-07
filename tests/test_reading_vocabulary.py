@@ -889,3 +889,11 @@ def test_word_detail_reader_wiring_contract(moonwell_configured):
         "seq 取号后又自增序号，会把本请求的响应一并作废"
     # 面板存活期间挂起气泡自动隐藏（5s 倒计时否则必然收走 30s 级生成）
     assert re.search(r"if \(wordDetailPanel\) return;", source)
+    # R125 生命周期解耦：面板仅由 ✕/Esc 关闭——收气泡不得连带收面板，
+    # 点外监听必须不存在（生成等待期的滚动/翻选/点正文都不应误杀一趟生成）
+    close_body = re.search(r"function closeTranslationPopover\(\)[\s\S]*?\n    \}", source)
+    assert close_body, "closeTranslationPopover must exist"
+    assert "closeWordDetailPanel" not in close_body.group(0), \
+        "收气泡不得连带关闭详解面板"
+    assert "closeWordDetailPanelOnOutside" not in source, \
+        "点外关闭监听应已移除（R125 面板粘性）"

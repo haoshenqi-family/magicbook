@@ -320,7 +320,8 @@ var reader;
     function closeTranslationPopover() {
         if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
         popoverHideText = '';
-        closeWordDetailPanel(); // 新选区/翻页收走气泡时，详解面板一并收起
+        // R125：详解面板与气泡生命周期解耦——收气泡不再收面板。
+        // 生成要 15~30s，翻页/新选区误关一次用户就白等一趟；面板仅由 ✕/Esc 关闭
         if (translationPopover) {
             translationPopover.remove();
             translationPopover = null;
@@ -590,20 +591,14 @@ var reader;
             wordDetailPanel.remove();
             wordDetailPanel = null;
         }
-        document.removeEventListener('mousedown', closeWordDetailPanelOnOutside, true);
         document.removeEventListener('keydown', closeWordDetailPanelOnEsc, true);
         // 面板存活期间气泡自动隐藏被挂起：关闭面板后恢复倒计时
         //（气泡已不在时 schedulePopoverHide 内部会直接跳过，不会形成循环）
         schedulePopoverHide();
     }
 
-    function closeWordDetailPanelOnOutside(ev) {
-        var inPopover = !!(ev.target.closest && ev.target.closest('.reading-translation-popover'));
-        if (wordDetailPanel && !wordDetailPanel.contains(ev.target) && !inPopover) {
-            // 气泡上的点击（发音/标记/再点「详」）不算点外，避免面板闪烁
-            closeWordDetailPanel();
-        }
-    }
+    // R125：不再有点外关闭——面板是独立浮层，用户阅读/复制/点正文都不应误杀
+    // 一趟 15~30s 的生成；关闭路径只有 ✕ 按钮与 Esc（捕获先于分层退出链）
 
     function closeWordDetailPanelOnEsc(ev) {
         if (ev.key === 'Escape') {
@@ -648,7 +643,7 @@ var reader;
         variantLine.hidden = true;
         var body = wdEl('div', 'wd-body');
         body.appendChild(wdEl('div', 'wd-msg',
-            mbT('Loading detail… (first lookup of a new word is generated on the fly, may take a few seconds)')));
+            mbT('AI is generating… (first lookup takes 15-30s, the panel stays open and shows the result automatically)')));
         panel.appendChild(head);
         panel.appendChild(variantLine);
         panel.appendChild(body);
@@ -657,8 +652,7 @@ var reader;
         positionWordDetailPanel();
         // 面板存活期间挂起气泡自动隐藏（30s 级生成与阅读不被 5s 倒计时收走）
         if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
-        // 点外/Esc 关闭：捕获监听先于分层退出链，Esc 一次只关面板这层
-        document.addEventListener('mousedown', closeWordDetailPanelOnOutside, true);
+        // R125：仅 Esc 关闭（点外/新选区/翻页不再误关面板，关闭路径只有 ✕ 与 Esc）
         document.addEventListener('keydown', closeWordDetailPanelOnEsc, true);
         $.ajax({
             url: calibre.readingWordDetailUrl, method: 'POST', contentType: 'application/json',
@@ -672,7 +666,13 @@ var reader;
             if (reloadIfCsrfBlocked(xhr)) return;
             if (seq !== wordDetailRequest || !wordDetailPanel) return;
             body.innerHTML = '';
-            body.appendChild(wdEl('div', 'wd-msg is-err', mbT('Failed to load detail, please retry later')));
+            var errMsg = wdEl('div', 'wd-msg is-err', mbT('Failed to load detail, please retry later'));
+            // R19/R125：非鉴权失败给点击重试（后端已缓存部分结果或下次命中）
+            errMsg.style.cursor = 'pointer';
+            errMsg.addEventListener('click', function () {
+                openWordDetailPanel(word, anchor);
+            });
+            body.appendChild(errMsg);
         });
     }
 
