@@ -4762,3 +4762,120 @@ msgstr "moon-well 还没有这些接口，需要发新版本。"
 
 msgid "Batches started from this panel are not charged to your credits, but they do consume real model quota."
 msgstr "从这里启动的批次不扣积分，但会真实消耗模型配额。"
+
+
+# R132: learning 页（每日学习 / SRS 复习 / 难度匹配）
+msgid "Reading input"
+msgstr "阅读输入"
+
+msgid "Word study"
+msgstr "词汇学习"
+
+msgid "Speaking & writing"
+msgstr "说与写"
+
+msgid "Fluency drills"
+msgstr "流利度训练"
+
+msgid "Easy read"
+msgstr "轻松读"
+
+msgid "Just right"
+msgstr "正合适"
+
+msgid "Challenging"
+msgstr "挑战读"
+
+msgid "Time budget by strand"
+msgstr "四股时间预算"
+
+msgid "{{minutes}} minutes a day"
+msgstr "每天 {{minutes}} 分钟"
+
+msgid "New words today"
+msgstr "今日新词"
+
+msgid "No fresh words yet — mark unknown words while reading."
+msgstr "还没有待学的新词——阅读时标记生词，它们会出现在这里。"
+
+msgid "met {{count}}×"
+msgstr "已遇见 {{count}} 次"
+
+msgid "The answer is highlighted — rate yourself honestly."
+msgstr "正确答案已高亮——请如实自评。"
+
+msgid "Something went wrong — try again."
+msgstr "出错了，请重试。"
+
+msgid "Network error — try again."
+msgstr "网络错误，请重试。"
+
+msgid "No books to match yet."
+msgstr "还没有可以匹配的书。"
+
+msgid "estimating…"
+msgstr "估算中…"
+
+msgid "unknown words"
+msgstr "生词"
+
+msgid "Profiles refresh as your vocabulary grows."
+msgstr "词汇量增长后画像会自动刷新。"
+
+msgid "Difficulty match is unavailable right now."
+msgstr "选书难度匹配暂时不可用。"
+
+msgid "Failed to load the review queue."
+msgstr "复习队列加载失败。"
+
+msgid "Network error — press retry."
+msgstr "网络错误，请点击重试。"
+
+msgid "Daily Learning"
+msgstr "每日学习"
+
+msgid "Due now"
+msgstr "今日到期"
+
+msgid "Due tomorrow"
+msgstr "明日到期"
+
+msgid "Mastered"
+msgstr "已掌握"
+
+msgid "7-day retention"
+msgstr "7 天保持率"
+
+msgid "Review Queue"
+msgstr "复习队列"
+
+msgid "Words you marked as unknown while reading come back here on a spaced schedule. Rate each word from \"forgot\" to \"easy\" — the algorithm decides when to show it again."
+msgstr "阅读时标记的生词会按间隔重复的计划回到这里。对每个词自评「忘记了」到「很轻松」——下次什么时候见由算法安排。"
+
+msgid "Nothing due right now. Keep reading — new words will find their way here."
+msgstr "现在没有到期的复习。继续阅读——新词会自己找上门。"
+
+msgid "Reveal"
+msgstr "显示答案"
+
+msgid "How well did you recall it?"
+msgstr "你想起来了吗？"
+
+msgid "Forgot"
+msgstr "忘记了"
+
+msgid "Hard"
+msgstr "有点难"
+
+msgid "Good"
+msgstr "想起来了"
+
+msgid "Easy"
+msgstr "很轻松"
+
+msgid "Book Difficulty Match"
+msgstr "选书难度匹配"
+
+msgid "Estimated unknown-word density per book, based on your vocabulary. Two to eight unknown words in every hundred is the sweet spot for comfortable reading."
+msgstr "按你的词汇量估算每本书的生词密度。每一百个词里有二到八个生词的书读起来最舒服。"
+

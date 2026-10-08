@@ -646,6 +646,132 @@ def vocab_test_history():
                            "vocab test history", method="GET")
 
 
+# ---------- 每日学习代理（R132 / B3）----------
+#
+# Why 薄透传（同词汇量测试）：SRS 调度、四股配比、难度匹配全在 moon-well learning 模块，
+# 50501-50506 的语义只有它知道；代理只做登录与参数域校验，业务错误按原状态码与
+# Result 信封透传，前端按 Result.code 分支。
+
+@web.route("/learning", methods=["GET"])
+@user_login_required
+def learning_page():
+    """每日学习页：到期复习队列 + 每日计划 + 统计。
+
+    数据全部由 learning.js 异步经 /ajax/learning-* 拉取（与成就页同模式），
+    页面本身零上游调用——moon-well 慢/重启不拖首屏。
+    """
+    return render_title_template("learning.html", title=_("Daily Learning"))
+
+
+@web.route("/ajax/learning/srs/queue", methods=["GET"])
+@user_login_required
+def learning_srs_queue():
+    """Proxy the due review queue; ?limit=1..50（moon-well 上限 50，越界自动收敛）。"""
+    return _moonwell_proxy("/learning/srs/queue", None, 10,
+                           "learning srs queue", method="GET")
+
+
+@web.route("/ajax/learning/srs/answer", methods=["POST"])
+@user_login_required
+def learning_srs_answer():
+    """Proxy one review answer; payload {"scheduleId": id, "grade": 1-4, "latencyMs": ms?}.
+
+    Why scheduleId 校验为纯数字：moon-well 实体是自增 Long，前端 VO 已转字符串；
+    代理只挡明显非法（空/负/非数字），归属校验在上游。
+    """
+    payload = request.get_json(silent=True) or {}
+    schedule_id = payload.get("scheduleId")
+    grade = payload.get("grade")
+    if isinstance(schedule_id, bool) or not schedule_id:
+        return jsonify({"success": False, "message": "scheduleId is required"}), 400
+    if not re.match(r"^\d+$", str(schedule_id)):
+        return jsonify({"success": False, "message": "scheduleId must be a positive integer"}), 400
+    if isinstance(grade, bool) or not isinstance(grade, int) or not 1 <= grade <= 4:
+        return jsonify({"success": False, "message": "grade must be an integer 1-4"}), 400
+    latency = payload.get("latencyMs")
+    if latency is not None and (isinstance(latency, bool) or not isinstance(latency, int) or latency < 0):
+        return jsonify({"success": False, "message": "latencyMs must be a non-negative integer"}), 400
+    body = {"scheduleId": int(schedule_id), "grade": grade}
+    if latency is not None:
+        body["latencyMs"] = latency
+    return _moonwell_proxy("/learning/srs/answer", body, 5, "learning srs answer")
+
+
+@web.route("/ajax/learning/srs/stats", methods=["GET"])
+@user_login_required
+def learning_srs_stats():
+    """Proxy the SRS stats snapshot (due counts / retention)."""
+    return _moonwell_proxy("/learning/srs/stats", None, 10,
+                           "learning srs stats", method="GET")
+
+
+@web.route("/ajax/learning/plan/today", methods=["GET"])
+@user_login_required
+def learning_plan_today():
+    """Proxy today's plan (reviews + new words + strand budget).
+
+    首次访问会在上游自动落默认设置行；15s 容忍首建超时。
+    """
+    return _moonwell_proxy("/learning/plan/today", None, 15,
+                           "learning plan today", method="GET")
+
+
+@web.route("/ajax/learning/plan/settings", methods=["POST"])
+@user_login_required
+def learning_plan_settings():
+    """Proxy the plan settings update; payload 为 moon-well DTO 的同构子集。
+
+    代理域校验：数值型且在 UI 允许范围内（与后端 @Min/@Max 对齐）；四股之和
+    的 100 校验留在上游（50503 语义归它）。
+    """
+    payload = request.get_json(silent=True) or {}
+
+    def _int_in(name, lo, hi):
+        value = payload.get(name)
+        if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
+            return None
+        return value
+
+    daily_new = _int_in("dailyNewLimit", 0, 50)
+    daily_minutes = _int_in("dailyMinutes", 5, 240)
+    strands = [_int_in("strandInputPct", 0, 100), _int_in("strandLanguagePct", 0, 100),
+               _int_in("strandOutputPct", 0, 100), _int_in("strandFluencyPct", 0, 100)]
+    if daily_new is None or daily_minutes is None or any(s is None for s in strands):
+        return jsonify({"success": False, "message": "invalid plan settings"}), 400
+    return _moonwell_proxy("/learning/plan/settings", {
+        "dailyNewLimit": daily_new, "dailyMinutes": daily_minutes,
+        "strandInputPct": strands[0], "strandLanguagePct": strands[1],
+        "strandOutputPct": strands[2], "strandFluencyPct": strands[3],
+    }, 10, "learning plan settings")
+
+
+@web.route("/ajax/learning/match/books", methods=["GET"])
+@user_login_required
+def learning_match_books():
+    """Proxy the shelf difficulty profiles (density per book, stale flagged).
+
+    画像过期时上游立即返回旧值并异步重算，本代理不等待重算；首次访问无画像的
+    书返回 null 密度（前端隐藏标记）。
+    """
+    return _moonwell_proxy("/learning/match/books", None, 15,
+                           "learning match books", method="GET")
+
+
+@web.route("/ajax/learning/match/book", methods=["POST"])
+@user_login_required
+def learning_match_book():
+    """Proxy a single-book difficulty profile; payload {"bookId": str}.
+
+    bookId 必须与本站 Calibre 书 id 一致——moon-well 按它校验归属；
+    60s：缺失/过期画像走同步计算（分词+词族比对，秒级）。
+    """
+    payload = request.get_json(silent=True) or {}
+    book_id = payload.get("bookId")
+    if isinstance(book_id, bool) or not book_id or not re.match(r"^\d+$", str(book_id)):
+        return jsonify({"success": False, "message": "bookId must be a positive integer"}), 400
+    return _moonwell_proxy("/learning/match/book", {"bookId": str(book_id)}, 60,
+                           "learning match book")
+
 def _whole_book_closures():
     """构造整本翻译的 publish/lookup 闭包（start/retry/status 共用）。
 

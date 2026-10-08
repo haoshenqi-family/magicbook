@@ -1,0 +1,144 @@
+{% extends "layout.html" %}
+{% block body %}
+<input type="hidden" id="ln-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Daily Learning')}}</h1>
+  <div class="col-md-10 col-lg-8">
+
+    <div id="ln-error" class="alert alert-danger" role="alert" hidden>
+      <span id="ln-error-text"></span>
+      <button id="ln-retry" class="btn btn-default btn-xs" style="margin-left:10px">{{_('Retry')}}</button>
+    </div>
+
+    {# ---------- 统计头（S4 简报的 SRS 半边：到期/存量/保持率）---------- #}
+    <div id="ln-stats" class="panel panel-default" hidden>
+      <div class="panel-body ln-stats-body">
+        <div class="row">
+          <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-due-now">–</span><span class="ln-stat-label">{{_('Due now')}}</span></div>
+          <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-due-tomorrow">–</span><span class="ln-stat-label">{{_('Due tomorrow')}}</span></div>
+          <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-mastered">–</span><span class="ln-stat-label">{{_('Mastered')}}</span></div>
+          <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-retention">–</span><span class="ln-stat-label">{{_('7-day retention')}}</span></div>
+        </div>
+      </div>
+    </div>
+
+    {# ---------- 每日计划头：四股预算（来自设置，只读展示 + 跳转设置）---------- #}
+    <div id="ln-plan" class="panel panel-default" hidden>
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_("Today's Plan")}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="help-block" id="ln-strand-line"></p>
+        <p class="help-block" id="ln-new-words-line" hidden></p>
+      </div>
+    </div>
+
+    {# ---------- 复习队列 ---------- #}
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Review Queue')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted ln-hint">
+          {{_('Words you marked as unknown while reading come back here on a spaced schedule. Rate each word from "forgot" to "easy" — the algorithm decides when to show it again.')}}
+        </p>
+
+        <div id="ln-empty" class="text-muted" hidden>{{_('Nothing due right now. Keep reading — new words will find their way here.')}}</div>
+
+        <div id="ln-card" hidden>
+          <div class="ln-word-row">
+            <h1 class="ln-word" id="ln-word"></h1>
+            <span class="label label-default" id="ln-encounters" hidden></span>
+          </div>
+          <p class="text-muted ln-context" id="ln-context" hidden></p>
+          <p class="ln-source" id="ln-context-source" hidden></p>
+
+          {# CHOOSE 题：四选一 #}
+          <div id="ln-choices" class="ln-choices" hidden>
+            <button type="button" class="btn btn-default ln-choice"></button>
+            <button type="button" class="btn btn-default ln-choice"></button>
+            <button type="button" class="btn btn-default ln-choice"></button>
+            <button type="button" class="btn btn-default ln-choice"></button>
+          </div>
+
+          {# RECALL 题：先自测再亮答案（揭示后出评分按钮）#}
+          <div id="ln-recall" hidden>
+            <button type="button" id="ln-reveal" class="btn btn-default">{{_('Reveal')}}</button>
+          </div>
+
+          {# 四档评分（REVEAL/SPELL 之后出现）#}
+          <div id="ln-grades" hidden>
+            <p class="help-block">{{_('How well did you recall it?')}}</p>
+            <button type="button" class="btn btn-danger btn-sm" data-grade="1">{{_('Forgot')}}</button>
+            <button type="button" class="btn btn-warning btn-sm" data-grade="2">{{_('Hard')}}</button>
+            <button type="button" class="btn btn-info btn-sm" data-grade="3">{{_('Good')}}</button>
+            <button type="button" class="btn btn-success btn-sm" data-grade="4">{{_('Easy')}}</button>
+          </div>
+
+          <p id="ln-feedback" class="text-muted" hidden></p>
+          <p id="ln-card-error" class="text-danger" hidden></p>
+          <button type="button" id="ln-skip" class="btn btn-link btn-xs ln-exit">{{_('Skip')}}</button>
+        </div>
+      </div>
+    </div>
+
+    {# ---------- 难度匹配选书（B3b）：书架三档标记汇总 ---------- #}
+    <div class="panel panel-default" id="ln-match-root"
+         data-books-url="{{ url_for('web.learning_match_books') }}"
+         data-book-url="{{ url_for('web.learning_match_book') }}">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Book Difficulty Match')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted ln-hint">
+          {{_('Estimated unknown-word density per book, based on your vocabulary. Two to eight unknown words in every hundred is the sweet spot for comfortable reading.')}}
+        </p>
+        <div id="ln-match-status" class="text-muted"></div>
+        <ul class="list-unstyled" id="ln-match-list"></ul>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block header %}
+{{ super() }}
+<style>
+  /* 布局补丁只管间距与字号；颜色全部来自 bootstrap/主题类（vocab-test 同纪律） */
+  .ln-stats-body { padding: 10px 0 6px; }
+  .ln-stat { text-align: center; }
+  .ln-stat-value { display: block; font-size: 22px; font-weight: 600; }
+  .ln-stat-label { font-size: 12px; color: #888; }
+  .ln-word-row { display: flex; align-items: baseline; gap: 10px; }
+  .ln-word { font-size: 34px; margin: 6px 0; word-break: break-word; }
+  .ln-context { margin: 2px 0 4px; }
+  .ln-source { font-size: 12px; color: #999; margin: 0 0 10px; }
+  .ln-choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .ln-choices .btn { margin: 0; }
+  .ln-grades .btn { margin-right: 6px; margin-bottom: 4px; }
+  .ln-exit { padding-left: 0; opacity: .6; }
+  .ln-hint { font-size: 13px; }
+  #ln-match-list li { font-size: 13px; margin-bottom: 6px; }
+  .ln-match-badge { margin-left: 8px; }
+  .ln-match-density { color: #999; margin-left: 8px; font-size: 12px; }
+  .ln-match-sample { color: #999; font-size: 12px; margin-left: 8px; }
+</style>
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+  // 后端路由快照：learning.js 是纯静态文件拿不到 url_for（vocab-test 同款注入模式）
+  window.learningUrls = {
+    queue: "{{ url_for('web.learning_srs_queue') }}",
+    answer: "{{ url_for('web.learning_srs_answer') }}",
+    stats: "{{ url_for('web.learning_srs_stats') }}",
+    plan: "{{ url_for('web.learning_plan_today') }}",
+    matchBooks: "{{ url_for('web.learning_match_books') }}",
+    matchBook: "{{ url_for('web.learning_match_book') }}"
+  };
+})();
+</script>
+<script src="{{ url_for('static', filename='js/learning.js') }}"></script>
+{% endblock %}
