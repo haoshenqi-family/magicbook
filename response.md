@@ -168,3 +168,14 @@
 - **测试**：新增 tests/test_learning_proxy.py 17 用例（鉴权 7 端点、GET 透传、answer/settings/match 参数域、上游 50503/50501 透传、页面 DOM 渲染、导航入口）；**开发态部分单测**（R131 两级闸门）：test_learning_proxy 17 绿、i18n_seed_contract+nav 11 绿；**全量**（本次为推送验收）：`pytest tests/` **381 passed / 0 failed**（基线 364 + 17）。
 - **边界**：书架页 badge 未做（难度匹配集中在学习页列表呈现，避免侵入上游书架模板）；magiclens 不涉及；LLD/契约见 moon-well docs/feat/scientific-learning/design/us1-b3-scheduling-lld.md §4。
 - **总结**：requests.md 本条 R132；冲突记录：无（132 未被并行占用）。
+
+### R133（排查「查 creation 详解显示 created」——magicbook 侧结论）
+
+- **回应**：magicbook 侧链路（`/ajax/reading-word-detail` 代理 + `epub.js` 面板）无缺陷：代理正确归一化（小写+直撇号）转发 moon-well；前端标题取 `d.lemma || d.word`，与 magiclens v0.4.0 同源。根因在 moon-well（详见 moon-well response.md R123）：creation 的预热任务失败（worker DNS）致其无自有缓存文档，`findCached` 经 `forms.form=creation` 命中 `lemma=create` 的文档，而该文档内容是 created 任务的输出（docId=SHA-256(lemma) 覆盖写撞车，created 任务 22:12:24 顶掉 create 任务 22:11:26 的正解）。magicbook 侧无需改动。
+
+## 2026-10-08（R134 requests.md 归档整理）
+
+### R134（整理 requests.md：已完成条目按区间归档）
+
+- **回应**：R01–R129（141 条）与 R131–R132（2 条）共 143 条原样搬移至 `requests-archive/`（只搬原文、不改写、不改编号）；保留未闭环条目 R130（LLM 队列监控面板：无任何 response 回应，与 moon-well R118 同源在途）与 R133（排查完成、修复在 moon-well 侧未实施），各附归档整理注。编号纪律不变：归档不释放编号，新任务按全史最大编号 +1（133 → 本条 134）。AGENTS.md「requests.md 永不归档」条款同步废止为区间归档制。验证：原 145 条 = 归档 143 + 保留 2，逐条目逐字节比对零缺失。
+- **总结**：requests.md 占号 R134；response.md 本条；冲突记录：无。response.md 窗口超 10 条的归档欠账本轮未处理，待后续会话补账。
