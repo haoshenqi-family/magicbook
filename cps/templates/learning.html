@@ -50,10 +50,13 @@
             <h1 class="ln-word" id="ln-word"></h1>
             <span class="label label-default" id="ln-encounters" hidden></span>
           </div>
+          {# R137 题干（中文释义）：三种题型的共同题面。词面即答案，有题干时必须藏词面，
+             语境卡同规则（原句含目标词，提前亮=泄题），揭示/判定后再亮。 #}
+          <p class="ln-stem" id="ln-stem" hidden></p>
           <p class="text-muted ln-context" id="ln-context" hidden></p>
           <p class="ln-source" id="ln-context-source" hidden></p>
 
-          {# CHOOSE 题：四选一 #}
+          {# CHOOSE 题：看释义四选一（R137 起题干是释义，不再是「选出它自己」） #}
           <div id="ln-choices" class="ln-choices" hidden>
             <button type="button" class="btn btn-default ln-choice"></button>
             <button type="button" class="btn btn-default ln-choice"></button>
@@ -61,12 +64,20 @@
             <button type="button" class="btn btn-default ln-choice"></button>
           </div>
 
-          {# RECALL 题：先自测再亮答案（揭示后出评分按钮）#}
+          {# RECALL 题：看释义自测，揭示亮词面与语境 #}
           <div id="ln-recall" hidden>
             <button type="button" id="ln-reveal" class="btn btn-default">{{_('Reveal')}}</button>
           </div>
 
-          {# 四档评分（REVEAL/SPELL 之后出现）#}
+          {# SPELL 题：看释义拼写（R137 新增；复习 4 次以上的词从 RECALL 升级到此） #}
+          <div id="ln-spell" class="ln-spell" hidden>
+            <input type="text" id="ln-spell-input" class="form-control"
+                   autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                   placeholder="{{_('Type the word from its meaning')}}">
+            <button type="button" id="ln-spell-check" class="btn btn-default">{{_('Check')}}</button>
+          </div>
+
+          {# 四档评分（判定/揭示/拼写之后出现） #}
           <div id="ln-grades" hidden>
             <p class="help-block">{{_('How well did you recall it?')}}</p>
             <button type="button" class="btn btn-danger btn-sm" data-grade="1">{{_('Forgot')}}</button>
@@ -112,10 +123,14 @@
   .ln-stat-label { font-size: 12px; color: #888; }
   .ln-word-row { display: flex; align-items: baseline; gap: 10px; }
   .ln-word { font-size: 34px; margin: 6px 0; word-break: break-word; }
+  .ln-stem { font-size: 20px; margin: 8px 0 4px; }
   .ln-context { margin: 2px 0 4px; }
   .ln-source { font-size: 12px; color: #999; margin: 0 0 10px; }
   .ln-choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
   .ln-choices .btn { margin: 0; }
+  .ln-spell { display: flex; gap: 8px; margin: 10px 0; max-width: 420px; }
+  .ln-spell .form-control { flex: 1; }
+  .ln-spell .btn { flex: none; }
   .ln-grades .btn { margin-right: 6px; margin-bottom: 4px; }
   .ln-exit { padding-left: 0; opacity: .6; }
   .ln-hint { font-size: 13px; }

@@ -4879,3 +4879,15 @@ msgstr "选书难度匹配"
 msgid "Estimated unknown-word density per book, based on your vocabulary. Two to eight unknown words in every hundred is the sweet spot for comfortable reading."
 msgstr "按你的词汇量估算每本书的生词密度。每一百个词里有二到八个生词的书读起来最舒服。"
 
+
+msgid "Type the word from its meaning"
+msgstr "根据释义输入单词"
+
+msgid "Check"
+msgstr "检查"
+
+msgid "Which word means “{{meaning}}”?"
+msgstr "哪个单词的意思是「{{meaning}}」？"
+
+msgid "Correct spelling: {{word}}"
+msgstr "正确拼写：{{word}}"

@@ -251,6 +251,10 @@ def test_learning_page_renders_without_upstream(admin_client, moonwell_configure
     assert "ln-card" in html
     assert "js/learning.js" in html
     assert "web.learning_srs_queue" not in html  # url_for 已渲染成路径
+    # R137 三题型契约：释义题干 + 拼写输入必须随模板渲染（JS 才有得绑）
+    assert 'id="ln-stem"' in html
+    assert 'id="ln-spell-input"' in html
+    assert 'id="ln-spell-check"' in html
 
 
 def test_business_error_passes_through_with_code(admin_client, moonwell_configured,

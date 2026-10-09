@@ -27,9 +27,11 @@
     dueTomorrow: $('ln-due-tomorrow'), mastered: $('ln-mastered'),
     retention: $('ln-retention'), plan: $('ln-plan'), strandLine: $('ln-strand-line'),
     newWordsLine: $('ln-new-words-line'), empty: $('ln-empty'),
-    word: $('ln-word'), encounters: $('ln-encounters'), context: $('ln-context'),
-    contextSource: $('ln-context-source'), choices: $('ln-choices'),
-    recall: $('ln-recall'), reveal: $('ln-reveal'), grades: $('ln-grades'),
+    word: $('ln-word'), encounters: $('ln-encounters'), stem: $('ln-stem'),
+    context: $('ln-context'), contextSource: $('ln-context-source'),
+    choices: $('ln-choices'), recall: $('ln-recall'), reveal: $('ln-reveal'),
+    spell: $('ln-spell'), spellInput: $('ln-spell-input'), spellCheck: $('ln-spell-check'),
+    grades: $('ln-grades'),
     feedback: $('ln-feedback'), cardError: $('ln-card-error'), skip: $('ln-skip'),
     matchRoot: $('ln-match-root'), matchStatus: $('ln-match-status'),
     matchList: $('ln-match-list'),
@@ -143,29 +145,57 @@
       show(root, false);
       return;
     }
+    // 服务端约定（LearningChoiceService）：干扰池不足时 choices=null，选择题降级回忆题，
+    // 不出「无法作答的死卡」——服务端不回改题型字段，客户端按契约降级。
+    if (current.questionType === 'CHOOSE' && !(current.choices && current.choices.length > 1)) {
+      current.questionType = 'RECALL';
+    }
     show(els.empty, false);
     show(root, true);
     revealing = false;
     inFlight = false;
     answeredAt = Date.now();
     els.word.textContent = current.word;
+    els.word.className = 'ln-word';
     show(els.encounters, !!(current.encounterCount && current.encounterCount > 0));
     if (current.encounterCount > 0) {
       els.encounters.textContent = mbT('met {{count}}×').replace('{{count}}', current.encounterCount);
     }
-    var hasContext = current.contextSentence && current.contextSentence.length > 0;
-    els.context.textContent = hasContext ? '“' + current.contextSentence + '”' : '';
-    show(els.context, hasContext);
-    els.contextSource.textContent = hasContext
-      ? (current.contextBook || '') + (current.contextChapter ? ' · ' + current.contextChapter : '')
-      : '';
-    show(els.contextSource, hasContext);
+    // R137 题干：释义即题面，词面即答案——有释义时藏词面与语境卡（原句含目标词），
+    // 揭示/判定后再亮；无释义降级亮词面自评（老行为，保底可答）。
+    var hasMeaning = !!(current.meaning && current.meaning.length);
+    show(els.stem, hasMeaning);
+    if (hasMeaning) {
+      els.stem.textContent = mbT('Which word means “{{meaning}}”?')
+        .replace('{{meaning}}', current.meaning);
+    }
+    show(els.word, !hasMeaning);
+    showContext(hasMeaning ? false : !!(current.contextSentence && current.contextSentence.length > 0));
+    els.spellInput.value = '';
+    els.spellInput.className = 'form-control';
     show(els.feedback, false);
     show(els.cardError, false);
-    show(els.recall, current.questionType === 'RECALL');
-    show(els.reveal, current.questionType === 'RECALL');
+    var type = current.questionType;
+    show(els.recall, type === 'RECALL');
+    show(els.reveal, type === 'RECALL');
+    show(els.spell, type === 'SPELL');
     renderChoices(current);
     show(els.grades, false);
+    if (type === 'SPELL' && hasMeaning) {
+      els.spellInput.focus();
+    }
+  }
+
+  /** 语境卡显隐（S1）：出处与原句一起亮。 */
+  function showContext(visible) {
+    var hasContext = !!(current && current.contextSentence && current.contextSentence.length > 0);
+    var on = visible && hasContext;
+    els.context.textContent = on ? '“' + current.contextSentence + '”' : '';
+    show(els.context, on);
+    els.contextSource.textContent = on
+      ? (current.contextBook || '') + (current.contextChapter ? ' · ' + current.contextChapter : '')
+      : '';
+    show(els.contextSource, on);
   }
 
   function renderChoices(item) {
@@ -177,6 +207,7 @@
       var btn = buttons[i];
       if (item.choices[i]) {
         btn.textContent = item.choices[i];
+        btn.className = 'btn btn-default ln-choice';  // 上一张的红/绿标记不复用
         btn.hidden = false;
         btn.onclick = onChoicePicked;
       } else {
@@ -206,11 +237,40 @@
     }
   }
 
-  // RECALL：揭示后出评分
+  // RECALL：揭示后亮词面与语境，出评分
   function onReveal() {
     if (!current) return;
     revealing = true;
     show(els.recall, false);
+    show(els.word, true);
+    showContext(true);
+    show(els.grades, true);
+  }
+
+  // SPELL：客户端归一比对（与服务端 QuestionTypePicker.normalize 同口径：
+  // trim / 小写 / 弯撇号归一）；判完亮词面与语境，错了附正确拼写，评分自报。
+  function spellMatches(expected, actual) {
+    function norm(s) {
+      return (s || '').trim().toLowerCase().replace(/’/g, "'");
+    }
+    return norm(expected) === norm(actual);
+  }
+
+  function onSpellCheck() {
+    if (!current || inFlight) return;
+    var typed = els.spellInput.value;
+    if (!typed.trim()) return;   // 空提交不判定，等用户输入
+    var correct = spellMatches(current.word, typed);
+    show(els.spell, false);
+    show(els.word, true);
+    showContext(true);
+    if (!correct) {
+      els.word.className = 'ln-word text-danger';
+      show(els.feedback, true);
+      els.feedback.textContent = mbT('Correct spelling: {{word}}').replace('{{word}}', current.word);
+    } else {
+      els.word.className = 'ln-word text-success';
+    }
     show(els.grades, true);
   }
 
@@ -341,6 +401,14 @@
 
   els.retry.addEventListener('click', loadAll);
   els.reveal.addEventListener('click', onReveal);
+  els.spellCheck.addEventListener('click', onSpellCheck);
+  // 回车=检查：拼写题最高频动作，别让用户去摸鼠标
+  els.spellInput.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      onSpellCheck();
+    }
+  });
   els.skip.addEventListener('click', function () { nextCard(); });
   els.grades.querySelectorAll('[data-grade]').forEach(function (btn) {
     btn.addEventListener('click', function () {
