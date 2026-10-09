@@ -162,8 +162,13 @@
       els.encounters.textContent = mbT('met {{count}}×').replace('{{count}}', current.encounterCount);
     }
     // R137 题干：释义即题面，词面即答案——有释义时藏词面与语境卡（原句含目标词），
-    // 揭示/判定后再亮；无释义降级亮词面自评（老行为，保底可答）。
+    // 揭示/判定后再亮。无释义统一降级 SELF（亮词自评，Anki 基础模式）：
+    // CHOOSE 没题干会变「选它自己」、RECALL 的 Reveal 变「揭示已亮着的词」、
+    // SPELL 没题干变「听写自己」，全不成立，只有自评保底诚实可答。
     var hasMeaning = !!(current.meaning && current.meaning.length);
+    if (!hasMeaning) {
+      current.questionType = 'SELF';
+    }
     show(els.stem, hasMeaning);
     if (hasMeaning) {
       els.stem.textContent = mbT('Which word means “{{meaning}}”?')
@@ -180,7 +185,7 @@
     show(els.reveal, type === 'RECALL');
     show(els.spell, type === 'SPELL');
     renderChoices(current);
-    show(els.grades, false);
+    show(els.grades, type === 'SELF');
     if (type === 'SPELL' && hasMeaning) {
       els.spellInput.focus();
     }
