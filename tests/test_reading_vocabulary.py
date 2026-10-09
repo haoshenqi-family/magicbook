@@ -480,6 +480,11 @@ def test_epub_js_popover_auto_close_and_mark_buttons():
     2. translateSelection 的所有「不弹气泡」路径必须关闭旧气泡；
     3. 翻页（relocated）时旧气泡坐标失效，必须关闭；
     4. ＋/－ 标记按钮存在且单词词形才显示。
+
+    注（R141）：划词气泡暂时下线、由 magiclens 单独承担（epub.js
+    READER_BUILTIN_AI_UI_ENABLED=false），本用例锁的这些路径当前不可达；
+    保留是为了开关置回 true 时这些历史缺陷不复发，开关状态由
+    tests/test_reader_lens_handoff.py 锁定。
     """
     import re
 

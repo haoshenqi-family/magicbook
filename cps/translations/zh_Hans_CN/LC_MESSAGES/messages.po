@@ -4410,9 +4410,9 @@ msgid "Try it"
 msgstr "点我试试"
 
 msgid ""
-"Turn on bilingual paragraphs; select a word or phrase for definitions and"
-" unknown words."
-msgstr "开双语段落；选中词句可查释义、加生词。"
+"Turn on bilingual paragraphs. Word lookups live in the MagicLens browser "
+"extension now."
+msgstr "开整页双语译文；查词与生词标记请使用 MagicLens 浏览器扩展。"
 
 msgid "Type"
 msgstr "类型"

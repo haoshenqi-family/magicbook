@@ -83,7 +83,7 @@
       body: "Colors, font size, layout and read-aloud all live here." },
     { id: "translate", sel: "#immersive-translate",
       title: "Translate",
-      body: "Turn on bilingual paragraphs; select a word or phrase for definitions and unknown words." },
+      body: "Turn on bilingual paragraphs. Word lookups live in the MagicLens browser extension now." },
     { id: "bookmark", sel: "#bookmark",
       title: "Bookmark",
       body: "Mark key spots and jump back with one click from the sidebar." },
