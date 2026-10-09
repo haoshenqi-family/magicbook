@@ -45,12 +45,15 @@
 
   // ---------- 小工具 ----------
 
-  // Why 内联 style 而非 hidden 属性：作者样式表会覆盖 UA 的 [hidden]{display:none}——
-  // .ln-choices/.ln-spell 是 display:flex、.btn 是 inline-block，hidden 属性对它们
-  // 完全失效，选项区一直可见（R139 四个空白格事故）。内联 display 优先级最高，
-  // 置空时回落到样式表原值（flex/inline-block），对所有元素通用。
+  // Why 属性与内联双管齐下，缺一不可：只删 hidden 属性会被作者 display 规则顶回
+  // （.ln-choices/.ln-spell 的 flex、.btn 的 inline-block）；只设内联则「显示」时
+  // 模板里挂着的 hidden 属性仍在，UA 的 [hidden]{display:none} 继续生效——统计/
+  // 计划/复习卡这些无作者 display 规则的元素永远显不出来（R140 模块全消失事故，
+  // 是对 R139 空白格事故只修一半的后果）。属性解 UA 规则，内联压作者规则。
   function show(el, visible) {
-    if (el) el.style.display = visible ? '' : 'none';
+    if (!el) return;
+    el.hidden = !visible;
+    el.style.display = visible ? '' : 'none';
   }
 
   function csrfToken() {
@@ -218,9 +221,11 @@
         btn.textContent = item.choices[i];
         btn.className = 'btn btn-default ln-choice';  // 上一张的红/绿标记不复用
         btn.hidden = false;
+        btn.style.display = '';   // .btn 有 inline-block 作者规则，只删属性藏不住/显不回
         btn.onclick = onChoicePicked;
       } else {
         btn.hidden = true;
+        btn.style.display = 'none';  // 不足四个选项时空按钮必须真隐藏（show 同款双保险）
       }
     }
   }
