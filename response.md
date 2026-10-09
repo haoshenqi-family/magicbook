@@ -12,60 +12,13 @@
 - `response-archive/response-R70-R80.md`：R70–R80（2026-09-22 ～ 2026-09-28；含 R70/R71 历史重复条与 R74 补写条，见文件头说明）
 - `response-archive/response-R81-R101.md`：R81–R101（2026-09-27 ～ 2026-09-30；含 R88/R90/R98 补记与重复编号，原样搬移）
 - `response-archive/response-R102-R110.md`：R102–R110（2026-09-30 ～ 2026-10-01；R110 条目含 R107/R109 代提交，R120 触发轮转搬入）
+- `response-archive/response-R111-R119.md`：R111–R119（2026-10-02 ～ 2026-10-05；2026-10-08 R129 补账搬移）
+- `response-archive/response-R120-R125.md`：R120–R125（2026-10-06 ～ 2026-10-07；R135 写入触发搬移，含 R134 登记的窗口欠账补账）
+- `response-archive/response-R126-R131.md`：R126、R127、R128、R129、R131（2026-10-07 ～ 2026-10-08；2026-10-09 R141 写入触发轮转搬移，清掉 R134 登记的窗口欠账）
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）
-
-## 2026-10-07（R126 LLM 任务手动执行面板）
-
-### R126（LLM 任务手动执行面板，对齐 moon-well R110 US3）
-
-- **交付**：`cps/web.py` 5 视图 + `_llm_task_admin_gate()`；`cps/templates/llm_tasks.html`（provider/model/caller/并发/上限/重放 + 开始·刷新·停止 + 4s 轮询进度）；`layout.html` admin 下拉新增 `top_llm_tasks`；42 条英文 msgid 进 `zh_Hans_CN` po 并**重编译 .mo**（重编译前先验证「当前 po 重编译产物与仓库内 .mo 逐字节一致」，确保 diff 只含新增）；`tests/test_llm_task_run_r126.py` 28 条。全量 `pytest tests/` → **364 passed**。
-- **薄代理边界**：请求体原样透传（不做 snake_case 映射层，否则两侧契约漂移无人发现），队列语义/夹取/退避/重放全在 moon-well；**不**把 `/llm/task/run*` 加进内网互信白名单——手跑真实消耗模型配额，必须带管理员本人 token 才能归因与拒绝。
-- **交叉审查抓到 3 条必须修**（都已在真浏览器夹具里实测修复）：① `loadOptions()` 每次覆盖并发/上限输入，而 `maxTasksPerRun` 默认 5000 ⇒ 管理员填 100、切一次供应商就变 5000，点开始就是一批 5000 次真实调用（改为 `touched` 脏标记 + 默认 `min(100,上限)`）；② 切 provider 不清模型名 ⇒ A 网关的模型名提交到 B 网关，整批 FAILED 且配额已耗（change 里清空）；③ 无视 options 的 `enabled`/`admin` ⇒ 面板看着可用、点什么都失败（Start 初始禁用，options 成功且白名单命中才解禁；未配置供应商 `<option disabled>`）。
-- **建议修一并处理**：JSON 端点从 `abort(403)`（HTML）改为 handler 内 JSON 403（对齐 `/ajax/credit/admin-adjust`），并加「门禁先于转发」断言；回显服务端实际夹取值（填 9 → 提示并发 4）；`renderProgress`/`watch` 异常接入 reject 分支；`currentRun` 在 run 结束时清零 + `optionsSeq` 丢弃过期回包（实测 10s 内 status 恰好 3 次，无叠加轮询）；404 专门提示「moon-well 需发新版」。
-- **新增跨仓库契约测试**（2 条）：面板提交的键与 moon-well `LlmTaskRunReqDTO` 字段名互锁、前端读取字段必须存在于三个响应 DTO。首跑就因正则不容嵌套泛型误报 `modelCandidates`，修正后确认两侧字段名对齐。
-- **浏览器夹具的一课**：第一版把打桩 `<script>` 插进了面板脚本的 `<script>` **内部**，浏览器当脚本文本处理、面板逻辑一行没跑，而 `providerOptions=[]` 看起来像「没数据」而不是「脚本没执行」——判据是桩里定义的 `window.__calls` 变成 undefined。插在开标签之前才对。夹具与临时用例已删（`docs/temp` 本就 gitignored）。
-- **待线上验收**（AC A14–A18）：moon-well 发版 + Nacos 加 `ai.llm.task-manual-run` 块后，用小上限（`maxTasks=20`、并发 2）跑一批，确认进度、停止、与自动模式互斥的文案。白名单口径已用生产数据预核：`app_user` 中 `user_id=1` = `hsq`（余额 1,007,760），`admin-user-ids` 配 `[1]`；OIDC 换票是否把本管理员落到 id=1 仍需线上点一次确认。
-- **台账**：`requests.md` 追加 R126（前一条 125 有并行会话重复编号，未回改）；`docs/feat/llm-task-run/design/admin-panel.md` + `ac/admin-panel-ac.md`；本文件。
-
-### R127（跨项目 L1-L3 文档评审与产品评估，只改文档）
-
-- **范围**：配合家族根 `docs/product-review-2026-10-07.md` 的产品评估，对本仓库文档做正确性核查修正。**零代码改动**。
-- **REQUIREMENTS.md 全册勘误**：在线站点旧域名 hyh.→**magicbook.haoyuhang.top**；§6 加 R98 架构变更横幅（AI 伴读已后端化 moon-well，cps/ai 退役、provider 配置移交 ai.llm.configs，各条目标〔历史〕）；§7 关闭「deepseek V4 flash 模型名待澄清」待办（已不适用）；§8 补 2026-10-07 变更记录行。
-- **状态行失实回填（4 份）**：whole-book-translation「尚未开发」→已实现并经 R47/R76/R78/R101 多轮生产迭代；sso-user-unification「待评审」→Authentik sub user_key + JWT 代理链已上线；ai-agent magicbook-side「待排期」→R98 已实现；ai-reading-companion 英文实现计划加「已被取代」横幅（防止误按旧架构施工）。
-- **口径修正（2 份）**：oidc-login.md 加端口口径注（本文按裸机 8085，生产实况 fnOS Docker 8083）；docs/reading-vocabulary.md「2026-09-14 临时调整」标注为持续近月的现状 + 指向 moon-well HLD 判定口径 + 恢复路径。
-- **体系结论**（供后续决策，本次未动）：本仓库无 L1/L2/L3 分层，AGENTS.md 前置阅读要求的 `docs/kb/project-describe/` 为空壳——建议沿用 moon-well 模式引入三级体系，优先建「阅读器/词汇测试/LLM 任务面板」三个模块的 L1/L2；详见家族评估文档 §5.3。
-- **总结**：requests.md 本条 R127；response.md 现存 17 个 R 级标题，**超出 10 条保留窗口（R120 完成时未归档，既有欠账）**，本条未代执行搬移；冲突记录：无（R123/R124 并行撞号系历史已记录事项）。
-
-### R128（AGENTS.md 文档规范升级：引入三级体系规则）
-
-- **改动**：AGENTS.md 文档规范节升级为三级表——L1 `docs/readme/`、L2 `docs/<module>/hld/` 标注**骨架待建**（新建内容一律按表落位，勿再新增游离文档；建设方案列家族方案 P1-A 待批准）；L3 `docs/feat/` 已成型。新增三级联动纪律四条：交付三问、数值同源（以 fnOS 生产实况与 moon-well 现行契约为准）、状态行强制（L3 design 头部必须有状态行，附 R127 一次修出 4 份失实先例）、历史文档只标注不重写（附 ai-reading-companion 横幅先例）。
-- **规范与实况脱节修复**：核心工作流第 3 步「必须优先阅读 docs/kb/project-describe/」加空壳注记（当前仅 .gitkeep，实际入口 = 根 README + docs/REQUIREMENTS.md）；kb 行注记「填实或删除」待决策。
-- **总结**：requests.md 本条 R128；response.md 追加本条（窗口欠账同 R127 所记）；冲突记录：无。
-
-### R129（执行文档统一方案：magicbook L1/L2 骨架 P1-A + 归档补账）
-
-- **P1-A 骨架落地**（9 个新文件）：L1 = docs/readme/readme.md（索引+分级表）+ library/reading/vocabulary/companion/credit/admin 六份模块 README（只讲功能；比方案的 4 模块多出 library/admin——书库是产品主入口、管理面板已有独立页面，均从既有 feat/REQUIREMENTS 归纳，无虚构功能）；L2 = reading/hld/hld.md（/ajax/reading-* → moon-well 代理映射表，端点逐一对照 cps/web.py 现核）+ vocabulary/hld/hld.md（判定/测试/设置代理映射，契约权威指向 moon-well）。
-- **AGENTS.md 同步**：三级表「骨架待建」注记摘除（L1 ✅ 6 模块 / L2 ✅ 首批 2 份）；核心工作流前置阅读改为 docs/readme/readme.md + docs/REQUIREMENTS.md；联动纪律第一条去掉「骨架建好后生效」。
-- **P1-B**：内网设备表指针化至 ops + app-manager truth（六处副本收敛）；**P2-D**：归档规则修订为「写入即检查、超 10 立即搬移」。
-- **归档补账**：R111–R119 段（含乱序并行的 R116 条目）原样搬移至 response-archive/response-R111-R119.md，response.md 顶部补建全量归档索引；加本条后窗口恰 10 条。
-- **遗留**：kb/project-describe 空壳的「填实或删除」仍待决策（本次以 readme/readme.md 作为前置阅读入口绕开）。
-- **总结**：requests.md 本条 R129；冲突记录：无（129 未被并行占用）。
-
-## 2026-10-08（R131 单测闸门分级）
-
-### R131（单测逻辑改两级：开发态部分单测，正式发布才全量）
-
-- **AGENTS.md「编码实现 · 交付标准」**：原「代码完成后必须确保项目可正常启动且全量单元测试通过」改为两级——**开发态（默认）**只跑本次新增/改动用例所在的测试文件 + 受影响模块的相关测试文件（`.venv/bin/python -m pytest tests/test_reading_vocabulary.py`），不要求全量；**正式发布态**（用户显式提出「正式发布 / 上线」，或按「Git 分支管理」把 `develop` 合并 `master`）才跑全量 `pytest tests/`，以 0 失败为判据并把用例总数写入本文件。
-- **实况注记（已写入文档）**：push `develop` 即触发 fnOS 构建自动上线（`../ops/runbook.md` §1），构建链不跑测试，全量单测历来只是人工闸门，故「正式发布」以用户显式指令为准；开发期跳过全量的跨模块回归风险由该闸门兜底。
-- **§4 bug修复** 条款与新口径天然一致（「更新单元测试并验证通过」＝开发态部分单测），未改。
-- **跨仓同步**：moon-well R119 / app-manager R36（Maven 侧命令与 `clean`、管道退出码两条判据）/ magiclens R30（无自动化测试，两级闸门落在手工验收清单）。
-- **窗口**：本条回应后 response.md 含 10 个 request 的回应（R120/R122/R123/R124/R125×2/R126/R127/R128/R129/R131），未超 10，无需搬移。
-- **总结**：requests.md 本条 R131；冲突记录：无（131 未被并行占用）。只改文档，未动代码与测试。
-
----
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）
 
 ## 2026-10-08（R132：B3 学习调度中枢前端实施）
 
@@ -156,3 +109,19 @@
 - **修复**（`17cf3b63`，16:21 部署 healthy）：show() 同时切换 `hidden` 属性（解 UA 规则）与内联 display（压作者规则），缺一不可；renderChoices 的选项按钮同款处理（.btn inline-block 下不足四选项时空按钮真隐藏）。22 用例绿，线上 JS 验收通过。
 - **教训（修正 R139 条目）**：Bootstrap/带 display 规则的页面做显隐，**属性和内联必须一起动**——只动属性被作者样式顶回，只动内联在显示方向漏掉挂着的 hidden 属性。两个方向各坏一半，必须同时覆盖。
 - **总结**：requests.md 占号 R140；本条为回应；冲突记录：无。
+
+## 2026-10-09（R141：划词翻译从 magicbook 隐藏，暂时仅由 magiclens 承担）
+
+### R141（阅读器内置划词类 AI 能力下线，单开关可回滚）
+
+- **冲突根因（实测证据，非推测）**：magiclens `extension/manifest.json` 未声明 `all_frames`，但 `extension/highlight.js` 自 R24 起自建「多文档引擎」——`listDocuments()` 主动遍历同源 `iframe` 并把样式表/IntersectionObserver/交互监听绑进 iframe 文档（文件头注释第 6–9 行明确写「magicbook 阅读器把书内正文渲染在同源 iframe 里」，第 823–835 行还专为「epub.js 在 document_idle 之后才向 iframe 写正文」做了观察者提前就位）。而 magicbook `epub.js` 的 `bindSelectionTranslation()` 也在同一 `content.document` 上绑 `mouseup → translateSelection`。两套实现在书页里命中的是**同一个 iframe 文档**，因此：划词出两个气泡、一个生词两条波浪线（内置 span 标注 + 扩展 `::highlight()`）、两套 Esc/点空白关闭逻辑互相抢占。
+- **范围确认**：AskUserQuestion 两问，用户选「阅读器 AI 能力整体让位」+「完全静默」，故不加任何提示分支。
+- **交付（`cps/static/js/reading/epub.js`，单一开关 + 三处闸门）**：新增 `READER_BUILTIN_AI_UI_ENABLED = false`（第 295 行），① `translateSelection` 开头 early return（连带下线气泡内 🔊 发音、＋/－ 生词标记、「详」单词详解入口——magiclens 气泡四项齐备，属超集）；② `markVocabulary` 开头 early return（DOM 波浪线）；③ `injectParagraphTools` 不再注入段落悬停「译」按钮。恢复内置形态只需把该行置 `true`，无需回滚其它代码。
+- **刻意保留（避免连带打断无关能力）**：段落朗读/批注/AI 伴读按钮、工具栏整页「译」与管理员「整本译」（magiclens 无此二者，不构成冲突）、划词右键快捷菜单（引用到伴读/复制）；**`inspectVocabulary` 的每页文本上送保留**——它同时是 moon-well 阅读事件流（学情、成就解锁）与 `window.AICompanion.getUnfamiliarWords` 的数据源，停请求会连带伤到这两块；后端代理端点 `/ajax/reading-translate|-word-mark|-word-detail` 全部保留（`read.html` 仍下发 URL，零前端调用方）。
+- **交叉审查（切 Agent 视角）四点处置**：① 我初版注释写「选中段落的译文由 magiclens 提供」被指失实——magiclens 只把译文呈现在气泡里，不挂段落下方内联，注释已改写为准确表述；② `translateParagraph(el, btn)` 无 `btn` 空值守卫、现不可达，**判定不修**（唯一调用点即被下线的按钮，开关回 true 自然恢复，加守卫反掩盖契约）；③ 顶层文档场景「一次 Esc 只关一层」不再覆盖扩展气泡（扩展在其隔离世界自行处理），内置侧 `window.ReaderTranslation.isOpen()` 恒 false、`ai_chat.js` 抽屉 Esc 直通，属预期非回归；④ `tests/test_reading_vocabulary.py` 的划词气泡静态锁现锁不可达路径——保留（防开关回 true 时历史缺陷复发），已在 docstring 加注指向本条。
+- **文案与三级联动**：导览「译」步文案改口径（`onboarding.js` + `i18n_seed.html` + zh `messages.po` → pybabel 重编 `.mo`，`gettext` 实读验证拿到新中文）；L1 `docs/readme/readme.md`/`reading.md`/`vocabulary.md`/`learning.md`、L2 `docs/reading/hld/hld.md`/`docs/vocabulary/hld/hld.md`、L3 `docs/reading-vocabulary.md` 头部加 R141 状态注记（主体规格保留原貌，按「历史文档只标注不重写」）。
+- **测试（开发态两级闸门，用户未提发布故不做全量）**：`pytest tests/test_reading_vocabulary.py tests/test_reader_lens_handoff.py tests/test_no_duplicate_js_lines.py tests/test_i18n_seed_contract.py` → **43 passed**；`tests/test_onboarding_tour.py tests/test_onboarding_reader_visual.py tests/test_i18n_seed_contract.py` → **40 passed**；新增 `tests/test_reader_lens_handoff.py` 6 条静态锁定（开关值、三处闸门、`inspectVocabulary` 不受闸门影响、朗读/批注/伴读按钮与整页译仍在）；`node --check epub.js/onboarding.js` 通过；相邻同文行扫描除两处**跨函数同名早退**外无重复（非 R113 型相邻重复）。
+- **未验（诚实边界）**：本机无 calibre 书库（`/read/...` 一律 500），「真书页里不再弹内置气泡、magiclens 单份气泡正常、整页『译』仍渲染」属端到端未验；且本次**只本地提交未 push**（`05814343` + 占号 `e4282a37`），push `develop` 会触发 fnOS 自动上线，需用户单独发话，上线后由用户线上确认观感。
+- **冲突记录（并行会话）**：`docs/readme/reading.md`、`docs/readme/vocabulary.md`、`docs/reading/hld/hld.md`、`docs/vocabulary/hld/hld.md` 是 R129 会话新建且**至今未提交**（untracked），我在其中写入的 R141 段落**随其未提交状态保留**、不代其提交；`docs/reading-vocabulary.md` 内 R129 会话的未提交 hunk 与我的注记相邻无法非交互拆分，已随本条提交并在提交信息注明归属（未改写其内容）。编号：占号前先 `grep -cE '^141\.'` 验证未占用、追加后回读唯一（140 存在两条重复属他人历史，按不回改纪律保留）。
+- **跨仓遗留（未夹带）**：magiclens `extension/options.html` 第 58 行仍写「两者共用……划词翻译……完全互通」，暗示 magicbook 侧仍有内置划词，需随本次下线更新——属 magiclens 仓且要按 §0.2 递增版本号，另轮处理。
+- **总结**：requests.md 本条 R141；response.md 本条写入触发窗口轮转，R126/R127/R128/R129/R131 原样搬移至 `response-archive/response-R126-R131.md`（顺带清掉 R134 登记的窗口欠账），两处索引已登记。
