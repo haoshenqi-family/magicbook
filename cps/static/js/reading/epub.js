@@ -1095,7 +1095,10 @@ var reader;
             method: 'POST',
             credentials: 'same-origin',
             headers: {'Content-Type': 'application/json', 'X-CSRFToken': readerCsrfToken()},
-            body: JSON.stringify({text: text})
+            // 带书籍上下文：moon-well 据此把音频判为「书籍段落」永久缓存，
+            // 只发 text 会被当临时语音 7 天清理（重听又要重新合成）
+            body: JSON.stringify({text: text, bookName: calibre.bookName || '',
+                chapter: currentChapterTitle()})
         }).then(function (resp) {
             var type = resp.headers.get('Content-Type') || '';
             if (resp.ok && type.indexOf('audio') >= 0) return resp.blob();

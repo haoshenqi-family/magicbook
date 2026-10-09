@@ -6,9 +6,11 @@ binary audio out over internal trust (OIDC identity headers, no token). Covers:
   1. Login required.
   2. Binary audio passthrough with identity headers (no authorization).
   3. Text validation (empty / over-length).
-  4. moon-well JSON error (unconfigured Bailian) passthrough.
-  5. Upstream network failure -> 503.
-  6. CSRF protection when globally enabled.
+  4. Book context (bookName/chapter) relayed for moon-well's cache grading,
+     trimmed and clipped to 200 chars.
+  5. moon-well JSON error (unconfigured Bailian) passthrough.
+  6. Upstream network failure -> 503.
+  7. CSRF protection when globally enabled.
 """
 import json
 import re
@@ -80,12 +82,54 @@ def test_proxies_audio_passthrough(admin_client, moonwell_configured,
     assert rv.data == MP3
 
     assert captured["url"].endswith("/tts/speak")
-    assert captured["json"] == {"text": "A lucky serendipity happened."}
+    # 未携带书籍上下文时补空串：moon-well 按「无上下文=临时语音」分级，语义与原裸 text 一致
+    assert captured["json"] == {"text": "A lucky serendipity happened.",
+                                "bookName": "", "chapter": ""}
     # 内网纯信任：不携带 authorization，改携 OIDC 身份头
     assert "authorization" not in captured["headers"]
     assert captured["headers"].get("X-User-Email")
     # moon-well 是内网服务：必须显式绕过环境代理
     assert captured["proxies"] == {"http": None, "https": None}
+
+
+def test_relays_book_context(admin_client, moonwell_configured, monkeypatch):
+    """阅读器带上书名/章节：moon-well 据此判为「书籍段落」永久缓存，代理需原样转发。"""
+    import requests
+
+    captured = {}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["json"] = json
+        return _audio_response()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = admin_client.post("/ajax/reading-tts", json={
+        "text": "  we are introduced to the narrator.  ",
+        "bookName": "  The Little Prince ", "chapter": " Chapter 3 "})
+    assert rv.status_code == 200
+    assert captured["json"] == {"text": "we are introduced to the narrator.",
+                                "bookName": "The Little Prince", "chapter": "Chapter 3"}
+
+
+def test_clips_book_context_length(admin_client, moonwell_configured, monkeypatch):
+    """超长书名/章节裁剪到 200 字：这两个值会落进 ES 段落文档，不能由客户端无限撑大。"""
+    import requests
+
+    captured = {}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["json"] = json
+        return _audio_response()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = admin_client.post("/ajax/reading-tts", json={
+        "text": "hello", "bookName": "b" * 500, "chapter": 12345})
+    assert rv.status_code == 200
+    assert len(captured["json"]["bookName"]) == 200
+    # 非字符串上下文按 str() 归一，不因为类型意外而丢掉整次朗读
+    assert captured["json"]["chapter"] == "12345"
 
 
 @pytest.mark.parametrize("text", ["", "   ", "x" * 2001])

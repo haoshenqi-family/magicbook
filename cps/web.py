@@ -300,6 +300,10 @@ def reading_tts():
         return jsonify({"success": False,
                         "message": "text must be between 1 and 2000 characters"}), 400
     payload["text"] = text
+    # 书籍上下文决定 moon-well 侧音频缓存分级（有上下文=书籍段落，永久缓存；
+    # 无上下文=AI 临时语音，7 天清理）。与翻译代理同口径清洗，避免超长字符串进 ES 文档
+    payload["bookName"] = str(payload.get("bookName") or "").strip()[:200]
+    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
     # 65s：moon-well 调百炼合成并下载音频，比 JSON 接口慢
     return _moonwell_proxy("/tts/speak", payload, 65, "reading tts", binary=True)
 
