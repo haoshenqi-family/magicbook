@@ -112,3 +112,15 @@
 - **部署状态**：仅本地提交，**未 push**（push develop 触发 fnOS 构建自动上线，待用户单独确认）。
 - **文档落位注**：`docs/readme/reading.md`（L1）与 `docs/reading/hld/hld.md`（L2）目前仍是并行会话未提交的 L1/L2 骨架（两个目录尚未纳入 Git），本次两处文档行留在工作区随其批次落地，避免把他人整份新文档代提交。
 - **总结**：requests.md 占号 R138（第 4 行「当前最大」随之更新；同文件 135–137 三条与 response.md R135 一节为并行会话未提交内容，随本次提交代为落地，未改写其文字）；response.md 追加本条，窗口 9 条 ≤10 未触发搬移；冲突记录：R138 未被占用。
+
+## 2026-10-09（R137：学习页三题型题干改造 + 部署网络事故处置）
+
+- **背景**：R132 的 B3 页面已上线但三题型不可作答（CHOOSE 变「选出它自己」、RECALL 先亮词、SPELL 无 UI 死卡）——根因是 moon-well 队列接口无释义字段，词面即答案。本条与 moon-well R127（队列补 meaning）配套。
+- **交付**（commit `841bb589` + 补丁 `16c9e5c2`，均已上线并验收）：
+  - **题干机制**：有释义时统一「看释义作答」——CHOOSE 释义四选一（藏词面防泄题）/ RECALL 看义回忆（揭示亮词+语境）/ SPELL 看义拼写（输入+回车判定，归一口径与服务端 normalize 一致：trim/小写/弯撇号），判后亮词面与语境卡、错拼标红附正确拼写。
+  - **双降级**：CHOOSE 无干扰项 → RECALL（服务端契约）；**无释义（详解缓存未命中，当前 19/20）→ SELF 亮词自评**（Anki 基础模式），任何卡片保底可答；缓存随划词自然增长后自动升级完整题型。
+  - **i18n**：seed+po 新增 4 词条重编 zh mo；test_learning_proxy DOM 断言锁定 ln-stem/ln-spell 契约；22+6 用例绿。
+  - **L1 补账**：docs/readme/learning.md 新建 + readme.md 模块表加行（R132 漏建）。
+- **部署网络事故**（本次发版被堵 40 分钟的根因）：fnOS 默认网关指向 192.168.31.11（Ubuntu），全部外网经 sing-box 透明代理 → naive(12811) → HK 节点 `hk.haoshenqi.top`；naive 裸进程 73 天无 systemd，H2 连接腐烂（ERR_CONNECTION_CLOSED）致 fnOS 全外网中断（ACR/docker login、GitHub、DashScope 全超时）。**处置：原样重启两个 naive 实例恢复**（fnOS→ACR 0/8→3/8，节点仍劣化）；magicbook 构建在 acr-login 三连败两次后由手动重跑第 2 次通过（16c9e5c，15:03 部署 healthy）。
+- **遗留建议**（需用户决策，未擅动）：① HK 节点劣化是 fnOS 全仓构建链的单点，建议在 sing-box 路由把国内目标（registry.cn-hangzhou.aliyuncs.com 等）分流 DIRECT，摆脱对代理节点的无谓依赖；② naive 无进程守护，建议补 systemd 单元；③ 释义覆盖率可考虑后续接 LLM 任务队列批量预热 SRS 词。
+- **总结**：requests.md 占号 R137；本条为回应；冲突记录：无（moon-well R127 同源配套）。
