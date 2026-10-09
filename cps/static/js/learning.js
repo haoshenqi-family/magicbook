@@ -45,8 +45,12 @@
 
   // ---------- 小工具 ----------
 
+  // Why 内联 style 而非 hidden 属性：作者样式表会覆盖 UA 的 [hidden]{display:none}——
+  // .ln-choices/.ln-spell 是 display:flex、.btn 是 inline-block，hidden 属性对它们
+  // 完全失效，选项区一直可见（R139 四个空白格事故）。内联 display 优先级最高，
+  // 置空时回落到样式表原值（flex/inline-block），对所有元素通用。
   function show(el, visible) {
-    if (el) el.hidden = !visible;
+    if (el) el.style.display = visible ? '' : 'none';
   }
 
   function csrfToken() {
