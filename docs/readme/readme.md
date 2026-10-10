@@ -10,7 +10,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | 模块 | 能做什么 | 用户手册 |
 | --- | --- | --- |
 | library | 书库：书架浏览/搜索、上传下载、元数据管理、OPDS/Kobo 同步、整本翻译、Halo 文章接入 | [library](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/readme/library.md) |
-| reading | 阅读器：EPUB/PDF/TXT 阅读、整页/整本翻译、朗读、AI 批注、新概念课级音频（划词查词由 MagicLens 扩展承担） | [reading](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/readme/reading.md) |
+| reading | 阅读器：EPUB/PDF/TXT 阅读、段落/整页/整本翻译、朗读、AI 批注、新概念课级音频（划词查词由 MagicLens 扩展承担） | [reading](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/readme/reading.md) |
 | vocabulary | 词汇学习：生词自动判定、认识/生词标记、生词本、词汇量测试与难度推荐（标记与高亮的入口在 MagicLens） | [vocabulary](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/readme/vocabulary.md) |
 | learning | 每日学习：SRS 间隔重复复习（辨析/回忆/拼写三梯度题型）、四档评分、今日计划、学习统计、选书难度匹配 | [learning](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/readme/learning.md) |
 | companion | AI 伴读：围绕当前书对话提问、工具调用、跨书记忆 | [companion](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/readme/companion.md) |
@@ -20,7 +20,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 ## 快速开始（使用者视角）
 
 1. 浏览器打开站点，通过 Authentik 完成统一登录（首次使用自动建立同名账号，moon-well 侧同步建号）。
-2. 书架选书进入阅读器；划词即翻译，生词自动标波浪线，点击「详」看单词详解。
+2. 书架选书进入阅读器；鼠标移到段落上点「译」看该段译文，工具栏「译」翻整页、「整本译」翻全书。划词查词、单词详解与生词高亮由 MagicLens 浏览器扩展提供（装了扩展即可在本页正文里划词）。
 3. 词汇能力（词汇量测试、难度档位）在「阅读设置」里；AI 伴读在阅读页右侧抽屉。
 4. 积分在个人页：AI 功能按 token 消耗积分，余额不足会提示，可支付宝扫码充值。
 

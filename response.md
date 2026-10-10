@@ -15,27 +15,11 @@
 - `response-archive/response-R111-R119.md`：R111–R119（2026-10-02 ～ 2026-10-05；2026-10-08 R129 补账搬移）
 - `response-archive/response-R120-R125.md`：R120–R125（2026-10-06 ～ 2026-10-07；R135 写入触发搬移，含 R134 登记的窗口欠账补账）
 - `response-archive/response-R126-R131.md`：R126、R127、R128、R129、R131（2026-10-07 ～ 2026-10-08；2026-10-09 R141 写入触发轮转搬移，清掉 R134 登记的窗口欠账）
+- `response-archive/response-R132-R133.md`：R132、R133（2026-10-08；2026-10-10 R143 写入触发轮转搬移）
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）
-
-## 2026-10-08（R132：B3 学习调度中枢前端实施）
-
-- **范围**：moon-well R116 B3 后端就绪后的 magicbook 前端落地 + 双仓提交推送（用户指令「前端一并也实施，然后提交推送，我来验收」）。
-- **web.py（8 个视图）**：`GET /learning` 每日学习页（首屏零上游调用，数据全异步）+ 7 个 `/ajax/learning-*` 薄代理（srs/queue|answer|stats、plan/today|settings、match/books|book）。代理纪律与词汇量测试一致：登录墙、参数域本地校验（scheduleId 纯数字、grade 1-4、latencyMs≥0、四股 0-100、bookId 纯数字）、业务错误 HTTP 500 + Result.code 原样透传（50501-50506 语义归上游）、不可达 503 JSON。
-- **cps/templates/learning.html**：统计头（今日/明日到期、已掌握、7 天保持率）、每日计划头（四股分钟预算）、复习卡（词条+遇见次数徽章+语境卡+出处）、CHOOSE 四选一 / RECALL 揭示 / 四档评分（忘记/难/想起/轻松）、选书难度匹配列表（三档 label + 密度 + 高频生词样例）；bootstrap modal/theme 复用不自带配色（vocab-test 同 UI 纪律）。
-- **cps/static/js/learning.js（新增 350 行）**：队列状态机（在途锁、评分连击忽略、500ms 过渡刷新统计）、三题型渲染与判定、计划/统计/匹配三路异步加载互不阻塞、CSRF 注入读取（ln-csrf）、mbT 本地化通道。
-- **i18n**：i18n_seed.html 新增 40 词条（含 Daily Learning/Review Queue/忘记/难/想起/轻松等），messages.po 补 38 条中文（2 条已存在），pybabel 重编 mo；`2–8%` 触发 pybabel placeholders 不兼容 → 改写为「每一百个词里有二到八个生词」后编译通过。test_i18n_seed_contract 的 JS 清单加入 learning.js（本地化守卫同 vocab-test 先例）。
-- **导航**：layout.html Settings 下拉新增「Daily Learning」（top_learning， Achievement 上方）。
-- **阅读页零改动说明**：阅读器 ＋/－ 标记经 /vocabulary/unknown|known 即触发 moon-well LearningMarkEvent（R116 已接线），SRS 入队自动完成，无需前端改动。
-- **测试**：新增 tests/test_learning_proxy.py 17 用例（鉴权 7 端点、GET 透传、answer/settings/match 参数域、上游 50503/50501 透传、页面 DOM 渲染、导航入口）；**开发态部分单测**（R131 两级闸门）：test_learning_proxy 17 绿、i18n_seed_contract+nav 11 绿；**全量**（本次为推送验收）：`pytest tests/` **381 passed / 0 failed**（基线 364 + 17）。
-- **边界**：书架页 badge 未做（难度匹配集中在学习页列表呈现，避免侵入上游书架模板）；magiclens 不涉及；LLD/契约见 moon-well docs/feat/scientific-learning/design/us1-b3-scheduling-lld.md §4。
-- **总结**：requests.md 本条 R132；冲突记录：无（132 未被并行占用）。
-
-### R133（排查「查 creation 详解显示 created」——magicbook 侧结论）
-
-- **回应**：magicbook 侧链路（`/ajax/reading-word-detail` 代理 + `epub.js` 面板）无缺陷：代理正确归一化（小写+直撇号）转发 moon-well；前端标题取 `d.lemma || d.word`，与 magiclens v0.4.0 同源。根因在 moon-well（详见 moon-well response.md R123）：creation 的预热任务失败（worker DNS）致其无自有缓存文档，`findCached` 经 `forms.form=creation` 命中 `lemma=create` 的文档，而该文档内容是 created 任务的输出（docId=SHA-256(lemma) 覆盖写撞车，created 任务 22:12:24 顶掉 create 任务 22:11:26 的正解）。magicbook 侧无需改动。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移）
 
 ## 2026-10-08（R134 requests.md 归档整理）
 
@@ -130,3 +114,41 @@
 - **冲突记录（并行会话）**：`docs/readme/reading.md`、`docs/readme/vocabulary.md`、`docs/reading/hld/hld.md`、`docs/vocabulary/hld/hld.md` 是 R129 会话新建且**至今未提交**（untracked），我在其中写入的 R141 段落**随其未提交状态保留**、不代其提交；`docs/reading-vocabulary.md` 内 R129 会话的未提交 hunk 与我的注记相邻无法非交互拆分，已随本条提交并在提交信息注明归属（未改写其内容）。编号：占号前先 `grep -cE '^141\.'` 验证未占用、追加后回读唯一（140 存在两条重复属他人历史，按不回改纪律保留）。
 - **跨仓遗留（未夹带）**：magiclens `extension/options.html` 第 58 行仍写「两者共用……划词翻译……完全互通」，暗示 magicbook 侧仍有内置划词，需随本次下线更新——属 magiclens 仓且要按 §0.2 递增版本号，另轮处理。
 - **总结**：requests.md 本条 R141；response.md 本条写入触发窗口轮转，R126/R127/R128/R129/R131 原样搬移至 `response-archive/response-R126-R131.md`（顺带清掉 R134 登记的窗口欠账），两处索引已登记。
+
+## 2026-10-09（R142：book 145《Matilda》整本 TTS 预生成入队，后台慢慢处理）
+
+### R142（整本朗读音频预热：operational 方案，零代码改动）
+
+- **需求**：`/read/145/epub`（Calibre #145 = Roald Dahl《Matilda》，R140 批次入库）整本提交 TTS 生成，加入任务队列后台慢慢处理。
+- **方案判定**：现存体系无「整本 TTS」功能——moon-well `llm_task` 队列虽有 `taskType=TTS` 枚举，但设计上归外部 worker（`LlmTaskManualRunService` 明确挡掉 TTS：手跑链路无音频分支，会把 TTS 行当文本 prompt 静默跑错），且无已部署的 TTS worker。而 R128 缓存分级本就是「书籍段落永久缓存」设计：`/tts/speak` 缓存键=段落原文（trim 后），bookName/chapter 非空即判永久。故选**运营态预热**：按阅读器同口径提取全部段落，逐段调 moon-well `/tts/speak` 写永久缓存，效果与功能化等价（阅读时逐段命中、零等待），不新增任何部署单元。
+- **口径对齐（缓存命中的前提）**：提取逻辑逐条复刻 `epub.js`——元素集 `p,li,blockquote,h1..h6,div`（DIV 含块级子元素则跳过、其文字归子元素；嵌套匹配按浏览器语义双收）；文本 `textContent` 全后代拼接 → `\s+`→`' '` → trim → 超 2000 截断（与 `/ajax/reading-tts` 校验同口径）。本书 EPUB 无 TOC 导航，`currentChapterTitle` 兜底取文档 `<title>`（全部为 "Matilda"），脚本同口径。**实测验证缓存键一致**：同一文本两次调用 4.7s（合成+落缓存）→ 0.028s（命中）。
+- **执行**：fnOS 宿主机 `/app/magicbook/tts-warm/`（不入 Git）——`tts_warm.py`（plan/run 两段式）+ `queue.jsonl`（任务队列，1393 段/221,296 字符/0 截断）+ `done.jsonl`（断点记账）+ `failed.jsonl`（失败留痕）+ `run.log`。`nohup nice -n 10` 后台顺序消费，每段间 0.6s 限速，失败重试一次后记账继续，杀掉重跑 `run` 自动跳过已完成段。启动时 40 秒 15 段（扉页短句），正文段约 4–5s/段，预计 1.5–2.5h 跑完全书（本地 Qwen3-TTS RTF≈0.73，合成时长约音频时长 73%）。
+- **鉴权路径**：走 moon-well 内网互信（`/tts/speak` 在 `internalUri` 白名单），身份头从 magicbook `app.db` 读 `hsq` 的 `oidc_subject` 现取现用，不在脚本中硬编码。
+- **已知小瑕疵**：冒烟测试用了一句杜撰文本（"The father of Matilda was called Mr Wormock…"）落在永久缓存（chapter=smoke-test，272KB wav），不对应真实段落、阅读器永不会请求，无副作用，留置不清理。
+- **运维口令**（都在 fnOS）：
+  - 看进度：`tail -5 /app/magicbook/tts-warm/run.log`（每 20 段打一行含 ETA）
+  - 失败清单：`cat /app/magicbook/tts-warm/failed.jsonl`（有则停后重跑 `python3 tts_warm.py run` 自动补）
+  - 停止：`pkill -f tts_warm.py`
+- **总结**：requests.md 本条 R142；本条为回应；冲突记录：无（`requests.md` 140 号重复两条系他人历史，未动）。
+
+### R142 补记（2026-10-10：首轮 218 段失败 → 超时热调 → 补跑全覆盖）
+
+- **首轮结果**：1175/1393 成功，218 段失败（moon-well 500，集中在长文本段：中位 390 字符、最长 1296 字符）。
+- **根因链（逐层证实，非推测）**：① 本地 Qwen3-TTS 长文合成实测 20–78.6s（1296 字符段落 X-Gen-Seconds=78.55，长文 RTF 劣化至 ~0.85）；② moon-well `tts.local.timeout-ms` 默认 15s，长段没合完即被判失败，且本地服务全局合成锁下排队进一步放大等待；③ 失败后转 DashScope 回落，而免费额度已不可用（HTTP 400）→ 对外 500。直调 :8086 用真实配置（vivian/Auto）验证同批文本本地全部合成成功，本地服务无罪。首轮失败聚簇的另一放大因素：torch.compile 新文本长度首请求重编译期间持有锁，后续请求连环超时。
+- **修复**：Nacos v3 admin API（`/nacos/v3/admin/cs/config`，登录响应 accessToken 在顶层非 data 下）热更新 `moon-well-ai.yaml`：`tts.local.timeout-ms` 15s → **180s**（覆盖最长段 + 排队/重编译余量；全局 `tts.timeout-ms: 60000` 及其他段未动，发布后回读验证）。纯 `@ConfigurationProperties` bean，Nacos 变更自动重绑，无需重启；探针实证热更生效（60s 阈值时请求等满 60s 才回落，旧行为 15s 即弃）。
+- **补跑**：脚本客户端超时 180→400s、段间 sleep 0.6→1.0s，`run` 重入（跳过 1175 段缓存命中仅数秒）。补跑 218 段**新失败 0**，`done.jsonl` 1393/1393 全覆盖；抽查 5 段（含首轮最长失败段 1296 字符/4.4MB wav）经 moon-well 命中缓存 9–65ms 返回。
+- **教训**：①「整本预热」类批量任务必须先按目标服务超时预算估最坏单段耗时（本书最坏 78s ≫ 15s 默认值），失败聚簇 + 客户端日志只有裸 HTTP 状态码时，先分层复现（直调最底层服务）再定层；② Nacos 登录/配置 API 的响应结构先打印 keys 再取值，凭空假设结构浪费两轮；③ 本地 TTS 服务合成锁为全局串行，批量压测时服务端超时不应小于「最长段合成 + 队列深度 × 平均合成」。
+- **附带发现（未处置，另轮）**：DashScope TTS 免费额度已失效（回落全 400），`tts_model` 表模型池对额度耗尽的自动剔除逻辑在回落场景形同虚设；本地超时 180s 对阅读器交互偏大（magicbook 代理 65s 先断，用户侧仍会转浏览器朗读），预热完成后若 DashScope 仍不可用可考虑回调至 ~90s。
+
+## 2026-10-10（R143：修正 R141 的隐藏边界——段落翻译恢复）
+
+### R143（只隐藏 magiclens 已经做了的部分，不重复、不打架）
+
+- **用户纠偏原文**：「不对，现在 magicbook 段落翻译不见了。我的想法是 magiclens 已经做了的部分 magicbook 就先隐藏掉，不要重复，不要打架」。R141 我按用户选的「阅读器 AI 能力整体让位」把段落悬停「译」按钮一起收了，**是我把边界划过头**——用户这条把口径钉死为「**只下线 magiclens 已实现的**」。
+- **依据（先查对方能力表再划界）**：magiclens `README.md` 当前状态表——划词翻译 ✅、单词详解 ✅、生词智能高亮 ✅（v0.5.0；v0.7.2 起明确支持 magicbook 阅读器 iframe 正文）、标记认识/生词 ✅，而 **「段落整页翻译｜规划 P1｜`translate-batch`」尚未实现**。故：气泡 + 波浪线继续下线，段落「译」按钮恢复。
+- **交付**：`epub.js` 开关改名 `READER_BUILTIN_AI_UI_ENABLED` → **`LENS_OVERLAP_UI_ENABLED`**（名字如实描述它管的是「与 lens 重叠的那两块 UI」，不再是含义过宽的「AI 能力」），闸门口径注释重写并把「magiclens 未做的一律保留」写进保留清单；`injectParagraphTools` 里段落 `.reading-translate-btn` 的注入**去掉开关门控**，恢复无条件注入；`translateSelection` / `markVocabulary` 两处闸门不变。
+- **测试反向锁定**：`tests/test_reader_lens_handoff.py` 原 `test_paragraph_translate_button_not_injected`（锁「不注入」）改为 `test_paragraph_translate_button_not_gated`，断言注入条件里**不得出现开关名**——R141 这个越界错误以后被改回来会直接红。文件 docstring 同步改写边界口径。开发态跑 `test_reader_lens_handoff + test_reading_vocabulary + test_no_duplicate_js_lines + test_i18n_seed_contract + test_onboarding_tour` → **63 passed**；`node --check epub.js` 通过。
+- **文档三级回改**：L1 `docs/readme/reading.md` 补回「段落翻译」条目、`docs/readme/readme.md` 模块表改「段落/整页/整本翻译」并修快速开始第 2 步（该步 R141 时漏改，仍写着「划词即翻译、生词自动标波浪线」）；L2 `docs/vocabulary/hld/hld.md` 能力边界补「段落/整页翻译不在隐藏范围」；L3 `docs/reading-vocabulary.md` 状态注记重写为「R141 设、R143 收窄」并记录越界教训。全仓已无 `READER_BUILTIN_AI_UI_ENABLED` 残留引用（仅 `tests/__pycache__` 编译产物）。
+- **复探上游（校准昨日记录）**：本日用同一浏览器探针重测——`POST /ajax/reading-translate-batch` **200**，返回真实译文（昨日为 500「翻译服务暂时不可用」，已不复现，疑与 R142 会话定位的 LLM/TTS 额度与超时链路同源，非本仓改动所致）；`POST /ajax/reading-translate` 200（词典）；`POST /ajax/reading-word-detail` 仍 **401 code 102「未登录」**（该端点当前无前端调用方，不影响段落翻译恢复）。结论：**恢复段落「译」按钮后，线上点开应有真实译文**。
+- **待验收**：恢复后的段落「译」按钮只能在部署后于真浏览器看到（本机无 calibre 书库）；本轮改动**已提交未推送**，push `develop` 触发 fnOS 构建即上线，等用户发话（推前按两级口径先跑全量）。
+- **总结**：requests.md 本条 R143（占号前先确认 142 已被并行会话占用，续编 143 并即刻单独 commit 锁号）；冲突记录：本条写入前 `response.md` 已被 R142 会话追加 25 行（整本 TTS 预热），采用 append 未触碰其内容；`docs/readme/reading.md`、`docs/vocabulary/hld/hld.md` 仍是 R129 会话 untracked 文件中的改动，随本轮一并提交时会在提交信息注明代提交归属。

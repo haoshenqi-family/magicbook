@@ -4,7 +4,11 @@ EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上
 
 > **2026-09-14 调整（截至 2026-10-07 仍为现状，已运行近一月）**：生词的两种信息展示（悬停 tooltip / 点击 alert）因「释义 + 上次：书 · 章节」文本太长暂时下线（`epub.js` `markVocabulary` 内已注释），波浪线标注与划词气泡 ＋/－ 标记保留；`moon-well` 的 analyze 同步暂停查词典释义、仅返回生词本身（判定规则与词族口径见 moon-well `docs/vocabulary/hld/hld.md` §2）。释义获取现走划词翻译/金山直连快路径（magiclens v0.6.0）；如需恢复 tooltip 展示请作为正式需求提出。
 
-> **状态（2026-10-09 R141）· 本文档主体已让位 magiclens（当日已上线）**：阅读器**内置**的划词翻译气泡（含气泡内 🔊 发音、＋/－ 生词标记、「详」单词详解入口）、生词波浪线 DOM 标注、段落「译」按钮三块前端 UI **暂时下线**，改由 magiclens 扩展单独承担。根因：magiclens R24 起把 content script 绑进 epub.js 渲染正文的同源 iframe，与内置实现同开时会出现双划词气泡、一词两条波浪线，两套 Esc/点空白关闭逻辑互相抢占。落点是 `epub.js` 顶部单一开关 `READER_BUILTIN_AI_UI_ENABLED=false`（置回 `true` 即整体恢复，无需改其它代码），静态锁定见 `tests/test_reader_lens_handoff.py`。**保留项**：段落朗读/批注/AI 伴读按钮、工具栏整页「译」与「整本译」、划词右键快捷菜单，以及 `inspectVocabulary` 的每页上送（喂 moon-well 阅读事件流与 AI 伴读生词上下文）。后端代理端点（`/ajax/reading-translate`、`-word-mark`、`-word-detail`）保留但暂无前端调用方。本文档下文的交互规格（气泡、波浪线标注、详解面板）描述的是内置形态，现为 magiclens 侧同构实现。
+> **状态（2026-10-09 R141 设、R143 收窄，当日已上线）· 只让位 magiclens 已实现的部分**：阅读器**内置**划词翻译气泡（含气泡内 🔊 发音、＋/－ 生词标记、「详」单词详解入口）与生词波浪线 DOM 标注**下线**，由 magiclens 扩展单独承担。根因：magiclens R24 起把 content script 绑进 epub.js 渲染正文的同源 iframe，其划词气泡（README 当前状态表 ✅）与生词高亮（v0.5.0 起，v0.7.2 起明确支持 magicbook 阅读器 iframe 正文）与内置实现同开时，会出现双气泡重叠、一词两条波浪线，两套 Esc/点空白关闭逻辑互相抢占。落点是 `epub.js` 顶部单一开关 `LENS_OVERLAP_UI_ENABLED=false`（置回 `true` 即整体恢复，无需改其它代码），静态锁定见 `tests/test_reader_lens_handoff.py`。
+>
+> **边界纠偏（R143）**：R141 初版按「整体让位」把**段落「译」按钮**一起收掉，划过头了——magiclens 的「段落整页翻译」至今仍是**规划 P1**（其 README 当前状态表），阅读器里并无等价实现，隐藏它等于让能力凭空消失，已恢复。统一口径改为：**只隐藏 magiclens 已经做了的部分**（不重复、不打架），未做的留在 magicbook。
+>
+> **保留项**：段落「译」按钮、工具栏整页「译」与「整本译」（三者 magiclens 均未实现）、段落朗读/批注/AI 伴读按钮、划词右键快捷菜单，以及 `inspectVocabulary` 的每页上送（喂 moon-well 阅读事件流与 AI 伴读生词上下文）。后端代理端点 `/ajax/reading-translate`、`-word-mark`、`-word-detail` 随内置气泡下线而暂无前端调用方（`-translate-batch` 仍在用）。本文档下文的交互规格（气泡、波浪线标注、详解面板）描述的是内置形态，现为 magiclens 侧同构实现。
 
 划词翻译气泡支持：发音（🔊 浏览器语音朗读原文）、标记生词（＋不认识 / －已认识，仅对单个英文单词显示）、ESC 退出。
 

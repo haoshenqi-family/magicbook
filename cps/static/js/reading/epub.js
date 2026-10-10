@@ -284,15 +284,19 @@ var reader;
         }, 30000);
     }
 
-    // ===== 阅读器内置划词类 AI 能力总开关（R141）=====
-    // Why 关闭：MagicLens 扩展自 R24 起会把 content script 绑进 epub.js 渲染正文的
-    // 同源 iframe，它与阅读器内置实现同开时，同一页上会出现两个划词气泡、一个生词
-    // 两条波浪线（span 标注 + ::highlight），两套 Esc/点空白关闭逻辑还互相抢占。
-    // 暂时只保留 magiclens 一份实现：划词气泡（含气泡内 🔊 发音、＋/－ 生词标记、
-    // 「详」单词详解）、生词波浪线标注、段落「译」按钮一并静默下线。
-    // 保留项：段落朗读、批注、AI 伴读、工具栏整页「译」与「整本译」——magiclens 无
-    // 这些能力，不构成冲突。恢复内置形态只需把本行置 true，无需回滚其它代码。
-    var READER_BUILTIN_AI_UI_ENABLED = false;
+    // ===== 与 MagicLens 重叠的内置 UI 总开关（R141 设、R143 收窄边界）=====
+    // 口径：**只下线 magiclens 已经做出来的能力**，避免同一页面两套实现重复、打架。
+    // Why 关闭这两项（magiclens 均已实现）：
+    //   · 划词气泡——magiclens 的划词气泡（README 当前状态表：划词翻译 ✅，单词先直连
+    //     金山词典、miss 回退 moon-well）；它自 R24 起会把 content script 绑进 epub.js
+    //     渲染正文的同源 iframe，两套同开就是两个气泡，且 Esc/点空白关闭逻辑互相抢占；
+    //   · 生词波浪线标注——magiclens v0.5.0 起做生词高亮，v0.7.2 起明确支持 magicbook
+    //     阅读器 iframe 正文（CSS Custom Highlight），与内置 span 标注并存就是一词双线。
+    // **不在本开关范围内的能力一律保留**：段落/整页/整本翻译（magiclens README 仍标
+    // 「段落整页翻译｜规划 P1」，尚未实现）、段落朗读、批注、AI 伴读、划词右键快捷菜单，
+    // 以及 inspectVocabulary 的每页文本上送（喂 moon-well 阅读事件流与 AI 伴读生词上下文）。
+    // 恢复内置形态只需把本行置 true，无需回滚其它代码。
+    var LENS_OVERLAP_UI_ENABLED = false;
 
     // 划词翻译：选中文本弹出翻译气泡（来自 master 分支功能）。
     var translationRequest = 0;
@@ -379,7 +383,7 @@ var reader;
     }
 
     function translateSelection(content) {
-        if (!READER_BUILTIN_AI_UI_ENABLED) return;
+        if (!LENS_OVERLAP_UI_ENABLED) return;
         if (!calibre.readingVocabularyEnabled || !calibre.readingTranslationUrl) return;
         var selection = content.window.getSelection();
         var text = selection && selection.toString().replace(/\s+/g, ' ').trim();
@@ -1030,11 +1034,10 @@ var reader;
                 });
                 el.appendChild(ttsBtn);
             }
-            // R141：段落「译」按钮随内置划词能力下线——选中段落后 magiclens 的气泡
-            // 会给译文（形态不同：它显示在气泡里，不挂在段落下方）。整页「译」与
-            // 「整本译」的内联译文不受影响：其渲染路径不依赖本按钮，
-            // setParagraphTranslated / translateSingleParagraph 对按钮缺失都有守卫。
-            if (READER_BUILTIN_AI_UI_ENABLED && !el.querySelector(':scope > .reading-translate-btn')) {
+            // 段落「译」按钮**不受 R141/R143 下线影响**：magiclens 的「段落整页翻译」
+            // 至今仍是规划 P1（其 README 当前状态表），没有等价实现，属「未重复」项，
+            // 因此保留在阅读器内提供——R141 初版把它一起收掉是边界划错，R143 恢复。
+            if (!el.querySelector(':scope > .reading-translate-btn')) {
                 var trBtn = doc.createElement('span');
                 trBtn.className = 'reading-para-btn reading-translate-btn';
                 trBtn.title = mbT('Translate this paragraph (click again to undo)');
@@ -2149,11 +2152,11 @@ var reader;
     }
 
     function markVocabulary(records) {
-        // R141：波浪线标注下线——magiclens 在同一个 iframe 内用 CSS Custom Highlight
-        // 标同一批生词，两套并存就是一个词两条线。这里只停 DOM 标注，不停
-        // inspectVocabulary 的请求：那份上报同时是 moon-well 阅读事件流（学情、
+        // R141：波浪线标注下线——magiclens v0.5.0 起做生词高亮、v0.7.2 起明确支持
+        // magicbook 阅读器 iframe 正文，两套并存就是一个词两条线。这里只停 DOM 标注，
+        // 不停 inspectVocabulary 的请求：那份上报同时是 moon-well 阅读事件流（学情、
         // 成就解锁）和 AI 伴读「当前页生词」上下文的数据来源，停请求会连带伤到它们。
-        if (!READER_BUILTIN_AI_UI_ENABLED) return;
+        if (!LENS_OVERLAP_UI_ENABLED) return;
         var byWord = {};
         (records || []).forEach(function (record) {
             if (record && record.word) byWord[record.word] = record;
