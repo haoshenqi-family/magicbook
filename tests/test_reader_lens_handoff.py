@@ -1,12 +1,12 @@
-"""R141/R143：阅读器内与 MagicLens 重叠的 UI 下线，其余能力保持可用。
+"""R141/R143/R146：阅读器只在 MagicLens 真正接管处让位（运行时探测，非写死）。
 
-Why 静态锁定：本项能力全在前端（epub.js），没有可跑的浏览器测试；边界语义是
-「**只下线 magiclens 已经做出来的部分**，避免同页两套实现重复、打架」，最容易
-被无意改写（改开关值、或把未重复的段落翻译也顺手收掉——R141 初版就划错过一次，
-见 R143）。故对开关值、两处闸门、以及必须留在阅读器里的能力各设断言。
+Why 静态锁定：这套让位逻辑全在前端（epub.js），没有可跑的浏览器测试，而它的两种失效
+方向都很贵——写死让位 = 没装扩展的人在阅读器里没划词（R141 初版踩过，见 R143）；
+完全不让位 = 同页双气泡、一个词两条波浪线（R141 的起因）。R146 改成读 magiclens
+v0.8.6 留在 DOM 上的接管标记，本文件锁的就是「探测存在、粒度正确、别退化成开关」。
 
-恢复内置形态 = 把 epub.js 的 LENS_OVERLAP_UI_ENABLED 置 true，本文件同步改成
-断言「开启」，并在 magiclens 侧确认双实现不再冲突。
+粒度是两个而不是一个：划词属主是帧内中继（受该 frame 能否注入影响），波浪线属主是
+顶层高亮引擎（受 Alt+U / 域名禁用 / 登录态影响）。
 """
 
 import os
@@ -20,46 +20,49 @@ def _source():
         return fh.read()
 
 
-def test_switch_is_declared_off():
-    assert "var LENS_OVERLAP_UI_ENABLED = false;" in _source()
+def test_probes_read_the_handoff_markers():
+    """两个探测函数各读各的标记：帧级 selection、页面级 highlight。"""
+    source = _source()
+    assert "function lensOwnsSelection(contentDoc) {" in source
+    assert "contentDoc.documentElement.dataset.magiclensSelection" in source
+    assert "function lensOwnsHighlight() {" in source
+    assert "document.documentElement.dataset.magiclensHighlight" in source
 
 
-def test_selection_popover_is_off():
-    """magiclens 已有划词气泡（README：划词翻译 ✅），内置的不再弹出。"""
+def test_no_static_switch_left():
+    """R146：写死的开关必须彻底消失，否则探测只是第二套真相源。"""
+    assert "LENS_OVERLAP_UI_ENABLED" not in _source()
+
+
+def test_selection_defers_per_frame():
     source = _source()
     assert ("function translateSelection(content) {\n"
-            "        if (!LENS_OVERLAP_UI_ENABLED) return;" in source)
+            "        // 扩展正在接管本帧的拖选时不出内置气泡" in source)
+    assert "if (lensOwnsSelection(content.document)) return;" in source
 
 
-def test_vocabulary_marks_off_but_page_report_still_runs():
-    """波浪线标注下线，但 inspectVocabulary 的上报必须保留。
-
-    它是 moon-well 阅读事件流（学情、成就）与 AI 伴读「当前页生词」的数据源，
-    连带停掉会把两类与翻译无关的能力一起打断。
-    """
+def test_highlight_defers_page_level_but_page_report_still_runs():
+    """波浪线按顶层标记让位；inspectVocabulary 的上报必须照常——它是 moon-well 阅读
+    事件流（学情、成就）与 AI 伴读「当前页生词」的数据源，连带停掉会打断两块无关能力。"""
     source = _source()
     body = source.split("function markVocabulary(records) {", 1)[1].split("\n    }", 1)[0]
-    assert "if (!LENS_OVERLAP_UI_ENABLED) return;" in body
+    assert "if (lensOwnsHighlight()) return;" in body
 
     inspect = source.split("function inspectVocabulary() {", 1)[1].split("\n    }", 1)[0]
-    assert "LENS_OVERLAP_UI_ENABLED" not in inspect
+    assert "lensOwns" not in inspect
     assert "calibre.readingVocabularyUrl" in inspect
 
 
 def test_paragraph_translate_button_not_gated():
-    """R143：段落「译」按钮留在阅读器——magiclens 的段落/整页翻译仍是规划 P1。
-
-    断言反向锁定：注入条件里不得出现开关名，否则段落翻译会在阅读器内消失，
-    而扩展侧还没有等价实现（该缺陷正是 R141 初版踩过的）。
-    """
+    """段落「译」按钮不门控：magiclens 的段落/整页翻译仍是规划 P1，没有等价实现。"""
     source = _source()
-    line = "if (!el.querySelector(':scope > .reading-translate-btn'))"
-    assert line in source
-    assert "LENS_OVERLAP_UI_ENABLED && !el.querySelector(':scope > .reading-translate-btn')" not in source
+    assert "if (!el.querySelector(':scope > .reading-translate-btn'))" in source
+    assert "lensOwns" not in source.split("function injectParagraphTools(content) {", 1)[1] \
+        .split("\n    }", 1)[0]
 
 
-def test_non_conflicting_tools_stay_injected():
-    """朗读/批注/伴读按钮与整页「译」「整本译」未受下线影响。"""
+def test_non_taken_over_tools_stay_injected():
+    """朗读/批注/伴读按钮与整页「译」「整本译」不受探测影响。"""
     source = _source()
     for cls in ("reading-tts-btn", "reading-annotation-btn", "reading-companion-btn"):
         assert ("if (!el.querySelector(':scope > .%s'))" % cls) in source

@@ -284,19 +284,30 @@ var reader;
         }, 30000);
     }
 
-    // ===== 与 MagicLens 重叠的内置 UI 总开关（R141 设、R143 收窄边界）=====
-    // 口径：**只下线 magiclens 已经做出来的能力**，避免同一页面两套实现重复、打架。
-    // Why 关闭这两项（magiclens 均已实现）：
-    //   · 划词气泡——magiclens 的划词气泡（README 当前状态表：划词翻译 ✅，单词先直连
-    //     金山词典、miss 回退 moon-well）；它自 R24 起会把 content script 绑进 epub.js
-    //     渲染正文的同源 iframe，两套同开就是两个气泡，且 Esc/点空白关闭逻辑互相抢占；
-    //   · 生词波浪线标注——magiclens v0.5.0 起做生词高亮，v0.7.2 起明确支持 magicbook
-    //     阅读器 iframe 正文（CSS Custom Highlight），与内置 span 标注并存就是一词双线。
-    // **不在本开关范围内的能力一律保留**：段落/整页/整本翻译（magiclens README 仍标
-    // 「段落整页翻译｜规划 P1」，尚未实现）、段落朗读、批注、AI 伴读、划词右键快捷菜单，
-    // 以及 inspectVocabulary 的每页文本上送（喂 moon-well 阅读事件流与 AI 伴读生词上下文）。
-    // 恢复内置形态只需把本行置 true，无需回滚其它代码。
-    var LENS_OVERLAP_UI_ENABLED = false;
+    // ===== MagicLens 接管探测（R141 静态下线 → R143 收窄边界 → R146 改运行时探测）=====
+    // 口径不变：只让位 magiclens 真正接管的部分，不重复、不打架；但不再写死——
+    // 「装了扩展」不等于「这条能力在此处通」。v0.8.5 之前 iframe 拖选根本不通，而写死
+    // 下线让装了扩展的用户在阅读器里划词凭空消失，就是这个写法的代价。
+    // 改为读扩展自己在 DOM 上留的接管标记（magiclens v0.8.6 / 其 R37）：
+    //   · data-magiclens-selection：由 selection-relay.js 写在**它所在的那个文档**上，
+    //     语义是「本帧的拖选划词确实在被扩展处理」，所以逐文档判定；
+    //   · data-magiclens-highlight：由 highlight.js 写在**顶层文档**上，语义是「高亮引擎
+    //     正在跑」（它跨文档标注本页所有 frame），会随 Alt+U / 域名禁用 / 登出被清除。
+    // 读不到标记就保留内置实现：未装扩展、扩展版本过旧（<0.8.6 没有标记）、该 frame
+    // 注入失败、用户关了高亮——这四种情况下功能都不因「让位」而缺失。标记的值就是扩展
+    // 版本号，出问题时在 DevTools 里看一眼 DOM 属性即可分辨是上面哪一种。
+    // 不在让位范围内的：段落「译」按钮、整页/整本翻译、朗读、批注、AI 伴读、右键快捷
+    // 菜单，以及 inspectVocabulary 的每页文本上送（喂 moon-well 阅读事件流与伴读生词）。
+
+    // 本帧的拖选划词是否已被扩展接管（contentDoc 即 epub.js 渲染正文的那个同源 iframe）
+    function lensOwnsSelection(contentDoc) {
+        return Boolean(contentDoc.documentElement.dataset.magiclensSelection);
+    }
+
+    // 生词高亮是否已被扩展接管（其引擎在顶层文档统一标注，故看顶层文档的标记）
+    function lensOwnsHighlight() {
+        return Boolean(document.documentElement.dataset.magiclensHighlight);
+    }
 
     // 划词翻译：选中文本弹出翻译气泡（来自 master 分支功能）。
     var translationRequest = 0;
@@ -383,7 +394,8 @@ var reader;
     }
 
     function translateSelection(content) {
-        if (!LENS_OVERLAP_UI_ENABLED) return;
+        // 扩展正在接管本帧的拖选时不出内置气泡，避免同页双气泡、两套 Esc 互相抢占
+        if (lensOwnsSelection(content.document)) return;
         if (!calibre.readingVocabularyEnabled || !calibre.readingTranslationUrl) return;
         var selection = content.window.getSelection();
         var text = selection && selection.toString().replace(/\s+/g, ' ').trim();
@@ -2152,11 +2164,11 @@ var reader;
     }
 
     function markVocabulary(records) {
-        // R141：波浪线标注下线——magiclens v0.5.0 起做生词高亮、v0.7.2 起明确支持
-        // magicbook 阅读器 iframe 正文，两套并存就是一个词两条线。这里只停 DOM 标注，
-        // 不停 inspectVocabulary 的请求：那份上报同时是 moon-well 阅读事件流（学情、
-        // 成就解锁）和 AI 伴读「当前页生词」上下文的数据来源，停请求会连带伤到它们。
-        if (!LENS_OVERLAP_UI_ENABLED) return;
+        // 扩展高亮引擎在跑时不画内置波浪线（它经 contentDocument 跨文档标注，同页并存
+        // 就是一个词两条线）；引擎关了 / 未登录 / 站点被禁用时它会自己清掉标记，内置随即
+        // 回来。这里只停 DOM 标注，不停 inspectVocabulary 的请求：那份上报同时是
+        // moon-well 阅读事件流（学情、成就解锁）和 AI 伴读「当前页生词」上下文的数据来源。
+        if (lensOwnsHighlight()) return;
         var byWord = {};
         (records || []).forEach(function (record) {
             if (record && record.word) byWord[record.word] = record;
