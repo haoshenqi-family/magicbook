@@ -161,6 +161,6 @@
 - **测试**：开发态闸门 R131——`test_i18n_seed_contract.py` + `test_learning_proxy.py` 22 例、`test_memory_gating.py` 13 例＝ 35 例 0 失败；发布态全量 `pytest tests/` ＝ **363 过 / 25 失败**。25 个失败逐一定性为**与本轮无关的本地环境问题**：失败全落在 reading-vocabulary/tts/translation/book-finished/translate 域（本轮零改动），报错均为登录会话 401；干净 HEAD worktree 复跑同批用例 34 全过、再把本轮 4 个运行期文件（learning.js/html/po/mo）拷入 worktree 复跑 **81 全过**——失败源为工作区本地未跟踪运行态（`app.db` 等，gitignore、不进 commit 与 fnOS 构建），非代码回归。
 - **git 纪律**：工作区有并行会话未提交内容（requests.md 的 R145 条目、docs 若干 M、若干未跟踪 L1/归档文件），本轮提交逐文件挑选、requests.md 构造 blob 只含 R144 行。
 - **文档**：L1 `docs/readme/learning.md` 两处——复习队列描述加「刚学过、昨天学过的词优先出现」与「达标后可继续加练」，统计改「今日复习进度（x/20…）」。magicbook 无 learning L3（接口契约文档在 moon-well L2/L3，已同步）。
-- **部署状态**：**未 commit、未 push**（等用户指令；push develop 即触发 fnOS 构建上线）。
+- **部署状态**：**已上线**。`0f6f7a8d..76c7cdaa` push（含此前会话遗留的两条 R143 docs 提交一并随推），17:08 `build END OK (76c7cdaa)` → `app-manager deploy SUCCESS` → 容器 healthy；后端配套 moon-well R143 于 17:20 跟进上线（3029ef8，见其仓 response.md）。统计头 x/20 数字与「继续复习」按钮待用户登录页真机验收（未登录探针只到代理层）。
 - **冲突记录**：无。窗口检查：本条写入前窗口为 R134–R143 共 10 条，R134 已按「写入即检查」原样搬移至 `response-archive/response-R134.md` 并登记归档索引，窗口现为 R135 起最近 10 个 request（R138/R139/R140 均为历史同日独立条目）。
 - **总结**：requests.md 占号 R144；本条为回应；待用户动作：验收页面（真机）+ 决定 push 时机。
