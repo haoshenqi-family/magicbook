@@ -164,3 +164,15 @@
 - **部署状态**：**已上线**。`0f6f7a8d..76c7cdaa` push（含此前会话遗留的两条 R143 docs 提交一并随推），17:08 `build END OK (76c7cdaa)` → `app-manager deploy SUCCESS` → 容器 healthy；后端配套 moon-well R143 于 17:20 跟进上线（3029ef8，见其仓 response.md）。统计头 x/20 数字与「继续复习」按钮待用户登录页真机验收（未登录探针只到代理层）。
 - **冲突记录**：无。窗口检查：本条写入前窗口为 R134–R143 共 10 条，R134 已按「写入即检查」原样搬移至 `response-archive/response-R134.md` 并登记归档索引，窗口现为 R135 起最近 10 个 request（R138/R139/R140 均为历史同日独立条目）。
 - **总结**：requests.md 占号 R144；本条为回应；待用户动作：验收页面（真机）+ 决定 push 时机。
+
+## 2026-10-10（R145：moon-well 全 token 化——代理只认 Bearer，系统身份改 mk- key）
+
+### R145（全 token 化：_moonwell_proxy 废除 X-User-* 互信，一律持凭证调用）
+
+- **同源改造**：moon-well R145 同轮废除内网互信（身份头是「声称的身份」，R144b 已实证 Traefik 剥离中间件无效、可被公网伪造；用户拍板项目未上线不管历史，直接废除）。本仓角色：所有 moon-well 调用改为持凭证。
+- **`_moonwell_proxy` 改版**：用户会话透传 `moonwell_access_token`（401 自动刷新一次保留）；会话无 token 干净 401「moon-well 登录已失效，请重新登录」——不再静默降级发互信头（这正是 R144 word-detail 401 的祸根形态）。整本翻译 daemon 快照与 toggleread 桥接从 identity_headers 快照改为 bearer_token 快照；桥接无 token 跳过并留痕（书架归属跟用户走）。
+- **系统身份**：启动恢复线程/连接器闭包改用 magicbook-system 服务账号的 mk- API key（fnOS `.env` `MOONWELL_SYSTEM_TOKEN`，moon-well user_id=6 已落库实测 200）。裸 daemon 分支手拼 JSON 不走 jsonify（无 app 上下文会 RuntimeError，R78 同类教训）。`cps/ai/proxy.py` SSE 薄代理同步去身份头、无 token 401。
+- **配套**：fnOS `tts-warm/tts_warm.py` 改读 `MOONWELL_SYSTEM_TOKEN`；conftest 给登录客户端注入占位会话 token（贴近真实登录态：登录时 id_token 自动 exchange）。
+- **测试**：全量 388/388 绿；受影响用例按新契约改写（Bearer 断言替代互信头断言；R51/R52/R78 三个 daemon 回归用例改为 token/mk- 形态，回归语义不变）。
+- **部署**：先于 moon-well 上线（新代理对旧后端完全兼容），push 夹带并行会话已完成未推的 R143 docs ×2 与 R144 学习页 feat 提交（逐笔判类留痕）。
+- **待用户动作**：存量已登录会话若原本没有 moon-well token（历史登录/交换失败），首次用阅读功能会提示「请重新登录」——重登即自动换新 token，无需其他处理。
