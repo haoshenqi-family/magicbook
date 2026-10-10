@@ -72,9 +72,10 @@ def connector_required(f):
 def _system_closures():
     """整本翻译 publish/lookup 闭包（系统身份）。
 
-    Why: 连接器请求没有 OIDC 会话，拿不到 moonwell_access_token；启动恢复
-    （__init__.py _recover_whole_book_translation）已验证 system_identity
-    直发 moon-well 内网信任头可行，此处复用同一范式。
+    Why: 连接器请求没有 OIDC 会话，拿不到 moonwell_access_token；R145 全
+    token 化后系统身份走 MOONWELL_SYSTEM_TOKEN 的 mk- API key（拦截器按
+    user.token 查库校验），启动恢复（__init__.py _recover_whole_book_translation）
+    同一范式。
     How: 延迟 import cps.web 规避循环依赖（同 __init__.py R78 注释）。
     """
     import json

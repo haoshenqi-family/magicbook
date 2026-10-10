@@ -4,7 +4,7 @@
 阅读上下文采集（前端注入）+ drawer UI + 本模块的 /ai/agent/* 端点透传。
 
 设计要点（对应设计 §4.2）：
-- JSON 端点复用 cps.web._moonwell_proxy（身份头 + Bearer JWT + 401 自动刷新一次），
+- JSON 端点复用 cps.web._moonwell_proxy（Bearer JWT + 401 自动刷新一次），
   形制适配：moon-well 全部 POST + RequestBody，本模块暴露 GET（会话列表/历史/记忆/
   学情）并转换成 POST body 转发。
 - SSE（/ai/agent/chat）是新的流式变体：requests stream=True 逐 chunk yield，不缓冲
@@ -37,16 +37,15 @@ _SSE_IDLE_TIMEOUT = 300
 
 
 def _web_helpers():
-    """运行时取 cps.web 的代理基础设施（身份头/JWT 刷新/base url）。
+    """运行时取 cps.web 的代理基础设施（trace id/JWT 刷新/base url）。
 
     Why 延迟导入：cps.web 是巨型模块且互相注册顺序敏感，模块级导入会在
     部分部署路径（如仅加载 AI blueprint 的测试）造成循环依赖。
     """
     from cps.web import (_MOONWELL_NO_PROXY, _moonwell_base_url,
-                         _moonwell_identity_headers,
-                         _moonwell_refresh_session_token)
+                         _moonwell_refresh_session_token, _moonwell_trace_id)
     return (_MOONWELL_NO_PROXY, _moonwell_base_url,
-            _moonwell_identity_headers, _moonwell_refresh_session_token)
+            _moonwell_refresh_session_token, _moonwell_trace_id)
 
 
 def _relay_json(path, payload, label, timeout=20):
@@ -70,22 +69,23 @@ def agent_chat():
     """SSE 流式透传 moon-well /ai/agent/chat（分型事件协议，设计 §8）。
 
     请求体即 moon-well 契约（conversationId/message/bookContext{...}），
-    本模块只补身份，不改写业务字段。
+    本模块只补 trace id 与 Bearer 令牌，不改写业务字段。
     """
-    no_proxy, base_url, identity_headers, refresh_token = _web_helpers()
+    no_proxy, base_url, refresh_token, trace_id = _web_helpers()
     base = base_url()
     if not base:
         return jsonify({"success": False,
                         "message": "moon-well is not configured"}), 503
 
     payload = _body()
-    headers = identity_headers()
     token = flask_session.get("moonwell_access_token")
+    if not token:
+        # R145 全 token 化：无 token 不再降级，直接 401 让前端引导重新登录
+        return jsonify({"success": False,
+                        "message": "moon-well 登录已失效，请重新登录"}), 401
 
     def _connect(bearer):
-        hdrs = dict(headers)
-        if bearer:
-            hdrs["authorization"] = "Bearer " + bearer
+        hdrs = {"X-Trace-Id": trace_id(), "authorization": "Bearer " + bearer}
         return requests.post(
             base + "/ai/agent/chat", json=payload, headers=hdrs,
             stream=True, timeout=(_SSE_CONNECT_TIMEOUT, _SSE_IDLE_TIMEOUT),
@@ -93,7 +93,7 @@ def agent_chat():
 
     # 连接建立阶段的 401 可以安全重试（流未开始）；开始转发后不再重试
     response = _connect(token)
-    if response.status_code == 401 and token:
+    if response.status_code == 401:
         refreshed = refresh_token()
         if refreshed:
             response.close()

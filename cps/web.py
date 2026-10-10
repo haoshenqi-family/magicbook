@@ -781,17 +781,18 @@ def _whole_book_closures():
 
     Why: 发布/重发布在 daemon 后台线程执行，线程内没有 Flask 请求上下文，
     闭包若在此时才解析身份（current_user / flask_session）会 RuntimeError，
-    全部段落被标 FAILED。身份与令牌必须在请求线程内先定格为纯数据快照，
-    经 _moonwell_proxy 的 identity_headers/bearer_token 传入。
+    全部段落被标 FAILED。令牌必须在请求线程内先定格为纯数据快照，
+    经 _moonwell_proxy 的 bearer_token 传入。
     status 接口的 lookup 虽在请求线程同步执行，复用同一闭包保持行为一致。
     """
-    identity = _moonwell_identity_headers()
     token = flask_session.get("moonwell_access_token")
 
     def publish(task_payload):
+        if not token:
+            raise ValueError("moon-well authorization is required")
         response = _moonwell_proxy("/llm/task/publish", task_payload, 20,
                                    "whole-book translation",
-                                   identity_headers=identity, bearer_token=token)
+                                   bearer_token=token)
         if not isinstance(response, tuple) or len(response) < 2:
             raise ValueError("moon-well authorization is required")
         body, status = response[0], response[1]
@@ -800,9 +801,11 @@ def _whole_book_closures():
         return json.loads(body)
 
     def lookup(paragraphs):
+        if not token:
+            return {}
         response = _moonwell_proxy("/reading/paragraph-cache/find-translations",
                                    {"paragraphs": paragraphs}, 20, "translation cache",
-                                   identity_headers=identity, bearer_token=token)
+                                   bearer_token=token)
         if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
             return {}
         data = json.loads(response[0])
@@ -1004,34 +1007,14 @@ def _moonwell_trace_id():
     return upstream or uuid.uuid4().hex
 
 
-def _moonwell_identity_headers():
-    """内网纯信任：携带当前登录用户的 OIDC 身份信息，供 moon-well 定位（或兜底自动建号）同一账户。
+def _moonwell_system_token():
+    """系统身份凭证（R145 全 token 化）：magicbook-system 服务账号的 mk- API key。
 
-    身份头来自 Authentik 认证（本地登录已隐藏），moon-well 可信任：
-      X-User-Subject   —— OIDC subject（主定位键）
-      X-User-Email     —— 按 email 合并存量账号的兜底
-      X-User-Username  —— 自动建号时的首选用户名
-      X-User-Nickname  —— 自动建号时的昵称
-      X-User-Issuer    —— Authentik issuer
+    Why: 启动恢复线程、连接器闭包、toggleread 桥接没有用户会话，token 化后
+    改用服务账号静态 key 调 moon-well（拦截器 mk- 分支按 user.token 查库校验，
+    任务归属 magicbook-system 账号）。key 只存 fnOS .env 的 MOONWELL_SYSTEM_TOKEN。
     """
-    headers = {}
-    subject = getattr(current_user, "oidc_subject", None)
-    if subject:
-        headers["X-User-Subject"] = subject
-    email = getattr(current_user, "email", None)
-    if email:
-        headers["X-User-Email"] = email
-    username = getattr(current_user, "name", None)
-    if username:
-        headers["X-User-Username"] = username
-    nickname = getattr(current_user, "nickname", None)
-    if nickname:
-        headers["X-User-Nickname"] = nickname
-    issuer = os.environ.get("AUTHENTIK_ISSUER", "")
-    if issuer:
-        headers["X-User-Issuer"] = issuer.rstrip("/")
-    headers["X-Trace-Id"] = _moonwell_trace_id()
-    return headers
+    return os.environ.get("MOONWELL_SYSTEM_TOKEN", "")
 
 
 @web.route("/ajax/reading-annotation-create", methods=["POST"])
@@ -1249,17 +1232,19 @@ def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=Non
     if not read_status:
         return
 
-    # Why: worker 运行在后台线程，没有 Flask request 上下文——身份头必须在启动线程
-    # （即 toggleread 请求处理线程，持有 current_user）内取好快照再传入（R65 测试发现）。
+    # Why: worker 运行在后台线程，没有 Flask request 上下文——令牌必须在启动线程
+    # （即 toggleread 请求处理线程，持有 flask_session）内取好快照再传入（R65 测试发现）。
+    # R145 全 token 化：书架归属跟用户走，快照只带用户 token；无请求上下文或无 token
+    # 一律跳过桥接（flask_session 在裸 app_context 下 get 会 RuntimeError）。
     try:
-        headers = _moonwell_identity_headers()
-    except Exception:
-        headers = None
-    if not headers:
-        log.warning("moonwell book bridge: no identity headers for book %s, skip", book_id)
+        token = flask_session.get("moonwell_access_token")
+    except RuntimeError:
+        token = None
+    if not token:
+        log.warning("moonwell book bridge: no moon-well token for book %s, skip", book_id)
         return
 
-    def _worker(book_id=book_id, title=title, authors=authors, headers=headers):
+    def _worker(book_id=book_id, title=title, authors=authors, token=token):
         try:
             with app.app_context():
 
@@ -1280,7 +1265,7 @@ def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=Non
                 book_id_mw = None
                 body, status, _h = _moonwell_proxy(
                     "/book/page", {"page": 1, "size": 100, "keyword": title}, 15,
-                    "moonwell book bridge page", identity_headers=headers)
+                    "moonwell book bridge page", bearer_token=token)
                 if 200 <= status < 300:
                     try:
                         data = json.loads(body)
@@ -1301,7 +1286,7 @@ def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=Non
                     }
                     body, status, _h = _moonwell_proxy(
                         "/book/create", create_payload, 15, "moonwell book bridge create",
-                        identity_headers=headers)
+                        bearer_token=token)
                     if 200 <= status < 300:
                         try:
                             data = json.loads(body)
@@ -1323,7 +1308,7 @@ def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=Non
                 }
                 body, status, _h = _moonwell_proxy(
                     "/book/update", update_payload, 15, "moonwell book bridge update",
-                    identity_headers=headers)
+                    bearer_token=token)
                 if 200 <= status < 300:
                     log.info("moonwell book bridge: book %s -> moonwell book %s FINISHED ok",
                              book_id, book_id_mw)
@@ -1337,50 +1322,51 @@ def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=Non
 
 
 def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
-                    system_identity=None, identity_headers=None, bearer_token=None):
-    """转发阅读相关请求到 moon-well。
+                    system_identity=False, bearer_token=None):
+    """转发阅读相关请求到 moon-well（R145 全 token 化：只认凭证，不发身份头）。
 
-    鉴权方式：session 中的 moonwell_access_token 透传为 Authorization: Bearer，
-    同时携带 OIDC 身份头供 moon-well 定位（或兜底自动建号）同一账户。
+    鉴权方式：Authorization: Bearer 二选一——
+      - 用户身份：bearer_token 快照（后台线程）或 session 中的 moonwell_access_token
+        （请求线程），任务归属该用户；401 时自动刷新重试一次（仅请求线程调用方）。
+      - 系统身份：system_identity=True 时用 magicbook-system 服务账号的 mk- API key
+        （MOONWELL_SYSTEM_TOKEN，无用户会话的内部调用：启动恢复/连接器/桥接兜底）。
+    用户会话无 token：互信头机制已废（R145），不再降级，直接 401 提示重新登录——
+    token 是登录时 id_token 换来的，缺失只能重登补齐。
     binary=True 时按原始字节透传响应体（音频），而非解码为文本。
     method="GET" 时以 GET 转发且不带请求体（moon-well 的 known/unknown
     标记接口是 path 参数式 GET，无 JSON body）。
-    system_identity=True：无用户请求上下文的内部调用（如启动恢复线程），
-    以「系统身份」X-User-* 头调用（moon-well 内网信任模式按 subject 兜底建号），
-    任务归属系统账号，不依赖任何用户会话——此分支绝不触碰 flask_session。
-    identity_headers/bearer_token：请求线程定格的身份快照，供整本翻译等
-    daemon 后台线程使用——线程内没有 Flask 上下文，读 current_user /
-    flask_session 会 RuntimeError；传入快照后本函数不再触碰任何请求态，
-    401 自动刷新也跳过（刷新依赖请求会话，只有请求线程调用方才做）。
+    bearer_token：请求线程定格的令牌快照，供整本翻译等 daemon 后台线程使用——
+    线程内没有 Flask 上下文，读 current_user / flask_session 会 RuntimeError；
+    传入快照后本函数不再触碰任何请求态，401 自动刷新也跳过（刷新依赖请求会话，
+    只有请求线程调用方才做）。
     """
     base = _moonwell_base_url()
     if not base:
         return jsonify({"success": False, "message": "moon-well is not configured"}), 503
 
+    from_request_session = False
     if system_identity:
-        subject = os.environ.get("SYSTEM_IDENTITY_SUBJECT", "magicbook-system")
-        headers = {
-            "X-User-Subject": subject,
-            "X-User-Username": subject,
-            "X-User-Email": subject + "@internal.magicbook",
-            "X-User-Nickname": "magicbook-system",
-            "X-User-Issuer": os.environ.get("AUTHENTIK_ISSUER", ""),
-        }
-        # 系统身份调用方（启动恢复线程）没有任何 Flask 上下文：绝不能读
-        # flask_session（会抛 RuntimeError，曾导致整批段落全部 FAILED）
-        token = None
-        from_request_session = False
-    elif identity_headers is not None:
+        token = _moonwell_system_token()
+        if not token:
+            # Why 不用 jsonify：本分支供裸 daemon 线程调用（无 app/request 上下文），
+            # jsonify 会 RuntimeError（R78 生产事故同类）。手拼 JSON 字符串返回。
+            log.error("moon-well %s: MOONWELL_SYSTEM_TOKEN 未配置，系统身份调用不可用", path)
+            return (json.dumps({"success": False, "message": label + " service unavailable"}),
+                    503, {"Content-Type": "application/json"})
+    elif bearer_token is not None:
         # 后台线程快照：调用线程同样没有 Flask 上下文，令牌只认显式传入值
-        headers = dict(identity_headers)
         token = bearer_token
-        from_request_session = False
     else:
-        headers = _moonwell_identity_headers()
         token = flask_session.get("moonwell_access_token")
         from_request_session = True
-    if token:
-        headers["authorization"] = "Bearer " + token
+        if not token:
+            return jsonify({"success": False,
+                            "message": "moon-well 登录已失效，请重新登录"}), 401
+
+    headers = {
+        "X-Trace-Id": _moonwell_trace_id(),
+        "authorization": "Bearer " + token,
+    }
 
     def _send():
         if method == "GET":
@@ -1392,8 +1378,8 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
     try:
         response = _send()
         # 会话令牌过期时自动刷新并重试一次（仅请求线程调用方：刷新要读请求会话，
-        # 恢复线程/后台快照调用方没有上下文，也不该持有可刷新的用户令牌）
-        if response.status_code == 401 and token and from_request_session:
+        # 系统身份/后台快照调用方没有上下文，也不该持有可刷新的用户令牌）
+        if response.status_code == 401 and from_request_session:
             refreshed = _moonwell_refresh_session_token()
             if refreshed:
                 headers["authorization"] = "Bearer " + refreshed

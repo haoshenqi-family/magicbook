@@ -289,6 +289,12 @@ def admin_client(app):
         cw_config.db_configured = True
     except Exception:
         pass
+    # R145 全 token 化：moon-well 代理只认 Bearer 凭证（互信头已废）。真实链路里
+    # 会话 token 是登录时 id_token 换来的；测试环境直接往 session 注入一枚
+    # 占位 token，让代理走「已登录」分支（上游 moon-well 在测试里被 mock）。
+    with client.session_transaction() as sess:
+        sess["moonwell_access_token"] = "test-access-token"
+        sess["moonwell_refresh_token"] = "test-refresh-token"
     return client
 
 

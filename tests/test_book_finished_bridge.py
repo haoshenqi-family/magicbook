@@ -77,8 +77,9 @@ def test_unmark_read_does_not_bridge(admin_client, moonwell_configured):
 
 
 def test_bridge_worker_create_then_update(moonwell_configured, app, monkeypatch):
-    monkeypatch.setattr("cps.web._moonwell_identity_headers",
-                        lambda: {"X-User-Subject": "test-user"})
+    # R145 全 token 化：桥接快照只认会话里的 moon-well token
+    monkeypatch.setattr("cps.web.flask_session",
+                        __import__("types").SimpleNamespace(get=lambda k: "test-token"))
     """page 未命中 -> create 登记 -> update 置 FINISHED 的完整流程。"""
     from cps import web as web_mod
 
@@ -109,8 +110,9 @@ def test_bridge_worker_create_then_update(moonwell_configured, app, monkeypatch)
 
 
 def test_bridge_worker_reuses_existing_book(moonwell_configured, app, monkeypatch):
-    monkeypatch.setattr("cps.web._moonwell_identity_headers",
-                        lambda: {"X-User-Subject": "test-user"})
+    # R145 全 token 化：桥接快照只认会话里的 moon-well token
+    monkeypatch.setattr("cps.web.flask_session",
+                        __import__("types").SimpleNamespace(get=lambda k: "test-token"))
     """page 命中同名书 -> 直接 update，不重复登记。"""
     from cps import web as web_mod
 
@@ -136,8 +138,9 @@ def test_bridge_worker_reuses_existing_book(moonwell_configured, app, monkeypatc
 
 
 def test_bridge_worker_failure_is_silent(moonwell_configured, app, monkeypatch):
-    monkeypatch.setattr("cps.web._moonwell_identity_headers",
-                        lambda: {"X-User-Subject": "test-user"})
+    # R145 全 token 化：桥接快照只认会话里的 moon-well token
+    monkeypatch.setattr("cps.web.flask_session",
+                        __import__("types").SimpleNamespace(get=lambda k: "test-token"))
     """桥接全程失败只记日志，不抛异常。"""
     from cps import web as web_mod
 

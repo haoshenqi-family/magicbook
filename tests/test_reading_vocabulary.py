@@ -1,7 +1,7 @@
 """Unit tests for the reading-vocabulary proxy endpoint.
 
 moon-well 互调使用配置的内网地址与服务端会话鉴权。
-出站请求改携 OIDC 用户身份标识（X-User-Subject / X-User-Email），由
+出站请求一律携 Authorization: Bearer（R145 全 token 化；互信头 X-User-* 已下线），由
 moon-well 按 subject（回退 email）定位同一账户。
 
 Covers:
@@ -92,17 +92,16 @@ def test_proxies_successfully(admin_client, moonwell_configured, monkeypatch):
     assert body["result"][0]["word"] == "serendipity"
 
     assert captured["url"].endswith("/vocabulary/reading/analyze")
-    # 内网纯信任：绝不携带 authorization 头；改携 OIDC 身份标识
-    # （本测试 admin 是无 OIDC 的本地账号，故只有 email 回退头）
-    assert "authorization" not in captured["headers"]
+    # R145 全 token 化：出站必须携带 Bearer 凭证（conftest 注入的会话 token），
+    # 互信身份头已下线
+    assert captured["headers"].get("authorization") == "Bearer test-access-token"
     assert "X-User-Subject" not in captured["headers"]
-    assert captured["headers"].get("X-User-Email"), "must carry identity email header"
     # moon-well 是内网服务：必须显式绕过环境代理（http_proxy 会让内网请求 503）
     assert captured["proxies"] == {"http": None, "https": None}
 
 
-def test_proxies_forwards_oidc_subject(app, moonwell_configured, monkeypatch):
-    """OIDC 用户：出站同时携带 X-User-Subject，供 moon-well 按 subject 定位同一账户。"""
+def test_proxies_forwards_session_token(app, moonwell_configured, monkeypatch):
+    """R145：登录会话（含 token 桥）出站透传 Bearer，身份归属跟随 token。"""
     import requests
 
     from cps import ub
@@ -140,11 +139,11 @@ def test_proxies_forwards_oidc_subject(app, moonwell_configured, monkeypatch):
                                      "password": "oidc-pass"})
     assert rv.status_code == 302, f"OIDC user login failed: {rv.status_code}"
 
+    # R145：代理透传会话 token（该 client 未走 exchange 注入 token → 干净 401）
     rv = _post_vocab(client)
-    assert rv.status_code == 200
-    assert captured["headers"]["X-User-Subject"] == "oidc-1"
-    assert captured["headers"].get("X-User-Email")
-    assert "authorization" not in captured["headers"]
+    assert rv.status_code == 401
+    body = rv.get_json()
+    assert "重新登录" in (body.get("message") or "")
 
 
 def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured,
@@ -398,8 +397,7 @@ def test_word_mark_normalizes_word_and_proxies_unknown(admin_client,
     # 归一化：弯撇号 → 直撇号，大写 → 小写，再 URL 编码进 path
     assert captured["url"].endswith("/vocabulary/unknown/apple%27s")
     # 内网纯信任：不携带 authorization，改携身份头
-    assert "authorization" not in captured["headers"]
-    assert captured["headers"].get("X-User-Email")
+    assert captured["headers"].get("authorization") == "Bearer test-access-token"
     # moon-well 是内网服务：必须显式绕过环境代理
     assert captured["proxies"] == {"http": None, "https": None}
 
@@ -618,8 +616,7 @@ def test_annotation_create_proxies_to_moonwell(admin_client, moonwell_configured
     assert len(payload["bookName"]) == 200
     assert payload["chapter"] == "Chapter 3"
     # 内网纯信任：不携带 authorization，改携 OIDC 身份头
-    assert "authorization" not in captured["headers"]
-    assert captured["headers"].get("X-User-Email")
+    assert captured["headers"].get("authorization") == "Bearer test-access-token"
     # 内网服务绕过环境代理（与其他阅读代理一致）
     assert captured["proxies"] == {"http": None, "https": None}
 
@@ -841,8 +838,7 @@ def test_word_detail_normalizes_word_and_proxies_get(admin_client,
     # 归一化：弯撇号 → 直撇号，大写 → 小写，再 URL 编码进 path
     assert captured["url"].endswith("/vocabulary/detail/apple%27s")
     # 内网纯信任：不携带 authorization，改携身份头
-    assert "authorization" not in captured["headers"]
-    assert captured["headers"].get("X-User-Email")
+    assert captured["headers"].get("authorization") == "Bearer test-access-token"
     # moon-well 是内网服务：必须显式绕过环境代理
     assert captured["proxies"] == {"http": None, "https": None}
     # 缓存 miss 时 moon-well 现场生成（LLM 一次调用），超时须宽于 mark 的 8s

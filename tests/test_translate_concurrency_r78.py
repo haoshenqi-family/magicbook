@@ -256,6 +256,9 @@ def test_recover_closure_resolves_moonwell_proxy(app, monkeypatch):
 
     monkeypatch.setattr(web_module.constants, "MOON_WELL_READING_URL",
                         "http://127.0.0.1:18082")
+    # R145 全 token 化：系统身份走服务账号 mk- key（互信头已废）
+    monkeypatch.setattr(web_module.os, "environ",
+                        {**web_module.os.environ, "MOONWELL_SYSTEM_TOKEN": "mk-r78-key"})
     monkeypatch.setattr(web_module.requests, "post",
                         lambda url, json=None, headers=None, timeout=None, proxies=None:
                         captured.update(url=url) or _Resp())

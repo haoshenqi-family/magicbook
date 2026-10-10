@@ -4,7 +4,7 @@ The reader's paragraph read-aloud is relayed through moon-well (which adapts
 to Aliyun Bailian/DashScope), so magicbook's endpoint only proxies JSON in /
 binary audio out over internal trust (OIDC identity headers, no token). Covers:
   1. Login required.
-  2. Binary audio passthrough with identity headers (no authorization).
+  2. Binary audio passthrough with Bearer token (R145 全 token 化).
   3. Text validation (empty / over-length).
   4. Book context (bookName/chapter) relayed for moon-well's cache grading,
      trimmed and clipped to 200 chars.
@@ -85,9 +85,8 @@ def test_proxies_audio_passthrough(admin_client, moonwell_configured,
     # 未携带书籍上下文时补空串：moon-well 按「无上下文=临时语音」分级，语义与原裸 text 一致
     assert captured["json"] == {"text": "A lucky serendipity happened.",
                                 "bookName": "", "chapter": ""}
-    # 内网纯信任：不携带 authorization，改携 OIDC 身份头
-    assert "authorization" not in captured["headers"]
-    assert captured["headers"].get("X-User-Email")
+    # R145 全 token 化：出站必须携带 Bearer（conftest 注入的会话 token）
+    assert captured["headers"].get("authorization") == "Bearer test-access-token"
     # moon-well 是内网服务：必须显式绕过环境代理
     assert captured["proxies"] == {"http": None, "https": None}
 

@@ -495,11 +495,10 @@ def test_publish_thread_uses_own_session_when_ub_session_is_plain_instance(monke
         assert job_row.published_count == 1
 
 
-def test_moonwell_proxy_snapshot_identity_works_without_flask_context(app, monkeypatch):
-    """R51 回归：整本翻译发布在 daemon 线程执行，线程内没有 Flask 请求上下文。
-    _moonwell_proxy 必须支持请求线程定格的身份快照（identity_headers +
-    bearer_token）完成调用：任何对 current_user / flask_session 的触碰在本测试
-    环境下都会抛 RuntimeError，正好构成断言。"""
+def test_moonwell_proxy_snapshot_token_works_without_flask_context(app, monkeypatch):
+    """R51 回归（R145 改版）：整本翻译发布在 daemon 线程执行，线程内没有 Flask
+    请求上下文。_moonwell_proxy 必须支持请求线程定格的 bearer_token 快照完成调用：
+    任何对 flask_session 的触碰在本测试环境下都会抛 RuntimeError，正好构成断言。"""
     import os
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -507,9 +506,9 @@ def test_moonwell_proxy_snapshot_identity_works_without_flask_context(app, monke
     from cps import web as web_module
 
     def _boom(*args, **kwargs):
-        raise AssertionError("background thread must not resolve identity lazily")
+        raise AssertionError("background thread must not resolve session lazily")
 
-    monkeypatch.setattr(web_module, "_moonwell_identity_headers", _boom)
+    monkeypatch.setattr(web_module, "flask_session", _boom)
     monkeypatch.setattr(web_module.constants, "MOON_WELL_READING_URL",
                         "http://127.0.0.1:18082")
 
@@ -529,20 +528,18 @@ def test_moonwell_proxy_snapshot_identity_works_without_flask_context(app, monke
 
     body, status, _ = web_module._moonwell_proxy(
         "/llm/task/publish", {"input": "hi"}, 20, "whole-book translation",
-        identity_headers={"X-User-Subject": "sub-r51"}, bearer_token="tok-r51")
+        bearer_token="tok-r51")
 
     assert status == 200
     assert "t-snap" in body
     assert captured["url"].endswith("/llm/task/publish")
-    assert captured["headers"]["X-User-Subject"] == "sub-r51"
     assert captured["headers"]["authorization"] == "Bearer tok-r51"
 
 
 def test_moonwell_proxy_system_identity_works_without_flask_context(app, monkeypatch):
-    """R52 回归：启动恢复线程以 system_identity 调用 _moonwell_proxy，线程内
-    没有 Flask 请求上下文。旧实现无条件读 flask_session.get(...) 抛
-    RuntimeError: Working outside of request context，被逐段 except 捕获后
-    整批段落全部 FAILED（生产 job 57b763d：4477/4477 失败、pending=0）。"""
+    """R52 回归（R145 改版）：启动恢复线程以 system_identity 调用 _moonwell_proxy，
+    线程内没有 Flask 请求上下文。互信头已废，系统身份走 MOONWELL_SYSTEM_TOKEN 的
+    mk- key；任何对 flask_session 的触碰在本测试环境下都会抛 RuntimeError。"""
     import os
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -552,9 +549,11 @@ def test_moonwell_proxy_system_identity_works_without_flask_context(app, monkeyp
     def _boom(*args, **kwargs):
         raise AssertionError("system identity must not resolve user context lazily")
 
-    monkeypatch.setattr(web_module, "_moonwell_identity_headers", _boom)
+    monkeypatch.setattr(web_module, "flask_session", _boom)
     monkeypatch.setattr(web_module.constants, "MOON_WELL_READING_URL",
                         "http://127.0.0.1:18082")
+    monkeypatch.setattr(web_module.os, "environ",
+                        {**web_module.os.environ, "MOONWELL_SYSTEM_TOKEN": "mk-test-key"})
 
     class _Resp:
         status_code = 200
@@ -576,9 +575,8 @@ def test_moonwell_proxy_system_identity_works_without_flask_context(app, monkeyp
 
     assert status == 200
     assert "t-sys" in body
-    # 系统身份头来自环境变量默认值，且不携带任何用户 Bearer 令牌
-    assert captured["headers"]["X-User-Subject"] == "magicbook-system"
-    assert "authorization" not in captured["headers"]
+    # 系统身份 = 服务账号 mk- key（MOONWELL_SYSTEM_TOKEN）
+    assert captured["headers"]["authorization"] == "Bearer mk-test-key"
 
 
 def test_stale_active_job_is_recycled(tmp_path, monkeypatch):

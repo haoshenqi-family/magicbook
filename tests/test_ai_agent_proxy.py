@@ -35,7 +35,7 @@ class FakeUpstream:
 
 @pytest.fixture
 def helpers(monkeypatch):
-    """打桩 _web_helpers：base url / 身份头 / 刷新函数全部可控。"""
+    """打桩 _web_helpers：base url / trace id / 刷新函数全部可控（R145 去 identity_headers）。"""
     state = {"refreshed_token": None}
 
     def _web_helpers():
@@ -43,8 +43,8 @@ def helpers(monkeypatch):
             state["refreshed_token"] = "fresh-token"
             return state["refreshed_token"]
 
-        return ({}, lambda: "http://moonwell.test",
-                lambda: {"X-User-Subject": "sub-1"}, refresh)
+        return ({}, lambda: "http://moonwell.test", refresh,
+                lambda: "trace-test-id")
 
     monkeypatch.setattr(ai_proxy, "_web_helpers", _web_helpers)
     return state
@@ -76,9 +76,9 @@ def test_chat_streams_sse_chunks_unbuffered(admin_client, helpers, posts):
     # chunk 原样到达（不缓冲、不改写），event: 行保留
     assert b"event: delta" in rv.data and b'"text"' in rv.data
     assert b"event: final" in rv.data
-    # 上游地址与身份头
+    # 上游地址与 Bearer 凭证（conftest 注入的会话 token；R145 互信头已下线）
     assert posts.calls[0]["url"] == "http://moonwell.test/ai/agent/chat"
-    assert posts.calls[0]["headers"]["X-User-Subject"] == "sub-1"
+    assert posts.calls[0]["headers"]["authorization"] == "Bearer test-access-token"
 
 
 def test_chat_upstream_401_refreshes_then_retries(admin_client, helpers, posts):

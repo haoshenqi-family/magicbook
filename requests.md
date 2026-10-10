@@ -42,3 +42,4 @@
 
 143. 修正 R141 的隐藏边界：只隐藏 magiclens 已经做了的部分（不重复、不打架），段落翻译 magiclens 尚未实现（README 里「段落整页翻译」仍是规划 P1），阅读器段落「译」按钮要恢复。
 144. 每日学习页改版（同源 moon-well R143，后端已配套）：「今日到期 1949」压垮用户——①统计头改「今日复习 x/20」进度式（数据来自 moon-well stats 新字段 todayReviewed/todayTarget；dueNow 留接口不展示）；②队列打空且仍有逾期积压时显示「今日复习完成 + 继续复习」按钮，可一直复习下去（替换现在失实的「Nothing due right now」文案）。
+145. moon-well 全 token 化（同源 moon-well R145，后端同步改造）：废除 X-User-* 内网互信，_moonwell_proxy 一律持凭证调用——用户会话透传 moonwell_access_token（无 token 干净 401 提示重登），系统身份后台任务改用 magicbook-system 的 mk- API key（fnOS .env MOONWELL_SYSTEM_TOKEN）；tts-warm 脚本同步改凭证。
