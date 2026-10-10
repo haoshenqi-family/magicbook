@@ -37,3 +37,7 @@
 ## 2026-10-09
 
 141. 划词翻译功能从 magicbook 隐藏，暂时仅通过 magiclens 实现，避免冲突。
+
+142. https://magicbook.haoyuhang.top/read/145/epub 。整本提交 TTS 生成，加入 TTS 任务队列，然后后台慢慢处理（预生成整本书的朗读音频，后续阅读时重听零等待）。
+
+143. 修正 R141 的隐藏边界：只隐藏 magiclens 已经做了的部分（不重复、不打架），段落翻译 magiclens 尚未实现（README 里「段落整页翻译」仍是规划 P1），阅读器段落「译」按钮要恢复。
