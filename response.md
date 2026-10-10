@@ -176,3 +176,14 @@
 - **测试**：全量 388/388 绿；受影响用例按新契约改写（Bearer 断言替代互信头断言；R51/R52/R78 三个 daemon 回归用例改为 token/mk- 形态，回归语义不变）。
 - **部署**：先于 moon-well 上线（新代理对旧后端完全兼容），push 夹带并行会话已完成未推的 R143 docs ×2 与 R144 学习页 feat 提交（逐笔判类留痕）。
 - **待用户动作**：存量已登录会话若原本没有 moon-well token（历史登录/交换失败），首次用阅读功能会提示「请重新登录」——重登即自动换新 token，无需其他处理。
+
+### R146（让位从写死改为探测 MagicLens 的接管标记）
+
+- **需求**：能否检测——发现装了 magiclens 就隐藏，否则不隐藏。跨仓同源：magiclens R37（v0.8.6）负责写标记。
+- **为什么这个需求是对的**：R141 的静态开关把「装了扩展」当成「这条能力在此处通」。两轮之前它就不成立——v0.8.5 之前扩展装着、iframe 拖选却不通（`about:srcdoc` frame 注入不进去），而写死的开关已经把内置气泡关掉，用户看到的是「选中单词毫无反应、波浪线却正常」。检测的语义因此定为**接管状态**而非存在状态。
+- **交付**：`epub.js` 删掉 `LENS_OVERLAP_UI_ENABLED`，改为两个探测，粒度对应两套属主——`lensOwnsSelection(content.document)` 读本帧 `data-magiclens-selection`（决定内置划词气泡）、`lensOwnsHighlight()` 读顶层 `data-magiclens-highlight`（决定内置波浪线，其引擎随 Alt+U/域名禁用/登出自清标记）。读不到就保留内置，覆盖四种情况：未装扩展 / 扩展过旧（<0.8.6 无标记）/ 该 frame 注入失败 / 用户关了高亮。标记值是扩展版本号，排障看 DOM 属性即可分辨属于哪一种。段落「译」按钮、整页/整本翻译、朗读、批注、伴读、右键菜单、`inspectVocabulary` 每页上送均不受影响。
+- **测试**：`tests/test_reader_lens_handoff.py` 按新语义重写（探测函数与属性名、两处门控点、`inspectVocabulary` 不被门控、**不得残留静态开关**的反向锁、段落按钮不被门控），加 `test_reading_vocabulary + test_no_duplicate_js_lines + test_i18n_seed_contract` 一起跑 → **44 passed**；`node --check epub.js` 通过。开发态口径（用户未提正式发布）。
+- **文档**：L1 三处（`readme.md` 概览与快速开始第 2 步、`readme/reading.md`、`readme/vocabulary.md`）改为「装了才接管，没装时阅读器自带」；L2 `docs/vocabulary/hld/hld.md` 能力边界、L3 `docs/reading-vocabulary.md` 状态注记同步（并保留 R141 原分析、以删除线标注旧落点）。
+- **⚠️ 上线顺序（必须先扩展后本站）**：现在线上扩展是 **v0.8.5，它不写任何标记**。若先推 magicbook 这版，探测恒为假 → 内置气泡与波浪线全部回来，而 v0.8.5 扩展仍在同页画它自己那份 → **双气泡、一词双线重现**，正是 R141 当初要消除的现象。正确顺序：① magiclens 0.8.6 发出并让用户在 `chrome://extensions` 重载 + 刷新页面；② 再推 magicbook `develop`（push 即触发 fnOS 构建上线）。本轮 magicbook 改动**已提交未推送**（`b3f7fd5f`）。
+- **编号更正（教训入档）**：本轮初稿在代码注释与 L1/L2/L3 里都写成 **R144**，占号时才发现 144/145 已被并行会话占用（每日学习页改版 / moon-well 全 token 化）。已把我写的 8 处 R144 全部改为实际号 R146（占号 commit `7cca2b2f`），他人条目一字未动。**下次动笔前先占号并 commit，再往代码注释里写编号。**
+- **总结**：requests.md 本条 R146；response.md 本条使窗口达 10 个 request 的回应（R135–R146，其中 R142 含补记），未超 10，无需搬移；冲突记录：本轮唯一并发问题是编号撞号（已按纪律更正而非回改他人条目）。
