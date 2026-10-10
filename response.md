@@ -16,17 +16,11 @@
 - `response-archive/response-R120-R125.md`：R120–R125（2026-10-06 ～ 2026-10-07；R135 写入触发搬移，含 R134 登记的窗口欠账补账）
 - `response-archive/response-R126-R131.md`：R126、R127、R128、R129、R131（2026-10-07 ～ 2026-10-08；2026-10-09 R141 写入触发轮转搬移，清掉 R134 登记的窗口欠账）
 - `response-archive/response-R132-R133.md`：R132、R133（2026-10-08；2026-10-10 R143 写入触发轮转搬移）
+- `response-archive/response-R134.md`：R134（2026-10-08；2026-10-10 R144 写入触发轮转搬移，其父级日期标题随节一并搬移）
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移）
-
-## 2026-10-08（R134 requests.md 归档整理）
-
-### R134（整理 requests.md：已完成条目按区间归档）
-
-- **回应**：R01–R129（141 条）与 R131–R132（2 条）共 143 条原样搬移至 `requests-archive/`（只搬原文、不改写、不改编号）；保留未闭环条目 R130（LLM 队列监控面板：无任何 response 回应，与 moon-well R118 同源在途）与 R133（排查完成、修复在 moon-well 侧未实施），各附归档整理注。编号纪律不变：归档不释放编号，新任务按全史最大编号 +1（133 → 本条 134）。AGENTS.md「requests.md 永不归档」条款同步废止为区间归档制。验证：原 145 条 = 归档 143 + 保留 2，逐条目逐字节比对零缺失。
-- **总结**：requests.md 占号 R134；response.md 本条；冲突记录：无。response.md 窗口超 10 条的归档欠账本轮未处理，待后续会话补账。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移）
 
 ## 2026-10-08（R135 面板「重放失败」操作指引）
 
@@ -153,3 +147,20 @@
 - **待验收**：恢复后的段落「译」按钮只能在部署后于真浏览器看到（本机无 calibre 书库）；本轮改动当时**已提交未推送**。（后续状态见下一条「上线与真浏览器实测」——已推已验。）
 - **总结**：requests.md 本条 R143（占号前先确认 142 已被并行会话占用，续编 143 并即刻单独 commit 锁号）；冲突记录：本条写入前 `response.md` 已被 R142 会话追加 25 行（整本 TTS 预热），采用 append 未触碰其内容；`docs/readme/reading.md`、`docs/vocabulary/hld/hld.md` 仍是 R129 会话 untracked 文件中的改动，随本轮一并提交时会在提交信息注明代提交归属。
 - **上线与真浏览器实测（同轮，用户发话 push）**：推前跑全量 `pytest tests/` → **388 passed / 0 failed**（先 `git fetch` 确认 ahead 2 / behind 0，基线即待推内容）；推 `d0310ad9..0f6f7a8d`，fnOS 第 2 次探测命中：线上 `epub.js` 含 `LENS_OVERLAP_UI_ENABLED = false` 且已无旧开关名、段落按钮注入条件不再带开关（112,213 → 112,540 字节）。`/read/146/epub` 实测：段落「译」按钮 **23 个**（与朗读/批注/伴读同数，即每段都在）、生词波浪线 span 仍 **0**、内置气泡仍不出现；点某段「译」→ `POST /ajax/reading-translate-batch` **200**，1.2s 后该段下方渲染出真实中文译文；数秒后再查该 div 已消失——是既有的「译文自动隐藏（默认每 100 词 5 秒、最短 5 秒）」设计行为，非本次缺陷。踩坑记录：前一次探针脚本自身点了两次（展开后又被其清理逻辑收起）且超出 15s 上限，先把证据搞混过，判据要回到网络状态码 + 单次动作。
+## 2026-10-10（R144 每日学习「今日复习 x/20」改版）
+
+### R144（同源 moon-well R143 后端配套：进度式统计头 + 继续复习入口）
+
+- **需求**：moon-well R143 评估通过并已实施（排序/stats 新字段/常量），本仓交付前端半边——「今日到期 1949」压垮用户，改「今日复习 x/20」进度式；队列打空但仍有逾期积压时给「继续复习」，替换失实的「Nothing due right now」。
+- **现状根因**（评估轮已查明）：统计头 `dueNow` 是「公元 1 年～now 全部逾期积压」（非今日口径）；阅读标生词即建 `dueAt=now` 调度行，只标不复习 → 1949 纯欠账。队列前端本来就 `?limit=20`，做完 20 张却显示「Nothing due」——余量明明还有 1900+，属于失实承诺。
+- **改动**：
+  - `learning.html`：统计头第一格「Due now」→「Today's review」（zh「今日复习」），元素 id `ln-due-now`→`ln-today-review`（诚实命名）；`ln-empty` 后新增 `ln-today-done` 完成态面板（「Daily review target reached. Keep going?」+「Continue reviewing」按钮）。
+  - `learning.js`：`renderStats` 改渲染 `min(todayReviewed, todayTarget) + '/' + todayTarget`（旧后端无新字段时显示「–」按缺数降级）；新增 `lastStats` 缓存，`nextCard` 队列打空时按 `dueNow>0` 分流「完成态+继续」vs「真没了 Keep reading」；队列加载抽成 `loadQueue()` 供初载与继续按钮共用，`renderQueue` 开新批时收起完成态。
+  - i18n：messages.po 增 3 词条（Today's review/Daily review target reached. Keep going?/Continue reviewing）并 `pybabel compile` 重编 .mo（gettext 实测三词条全部命中）；新字符串全走模板 `_()`，JS 未增 mbT 字面量，i18n_seed.html 无需动。旧「Due now」词条留 po 不删（历史词条不回改）。
+- **契约依赖**：moon-well stats 增 `todayReviewed`/`todayTarget`（服务端常量 `DAILY_REVIEW_TARGET=20`，前端不写死分母）；queue 排序 R143 起最近学过优先（本仓无感知，行为变化）。部署顺序：先 moon-well 后 magicbook；先发本仓则统计头显示「–」，行为可接受。
+- **测试**：开发态闸门 R131——`test_i18n_seed_contract.py` + `test_learning_proxy.py` 22 例、`test_memory_gating.py` 13 例＝ 35 例 0 失败；发布态全量 `pytest tests/` ＝ **363 过 / 25 失败**。25 个失败逐一定性为**与本轮无关的本地环境问题**：失败全落在 reading-vocabulary/tts/translation/book-finished/translate 域（本轮零改动），报错均为登录会话 401；干净 HEAD worktree 复跑同批用例 34 全过、再把本轮 4 个运行期文件（learning.js/html/po/mo）拷入 worktree 复跑 **81 全过**——失败源为工作区本地未跟踪运行态（`app.db` 等，gitignore、不进 commit 与 fnOS 构建），非代码回归。
+- **git 纪律**：工作区有并行会话未提交内容（requests.md 的 R145 条目、docs 若干 M、若干未跟踪 L1/归档文件），本轮提交逐文件挑选、requests.md 构造 blob 只含 R144 行。
+- **文档**：L1 `docs/readme/learning.md` 两处——复习队列描述加「刚学过、昨天学过的词优先出现」与「达标后可继续加练」，统计改「今日复习进度（x/20…）」。magicbook 无 learning L3（接口契约文档在 moon-well L2/L3，已同步）。
+- **部署状态**：**未 commit、未 push**（等用户指令；push develop 即触发 fnOS 构建上线）。
+- **冲突记录**：无。窗口检查：本条写入前窗口为 R134–R143 共 10 条，R134 已按「写入即检查」原样搬移至 `response-archive/response-R134.md` 并登记归档索引，窗口现为 R135 起最近 10 个 request（R138/R139/R140 均为历史同日独立条目）。
+- **总结**：requests.md 占号 R144；本条为回应；待用户动作：验收页面（真机）+ 决定 push 时机。

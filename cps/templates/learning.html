@@ -14,7 +14,7 @@
     <div id="ln-stats" class="panel panel-default" hidden>
       <div class="panel-body ln-stats-body">
         <div class="row">
-          <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-due-now">–</span><span class="ln-stat-label">{{_('Due now')}}</span></div>
+          <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-today-review">–</span><span class="ln-stat-label">{{_("Today's review")}}</span></div>
           <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-due-tomorrow">–</span><span class="ln-stat-label">{{_('Due tomorrow')}}</span></div>
           <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-mastered">–</span><span class="ln-stat-label">{{_('Mastered')}}</span></div>
           <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-retention">–</span><span class="ln-stat-label">{{_('7-day retention')}}</span></div>
@@ -44,6 +44,13 @@
         </p>
 
         <div id="ln-empty" class="text-muted" hidden>{{_('Nothing due right now. Keep reading — new words will find their way here.')}}</div>
+
+        {# R144：目标达成但仍有逾期积压时给出继续入口（队列是现算视图，再拉一批即新卡）；
+           原先此时也显示「Nothing due right now」是失实承诺——余量明明还有 #}
+        <div id="ln-today-done" hidden>
+          <p class="text-muted">{{_('Daily review target reached. Keep going?')}}</p>
+          <button type="button" id="ln-continue" class="btn btn-default btn-sm">{{_('Continue reviewing')}}</button>
+        </div>
 
         <div id="ln-card" hidden>
           <div class="ln-word-row">

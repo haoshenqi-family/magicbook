@@ -4837,6 +4837,15 @@ msgstr "每日学习"
 msgid "Due now"
 msgstr "今日到期"
 
+msgid "Today's review"
+msgstr "今日复习"
+
+msgid "Daily review target reached. Keep going?"
+msgstr "今日复习目标已完成。要继续吗？"
+
+msgid "Continue reviewing"
+msgstr "继续复习"
+
 msgid "Due tomorrow"
 msgstr "明日到期"
 

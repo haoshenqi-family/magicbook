@@ -23,10 +23,11 @@
   var $ = function (id) { return document.getElementById(id); };
   var els = {
     csrf: $('ln-csrf'), error: $('ln-error'), errorText: $('ln-error-text'),
-    retry: $('ln-retry'), stats: $('ln-stats'), dueNow: $('ln-due-now'),
+    retry: $('ln-retry'), stats: $('ln-stats'), todayReview: $('ln-today-review'),
     dueTomorrow: $('ln-due-tomorrow'), mastered: $('ln-mastered'),
     retention: $('ln-retention'), plan: $('ln-plan'), strandLine: $('ln-strand-line'),
     newWordsLine: $('ln-new-words-line'), empty: $('ln-empty'),
+    todayDone: $('ln-today-done'), continueBtn: $('ln-continue'),
     word: $('ln-word'), encounters: $('ln-encounters'), stem: $('ln-stem'),
     context: $('ln-context'), contextSource: $('ln-context-source'),
     choices: $('ln-choices'), recall: $('ln-recall'), reveal: $('ln-reveal'),
@@ -42,6 +43,7 @@
   var answeredAt = 0;      // 本卡展示时刻：作答延迟 = 提交时刻 - 展示时刻
   var inFlight = false;    // 在途锁：评分按钮连击忽略
   var revealing = false;   // RECALL 题已揭示
+  var lastStats = null;    // 最近一次统计：队列打空时判断「还有余量→继续」还是「真没了」
 
   // ---------- 小工具 ----------
 
@@ -97,7 +99,15 @@
 
   function renderStats(result) {
     if (!result) return;
-    els.dueNow.textContent = result.dueNow == null ? '–' : result.dueNow;
+    lastStats = result;
+    // R144：今日复习进度 x/20（min 封顶——超出目标继续答也不涨）；dueNow 逾期欠账
+    // 仍在接口里但不再上墙（1949 拍脸上=劝退，进度式才是今日承诺）
+    if (result.todayReviewed == null || result.todayTarget == null) {
+      els.todayReview.textContent = '–';   // 部署时差（旧后端无新字段）按缺数处理
+    } else {
+      els.todayReview.textContent =
+        Math.min(result.todayReviewed, result.todayTarget) + '/' + result.todayTarget;
+    }
     els.dueTomorrow.textContent = result.dueTomorrow == null ? '–' : result.dueTomorrow;
     els.mastered.textContent = result.mastered == null ? '–' : result.mastered;
     show(els.stats, true);
@@ -142,13 +152,18 @@
 
   function renderQueue(items) {
     queue = Array.isArray(items) ? items.slice() : [];
+    show(els.todayDone, false);   // 新一批开始，收起上一批的完成态
     nextCard();
   }
 
   function nextCard() {
     current = queue.shift();
     if (!current) {
-      show(els.empty, true);
+      // R144：打空≠没词了——统计里 dueNow>0 说明还有逾期余量，给「继续复习」；
+      // 真没了才显示 Keep reading。原先一律显示后者是失实承诺。
+      var moreDue = !!(lastStats && lastStats.dueNow != null && lastStats.dueNow > 0);
+      show(els.empty, !moreDue);
+      show(els.todayDone, moreDue);
       show(root, false);
       return;
     }
@@ -389,6 +404,19 @@
 
   // ---------- 启动 ----------
 
+  // 队列加载独立成函数：页面初载与「继续复习」共用（R144）
+  function loadQueue() {
+    getJson(window.learningUrls.queue + '?limit=20').then(function (response) {
+      if (response.ok && response.data && response.data.success) {
+        renderQueue(response.data.result);
+      } else {
+        fail((response.data && response.data.message) || mbT('Failed to load the review queue.'));
+      }
+    }).catch(function () {
+      fail(mbT('Network error — press retry.'));
+    });
+  }
+
   function loadAll() {
     show(els.error, false);
     getJson(window.learningUrls.plan).then(function (response) {
@@ -401,19 +429,12 @@
         renderStats(response.data.result);
       }
     }).catch(function () { /* 统计失败不挡队列 */ });
-    getJson(window.learningUrls.queue + '?limit=20').then(function (response) {
-      if (response.ok && response.data && response.data.success) {
-        renderQueue(response.data.result);
-      } else {
-        fail((response.data && response.data.message) || mbT('Failed to load the review queue.'));
-      }
-    }).catch(function () {
-      fail(mbT('Network error — press retry.'));
-    });
+    loadQueue();
     loadMatches();
   }
 
   els.retry.addEventListener('click', loadAll);
+  els.continueBtn.addEventListener('click', loadQueue);
   els.reveal.addEventListener('click', onReveal);
   els.spellCheck.addEventListener('click', onSpellCheck);
   // 回车=检查：拼写题最高频动作，别让用户去摸鼠标
