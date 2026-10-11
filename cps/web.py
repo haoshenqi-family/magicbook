@@ -585,11 +585,17 @@ def _vt_positive_int(value):
 def vocab_test_start():
     """Proxy the vocab size test start: creates a session and returns the first question.
 
+    R154 细筛：body {"refine": true} 透传为上游 start 的细筛开关；只认显式布尔 true，
+    其余（缺省/其他类型）一律按标准测试转发空体——代理不替用户解释字段。
+    旧客户端不带 body，行为不变。
+
     Why 原样 return 而不解包：_moonwell_proxy 的失败分支返回 (jsonify, 503) 二元组
     （未配置 / RequestException），解包三元组会抛 ValueError 变成 500 白页；
     Flask 视图对两种返回形态都能直接透传。
     """
-    return _moonwell_proxy("/vocabulary/test/start", {}, 10, "vocab test start")
+    payload = request.get_json(silent=True) or {}
+    body = {"refine": True} if payload.get("refine") is True else {}
+    return _moonwell_proxy("/vocabulary/test/start", body, 10, "vocab test start")
 
 
 @web.route("/ajax/vocab-test/answer", methods=["POST"])

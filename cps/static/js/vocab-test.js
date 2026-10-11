@@ -18,11 +18,12 @@
   var PROGRESS_SCALE = 40;
 
   var els = {};
-  ['vt-add-unknown', 'vt-start', 'vt-status', 'vt-last-line', 'vt-last',
+  ['vt-add-unknown', 'vt-start', 'vt-refine-card', 'vt-status', 'vt-last-line', 'vt-last',
    'vt-toggle-history', 'vt-history-list', 'vt-overlay', 'vt-asking', 'vt-result',
    'vt-word', 'vt-sentence', 'vt-progress-fill', 'vt-progress-count', 'vt-known',
-   'vt-unknown', 'vt-exit', 'vt-error-line', 'vt-size', 'vt-range', 'vt-capped-note',
-   'vt-band-chart', 'vt-notebook-line', 'vt-reco-line', 'vt-apply-level', 'vt-done']
+   'vt-unknown', 'vt-exit', 'vt-error-line', 'vt-size', 'vt-range', 'vt-refine-line',
+   'vt-capped-note', 'vt-band-chart', 'vt-notebook-line', 'vt-reco-line',
+   'vt-apply-level', 'vt-refine', 'vt-done']
     .forEach(function (id) {
     els[id] = document.getElementById(id);
   });
@@ -65,6 +66,18 @@
     if (!upper) return String(band);
     var lower = band === 1 ? 1 : BAND_UPPER[band - 2] + 1;
     return formatRank(lower) + '–' + formatRank(upper);
+  }
+
+  // R154 细筛：细档序号只在会话档位表内有意义，报告带 bandRanges（逐档秩区间）时按区间标注
+  function bandLabelOf(band, ranges) {
+    if (ranges && ranges.length) {
+      for (var i = 0; i < ranges.length; i++) {
+        if (ranges[i].band === band) {
+          return formatRank(ranges[i].lowRank) + '–' + formatRank(ranges[i].highRank);
+        }
+      }
+    }
+    return bandLabel(band);
   }
 
   function isoDate(value) {
@@ -175,6 +188,9 @@
           formatRank(report.ciLow) + '–' + formatRank(report.ciHigh) + ')')
         + ' · ' + isoDate(report.finishedAt);
     show(els['vt-last-line'], true);
+    // R154：最近一次结果是标准测试时才给卡片细筛入口（细筛只能基于标准结果，
+    // 对细筛结果再细筛等于重放同窗口）
+    if (els['vt-refine-card']) show(els['vt-refine-card'], report.testType !== 'refine');
   }
 
   function renderHistory(list) {
@@ -255,21 +271,34 @@
 
   // ---------- start ----------
 
-  function startTest() {
-    if (state !== 'idle' || inFlight) return;
+  function setStartButtonsDisabled(disabled) {
+    els['vt-start'].disabled = disabled;
+    if (els['vt-refine-card']) els['vt-refine-card'].disabled = disabled;
+    if (els['vt-refine']) els['vt-refine'].disabled = disabled;
+  }
+
+  // refine=true 开细筛（R154）：基于最近一次标准测试的置信区间按词频细分重测。
+  // 结果页可直接发起——细筛要对着刚看到的结果按才顺手，所以 state 放行 result 态；
+  // 50305 = 没有已完成的标准测试可细分，回卡片态提示先完成标准测试。
+  function startTest(refine) {
+    if ((state !== 'idle' && state !== 'result') || inFlight) return;
     var mine = epoch;
     inFlight = true;
-    els['vt-start'].disabled = true;
-    post(root.dataset.startUrl, {}).then(function (wrap) {
+    setStartButtonsDisabled(true);
+    post(root.dataset.startUrl, refine ? {refine: true} : {}).then(function (wrap) {
       if (stale(mine)) return;
       inFlight = false;
-      els['vt-start'].disabled = false;
+      setStartButtonsDisabled(false);
       var code = codeOf(wrap);
       if (code === 401) { handleUnauthorized(); return; }
       if (reloadIfCsrfBlocked(wrap)) return;
       if (code === 50301) {
         // 词表未就绪：不进入浮层，卡片上给一句「稍后再试」
         setCardStatus(window.mbT('Test unavailable right now, please try again later.'), true);
+        return;
+      }
+      if (code === 50305) {
+        setCardStatus(window.mbT('Take a standard test first, then refine it.'), true);
         return;
       }
       if (code !== 200) {
@@ -285,12 +314,18 @@
     }).catch(function () {
       if (stale(mine)) return;
       inFlight = false;
-      els['vt-start'].disabled = false;
+      setStartButtonsDisabled(false);
       setCardStatus(window.mbT('Start failed, please try again.'), true);
     });
   }
 
-  els['vt-start'].addEventListener('click', startTest);
+  els['vt-start'].addEventListener('click', function () { startTest(false); });
+  if (els['vt-refine-card']) {
+    els['vt-refine-card'].addEventListener('click', function () { startTest(true); });
+  }
+  if (els['vt-refine']) {
+    els['vt-refine'].addEventListener('click', function () { startTest(true); });
+  }
 
   // ---------- answer ----------
 
@@ -417,7 +452,20 @@
     }
     show(els['vt-capped-note'], !!report.capped);
 
-    renderBandChart(report.bandResults || []);
+    // R154：细筛结果给「上次标准 → 本次细筛」对照；对细筛结果不再提供第二次细筛
+    //（窗口已是细分后的区间，再筛等于重放同一窗口）
+    var isRefine = report.testType === 'refine';
+    if (isRefine && typeof report.previousEstimatedSize === 'number') {
+      els['vt-refine-line'].textContent = window.mbT('Previous estimate') + ': ~' +
+          formatRank(report.previousEstimatedSize) + ' (' +
+          formatRank(report.previousCiLow) + '–' + formatRank(report.previousCiHigh) + ')';
+      show(els['vt-refine-line'], true);
+    } else {
+      show(els['vt-refine-line'], false);
+    }
+    if (els['vt-refine']) show(els['vt-refine'], !isRefine);
+
+    renderBandChart(report.bandResults || [], report.bandRanges);
 
     // null = 本次没有执行落本（开关关闭，或此前已落过一次的重复提交）；
     // 0 = 执行了落本但本会话没有生词。两者都不上屏（US4 §2.2，用户确认）
@@ -530,7 +578,7 @@
     });
   });
 
-  function renderBandChart(bandResults) {
+  function renderBandChart(bandResults, bandRanges) {
     els['vt-band-chart'].innerHTML = '';
     bandResults.forEach(function (row) {
       var line = document.createElement('div');
@@ -538,7 +586,8 @@
 
       var label = document.createElement('span');
       label.className = 'vt-bar-label';
-      label.textContent = bandLabel(row.band);
+      // 标签通道：报告带 bandRanges（细筛/统一区间）按区间标注，否则退回硬编码标准档名
+      label.textContent = bandLabelOf(row.band, bandRanges);
 
       // 复用 bootstrap 的 progress/progress-bar：颜色与高度随宿主主题走，不自造配色
       var track = document.createElement('div');
