@@ -1587,6 +1587,60 @@ def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=Non
     threading.Thread(target=_worker, name="moonwell-book-bridge", daemon=True).start()
 
 
+def _moonwell_multipart(path, file_bytes, filename, timeout, label):
+    """转发 multipart 录音到 moon-well（R155 语音输入专用）。
+
+    Why 独立小转发器而非扩展 _moonwell_proxy：后者契约是 JSON payload；
+    转写是「文件进、文本出」的一次性消费，独立实现保持原函数零风险。
+    鉴权同口径（会话 bearer + trace id，直连禁代理）；401 透传由前端提示重登，
+    不做静默刷新重试（重录成本低，不值得复杂化）。
+    """
+    base = _moonwell_base_url()
+    if not base:
+        return jsonify({"success": False, "message": "moon-well is not configured"}), 503
+    token = flask_session.get("moonwell_access_token")
+    if not token:
+        return jsonify({"success": False, "message": "moon-well 登录已失效，请重新登录"}), 401
+    headers = {
+        "X-Trace-Id": _moonwell_trace_id(),
+        "authorization": "Bearer " + token,
+    }
+    try:
+        response = requests.post(base + path,
+                                 files={"file": (filename, file_bytes)},
+                                 headers=headers, timeout=timeout,
+                                 proxies=_MOONWELL_NO_PROXY)
+    except requests.RequestException as exc:
+        logger.error("moon-well %s: multipart forward failed: %s", path, exc)
+        return jsonify({"success": False, "message": label + " 网络失败，请重试"}), 502
+    try:
+        body = response.json()
+    except ValueError:
+        return jsonify({"success": False, "message": label + " 上游响应异常"}), 502
+    return jsonify(body), (200 if body.get("success") else 502)
+
+
+@web.route("/ajax/learning/asr/transcribe", methods=["POST"])
+@user_login_required
+def learning_asr_transcribe():
+    """Proxy voice-input transcription（R155 语音输入：录音 multipart 直传转写）。
+
+    浏览器 WebAudio 采集端已编码 16k 单声道 wav（≈32KB/s，3 分钟 <6MB）；
+    上限 10MB 与 moon-well maxAudioBytes 对齐，超限本地 400 不打上游。
+    """
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        return jsonify({"success": False, "message": "file is required"}), 400
+    data = upload.read()
+    if not data:
+        return jsonify({"success": False, "message": "录音内容为空"}), 400
+    if len(data) > 10 * 1024 * 1024:
+        return jsonify({"success": False, "message": "录音超过大小上限（10MB）"}), 400
+    filename = upload.filename if "." in upload.filename else "recording.wav"
+    return _moonwell_multipart("/learning/asr/transcribe", data, filename, 60,
+                               "语音转写")
+
+
 def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
                     system_identity=False, bearer_token=None):
     """转发阅读相关请求到 moon-well（R145 全 token 化：只认凭证，不发身份头）。

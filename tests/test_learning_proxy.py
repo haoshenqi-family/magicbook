@@ -14,6 +14,7 @@ Why mock `_moonwell_proxy` instead of the HTTP layer: the proxy's whole contract
 is "which path/payload/method goes upstream and what comes back" (same approach
 as test_vocab_test_proxy.py); network and moon-well semantics live in its tests.
 """
+import io
 import json
 
 import pytest
@@ -529,3 +530,58 @@ def test_learning_page_has_week_panel(admin_client, moonwell_configured):
     html = admin_client.get("/learning").data.decode("utf-8")
     assert 'id="ln-week"' in html
     assert "/ajax/learning/strands/summary" in html
+
+
+# ---------- 9. 语音输入（R155：录音 multipart 直传转写）----------
+
+def test_asr_transcribe_requires_login(app, moonwell_configured):
+    client = app.test_client()
+    assert client.post("/ajax/learning/asr/transcribe").status_code == 302
+
+
+def test_asr_transcribe_rejects_missing_file_locally(admin_client,
+                                                     moonwell_configured,
+                                                     monkeypatch):
+    monkeypatch.setattr("cps.web._moonwell_multipart",
+                        lambda *a, **k: (_envelope({}), 200, {}))
+    assert admin_client.post("/ajax/learning/asr/transcribe").status_code == 400
+
+
+def test_asr_transcribe_rejects_oversized_recording_locally(
+        admin_client, moonwell_configured, monkeypatch):
+    calls = []
+    monkeypatch.setattr("cps.web._moonwell_multipart",
+                        lambda *a, **k: calls.append(a) or (_envelope({}), 200, {}))
+    big = b"x" * (10 * 1024 * 1024 + 1)
+    response = admin_client.post("/ajax/learning/asr/transcribe",
+                                 data={"file": (io.BytesIO(big), "recording.wav", "audio/wav")})
+    assert response.status_code == 400
+    assert not calls, "oversized recording must not reach moon-well"
+
+
+def test_asr_transcribe_forwards_file_bytes(admin_client, moonwell_configured,
+                                            monkeypatch):
+    seen = {}
+
+    def fake_forward(path, file_bytes, filename, timeout, label):
+        seen.update(path=path, file_bytes=file_bytes, filename=filename)
+        return _envelope({"text": "hello from mic"}), 200
+
+    monkeypatch.setattr("cps.web._moonwell_multipart", fake_forward)
+    # Why 不手写 content_type：multipart 边界必须由 werkzeug 生成，
+    # 手动指定会把 boundary 弄丢、files 解析为空
+    response = admin_client.post(
+        "/ajax/learning/asr/transcribe",
+        data={"file": (io.BytesIO(b"RIFF...."), "recording.wav", "audio/wav")})
+    assert response.status_code == 200
+    assert seen["path"] == "/learning/asr/transcribe"
+    assert seen["file_bytes"] == b"RIFF...."
+    assert seen["filename"] == "recording.wav"
+
+
+def test_speaking_writing_page_has_mic_buttons(admin_client, moonwell_configured):
+    html = admin_client.get("/learning/speaking-writing").data.decode("utf-8")
+    assert 'id="sw-s-mic"' in html
+    assert 'id="sw-r-mic"' in html
+    assert 'id="sw-s-audio-status"' in html
+    assert "asrTranscribe" in html

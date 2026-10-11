@@ -110,6 +110,9 @@
           <div class="sw-gap">
             <input id="sw-s-input" class="form-control sw-chat-input"
                    placeholder="{{_('Type what you would say, in English')}}">
+            <button type="button" id="sw-s-mic" class="btn btn-default sw-mic"
+                    title="{{_('Record voice')}}"><span class="glyphicon glyphicon-microphone"></span></button>
+            <span id="sw-s-audio-status" class="sw-rec-status"></span>
             <button type="button" id="sw-s-send" class="btn btn-primary">{{_('Send')}}</button>
             <button type="button" id="sw-s-report" class="btn btn-default">{{_('End & report')}}</button>
           </div>
@@ -161,6 +164,8 @@
           <textarea id="sw-r-transcript" class="form-control" rows="5"
                     placeholder="{{_('Type what you said (as close to verbatim as you can), then submit the round.')}}"></textarea>
           <div class="sw-gap">
+            <button type="button" id="sw-r-mic" class="btn btn-default sw-mic"
+                    title="{{_('Record voice')}}"><span class="glyphicon glyphicon-microphone"></span></button>
             <button type="button" id="sw-r-submit" class="btn btn-primary">{{_('Stop & submit round')}}</button>
             <span id="sw-r-metrics" class="sw-metrics"></span>
           </div>
@@ -277,6 +282,8 @@
   .sw-timer { font-size: 20px; font-weight: 600; margin-left: 10px; }
   .sw-metrics { color: #555; }
   .sw-round-table td, .sw-round-table th { padding: 4px 8px; }
+  .sw-mic.sw-rec { color: #fff; background: #c62828; border-color: #c62828; }
+  .sw-rec-status { color: #c62828; font-size: 13px; }
   .sw-tts-toggle { font-weight: normal; margin: 0 8px; }
   .sw-diff { line-height: 1.8; }
   .sw-diff .sw-tok-ok { color: #2e7d32; }
@@ -313,7 +320,8 @@
     rrrRecord: "{{ url_for('web.learning_rrr_record') }}",
     rrrTrend: "{{ url_for('web.learning_rrr_trend') }}",
     rrrRecommend: "{{ url_for('web.learning_rrr_recommend') }}",
-    readingTts: "{{ url_for('web.reading_tts') }}"
+    readingTts: "{{ url_for('web.reading_tts') }}",
+    asrTranscribe: "{{ url_for('web.learning_asr_transcribe') }}"
   };
 })();
 </script>

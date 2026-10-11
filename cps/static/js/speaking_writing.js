@@ -44,6 +44,7 @@
    'sw-d-panel', 'sw-d-play', 'sw-d-audio-status', 'sw-d-audio',
    'sw-d-answer', 'sw-d-add-unknown', 'sw-d-check', 'sw-d-result',
    'sw-d-accuracy', 'sw-d-tokens', 'sw-d-missing', 'sw-d-extra',
+   'sw-s-mic', 'sw-r-mic',
   ].forEach(function (id) { els[id] = $(id); });
 
   // ---------- 小工具 ----------
@@ -835,6 +836,154 @@
         .finally(function () { busy(els['sw-d-check'], false); });
     });
   }
+
+  // ---------- 语音输入（R155）：WebAudio 采集端直接编 16k wav ----------
+  //
+  // Why 不用 MediaRecorder：其产物 webm/opus 在 SiliconFlow 转写端兼容性存疑，
+  // 且浏览器间编码不可控；WebAudio 拿原始 PCM 后在采集端编码 16k 单声道 wav
+  //（≈32KB/s，3 分钟 <6MB），上游转写链路只见标准音频。ScriptProcessor 虽已
+  // 被标记过时，但兼容性最稳，个人工具量级足够。
+
+  function encodeWav(chunks, inputRate) {
+    var targetRate = 16000;
+    var count = 0;
+    chunks.forEach(function (chunk) { count += chunk.length; });
+    // 先合并成单条 PCM（逐块索引在 3 分钟音频上会是百万次链表遍历）
+    var merged = new Float32Array(count);
+    var offset = 0;
+    chunks.forEach(function (chunk) {
+      merged.set(chunk, offset);
+      offset += chunk.length;
+    });
+    var outLength = Math.max(1, Math.floor(count * targetRate / inputRate));
+    var samples = new Int16Array(outLength);
+    for (var i = 0; i < outLength; i++) {
+      var pos = i * inputRate / targetRate;
+      var index = Math.floor(pos);
+      var frac = pos - index;
+      var a = merged[Math.min(index, count - 1)];
+      var b = merged[Math.min(index + 1, count - 1)];
+      var sample = a + (b - a) * frac;
+      samples[i] = Math.max(-32768, Math.min(32767, Math.round(sample * 32767)));
+    }
+    var buffer = new ArrayBuffer(44 + samples.length * 2);
+    var view = new DataView(buffer);
+    function str(offset, value) {
+      for (var i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+    }
+    str(0, 'RIFF'); view.setUint32(4, 36 + samples.length * 2, true); str(8, 'WAVE');
+    str(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true); view.setUint32(24, targetRate, true);
+    view.setUint32(28, targetRate * 2, true); view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    str(36, 'data'); view.setUint32(40, samples.length * 2, true);
+    new Int16Array(buffer, 44).set(samples);
+    return new Blob([buffer], { type: 'audio/wav' });
+  }
+
+  var recorder = { ctx: null, stream: null, source: null, processor: null,
+                   chunks: [], startedAt: 0, timerId: null };
+
+  function recorderStart(onTick) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.reject(new Error(mbT('Microphone unavailable')));
+    }
+    return navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } })
+      .then(function (stream) {
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        recorder.ctx = new AudioCtx();
+        recorder.stream = stream;
+        recorder.source = recorder.ctx.createMediaStreamSource(stream);
+        recorder.processor = recorder.ctx.createScriptProcessor(4096, 1, 1);
+        recorder.chunks = [];
+        recorder.startedAt = Date.now();
+        recorder.processor.onaudioprocess = function (event) {
+          recorder.chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+        };
+        recorder.source.connect(recorder.processor);
+        recorder.processor.connect(recorder.ctx.destination);
+        recorder.timerId = setInterval(function () {
+          var seconds = Math.round((Date.now() - recorder.startedAt) / 1000);
+          onTick(mbT('Recording {{t}}').replace('{{t}}',
+            Math.floor(seconds / 60) + ':' + ('0' + (seconds % 60)).slice(-2)));
+        }, 500);
+      });
+  }
+
+  function recorderStop() {
+    if (recorder.timerId) { clearInterval(recorder.timerId); recorder.timerId = null; }
+    try {
+      if (recorder.processor) recorder.processor.onaudioprocess = null;
+      if (recorder.processor) recorder.processor.disconnect();
+      if (recorder.source) recorder.source.disconnect();
+      if (recorder.stream) recorder.stream.getTracks().forEach(function (t) { t.stop(); });
+    } catch (e) { /* 已停止时忽略 */ }
+    var rate = recorder.ctx ? recorder.ctx.sampleRate : 48000;
+    var chunks = recorder.chunks.slice();
+    if (recorder.ctx && recorder.ctx.close) recorder.ctx.close();
+    recorder.ctx = null; recorder.processor = null; recorder.source = null;
+    recorder.stream = null;
+    if (!chunks.length) return Promise.reject(new Error(mbT('Recording too short')));
+    return Promise.resolve(encodeWav(chunks, rate));
+  }
+
+  function transcribeRecording() {
+    var seconds = Math.round((Date.now() - recorder.startedAt) / 1000);
+    if (seconds < 1) return Promise.reject(new Error(mbT('Recording too short')));
+    return recorderStop().then(function (blob) {
+      var form = new FormData();
+      form.append('file', blob, 'recording.wav');
+      return fetch(urls.asrTranscribe, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRFToken': csrfToken() },
+        body: form,
+      }).then(function (response) {
+        return response.json().then(function (data) {
+          if (!response.ok || !data || data.success !== true) {
+            throw new Error((data && data.message) || mbT('Something went wrong'));
+          }
+          var text = String(data.result && data.result.text || '').trim();
+          if (!text) throw new Error(mbT('No speech detected'));
+          return text;
+        });
+      });
+    });
+  }
+
+  function micButton(btn, statusNode, onText) {
+    btn.addEventListener('click', function () {
+      if (!btn.classList.contains('sw-rec')) {
+        btn.classList.add('sw-rec');
+        recorderStart(function (label) { statusNode.textContent = label; })
+          .then(function () { statusNode.textContent = mbT('Recording {{t}}').replace('{{t}}', '0:00'); })
+          .catch(function (err) {
+            btn.classList.remove('sw-rec');
+            statusNode.textContent = '';
+            window.alert(err.message);
+          });
+        return;
+      }
+      btn.classList.remove('sw-rec');
+      statusNode.textContent = mbT('Transcribing…');
+      transcribeRecording().then(function (text) {
+        statusNode.textContent = '';
+        onText(text);
+      }).catch(function (err) {
+        statusNode.textContent = '';
+        window.alert(err.message);
+      });
+    });
+  }
+
+  micButton(els['sw-s-mic'], els['sw-s-audio-status'],
+    function (text) {
+      els['sw-s-input'].value = els['sw-s-input'].value
+        ? els['sw-s-input'].value + ' ' + text : text;
+      els['sw-s-input'].focus();
+    });
+  micButton(els['sw-r-mic'], els['sw-r-metrics'],
+    function (text) { els['sw-r-transcript'].value = text; });
 
   // ---------- 启动 ----------
 

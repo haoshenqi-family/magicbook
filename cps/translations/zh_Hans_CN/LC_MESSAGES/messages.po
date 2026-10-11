@@ -5224,3 +5224,24 @@ msgstr "AI 朗读失败，已跳过该段"
 
 msgid "Autoplay was blocked, tap to continue"
 msgstr "浏览器拦截了自动播放，点击继续"
+
+
+# --- R155 语音输入 ---
+
+msgid "Record voice"
+msgstr "录音"
+
+msgid "Recording {{t}}"
+msgstr "录音中 {{t}}"
+
+msgid "Transcribing…"
+msgstr "转写中…"
+
+msgid "Microphone unavailable"
+msgstr "麦克风不可用"
+
+msgid "Recording too short"
+msgstr "录音太短，请重试"
+
+msgid "No speech detected"
+msgstr "没有识别到语音"
