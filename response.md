@@ -187,3 +187,12 @@
 - **顺带排查结论**（另两条独立线）：①moon-well 直连实测 SiliconFlow 引擎链路 OK（key 200、热重绑 provider=siliconflow 生效），但 RestTemplate 文件 part 默认 octet-stream 会被 SiliconFlow 500 [no body]（audio/wav 同请求 200 实测）——已修（moon-well R160：文件 part 按扩展名给标准 audio/* MIME）；②**Nacos 里的 siliconflow api-key 现在返回 401 Token is invalid**（14:05 实测 200 → 14:2x 失效）——用户需在 SiliconFlow 控制台取当前 key 重新填入 Nacos。
 - **测试**：静态完整性 2 例 + 代理 40 例 = 42 passed。
 - **总结**：requests.md 占号 R158；本条为回应；冲突记录：无。归档：窗口未超。
+
+## 2026-10-11（R159：语音输入静音检测）
+
+### R159（用户复测 50517 排查：引擎 200+空文本 = 录音无声）
+
+- **排查链**：①先排除 key/模型——Nacos 原样提取直连 SiliconFlow 200 转写成功（前轮 401 系排查命令手抄 key 笔误，用户判断正确）；②再排除编码器——部署版 encodeWav 产物经 wave 解析（1ch/16k/16bit、峰值 -10.5dB）+ 直送 SiliconFlow 200 转写 "Yeah."；③用户两次上传均 **200+空文本**（引擎没听到语音）→ 锁定录音本身静音（设备静音/选错输入源/离麦远）。
+- **修复**：①录音停止后计算 PCM 峰值，<0.005（-46dB）直接提示「麦克风没有采集到声音——请检查系统输入设备选择或静音开关后重试」，不再上传让引擎报模糊失败；峰值幅度打 console.info 支持远程诊断；②AudioContext 挂起兜底 resume（iOS/Safari 场景）。
+- **配套**：moon-well R161 空 50518（空转写与引擎故障分离报错，已上线）。
+- **总结**：requests.md 占号 R159；本条为回应；冲突记录：无。
