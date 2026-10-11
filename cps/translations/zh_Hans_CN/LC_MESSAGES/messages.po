@@ -5260,3 +5260,9 @@ msgstr "再点停止"
 
 msgid "Voice input: click the mic, speak, then click again — the transcript fills the input box for you to review before sending. First use asks for microphone permission."
 msgstr "语音输入：点麦克风开始说话，再点一次停止并转写；识别结果会回填输入框，确认或修改后发送。首次使用会请求麦克风权限。"
+
+
+# --- R159 静音检测 ---
+
+msgid "Microphone captured no sound — check the system input device or mute switch"
+msgstr "麦克风没有采集到声音——请检查系统输入设备选择或静音开关后重试"

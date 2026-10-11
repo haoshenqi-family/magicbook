@@ -900,6 +900,7 @@
         recorder.processor.onaudioprocess = function (event) {
           recorder.chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
         };
+        if (recorder.ctx.state === 'suspended') recorder.ctx.resume();
         recorder.source.connect(recorder.processor);
         recorder.processor.connect(recorder.ctx.destination);
         recorder.timerId = setInterval(function () {
@@ -924,6 +925,19 @@
     recorder.ctx = null; recorder.processor = null; recorder.source = null;
     recorder.stream = null;
     if (!chunks.length) return Promise.reject(new Error(mbT('Recording too short')));
+    var maxAmp = 0;
+    chunks.forEach(function (chunk) {
+      for (var i = 0; i < chunk.length; i++) {
+        var abs = Math.abs(chunk[i]);
+        if (abs > maxAmp) maxAmp = abs;
+      }
+    });
+    // R159：实测用户链路曾把全静音录音送进引擎（200+空文本→50517 不可读）。
+    // 阈值 -46dB（0.005）：低于它几乎必然是设备静音/选错输入源，直接给可操作提示
+    console.info('[voice] recording peak amplitude:', maxAmp.toFixed(4));
+    if (maxAmp < 0.005) {
+      return Promise.reject(new Error(mbT('Microphone captured no sound — check the system input device or mute switch')));
+    }
     return Promise.resolve(encodeWav(chunks, rate));
   }
 
