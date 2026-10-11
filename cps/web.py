@@ -762,6 +762,28 @@ def learning_match_books():
                            "learning match books", method="GET")
 
 
+@web.route("/ajax/learning/strands/reading", methods=["POST"])
+@user_login_required
+def learning_strands_reading():
+    """Proxy the reading-time heartbeat (R151，moon-well R150 四股台账 INPUT 股).
+
+    payload {"seconds": 30..600, "bookId": "123"?}——阅读器每满 5 分钟批量上报，
+    卸载时补发尾巴。域校验与 srs/answer 同款；上游再钳一次并做槽位幂等。
+    心跳语义：失败静默不重试（前端已兜底），代理超时给短（5s）避免拖阅读器。
+    """
+    payload = request.get_json(silent=True) or {}
+    seconds = payload.get("seconds")
+    if isinstance(seconds, bool) or not isinstance(seconds, int) or not 30 <= seconds <= 600:
+        return jsonify({"success": False, "message": "seconds must be an integer 30-600"}), 400
+    book_id = payload.get("bookId")
+    body = {"seconds": seconds}
+    if book_id is not None:
+        if isinstance(book_id, bool) or not re.match(r"^\d+$", str(book_id)):
+            return jsonify({"success": False, "message": "bookId must be a positive integer"}), 400
+        body["bookId"] = str(book_id)
+    return _moonwell_proxy("/learning/strands/reading", body, 5, "learning strands reading")
+
+
 @web.route("/ajax/learning/match/book", methods=["POST"])
 @user_login_required
 def learning_match_book():

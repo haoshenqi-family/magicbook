@@ -120,18 +120,22 @@
 
   // ---------- 每日计划头 ----------
 
+  // R151：四股行改 actual/budget——前三列是分钟字段/文案/百分比，第四列是
+  // 今日已入账字段（moon-well R150 台账读侧折算）。零新增词条：earned 为
+  // null（ES 降级或旧后端）时显示 –，只退回旧口径的预算展示。
   var STRAND_LABELS = [
-    ['inputMinutes', _('Reading input'), 'inputPct'],
-    ['languageMinutes', _('Word study'), 'languagePct'],
-    ['outputMinutes', _('Speaking & writing'), 'outputPct'],
-    ['fluencyMinutes', _('Fluency drills'), 'fluencyPct'],
+    ['inputMinutes', _('Reading input'), 'inputPct', 'inputEarnedMinutes'],
+    ['languageMinutes', _('Word study'), 'languagePct', 'languageEarnedMinutes'],
+    ['outputMinutes', _('Speaking & writing'), 'outputPct', 'outputEarnedMinutes'],
+    ['fluencyMinutes', _('Fluency drills'), 'fluencyPct', 'fluencyEarnedMinutes'],
   ];
 
   function renderPlan(result) {
     if (!result || !result.strands) return;
     var budget = result.strands;
     var parts = STRAND_LABELS.map(function (pair) {
-      return mbT(pair[1]) + ' ' + budget[pair[0]] + 'min';
+      var earned = budget[pair[3]];
+      return mbT(pair[1]) + ' ' + (earned == null ? '–' : earned) + '/' + budget[pair[0]] + 'min';
     });
     els.strandLine.textContent = mbT('Time budget by strand') + '（' +
       mbT('{{minutes}} minutes a day').replace('{{minutes}}', result.settings && result.settings.dailyMinutes) +

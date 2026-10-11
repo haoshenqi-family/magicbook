@@ -25,6 +25,8 @@
         <script src="{{ url_for('static', filename='js/reading/txt_reader.js') }}"></script>
     </head>
     <body>
+      {# R151 阅读心跳上报需要 CSRF 头（全局 CSRFProtect，POST /ajax/* 强制） #}
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div id="readmain" data-load="{{ url_for('web.serve_book', book_id=txtfile, book_format='txt') }}">
         <div id="left" class="arrow" >‹</div>
         <div id="area"><pre id="content" class="content"></pre></div>
@@ -32,5 +34,6 @@
       </div>
     {% include 'i18n_seed.html' %}
     {% include 'ai_chat_panel.html' %}
+    <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>
     </body>
 </html>

@@ -532,6 +532,8 @@
       {# R112：i18n 种子必须在 epub.js 之前——epub.js 顶层就读取 mbT（如 CSS 角标词条） #}
       {% include 'i18n_seed.html' %}
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
+      {# R151 阅读活跃心跳：四股台账 INPUT 股信号源（可见 + 近 3 分钟有交互才计） #}
+      <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>
     {% include 'ai_chat_panel.html' %}
     {# R109 阅读器导览段：jQuery 已在上方 :158 载入；readpdf/readtxt/readcbr 无 jQuery
        且控件锚点不同（#previous 而非 #show-Toc/#setting），本段只覆盖 EPUB 阅读器 #}

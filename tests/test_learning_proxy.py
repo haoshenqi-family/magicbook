@@ -90,6 +90,7 @@ def test_endpoints_require_login(app, moonwell_configured):
     assert client.post("/ajax/learning/srs/answer", json={}).status_code == 302
     assert client.post("/ajax/learning/plan/settings", json={}).status_code == 302
     assert client.post("/ajax/learning/match/book", json={}).status_code == 302
+    assert client.post("/ajax/learning/strands/reading", json={}).status_code == 302
 
 
 # ---------- 2. GET 透传 ----------
@@ -303,3 +304,51 @@ def test_nav_dropdown_contains_daily_learning(admin_client, moonwell_configured)
     response = admin_client.get("/learning")
     html = response.data.decode("utf-8")
     assert "Daily Learning" in html
+
+
+# ---------- 6. strands/reading 心跳（R151，moon-well R149 四股台账 INPUT 股）----------
+
+def test_reading_heartbeat_forwards_valid_payload(admin_client, moonwell_configured,
+                                                  monkeypatch):
+    proxy = RecordingProxy({"/learning/strands/reading": (_envelope("ok"), 200)})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    response = admin_client.post("/ajax/learning/strands/reading",
+                                 json={"seconds": 300, "bookId": "97"})
+    assert response.status_code == 200
+    call = proxy.call_for("/learning/strands/reading")
+    assert call["payload"] == {"seconds": 300, "bookId": "97"}
+
+
+def test_reading_heartbeat_without_book_id_omits_field(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    proxy = RecordingProxy({"/learning/strands/reading": (_envelope("ok"), 200)})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    response = admin_client.post("/ajax/learning/strands/reading",
+                                 json={"seconds": 300})
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/strands/reading")["payload"] == {"seconds": 300}
+
+
+def test_reading_heartbeat_rejects_bad_seconds_locally(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    for seconds in (29, 601, 0, -300, True, False, "300", None, 2.5):
+        response = admin_client.post("/ajax/learning/strands/reading",
+                                     json={"seconds": seconds})
+        assert response.status_code == 400, seconds
+    assert not proxy.calls, "bad heartbeat must not reach moon-well"
+
+
+def test_reading_heartbeat_rejects_bad_book_id_locally(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    for book_id in ("", "abc", "-1", "1.5", True):
+        response = admin_client.post("/ajax/learning/strands/reading",
+                                     json={"seconds": 300, "bookId": book_id})
+        assert response.status_code == 400, book_id
+    assert not proxy.calls

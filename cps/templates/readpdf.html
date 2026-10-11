@@ -521,7 +521,10 @@ See https://github.com/adobe-type-tools/cmap-resources
 
     </div> <!-- outerContainer -->
     <div id="printContainer"></div>
+    {# R151 阅读心跳上报需要 CSRF 头（全局 CSRFProtect，POST /ajax/* 强制） #}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% include 'i18n_seed.html' %}
     {% include 'ai_chat_panel.html' %}
+    <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>
   </body>
 </html>
