@@ -5200,3 +5200,27 @@ msgstr "共 {{x}} 分钟"
 
 msgid "Add missed words to my review queue"
 msgstr "漏写/错写的词直接加入复习队列"
+
+msgid "Listen to this book"
+msgstr "整本朗读"
+
+msgid "Pause reading aloud"
+msgstr "暂停朗读"
+
+msgid "Resume reading aloud"
+msgstr "继续朗读"
+
+msgid "Stop reading aloud"
+msgstr "停止朗读"
+
+msgid "Reached the end of the book"
+msgstr "已到全书末尾"
+
+msgid "No readable paragraphs in this chapter"
+msgstr "本章没有可朗读的段落"
+
+msgid "AI speech failed, skipped to next paragraph"
+msgstr "AI 朗读失败，已跳过该段"
+
+msgid "Autoplay was blocked, tap to continue"
+msgstr "浏览器拦截了自动播放，点击继续"
