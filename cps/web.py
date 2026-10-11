@@ -707,7 +707,7 @@ def _b1_payload(allowed, required=()):
         if key not in payload or payload[key] is None:
             continue
         value = payload[key]
-        if key in ("durationMs", "round"):
+        if key in ("durationMs", "round", "order"):
             # 整数字段：保类型透传（Jackson 语义一致），限幅防溢出
             if isinstance(value, bool) or not isinstance(value, int) \
                     or not 0 <= value <= 10 ** 9:
@@ -718,6 +718,11 @@ def _b1_payload(allowed, required=()):
             if not isinstance(value, list) or not value or len(value) > 5 or \
                     any(isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= 30
                         for v in value):
+                return None
+            cleaned[key] = value
+            continue
+        if key == "addUnknown":
+            if not isinstance(value, bool):
                 return None
             cleaned[key] = value
             continue
@@ -837,6 +842,66 @@ def learning_retell_finish():
     """Proxy retell summary（LLM 解读指标变化）。"""
     return _b1_proxy("/learning/retell/finish", ("retellId",),
                      required=("retellId",), timeout=90)
+
+
+# ---------- B2/B3 输出扩展代理（R153：计时重读 + 听写；素材接口共用） ----------
+
+@web.route("/ajax/learning/listening/materials", methods=["GET"])
+@user_login_required
+def learning_listening_materials():
+    """Proxy listening materials; ?source=ted|tts（默认 ted，越界上游报错）。"""
+    return _moonwell_proxy("/learning/listening/materials", None, 15,
+                           "learning listening materials", method="GET")
+
+
+@web.route("/ajax/learning/listening/paragraphs", methods=["POST"])
+@user_login_required
+def learning_listening_paragraphs():
+    """Proxy paragraph list of one material（RRR 与听写共用段落源）。"""
+    return _b1_proxy("/learning/listening/paragraphs", ("bookId",),
+                     required=("bookId",), timeout=15)
+
+
+@web.route("/ajax/learning/listening/dictation/check", methods=["POST"])
+@user_login_required
+def learning_listening_dictation():
+    """Proxy dictation check（词级 diff；addUnknown=true 时错/漏词入生词本）。"""
+    return _b1_proxy("/learning/listening/dictation/check",
+                     ("bookId", "order", "answer", "addUnknown"),
+                     required=("bookId", "order", "answer"), timeout=15)
+
+
+@web.route("/ajax/learning/rrr/record", methods=["POST"])
+@user_login_required
+def learning_rrr_record():
+    """Proxy one timed-rereading round（durationMs 实测直入流利度股）。"""
+    return _b1_proxy("/learning/rrr/record",
+                     ("bookId", "order", "round", "durationMs", "mode"),
+                     required=("bookId", "order", "round", "durationMs"), timeout=15)
+
+
+@web.route("/ajax/learning/rrr/trend", methods=["GET"])
+@user_login_required
+def learning_rrr_trend():
+    """Proxy same-paragraph rounds trend; ?bookId&order（30 分钟切会话语义在上游）。"""
+    return _moonwell_proxy("/learning/rrr/trend", None, 10,
+                           "learning rrr trend", method="GET")
+
+
+@web.route("/ajax/learning/strands/summary", methods=["GET"])
+@user_login_required
+def learning_strands_summary():
+    """Proxy per-day strand ledger for the weekly panel; ?days=1..30（默认 7）。"""
+    return _moonwell_proxy("/learning/strands/summary", None, 10,
+                           "learning strands summary", method="GET")
+
+
+@web.route("/ajax/learning/rrr/recommend", methods=["GET"])
+@user_login_required
+def learning_rrr_recommend():
+    """Proxy due-word paragraph recommendations; ?limit=1..20。"""
+    return _moonwell_proxy("/learning/rrr/recommend", None, 15,
+                           "learning rrr recommend", method="GET")
 
 
 @web.route("/ajax/learning/srs/queue", methods=["GET"])

@@ -23,6 +23,17 @@
     </div>
 
     {# ---------- 每日计划头：四股预算（来自设置，只读展示 + 跳转设置）---------- #}
+    {# ---------- 四股周视图（R153）：近 7 天各股实际入账 vs 当日预算 ---------- #}
+    <div id="ln-week" class="panel panel-default" hidden>
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_("This week by strand")}}</h3>
+      </div>
+      <div class="panel-body">
+        <div id="ln-week-bars"></div>
+        <div id="ln-week-legend" class="ln-week-legend"></div>
+      </div>
+    </div>
+
     <div id="ln-plan" class="panel panel-default" hidden>
       <div class="panel-heading">
         <h3 class="panel-title">{{_("Today's Plan")}}</h3>
@@ -160,7 +171,8 @@
     stats: "{{ url_for('web.learning_srs_stats') }}",
     plan: "{{ url_for('web.learning_plan_today') }}",
     matchBooks: "{{ url_for('web.learning_match_books') }}",
-    matchBook: "{{ url_for('web.learning_match_book') }}"
+    matchBook: "{{ url_for('web.learning_match_book') }}",
+    week: "{{ url_for('web.learning_strands_summary') }}"
   };
 })();
 </script>

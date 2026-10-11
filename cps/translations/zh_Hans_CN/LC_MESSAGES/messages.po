@@ -5125,3 +5125,69 @@ msgstr "轮"
 
 msgid "words"
 msgstr "词"
+
+
+# --- R153 计时重读/听写/周视图/coach 朗读 ---
+
+msgid "Accuracy"
+msgstr "正确率"
+
+msgid "Added to review queue"
+msgstr "已加入复习队列"
+
+msgid "Audio unavailable for this paragraph"
+msgstr "该段落暂无音频"
+
+msgid "Begin round"
+msgstr "开始本轮"
+
+msgid "Best WPM"
+msgstr "最佳语速"
+
+msgid "Check my dictation"
+msgstr "批改我的听写"
+
+msgid "Dictation"
+msgstr "听写"
+
+msgid "Extra"
+msgstr "多写"
+
+msgid "First WPM"
+msgstr "首次语速"
+
+msgid "Load paragraphs"
+msgstr "载入段落"
+
+msgid "Missing"
+msgstr "漏写"
+
+msgid "No due words right now — pick any paragraph"
+msgstr "暂无到期词——任选段落即可"
+
+msgid "No materials available"
+msgstr "暂无可用素材"
+
+msgid "Play audio"
+msgstr "播放音频"
+
+msgid "Preparing audio…"
+msgstr "音频准备中…"
+
+msgid "Read coach replies aloud"
+msgstr "自动朗读教练回复"
+
+msgid "Recommend: paragraphs with your due words"
+msgstr "推荐：含你到期词的段落"
+
+msgid "Stop & record"
+msgstr "停表并记录"
+
+msgid "Timed rereading"
+msgstr "计时重读"
+
+msgid "{{x}} min"
+msgstr "共 {{x}} 分钟"
+
+msgid "Add missed words to my review queue"
+msgstr "漏写/错写的词直接加入复习队列"

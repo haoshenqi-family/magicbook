@@ -9,6 +9,8 @@
     <li class="active"><a href="#sw-writing" data-toggle="tab">{{_('Writing Workshop')}}</a></li>
     <li><a href="#sw-speaking" data-toggle="tab">{{_('AI Speaking Coach')}}</a></li>
     <li><a href="#sw-retell" data-toggle="tab">{{_('Retell Drill (4-3-2)')}}</a></li>
+    <li><a href="#sw-rrr" data-toggle="tab">{{_('Timed rereading')}}</a></li>
+    <li><a href="#sw-dictation" data-toggle="tab">{{_('Dictation')}}</a></li>
   </ul>
   <div class="tab-content sw-tab-content">
 
@@ -95,6 +97,8 @@
             </select>
             <input id="sw-s-book" class="form-control" style="width:200px"
                    placeholder="{{_('Book title (optional)')}}">
+            <label class="sw-tts-toggle"><input type="checkbox" id="sw-s-tts" checked>
+              {{_('Read coach replies aloud')}}</label>
             <button type="button" id="sw-s-start" class="btn btn-primary">{{_('Start conversation')}}</button>
           </div>
         </div>
@@ -177,6 +181,72 @@
       </div>
     </div>
 
+    {# ============ 计时重读（RRR，B2c 流利度）============ #}
+    <div class="tab-pane" id="sw-rrr">
+      <div class="panel panel-default">
+        <div class="panel-body">
+          <p class="text-muted sw-hint">{{_('Read the same paragraph aloud three times. The timer measures your speed (WPM); repetition builds fluency with words you already know.')}}</p>
+          <div class="form-inline sw-gap">
+            <select id="sw-rr-material" class="form-control" style="width:280px"></select>
+            <button type="button" id="sw-rr-load" class="btn btn-default">{{_('Load paragraphs')}}</button>
+            <button type="button" id="sw-rr-recommend" class="btn btn-link btn-sm">{{_('Recommend: paragraphs with your due words')}}</button>
+          </div>
+          <ul id="sw-rr-paragraphs" class="sw-list"></ul>
+        </div>
+      </div>
+      <div class="panel panel-default" id="sw-rr-panel" hidden>
+        <div class="panel-body">
+          <p id="sw-rr-source" class="sw-source text-muted"></p>
+          <p class="sw-gap">
+            <strong id="sw-rr-round-label"></strong>
+            <span id="sw-rr-timer" class="sw-timer"></span>
+          </p>
+          <div class="sw-gap">
+            <button type="button" id="sw-rr-start" class="btn btn-primary">{{_('Begin round')}}</button>
+            <button type="button" id="sw-rr-stop" class="btn btn-warning" hidden>{{_('Stop & record')}}</button>
+            <span id="sw-rr-metrics" class="sw-metrics"></span>
+          </div>
+          <div id="sw-rr-trend"></div>
+        </div>
+      </div>
+    </div>
+
+    {# ============ 听写（B2a 词汇股）============ #}
+    <div class="tab-pane" id="sw-dictation">
+      <div class="panel panel-default">
+        <div class="panel-body">
+          <p class="text-muted sw-hint">{{_('Play a paragraph and type what you hear. The checker diffs your answer word by word; missed or wrong words can go straight into your review queue.')}}</p>
+          <div class="form-inline sw-gap">
+            <select id="sw-d-material" class="form-control" style="width:280px"></select>
+            <button type="button" id="sw-d-load" class="btn btn-default">{{_('Load paragraphs')}}</button>
+          </div>
+          <ul id="sw-d-paragraphs" class="sw-list"></ul>
+        </div>
+      </div>
+      <div class="panel panel-default" id="sw-d-panel" hidden>
+        <div class="panel-body">
+          <div class="sw-gap">
+            <button type="button" id="sw-d-play" class="btn btn-primary">{{_('Play audio')}}</button>
+            <span id="sw-d-audio-status" class="text-muted"></span>
+          </div>
+          <audio id="sw-d-audio" controls class="sw-gap" hidden></audio>
+          <textarea id="sw-d-answer" class="form-control" rows="5"
+                    placeholder="{{_('Type what you hear, then check. Replay as many times as you need.')}}"></textarea>
+          <div class="sw-gap">
+            <label class="sw-tts-toggle"><input type="checkbox" id="sw-d-add-unknown" checked>
+              {{_('Add missed words to my review queue')}}</label>
+            <button type="button" id="sw-d-check" class="btn btn-primary">{{_('Check my dictation')}}</button>
+          </div>
+          <div id="sw-d-result" class="sw-gap" hidden>
+            <p id="sw-d-accuracy"></p>
+            <p id="sw-d-tokens" class="sw-diff"></p>
+            <p id="sw-d-missing"></p>
+            <p id="sw-d-extra"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 {% endblock %}
@@ -207,6 +277,16 @@
   .sw-timer { font-size: 20px; font-weight: 600; margin-left: 10px; }
   .sw-metrics { color: #555; }
   .sw-round-table td, .sw-round-table th { padding: 4px 8px; }
+  .sw-tts-toggle { font-weight: normal; margin: 0 8px; }
+  .sw-diff { line-height: 1.8; }
+  .sw-diff .sw-tok-ok { color: #2e7d32; }
+  .sw-diff .sw-tok-wrong { color: #c62828; text-decoration: line-through; }
+  .sw-diff .sw-tok-missing { color: #e65100; }
+  .sw-week-row { display: flex; align-items: center; margin: 4px 0; font-size: 13px; }
+  .sw-week-day { width: 84px; color: #666; }
+  .sw-week-bar { flex: 1; display: flex; height: 14px; border-radius: 3px; overflow: hidden; background: #eee; }
+  .sw-week-bar span { display: block; height: 100%; }
+  .sw-week-min { width: 64px; text-align: right; color: #666; }
 </style>
 {% endblock %}
 
@@ -226,7 +306,14 @@
     speakingHistory: "{{ url_for('web.learning_speaking_history') }}",
     retellStart: "{{ url_for('web.learning_retell_start') }}",
     retellRound: "{{ url_for('web.learning_retell_round') }}",
-    retellFinish: "{{ url_for('web.learning_retell_finish') }}"
+    retellFinish: "{{ url_for('web.learning_retell_finish') }}",
+    listeningMaterials: "{{ url_for('web.learning_listening_materials') }}",
+    listeningParagraphs: "{{ url_for('web.learning_listening_paragraphs') }}",
+    dictationCheck: "{{ url_for('web.learning_listening_dictation') }}",
+    rrrRecord: "{{ url_for('web.learning_rrr_record') }}",
+    rrrTrend: "{{ url_for('web.learning_rrr_trend') }}",
+    rrrRecommend: "{{ url_for('web.learning_rrr_recommend') }}",
+    readingTts: "{{ url_for('web.reading_tts') }}"
   };
 })();
 </script>

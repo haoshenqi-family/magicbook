@@ -460,3 +460,70 @@ def test_speaking_writing_page_renders(admin_client, moonwell_configured):
     assert '"/ajax/learning/writing/task/generate"' in html
     # 导航入口（布局层）
     assert 'id="top_speaking_writing"' in html
+
+
+# ---------- 8. P3 代理：计时重读 / 听写 / 周视图（R153）----------
+
+def test_p3_endpoints_require_login(app, moonwell_configured):
+    client = app.test_client()
+    for local in ("/ajax/learning/listening/materials",
+                  "/ajax/learning/rrr/trend", "/ajax/learning/rrr/recommend"):
+        assert client.get(local).status_code == 302, local
+    for local in ("/ajax/learning/listening/paragraphs",
+                  "/ajax/learning/listening/dictation/check",
+                  "/ajax/learning/rrr/record"):
+        assert client.post(local, json={}).status_code == 302, local
+
+
+def test_dictation_check_passes_bool_and_int(admin_client, moonwell_configured,
+                                             monkeypatch):
+    proxy = RecordingProxy({"/learning/listening/dictation/check": (_envelope({}), 200)})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    response = admin_client.post("/ajax/learning/listening/dictation/check",
+                                 json={"bookId": "97", "order": 3,
+                                       "answer": "the quick brown fox",
+                                       "addUnknown": True})
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/listening/dictation/check")["payload"] == {
+        "bookId": "97", "order": 3, "answer": "the quick brown fox",
+        "addUnknown": True}
+
+
+def test_dictation_check_rejects_bad_types_locally(admin_client,
+                                                    moonwell_configured,
+                                                    monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    for body in ({"bookId": "97", "order": "3", "answer": "hi"},        # order 非整数
+                 {"bookId": "97", "order": 3, "answer": "hi", "addUnknown": "yes"},  # 布尔非法
+                 {"bookId": "97", "order": 3, "answer": "x" * 20001}):  # 超长
+        assert admin_client.post("/ajax/learning/listening/dictation/check",
+                                 json=body).status_code == 400, body
+    assert not proxy.calls
+
+
+def test_rrr_record_keeps_int_fields(admin_client, moonwell_configured,
+                                     monkeypatch):
+    proxy = RecordingProxy({"/learning/rrr/record": (_envelope({}), 200)})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    response = admin_client.post("/ajax/learning/rrr/record",
+                                 json={"bookId": "97", "order": 5, "round": 2,
+                                       "durationMs": 92000, "mode": "ALOUD"})
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/rrr/record")["payload"] == {
+        "bookId": "97", "order": 5, "round": 2, "durationMs": 92000, "mode": "ALOUD"}
+
+
+def test_speaking_writing_page_has_p3_tabs(admin_client, moonwell_configured):
+    html = admin_client.get("/learning/speaking-writing").data.decode("utf-8")
+    assert 'id="sw-rrr"' in html
+    assert 'id="sw-dictation"' in html
+    assert "listeningMaterials" in html
+    assert 'id="sw-s-tts"' in html
+    assert 'id="sw-d-add-unknown"' in html
+
+
+def test_learning_page_has_week_panel(admin_client, moonwell_configured):
+    html = admin_client.get("/learning").data.decode("utf-8")
+    assert 'id="ln-week"' in html
+    assert "/ajax/learning/strands/summary" in html

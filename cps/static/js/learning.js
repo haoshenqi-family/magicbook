@@ -36,6 +36,8 @@
     feedback: $('ln-feedback'), cardError: $('ln-card-error'), skip: $('ln-skip'),
     matchRoot: $('ln-match-root'), matchStatus: $('ln-match-status'),
     matchList: $('ln-match-list'),
+    weekPanel: $('ln-week'), weekBars: $('ln-week-bars'),
+    weekLegend: $('ln-week-legend'),
   };
 
   var queue = [];          // 剩余队列（每项已含 questionType 与 choices）
@@ -133,6 +135,10 @@
   function renderPlan(result) {
     if (!result || !result.strands) return;
     var budget = result.strands;
+    if (result.settings && result.settings.dailyMinutes) {
+      dailyBudget = result.settings.dailyMinutes;
+      loadWeek();  // 预算变化后重画周视图（首载也由这里触发）
+    }
     var parts = STRAND_LABELS.map(function (pair) {
       var earned = budget[pair[3]];
       return mbT(pair[1]) + ' ' + (earned == null ? '–' : earned) + '/' + budget[pair[0]] + 'min';
@@ -150,6 +156,68 @@
       show(els.newWordsLine, true);
     }
     show(els.plan, true);
+  }
+
+  // ---------- 四股周视图（R153）：近 7 天入账 vs 当日预算 ----------
+
+  var STRAND_COLORS = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000'];
+  var dailyBudget = 20;   // 计划加载后刷新（settings.dailyMinutes）
+
+  function loadWeek() {
+    getJson(urls.week || '').then(function (response) {
+      if (!response.ok || !response.data || !response.data.success) throw new Error('week');
+      var days = response.data.result || [];
+      if (!days.length) throw new Error('week empty');
+      renderWeek(days);
+    }).catch(function () {
+      // ES 降级 / 旧后端：面板保持隐藏（周视图是增强，绝不挡计划页）
+      show(els.weekPanel, false);
+    });
+  }
+
+  function renderWeek(days) {
+    var box = els.weekBars;
+    while (box.firstChild) box.removeChild(box.firstChild);
+    days.forEach(function (day) {
+      var earned = [day.inputMinutes || 0, day.languageMinutes || 0,
+                    day.outputMinutes || 0, day.fluencyMinutes || 0];
+      var row = document.createElement('div');
+      row.className = 'ln-week-row';
+      var label = document.createElement('span');
+      label.className = 'ln-week-day';
+      label.textContent = String(day.date || '').slice(5);
+      row.appendChild(label);
+      var bar = document.createElement('div');
+      bar.className = 'ln-week-bar';
+      earned.forEach(function (minutes, index) {
+        var seg = document.createElement('span');
+        // 段宽 = 该股入账 / 当日预算 × 预算占比；超额封顶在段内（诚实数字看 title 与右侧合计）
+        var budgetMinutes = Math.max(1, dailyBudget);
+        var widthPct = Math.min(100, minutes / budgetMinutes * 100);
+        seg.style.width = widthPct + '%';
+        seg.style.background = STRAND_COLORS[index];
+        seg.title = STRAND_LABELS[index][1] + ' ' + minutes + '/' +
+          Math.round(dailyBudget * 0.25) + 'min';
+        bar.appendChild(seg);
+      });
+      row.appendChild(bar);
+      var total = earned.reduce(function (a, b) { return a + b; }, 0);
+      var right = document.createElement('span');
+      right.className = 'ln-week-total';
+      right.textContent = mbT('{{x}} min').replace('{{x}}', total);
+      row.appendChild(right);
+      box.appendChild(row);
+    });
+    var legend = els.weekLegend;
+    while (legend.firstChild) legend.removeChild(legend.firstChild);
+    STRAND_LABELS.forEach(function (pair, index) {
+      var dot = document.createElement('span');
+      dot.className = 'ln-legend-dot';
+      dot.style.background = STRAND_COLORS[index];
+      legend.appendChild(dot);
+      legend.appendChild(document.createTextNode(mbT(pair[1])));
+    });
+    show(els.weekPanel, true);
   }
 
   // ---------- 复习队列 ----------

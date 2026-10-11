@@ -36,6 +36,14 @@
    'sw-r-transcript', 'sw-r-submit', 'sw-r-metrics', 'sw-r-finish',
    'sw-r-summary-panel', 'sw-r-summary', 'sw-r-improvement', 'sw-r-advice',
    'sw-r-rounds',
+   'sw-s-tts',
+   'sw-rr-material', 'sw-rr-load', 'sw-rr-recommend', 'sw-rr-paragraphs',
+   'sw-rr-panel', 'sw-rr-source', 'sw-rr-round-label', 'sw-rr-timer',
+   'sw-rr-start', 'sw-rr-stop', 'sw-rr-metrics', 'sw-rr-trend',
+   'sw-d-material', 'sw-d-load', 'sw-d-paragraphs',
+   'sw-d-panel', 'sw-d-play', 'sw-d-audio-status', 'sw-d-audio',
+   'sw-d-answer', 'sw-d-add-unknown', 'sw-d-check', 'sw-d-result',
+   'sw-d-accuracy', 'sw-d-tokens', 'sw-d-missing', 'sw-d-extra',
   ].forEach(function (id) { els[id] = $(id); });
 
   // ---------- 小工具 ----------
@@ -321,6 +329,7 @@
         var chat = els['sw-s-chat'];
         clear(chat);
         chat.appendChild(chatBubble('coach', start.greeting));
+        speakIfEnabled(start.greeting);
       }).catch(function (err) { window.alert(err.message); })
         .finally(function () { busy(els['sw-s-start'], false); });
     });
@@ -339,6 +348,7 @@
           chat.appendChild(chatBubble('coach', turn.reply));
           if (turn.feedback) chat.appendChild(feedbackBlock(turn.feedback));
           chat.scrollTop = chat.scrollHeight;
+          speakIfEnabled(turn.reply);
         })
         .catch(function (err) { window.alert(err.message); })
         .finally(function () { busy(els['sw-s-send'], false); });
@@ -503,11 +513,336 @@
     });
   }
 
+  // ---------- coach 回复朗读（R153）：复用阅读器 TTS 代理（AI 临时语音档） ----------
+
+  var ttsAudio = null;
+
+  function speakIfEnabled(text) {
+    if (!text) return;
+    var toggle = els['sw-s-tts'];
+    if (!toggle || !toggle.checked) return;
+    speakText(text);
+  }
+
+  function speakText(text) {
+    try { if (ttsAudio) { ttsAudio.pause(); } } catch (e) { /* 上一段可能已释放 */ }
+    fetch(urls.readingTts, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+      body: JSON.stringify({ text: String(text).slice(0, 1800) }),
+    }).then(function (response) {
+      if (!response.ok) throw new Error('tts ' + response.status);
+      return response.blob();
+    }).then(function (blob) {
+      ttsAudio = new Audio(URL.createObjectURL(blob));
+      return ttsAudio.play();
+    }).catch(function () { /* 朗读失败静默：不打断对话与训练主链路 */ });
+  }
+
+  // ---------- 计时重读（RRR，B2c 流利度） ----------
+
+  var rrr = { bookId: null, order: null, round: 0, startedAt: 0, timerId: null };
+
+  function loadMaterials(select, source, done) {
+    getJson(urls.listeningMaterials + '?source=' + source).then(function (response) {
+      var items = resultOf(response) || [];
+      clear(select);
+      items.forEach(function (m) {
+        var opt = document.createElement('option');
+        opt.value = m.bookId;
+        opt.textContent = (m.title || '') + (m.author ? ' · ' + m.author : '');
+        select.appendChild(opt);
+      });
+      if (done) done(items);
+    }).catch(function (err) { window.alert(err.message); });
+  }
+
+  function paragraphLine(paragraph, onPick) {
+    var line = li((paragraph.chapterTitle ? '[' + paragraph.chapterTitle + '] ' : '') +
+      String(paragraph.text || '').slice(0, 80) + '…' +
+      ' · ' + paragraph.wordCount + ' ' + mbT('words'));
+    line.style.cursor = 'pointer';
+    line.addEventListener('click', function () { onPick(paragraph); });
+    return line;
+  }
+
+  function stopRrrTimer() {
+    if (rrr.timerId) { clearInterval(rrr.timerId); rrr.timerId = null; }
+  }
+
+  function rrrLabel() {
+    return mbT('Round {{n}} of {{m}}')
+      .replace('{{n}}', Math.min(rrr.round, 3)).replace('{{m}}', 3);
+  }
+
+  function loadRrrTrend() {
+    var query = '?bookId=' + encodeURIComponent(rrr.bookId) +
+      '&order=' + encodeURIComponent(rrr.order);
+    getJson(urls.rrrTrend + query).then(function (response) {
+      var trend = resultOf(response);
+      var box = els['sw-rr-trend'];
+      clear(box);
+      if (!trend.rounds || !trend.rounds.length) { box.hidden = true; return; }
+      var head = document.createElement('p');
+      head.textContent = mbT('First WPM') + ' ' + (trend.firstWpm == null ? '–' : trend.firstWpm) +
+        ' · ' + mbT('Best WPM') + ' ' + (trend.bestWpm == null ? '–' : trend.bestWpm) +
+        (trend.improvementPct == null ? '' : ' · +' + trend.improvementPct + '%');
+      box.appendChild(head);
+      trend.rounds.forEach(function (round) {
+        box.appendChild(li(mbT('Round {{n}} of {{m}}')
+          .replace('{{n}}', round.round).replace('{{m}}', 3) +
+          ' · ' + round.wpm + ' WPM · ' + round.wordCount + ' ' + mbT('words')));
+      });
+      box.hidden = false;
+    }).catch(function () { /* 趋势失败不打断训练 */ });
+  }
+
+  function pickRrrParagraph(paragraph) {
+    rrr.bookId = els['sw-rr-material'].value;
+    rrr.order = paragraph.order;
+    rrr.round = 1;
+    esc(els['sw-rr-source'], paragraph.text);
+    show(els['sw-rr-panel'], true);
+    els['sw-rr-round-label'].textContent = rrrLabel();
+    els['sw-rr-metrics'].textContent = '';
+    els['sw-rr-trend'].hidden = true;
+    els['sw-rr-stop'].hidden = true;
+    els['sw-rr-start'].hidden = false;
+  }
+
+  function bindRrr() {
+    els['sw-rr-load'].addEventListener('click', function () {
+      var select = els['sw-rr-material'];
+      if (!select.value) { window.alert(mbT('No materials available')); return; }
+      postJson(urls.listeningParagraphs, { bookId: select.value })
+        .then(function (response) {
+          var paragraphs = resultOf(response) || [];
+          var list = els['sw-rr-paragraphs'];
+          clear(list);
+          paragraphs.slice(0, 30).forEach(function (paragraph) {
+            list.appendChild(paragraphLine(paragraph, pickRrrParagraph));
+          });
+        }).catch(function (err) { window.alert(err.message); });
+    });
+
+    els['sw-rr-material'].addEventListener('focus', function () {
+      if (!els['sw-rr-material'].options.length) loadMaterials(els['sw-rr-material'], 'tts');
+    });
+    loadMaterials(els['sw-rr-material'], 'tts');
+
+    els['sw-rr-start'].addEventListener('click', function () {
+      if (!rrr.bookId) return;
+      rrr.startedAt = Date.now();
+      els['sw-rr-start'].hidden = true;
+      els['sw-rr-stop'].hidden = false;
+      stopRrrTimer();
+      rrr.timerId = setInterval(function () {
+        var seconds = Math.round((Date.now() - rrr.startedAt) / 1000);
+        els['sw-rr-timer'].textContent =
+          mbT('Time left: {{t}}').replace('{{t}}',
+            Math.floor(seconds / 60) + ':' + ('0' + (seconds % 60)).slice(-2));
+      }, 500);
+    });
+
+    els['sw-rr-stop'].addEventListener('click', function () {
+      if (!rrr.bookId || rrr.timerId == null) return;
+      stopRrrTimer();
+      busy(els['sw-rr-stop'], true, mbT('Reviewing…'));
+      postJson(urls.rrrRecord, {
+        bookId: rrr.bookId,
+        order: rrr.order,
+        round: rrr.round,
+        durationMs: Date.now() - rrr.startedAt,
+        mode: 'ALOUD',
+      }).then(function (response) {
+        var record = resultOf(response);
+        els['sw-rr-metrics'].textContent = rrrLabel() + ' · ' +
+          record.wpm + ' WPM · ' + record.wordCount + ' ' + mbT('words');
+        rrr.round += 1;
+        els['sw-rr-stop'].hidden = true;
+        els['sw-rr-start'].hidden = rrr.round > 3;
+        els['sw-rr-round-label'].textContent = rrrLabel();
+        loadRrrTrend();
+      }).catch(function (err) { window.alert(err.message); })
+        .finally(function () { busy(els['sw-rr-stop'], false); });
+    });
+
+    els['sw-rr-recommend'].addEventListener('click', function () {
+      getJson(urls.rrrRecommend).then(function (response) {
+        var items = resultOf(response) || [];
+        var list = els['sw-rr-paragraphs'];
+        clear(list);
+        if (!items.length) {
+          list.appendChild(li(mbT('No due words right now — pick any paragraph')));
+          return;
+        }
+        items.forEach(function (item) {
+          var line = li((item.title || '') + ' · #' + item.order +
+            (item.author ? ' · ' + item.author : ''));
+          line.style.cursor = 'pointer';
+          line.addEventListener('click', function () {
+            rrr.bookId = item.bookId;
+            rrr.order = item.order;
+            rrr.round = 1;
+            getJson(urls.rrrTrend + '?bookId=' + encodeURIComponent(item.bookId) +
+                    '&order=' + encodeURIComponent(item.order))
+              .then(function (trendResponse) {
+                var trend = resultOf(trendResponse);
+                esc(els['sw-rr-source'], trend.text);
+                show(els['sw-rr-panel'], true);
+                els['sw-rr-round-label'].textContent = rrrLabel();
+                els['sw-rr-metrics'].textContent = '';
+              }).catch(function (err) { window.alert(err.message); });
+          });
+          list.appendChild(line);
+        });
+      }).catch(function (err) { window.alert(err.message); });
+    });
+  }
+
+  // ---------- 听写（B2a 词汇股） ----------
+
+  var dictation = { bookId: null, order: null, paragraph: null, objectUrl: null };
+
+  function stopDictationAudio() {
+    var audio = els['sw-d-audio'];
+    try { audio.pause(); } catch (e) { /* 未播放时忽略 */ }
+    if (dictation.objectUrl) {
+      URL.revokeObjectURL(dictation.objectUrl);
+      dictation.objectUrl = null;
+    }
+  }
+
+  function playDictationAudio() {
+    var paragraph = dictation.paragraph;
+    if (!paragraph) return;
+    var audio = els['sw-d-audio'];
+    stopDictationAudio();
+    var endMs = paragraph.audioEndMs;
+    var startMs = paragraph.audioStartMs;
+    function clip() {
+      if (endMs != null && audio.currentTime * 1000 >= endMs) audio.pause();
+    }
+    if (paragraph.audioUrl) {
+      audio.src = paragraph.audioUrl;
+      audio.ontimeupdate = clip;
+      audio.hidden = false;
+      audio.currentTime = (startMs || 0) / 1000;
+      audio.play().catch(function () { /* 自动播放被拦时用户手动点 */ });
+      return;
+    }
+    esc(els['sw-d-audio-status'], mbT('Preparing audio…'));
+    fetch(urls.readingTts, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+      body: JSON.stringify({ text: String(paragraph.text || '').slice(0, 1800) }),
+    }).then(function (response) {
+      if (!response.ok) throw new Error('tts ' + response.status);
+      return response.blob();
+    }).then(function (blob) {
+      dictation.objectUrl = URL.createObjectURL(blob);
+      audio.src = dictation.objectUrl;
+      audio.ontimeupdate = null;
+      audio.hidden = false;
+      esc(els['sw-d-audio-status'], '');
+      return audio.play();
+    }).catch(function (err) {
+      esc(els['sw-d-audio-status'], mbT('Audio unavailable for this paragraph'));
+    });
+  }
+
+  function renderDictationResult(result) {
+    show(els['sw-d-result'], true);
+    els['sw-d-accuracy'].textContent = mbT('Accuracy') + ' ' + result.accuracyPct + '%' +
+      ' (' + result.correctCount + '/' + result.wordCount + ')';
+    var tokens = els['sw-d-tokens'];
+    clear(tokens);
+    (result.tokens || []).forEach(function (token) {
+      var span = document.createElement('span');
+      if (token.status === 'MATCH') {
+        span.className = 'sw-tok-ok';
+        span.textContent = token.expected + ' ';
+      } else if (token.status === 'WRONG') {
+        span.className = 'sw-tok-wrong';
+        span.textContent = token.actual + ' ';
+        span.title = token.expected;
+      } else if (token.status === 'MISSING') {
+        span.className = 'sw-tok-missing';
+        span.textContent = '[' + token.expected + '] ';
+      } else { // EXTRA：多打的不在原文里，灰调小字
+        span.style.color = '#999';
+        span.textContent = '(' + token.actual + ') ';
+      }
+      tokens.appendChild(span);
+    });
+    els['sw-d-missing'].textContent =
+      (result.missing && result.missing.length ? mbT('Missing') + ': ' + result.missing.join(', ') : '');
+    els['sw-d-extra'].textContent =
+      (result.extra && result.extra.length ? mbT('Extra') + ': ' + result.extra.join(', ') : '');
+    if (result.addedWords && result.addedWords.length) {
+      els['sw-d-extra'].textContent +=
+        ' · ' + mbT('Added to review queue') + ': ' + result.addedWords.length;
+    }
+  }
+
+  function pickDictationParagraph(paragraph) {
+    dictation.bookId = els['sw-d-material'].value;
+    dictation.order = paragraph.order;
+    dictation.paragraph = paragraph;
+    show(els['sw-d-panel'], true);
+    els['sw-d-answer'].value = '';
+    show(els['sw-d-result'], false);
+    esc(els['sw-d-audio-status'], '');
+  }
+
+  function bindDictation() {
+    els['sw-d-load'].addEventListener('click', function () {
+      var select = els['sw-d-material'];
+      if (!select.value) { window.alert(mbT('No materials available')); return; }
+      postJson(urls.listeningParagraphs, { bookId: select.value })
+        .then(function (response) {
+          var paragraphs = resultOf(response) || [];
+          var list = els['sw-d-paragraphs'];
+          clear(list);
+          paragraphs.slice(0, 30).forEach(function (paragraph) {
+            list.appendChild(paragraphLine(paragraph, pickDictationParagraph));
+          });
+        }).catch(function (err) { window.alert(err.message); });
+    });
+
+    els['sw-d-material'].addEventListener('focus', function () {
+      if (!els['sw-d-material'].options.length) loadMaterials(els['sw-d-material'], 'ted');
+    });
+    loadMaterials(els['sw-d-material'], 'ted');
+
+    els['sw-d-play'].addEventListener('click', playDictationAudio);
+
+    els['sw-d-check'].addEventListener('click', function () {
+      if (!dictation.bookId) return;
+      var answer = els['sw-d-answer'].value.trim();
+      if (!answer) { window.alert(mbT('Type what you said first')); return; }
+      busy(els['sw-d-check'], true, mbT('Reviewing…'));
+      postJson(urls.dictationCheck, {
+        bookId: dictation.bookId,
+        order: dictation.order,
+        answer: answer,
+        addUnknown: els['sw-d-add-unknown'].checked,
+      }).then(function (response) {
+        renderDictationResult(resultOf(response));
+      }).catch(function (err) { window.alert(err.message); })
+        .finally(function () { busy(els['sw-d-check'], false); });
+    });
+  }
+
   // ---------- 启动 ----------
 
   bindWriting();
   bindSpeaking();
   bindRetell();
+  bindRrr();
+  bindDictation();
   loadWritingHistory();
   loadSpeakingHistory();
 })();
