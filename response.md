@@ -146,3 +146,15 @@
 - **窗口**：与远端 R153/R154 集成后窗口含 R141–R155 共 12 个 request，把最旧的 R141、R142 两节原样搬至 `response-archive/response-R141-R142.md` 并登记索引，窗口恢复 10 个（R143–R155）；此前本条初版已搬 R139/R140（当时窗口 11）。
 - **编号说明**：本条与并行会话的 P3 输出训练（R153）、导航层级修正（R154）集成时发现同号 153 已被先行推送占用，按纪律续编 155；同源任务 moon-well R153 / magiclens R41 / app-manager R39。
 - **总结**：requests.md 占号 R155（与并行会话 P3 输出训练撞号 153 后按纪律续编）；本条为回应；冲突记录：R153 撞号如上。本任务只改文档与对话记录，未动任何代码。
+
+## 2026-10-11（R156：词汇量测试「细筛」入口——代理透传/前后对照/细档图）
+
+### R156（细筛前端：magicbook 侧交付，跨仓同源 moon-well R155）
+
+- **交付**（worktree `../magicbook-vocab-refine`，分支 `feat/r154-vocab-refine`，基于 origin/develop 37edb778；merge commit 1d8309f1，worktree 驻留待用户验收）：
+  - **代理**：`/ajax/vocab-test/start` 增 refine 标志透传——只认显式布尔 true，其余（缺省/false/字符串）一律按标准测试转发空体，语义分叉只在 moon-well 一处。
+  - **vocab-test.js**：卡片（有标准结果时）与结果页各一个细筛按钮（报告 `testType` 驱动显隐，对细筛结果不提供二次细筛）；50305（无可细筛基座）回卡片态提示；细筛结果渲染「上次估算」对照行；掌握度图标签按报告 `bandRanges` 秩区间标注（细档序号只在会话档位表内有意义），后端未升级时退回硬编码档名。
+  - **模板/i18n**：两个按钮 + 对照行落 reading_settings.html；`Refine test / Previous estimate / Take a standard test first…` 三词条进种子与 zh po/mo。
+- **测试**：代理透传矩阵用例 +1（true→透传、false/"yes"/缺省→空体）；i18n 种子契约对新词条自动生效；全量 pytest 407 例绿。
+- **编号说明**：本任务原占 154（与并行导航修正撞号），占号条目在工作区被并行提交操作清除；按「不改既存、续编空号」纪律落为 156，既有 commit 内 R154 文案不改。
+- **总结**：requests.md 续编 R156 占号；本条为回应；冲突记录：无（合并为真 merge 无内容冲突；stash 恢复的并行未提交改动原样留在工作区，归其 owner）。归档：窗口 R147–R156 共 10 条未超窗。
