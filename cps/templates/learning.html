@@ -100,7 +100,7 @@
       </div>
     </div>
 
-    {# ---------- 难度匹配选书（B3b）：书架三档标记汇总 ---------- #}
+    {# ---------- 难度匹配选书（B3b；R147 选架→估算→推荐）：按词汇量选阶书架 ---------- #}
     <div class="panel panel-default" id="ln-match-root"
          data-books-url="{{ url_for('web.learning_match_books') }}"
          data-book-url="{{ url_for('web.learning_match_book') }}">
@@ -109,7 +109,7 @@
       </div>
       <div class="panel-body">
         <p class="text-muted ln-hint">
-          {{_('Estimated unknown-word density per book, based on your vocabulary. Two to eight unknown words in every hundred is the sweet spot for comfortable reading.')}}
+          {{_('Books are shelved into six graded stages. We pick the shelf matching your vocabulary size, then estimate unknown-word density per book — two to eight unknown words in every hundred is the sweet spot for comfortable reading.')}}
         </p>
         <div id="ln-match-status" class="text-muted"></div>
         <ul class="list-unstyled" id="ln-match-list"></ul>
@@ -142,6 +142,8 @@
   .ln-exit { padding-left: 0; opacity: .6; }
   .ln-hint { font-size: 13px; }
   #ln-match-list li { font-size: 13px; margin-bottom: 6px; }
+  .ln-match-head { color: #555; font-weight: 600; margin-bottom: 10px; }
+  .ln-match-stage { margin-left: 8px; }
   .ln-match-badge { margin-left: 8px; }
   .ln-match-density { color: #999; margin-left: 8px; font-size: 12px; }
   .ln-match-sample { color: #999; font-size: 12px; margin-left: 8px; }

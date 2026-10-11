@@ -337,34 +337,74 @@
     }).catch(function () { /* 统计刷新失败不打扰复习 */ });
   }
 
-  // ---------- 难度匹配（B3b）----------
+  // ---------- 难度匹配（B3b；R147 改为选架→估算→推荐）----------
+  //
+  // 契约（moon-well /learning/match/books，R147）：result = {vocabSize, stage, books}，
+  // vocabSize=最近词汇量测试实测值（无测试为 null），stage=推荐阶（1-6，窗口 ±1），
+  // books[].bookId 是 Calibre 书 id（与本站 /book/{id} 同源，链接直达详情页）。
+  // 未算/过期的画像后端异步补算：densityPct=null 或 upToDate=false 的书存在时轮询。
 
   var MATCH_LEVELS = {
-    EASY: { cls: 'label-success', name: _('Easy read') },
-    FIT: { cls: 'label-primary', name:_('Just right') },
-    HARD: { cls: 'label-warning', name: _('Challenging') },
+    EASY: { cls: 'label-success', name: 'Easy read' },
+    FIT: { cls: 'label-primary', name: 'Just right' },
+    HARD: { cls: 'label-warning', name: 'Challenging' },
   };
 
-  function renderMatches(items) {
-    if (!els.matchList) return;
+  var MATCH_POLL_INTERVAL = 5000;
+  var MATCH_POLL_MAX = 12;      // 1 分钟封顶：算不完就让「estimating…」自然停留
+  var matchPollTimer = null;
+  var matchPollCount = 0;
+  var matchSeq = 0;             // 响应序号：轮询竞态时旧响应不覆盖新渲染
+
+  function clearMatchPoll() {
+    if (matchPollTimer) { clearTimeout(matchPollTimer); matchPollTimer = null; }
+  }
+
+  // 返回值：仍在估算/等待刷新的书本数（0=全部就绪）
+  function renderShelf(shelf) {
+    if (!els.matchList) return 0;
     els.matchList.innerHTML = '';
-    if (!Array.isArray(items) || !items.length) {
-      els.matchStatus.textContent = mbT('No books to match yet.');
-      return;
+    var books = shelf && Array.isArray(shelf.books) ? shelf.books : [];
+
+    var head = document.createElement('li');
+    head.className = 'ln-match-head';
+    if (shelf && shelf.stage != null) {
+      var parts = [];
+      if (shelf.vocabSize != null) {
+        parts.push(mbT('Vocabulary') + ' ≈ ' + shelf.vocabSize);
+      }
+      parts.push(mbT('Recommended shelf') + ': ' + mbT('Stage') + ' ' + shelf.stage);
+      head.textContent = parts.join(' · ');
+    } else {
+      head.textContent = mbT('Take the vocabulary test to size your bookshelf.');
     }
-    var stale = 0;
-    items.forEach(function (item) {
+    els.matchList.appendChild(head);
+
+    if (!books.length) {
+      els.matchStatus.textContent = mbT('No graded books on this shelf yet.');
+      return 0;
+    }
+    var pending = 0;
+    books.forEach(function (item) {
       var li = document.createElement('li');
+      // R147 404 修复：本站详情路由是 /book/{id}（Calibre 书 id），
+      // 旧实现的 /books/{id}/page/1 是不存在的路由
       var link = document.createElement('a');
-      link.href = '/books/' + item.bookId + '/page/1';
+      link.href = '/book/' + item.bookId;
       link.textContent = item.title || ('#' + item.bookId);
       li.appendChild(link);
+      if (item.stage != null) {
+        var stage = document.createElement('span');
+        stage.className = 'label ln-match-stage';
+        stage.textContent = mbT('Stage') + ' ' + item.stage;
+        li.appendChild(stage);
+      }
       if (item.densityPct == null) {
-        var pending = document.createElement('span');
-        pending.className = 'ln-match-density';
-        pending.textContent = mbT('estimating…');
-        li.appendChild(pending);
-        stale++;
+        var estimating = document.createElement('span');
+        estimating.className = 'ln-match-density';
+        estimating.textContent = mbT('estimating…');
+        li.appendChild(estimating);
+        pending++;
       } else {
         var level = MATCH_LEVELS[item.level] || MATCH_LEVELS.FIT;
         var badge = document.createElement('span');
@@ -382,22 +422,33 @@
           sample.textContent = item.unknownSample.slice(0, 5).join(', ');
           li.appendChild(sample);
         }
-        if (item.upToDate === false) stale++;
+        if (item.upToDate === false) pending++;
       }
       els.matchList.appendChild(li);
     });
-    els.matchStatus.textContent = stale > 0 ? mbT('Profiles refresh as your vocabulary grows.') : '';
+    els.matchStatus.textContent = pending > 0
+      ? mbT('Estimating unknown words in {n} books…').replace('{n}', pending)
+      : '';
+    return pending;
   }
 
   function loadMatches() {
     if (!els.matchRoot || !window.learningUrls) return;
+    var seq = ++matchSeq;
     getJson(window.learningUrls.matchBooks).then(function (response) {
+      if (seq !== matchSeq) return;   // 过期轮询响应
       if (response.ok && response.data && response.data.result) {
-        renderMatches(response.data.result);
+        var pendingCount = renderShelf(response.data.result);
+        clearMatchPoll();
+        if (pendingCount > 0 && matchPollCount < MATCH_POLL_MAX) {
+          matchPollCount++;
+          matchPollTimer = setTimeout(loadMatches, MATCH_POLL_INTERVAL);
+        }
       } else {
         els.matchStatus.textContent = mbT('Difficulty match is unavailable right now.');
       }
     }).catch(function () {
+      if (seq !== matchSeq) return;
       els.matchStatus.textContent = mbT('Difficulty match is unavailable right now.');
     });
   }
@@ -419,6 +470,7 @@
 
   function loadAll() {
     show(els.error, false);
+    matchPollCount = 0;   // 页面初载/手动重试重置轮询预算（轮询自转不重置，避免无限轮询）
     getJson(window.learningUrls.plan).then(function (response) {
       if (response.ok && response.data && response.data.result) {
         renderPlan(response.data.result);
