@@ -595,3 +595,12 @@ def test_mic_buttons_have_labels_and_hint(admin_client, moonwell_configured):
     assert html.count('sw-mic-label') >= 2
     assert "Voice input" in html
     assert "sw-mic-hint" in html
+
+
+# ---------- 11. 麦克风设备选择器（R160）----------
+
+def test_mic_device_selector_present(admin_client, moonwell_configured):
+    html = admin_client.get("/learning/speaking-writing").data.decode("utf-8")
+    assert 'id="sw-s-mic-device"' in html
+    assert 'id="sw-r-mic-device"' in html
+    assert "Microphone device" in html

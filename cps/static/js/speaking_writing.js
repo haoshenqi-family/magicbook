@@ -45,6 +45,7 @@
    'sw-d-answer', 'sw-d-add-unknown', 'sw-d-check', 'sw-d-result',
    'sw-d-accuracy', 'sw-d-tokens', 'sw-d-missing', 'sw-d-extra',
    'sw-s-mic', 'sw-r-mic', 'sw-s-audio-status',
+   'sw-s-mic-device', 'sw-r-mic-device',
   ].forEach(function (id) { els[id] = $(id); });
 
   // ---------- 小工具 ----------
@@ -888,7 +889,13 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return Promise.reject(new Error(mbT('Microphone unavailable')));
     }
-    return navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } })
+    // R160：设备选择跨面板持久化——浏览器 per-site 会记住旧设备，系统默认切换
+    // 不影响已钉住的站内选择，这里显式按用户选择取流
+    var saved = null;
+    try { saved = window.localStorage.getItem('sw-mic-device'); } catch (e) { /* 隐私模式降级默认 */ }
+    var constraints = { audio: { channelCount: 1 } };
+    if (saved) constraints.audio.deviceId = { exact: saved };
+    return navigator.mediaDevices.getUserMedia(constraints)
       .then(function (stream) {
         var AudioCtx = window.AudioContext || window.webkitAudioContext;
         recorder.ctx = new AudioCtx();
@@ -1024,6 +1031,59 @@
   micButton(els['sw-r-mic'], els['sw-r-metrics'],
     function (text) { els['sw-r-transcript'].value = text; });
 
+  // ---------- 麦克风设备选择（R160）----------
+
+  var MIC_DEVICE_KEY = 'sw-mic-device';
+
+  function micDeviceRefresh() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    navigator.mediaDevices.enumerateDevices().then(function (devices) {
+      var mics = devices.filter(function (d) { return d.kind === 'audioinput'; });
+      var saved = null;
+      try { saved = window.localStorage.getItem(MIC_DEVICE_KEY); } catch (e) { /* 同上 */ }
+      ['sw-s-mic-device', 'sw-r-mic-device'].forEach(function (id) {
+        var select = els[id];
+        if (!select) return;
+        clear(select);
+        var def = document.createElement('option');
+        def.value = '';
+        def.textContent = mbT('Default (follow system)');
+        select.appendChild(def);
+        mics.forEach(function (d, index) {
+          var opt = document.createElement('option');
+          opt.value = d.deviceId;
+          // 权限未授予时 label 为空——占位编号，授予后 devicechange/再次刷新会带出真名
+          opt.textContent = d.label || mbT('Microphone {{n}}').replace('{{n}}', index + 1);
+          select.appendChild(opt);
+        });
+        select.value = saved && mics.some(function (d) { return d.deviceId === saved; })
+          ? saved : '';
+      });
+    }).catch(function () { /* 枚举失败保持默认 */ });
+  }
+
+  function micDeviceBind() {
+    ['sw-s-mic-device', 'sw-r-mic-device'].forEach(function (id) {
+      var select = els[id];
+      if (!select) return;
+      select.addEventListener('focus', micDeviceRefresh);
+      select.addEventListener('change', function () {
+        try {
+          if (select.value) window.localStorage.setItem(MIC_DEVICE_KEY, select.value);
+          else window.localStorage.removeItem(MIC_DEVICE_KEY);
+        } catch (e) { /* 隐私模式忽略 */ }
+        // 另一个下拉同步取值
+        ['sw-s-mic-device', 'sw-r-mic-device'].forEach(function (other) {
+          if (other !== id && els[other]) els[other].value = select.value;
+        });
+      });
+    });
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', micDeviceRefresh);
+    }
+    micDeviceRefresh();
+  }
+
   // ---------- 启动 ----------
 
   bindWriting();
@@ -1031,6 +1091,7 @@
   bindRetell();
   bindRrr();
   bindDictation();
+  micDeviceBind();
   loadWritingHistory();
   loadSpeakingHistory();
 })();

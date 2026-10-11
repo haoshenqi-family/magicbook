@@ -111,6 +111,8 @@
           <div class="sw-gap">
             <input id="sw-s-input" class="form-control sw-chat-input"
                    placeholder="{{_('Type what you would say, in English')}}">
+            <select id="sw-s-mic-device" class="form-control sw-mic-device" style="max-width:240px"
+                    title="{{_('Microphone device')}}"></select>
             <button type="button" id="sw-s-mic" class="btn btn-default sw-mic"
                     title="{{_('Record voice')}}"><span class="glyphicon glyphicon-microphone"></span>
               <span class="sw-mic-label">{{_('Voice input')}}</span></button>
@@ -166,6 +168,8 @@
           <textarea id="sw-r-transcript" class="form-control" rows="5"
                     placeholder="{{_('Type what you said (as close to verbatim as you can), then submit the round.')}}"></textarea>
           <div class="sw-gap">
+            <select id="sw-r-mic-device" class="form-control sw-mic-device" style="max-width:240px"
+                    title="{{_('Microphone device')}}"></select>
             <button type="button" id="sw-r-mic" class="btn btn-default sw-mic"
                     title="{{_('Record voice')}}"><span class="glyphicon glyphicon-microphone"></span>
               <span class="sw-mic-label">{{_('Voice input')}}</span></button>
@@ -288,6 +292,7 @@
   .sw-mic.sw-rec { color: #fff; background: #c62828; border-color: #c62828; }
   .sw-rec-status { color: #c62828; font-size: 13px; }
   .sw-mic-label { margin-left: 4px; }
+  .sw-mic-device { font-size: 12px; }
   .sw-mic-hint { margin-top: 8px; margin-bottom: 0; }
   .sw-tts-toggle { font-weight: normal; margin: 0 8px; }
   .sw-diff { line-height: 1.8; }

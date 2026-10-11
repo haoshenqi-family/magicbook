@@ -5266,3 +5266,15 @@ msgstr "语音输入：点麦克风开始说话，再点一次停止并转写；
 
 msgid "Microphone captured no sound — check the system input device or mute switch"
 msgstr "麦克风没有采集到声音——请检查系统输入设备选择或静音开关后重试"
+
+
+# --- R160 麦克风设备选择 ---
+
+msgid "Microphone device"
+msgstr "麦克风设备"
+
+msgid "Default (follow system)"
+msgstr "默认（跟随系统）"
+
+msgid "Microphone {{n}}"
+msgstr "麦克风 {{n}}"
