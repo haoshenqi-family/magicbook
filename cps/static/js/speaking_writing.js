@@ -44,7 +44,7 @@
    'sw-d-panel', 'sw-d-play', 'sw-d-audio-status', 'sw-d-audio',
    'sw-d-answer', 'sw-d-add-unknown', 'sw-d-check', 'sw-d-result',
    'sw-d-accuracy', 'sw-d-tokens', 'sw-d-missing', 'sw-d-extra',
-   'sw-s-mic', 'sw-r-mic',
+   'sw-s-mic', 'sw-r-mic', 'sw-s-audio-status',
   ].forEach(function (id) { els[id] = $(id); });
 
   // ---------- 小工具 ----------
@@ -981,15 +981,23 @@
       btn.disabled = true;
       micLabel(btn, mbT('Transcribing…'));
       statusNode.textContent = '';
-      transcribeRecording().then(function (text) {
-        micLabel(btn, MIC_IDLE_LABEL);
-        btn.disabled = false;
-        onText(text);
-      }).catch(function (err) {
+      // R158：同步段抛错也必须复原按钮——此前 statusNode 未注册时同步 TypeError
+      // 让按钮永远停在「转写中…」且无任何提示
+      try {
+        transcribeRecording().then(function (text) {
+          micLabel(btn, MIC_IDLE_LABEL);
+          btn.disabled = false;
+          onText(text);
+        }).catch(function (err) {
+          micLabel(btn, MIC_IDLE_LABEL);
+          btn.disabled = false;
+          window.alert(err.message);
+        });
+      } catch (err) {
         micLabel(btn, MIC_IDLE_LABEL);
         btn.disabled = false;
         window.alert(err.message);
-      });
+      }
     });
   }
 
