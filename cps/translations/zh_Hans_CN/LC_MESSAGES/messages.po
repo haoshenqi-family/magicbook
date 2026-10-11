@@ -5245,3 +5245,18 @@ msgstr "录音太短，请重试"
 
 msgid "No speech detected"
 msgstr "没有识别到语音"
+
+
+# --- R156 麦克风按钮可用性 ---
+
+msgid "Voice input"
+msgstr "语音输入"
+
+msgid "Recording {{t}} · click to stop"
+msgstr "录音中 {{t}} · 再点停止"
+
+msgid "click to stop"
+msgstr "再点停止"
+
+msgid "Voice input: click the mic, speak, then click again — the transcript fills the input box for you to review before sending. First use asks for microphone permission."
+msgstr "语音输入：点麦克风开始说话，再点一次停止并转写；识别结果会回填输入框，确认或修改后发送。首次使用会请求麦克风权限。"

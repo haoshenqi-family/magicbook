@@ -951,26 +951,43 @@
     });
   }
 
+  var MIC_IDLE_LABEL = 'Voice input';
+
+  function micLabel(btn, text) {
+    var label = btn.querySelector('.sw-mic-label');
+    if (label) label.textContent = text;
+  }
+
+  // 状态全在按钮上自更新：语音输入 → 录音中 mm:ss（红底，再点停止）→ 转写中…
+  // 图标字体缺失时按钮仍有文字，不再是「空白按钮」。
   function micButton(btn, statusNode, onText) {
     btn.addEventListener('click', function () {
       if (!btn.classList.contains('sw-rec')) {
         btn.classList.add('sw-rec');
-        recorderStart(function (label) { statusNode.textContent = label; })
-          .then(function () { statusNode.textContent = mbT('Recording {{t}}').replace('{{t}}', '0:00'); })
-          .catch(function (err) {
-            btn.classList.remove('sw-rec');
-            statusNode.textContent = '';
-            window.alert(err.message);
-          });
+        micLabel(btn, mbT('Recording {{t}}').replace('{{t}}', '0:00')
+          + ' · ' + mbT('click to stop'));
+        recorderStart(function (label) {
+          statusNode.textContent = label;
+          micLabel(btn, label + ' · ' + mbT('click to stop'));
+        }).catch(function (err) {
+          btn.classList.remove('sw-rec');
+          statusNode.textContent = '';
+          micLabel(btn, MIC_IDLE_LABEL);
+          window.alert(err.message);
+        });
         return;
       }
       btn.classList.remove('sw-rec');
-      statusNode.textContent = mbT('Transcribing…');
+      btn.disabled = true;
+      micLabel(btn, mbT('Transcribing…'));
+      statusNode.textContent = '';
       transcribeRecording().then(function (text) {
-        statusNode.textContent = '';
+        micLabel(btn, MIC_IDLE_LABEL);
+        btn.disabled = false;
         onText(text);
       }).catch(function (err) {
-        statusNode.textContent = '';
+        micLabel(btn, MIC_IDLE_LABEL);
+        btn.disabled = false;
         window.alert(err.message);
       });
     });

@@ -585,3 +585,13 @@ def test_speaking_writing_page_has_mic_buttons(admin_client, moonwell_configured
     assert 'id="sw-r-mic"' in html
     assert 'id="sw-s-audio-status"' in html
     assert "asrTranscribe" in html
+
+
+# ---------- 10. 麦克风按钮可用性（R156：带标签/状态自更新/用法提示）----------
+
+def test_mic_buttons_have_labels_and_hint(admin_client, moonwell_configured):
+    html = admin_client.get("/learning/speaking-writing").data.decode("utf-8")
+    # 空白按钮修正：两个麦克风按钮都有文字标签，且口语面板有用法提示
+    assert html.count('sw-mic-label') >= 2
+    assert "Voice input" in html
+    assert "sw-mic-hint" in html
