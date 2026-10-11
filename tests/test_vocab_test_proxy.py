@@ -105,6 +105,32 @@ def test_start_forwards_empty_body_to_flat_path(admin_client, moonwell_configure
     assert call["timeout"] == 10
 
 
+def test_start_forwards_refine_flag_only_when_explicit_true(
+        admin_client, moonwell_configured, monkeypatch):
+    """R154 细筛：{"refine": true} 原样透传上游；其余形态（缺省/假值/字符串）
+    一律按标准测试转发空体——代理不替用户解释字段，语义分叉只在 moon-well 一处。"""
+    import cps.web as w
+
+    proxy = RecordingProxy({
+        "/vocabulary/test/start": (_envelope(
+            {"sessionId": 43, "question": {"word": "refine", "sentence": "Refine it.",
+                                           "seq": 1, "band": 7},
+             "progress": {"answered": 0, "known": 0, "band": 7}}), 200),
+    })
+    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+
+    assert admin_client.post("/ajax/vocab-test/start",
+                             json={"refine": True}).status_code == 200
+    assert admin_client.post("/ajax/vocab-test/start",
+                             json={"refine": False}).status_code == 200
+    assert admin_client.post("/ajax/vocab-test/start",
+                             json={"refine": "yes"}).status_code == 200
+    assert admin_client.post("/ajax/vocab-test/start").status_code == 200
+
+    payloads = [call["payload"] for call in proxy.calls]
+    assert payloads == [{"refine": True}, {}, {}, {}], payloads
+
+
 def test_answer_forwards_session_seq_and_value(admin_client, moonwell_configured,
                                                 monkeypatch):
     """seq 是后端的幂等锚点：代理层丢掉它，断网重试就会变成串序污染。"""
