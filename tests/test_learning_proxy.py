@@ -294,8 +294,10 @@ def test_learning_page_renders_full_dom(admin_client, moonwell_configured):
     assert "js/learning.js" in html
     assert "window.learningUrls" in html
     assert '"/ajax/learning/srs/queue"' in html
-    # 导航入口（布局层）
+    # 导航入口（布局层，R154 起为左侧一级导航）+ 计划面板内的「说与写」直达跳转
     assert 'id="top_learning"' in html
+    assert "/learning/speaking-writing" in html
+    assert 'ln-go-speak' in html
     # CSRF 注入（learning.js 读取）
     assert 'id="ln-csrf"' in html
 

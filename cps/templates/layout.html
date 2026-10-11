@@ -56,6 +56,12 @@
           {% if current_user.is_authenticated or g.allow_anonymous %}
           <ul class="nav navbar-nav ">
             <li><a href="{{url_for('search.advanced_search')}}" id="advanced_search"><span class="glyphicon glyphicon-search"></span><span class="hidden-sm"> {{_('Advanced Search')}}</span></a></li>
+            {# R154：每日学习/说与写是一级使用入口（每天都要进），与高级搜索平级平铺；
+               不再收进 Settings 下拉（用户反馈：藏设置里层级不对） #}
+            {% if not current_user.is_anonymous %}
+            <li><a href="{{url_for('web.learning_page')}}" id="top_learning"><span class="glyphicon glyphicon-repeat"></span><span class="hidden-sm"> {{_('Daily Learning')}}</span></a></li>
+            <li><a href="{{url_for('web.speaking_writing_page')}}" id="top_speaking_writing"><span class="glyphicon glyphicon-comment"></span><span class="hidden-sm"> {{_('Speaking & Writing')}}</span></a></li>
+            {% endif %}
             {% if simple==true %} <li><a href="{{url_for('basic.index')}}" id="basic"><span class="glyphicon glyphicon-phone"></span><span>{{_('Simple Theme')}}</span></a><li>{% endif %}
           </ul>
           {% endif %}
@@ -94,6 +100,7 @@
                 <li><a id="top_admin" data-text="{{_('Settings')}}" href="{{url_for('admin.admin')}}"><span class="glyphicon glyphicon-dashboard"></span> <span class="hidden-sm">{{_('Admin')}}</span></a></li>
               {% endif %}
               {# magicbook 扩展设置入口统一收进下拉框：平铺项放不下且持续新增；
+                 R154 起每日学习/说与写除外——它们是一级使用入口，已平铺在左侧主导航。
                  R112：标签走标准 Babel gettext（英文 msgid，中文词条在 zh_Hans_CN po），
                  随用户 locale 切换单语言显示，替代旧「中英双写」方案 #}
               {% if not current_user.is_anonymous %}
@@ -103,8 +110,6 @@
                   </a>
                   <ul class="dropdown-menu">
                     <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> {{_('Reading Settings')}}</a></li>
-                    <li><a id="top_learning" href="{{url_for('web.learning_page')}}"><span class="glyphicon glyphicon-repeat"></span> {{_('Daily Learning')}}</a></li>
-                    <li><a id="top_speaking_writing" href="{{url_for('web.speaking_writing_page')}}"><span class="glyphicon glyphicon-comment"></span> {{_('Speaking & Writing')}}</a></li>
                     <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> {{_('Achievements')}}</a></li>
                     <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> {{_('Credits')}}</a></li>
                     {# R109 使用引导：常驻手动入口，点击后由 onboarding.js 接管 #}

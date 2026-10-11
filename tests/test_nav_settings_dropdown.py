@@ -110,3 +110,11 @@ def test_dropdown_hidden_for_anonymous(client):
     rv = client.get("/login")
     assert rv.status_code == 200
     assert "top_mb_settings" not in rv.data.decode("utf-8")
+
+
+def test_learning_entries_are_top_level(settings_page):
+    """R154：每日学习/说与写是一级使用入口，平铺在左侧主导航，不再收进 Settings 下拉。"""
+    # 全页各出现一次（左侧导航），且不在下拉框块内（防回流）
+    for anchor in ("top_learning", "top_speaking_writing"):
+        assert settings_page.count('id="{0}"'.format(anchor)) == 1, anchor
+        assert anchor not in _dropdown_block(settings_page), anchor

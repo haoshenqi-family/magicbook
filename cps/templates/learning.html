@@ -36,7 +36,11 @@
 
     <div id="ln-plan" class="panel panel-default" hidden>
       <div class="panel-heading">
-        <h3 class="panel-title">{{_("Today's Plan")}}</h3>
+        <h3 class="panel-title">{{_("Today's Plan")}}
+          {# R154：说与写是一级入口，学习页给直达跳转（练完复习接着练输出） #}
+          <a class="ln-go-speak" href="{{ url_for('web.speaking_writing_page') }}">
+            {{_('Speaking & Writing')}} <span class="glyphicon glyphicon-arrow-right"></span></a>
+        </h3>
       </div>
       <div class="panel-body">
         <p class="help-block" id="ln-strand-line"></p>
