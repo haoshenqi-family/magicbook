@@ -4900,3 +4900,24 @@ msgstr "哪个单词的意思是「{{meaning}}」？"
 
 msgid "Correct spelling: {{word}}"
 msgstr "正确拼写：{{word}}"
+
+msgid "Vocabulary"
+msgstr "词汇量"
+
+msgid "Recommended shelf"
+msgstr "推荐书架"
+
+msgid "Stage"
+msgstr "阶"
+
+msgid "Take the vocabulary test to size your bookshelf."
+msgstr "先完成词汇量测试，按你的量级选书架。"
+
+msgid "No graded books on this shelf yet."
+msgstr "这个书架暂时没有分级藏书。"
+
+msgid "Estimating unknown words in {n} books…"
+msgstr "正在估算 {n} 本书的生词量…"
+
+msgid "Books are shelved into six graded stages. We pick the shelf matching your vocabulary size, then estimate unknown-word density per book — two to eight unknown words in every hundred is the sweet spot for comfortable reading."
+msgstr "藏书按六级分阶上架。系统先按你的词汇量选定书架阶，再逐本估算生词密度——每百词 2-8 个生词是舒适阅读的黄金区。"

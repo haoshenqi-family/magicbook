@@ -752,10 +752,11 @@ def learning_plan_settings():
 @web.route("/ajax/learning/match/books", methods=["GET"])
 @user_login_required
 def learning_match_books():
-    """Proxy the shelf difficulty profiles (density per book, stale flagged).
+    """Proxy the graded-shelf recommendation (R147: 词汇量选阶 → 阶窗口书画像).
 
-    画像过期时上游立即返回旧值并异步重算，本代理不等待重算；首次访问无画像的
-    书返回 null 密度（前端隐藏标记）。
+    响应 result = {vocabSize, stage, books}；books[].bookId 是本站 Calibre 书 id
+    （moon-well 只读直读 metadata.db，与站内同源）。未算/过期的画像上游异步补算、
+    立即返回 null 密度，前端按 estimating 展示并轮询。
     """
     return _moonwell_proxy("/learning/match/books", None, 15,
                            "learning match books", method="GET")
@@ -766,7 +767,7 @@ def learning_match_books():
 def learning_match_book():
     """Proxy a single-book difficulty profile; payload {"bookId": str}.
 
-    bookId 必须与本站 Calibre 书 id 一致——moon-well 按它校验归属；
+    bookId 即本站 Calibre 书 id（R147 起两端同源，moon-well 按 metadata.db 校验）；
     60s：缺失/过期画像走同步计算（分词+词族比对，秒级）。
     """
     payload = request.get_json(silent=True) or {}
