@@ -53,3 +53,4 @@
 148. 下载 Magic Tree House（神奇树屋）系列的书（版权系列，非公版）：确定书源后下载 EPUB 并导入 magicbook 书库（去重、打分级标签、挂书架）。
 
 149. 把 book 149 的 azw3 转成 epub 后是个合集（Magic Tree House Library 1-28），要求拆成 28 本独立 EPUB。先只读探测分册边界，再按确认口径（规范化书名 + 删每册尾部试读页/广告/丛书书目 + 丢合集前置页）批量生成到容器 /tmp 验收；写入 metadata.db 入库需单独确认。（与 R148 同系列，书源路径不同：R148 走下载，本条走已有合集拆分）
+151. 四股时间预算实装统计（跨仓同源：moon-well R150 后端台账 / magicbook R151 前端）：①学习页「Today's Plan 四股行」改 actual/budget（例：阅读输入 10/5）；②阅读器新增活跃心跳，每满 5 分钟批量上报阅读时长；③web.py 增加对应 moon-well 代理路由。（随 moon-well R150 方案执行，P1 范围）
