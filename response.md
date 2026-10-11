@@ -165,3 +165,4 @@
 - **测试**：i18n seed 契约 5 例绿（JS 字面量 ⊆ seed = po = mo，8 条新词条四层一致）；test_reading_tts + test_csp_media + test_nav_settings_dropdown 20 例绿（代理层零改动回归）；node --check 过；epub.js 全模块通读交叉审查一轮（据此修出：空文字章自动跳过、emptySkips 初始化与重置、FireWaiters 唤醒链抽取）。
 - **归档**：本条使窗口达 11，最早一节 R143 原样搬至 `response-archive/response-R143.md` 并登记索引，窗口 R144–R157。
 - **总结**：requests.md 占号 R157（在 worktree 内落盘，随本分支 merge 入 develop，避开主检出并行覆写区）；本条为回应；冲突记录：R155 评估轮的占号/回应曾被并行提交清除（已在编号说明留痕），本轮在干净基线重落为 157；worktree 交付后驻留等用户真机验收（AC 见 L3 design §4），验收通过后按两段式闸门收尾。
+- **验收与收尾（同日回填）**：用户确认验收通过（2026-10-11「此任务完成的非常好，可以收尾」）——按两段式闸门收尾：worktree `../magicbook-whole-book-read` 已 `git worktree remove`、分支 `feat/r157-whole-book-read` 已 `branch -d` 删除（内容已随 e6a51c48 并入 develop 并部署上线，线上冒烟见前文）。
