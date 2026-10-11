@@ -183,3 +183,16 @@
 - **测试**：`test_learning_proxy.py` 增 7 例（10 端点登录门槛、白名单裁剪、缺必填 400×5、超长文本 400、整数字段保型、minutesPerRound 域校验×6、页面渲染断言），加 i18n 契约、no_duplicate_js_lines、nav_settings 共 **40 passed**；`node --check` 通过。
 - **范围说明**：口语与复述 P2 用打字转写（ASR 待百炼订阅开通后接 LEARNING_ASR_API_KEY 即可升级为真开口）；朗读 coach 回复暂用纯文本（TTS 自动播放属 P3 打磨）。
 - **总结**：requests.md 本条 R152；response.md 本条使窗口达 11，按写入即检查把 R138 原样搬移至 response-archive/response-R138.md 并登记索引，窗口 R139–R152；冲突记录：无。
+
+## 2026-10-11（R153：P3 输出训练扩展——计时重读/听写/周视图/coach 朗读）
+
+### R153（计时重读 + 听写 tab、四股周视图、coach 回复 TTS；随 moon-well R152 查词补报端点）
+
+- **交付**（worktree `../magicbook-fluency`，分支 `feat/r153-fluency`，基于 origin/develop 2a3d6f84；worktree 驻留待用户确认）：
+  - **web.py**：新增 6 个代理（listening materials/paragraphs/dictation-check、rrr record/trend/recommend）+ strands/summary 周视图代理；`_b1_payload` 扩展布尔（addUnknown）与 order 整数字段。
+  - **speaking_writing.html/js**：新增「计时重读」「听写」两个 tab——RRR：素材选择（tts 书源）→ 段落列表（或「含到期词的段落」推荐直取 trend 正文）→ 计时朗读三遍（mode=ALOUD，durationMs 实测）→ 每轮 WPM + 首次/最佳/提升趋势；听写：ted 素材 → 段落音频播放（audioUrl+起止裁剪，缺省走 /ajax/reading-tts 兜底合成）→ 词级 diff 四色渲染（MATCH/WRONG/MISSING/EXTRA）→ 漏错词一键入复习队列。**coach 回复自动朗读**：复用阅读 TTS 代理（AI 临时语音档），面板开关。
+  - **learning.html/js**：统计头下新增「四股周视图」面板——近 7 天各股入账堆叠条（段宽按当日预算归一，title 显 单股 实际/预算，右侧当日合计分钟），随计划加载刷新，ES 降级整面板隐藏。
+- **依赖**：moon-well R152（/learning/strands/lookup，magiclens 补报用）已先行上线 f39c899；本仓零 moon-well 阻塞。
+- **测试**：`test_learning_proxy.py` 增 6 例（6 端点登录门槛、听写 bool/int 透传、非法类型×3 本地 400、RRR 整数保型、两页面渲染断言），合计 46 passed；`node --check` 两份 JS 通过；i18n 契约 5 例（种子 +11、po +21，mo 重编）。
+- **范围说明**：影子跟读（shadowing evaluate 需浏览器录音上传基建）本轮明确不做；magiclens 直连查词补报由 moon-well R152 + magiclens 侧后续任务落地。
+- **总结**：requests.md 占号 R153；本条为回应；冲突记录：无。归档：窗口未超（R139–R153 仍在 10 窗内）。
