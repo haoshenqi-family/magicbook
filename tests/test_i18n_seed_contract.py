@@ -30,6 +30,8 @@ JS_FILES = [
     os.path.join(ROOT, "cps", "static", "js", "vocab-test.js"),
     # R132/B3：每日学习页状态机的文案全部走 mbT，不列入清单则它的本地化无人守（同上先例）
     os.path.join(ROOT, "cps", "static", "js", "learning.js"),
+    # R152/B1：说与写页三个面板的文案全部走 mbT，同上先例纳入守护
+    os.path.join(ROOT, "cps", "static", "js", "speaking_writing.js"),
 ]
 
 

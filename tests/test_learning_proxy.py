@@ -352,3 +352,111 @@ def test_reading_heartbeat_rejects_bad_book_id_locally(admin_client,
                                      json={"seconds": 300, "bookId": book_id})
         assert response.status_code == 400, book_id
     assert not proxy.calls
+
+
+# ---------- 7. B1 输出训练代理（R152：写作工坊/口语陪练/复述训练）----------
+
+B1_POSTS = [
+    ("/ajax/learning/writing/task/generate", "/learning/writing/task/generate"),
+    ("/ajax/learning/writing/submit", "/learning/writing/submit"),
+    ("/ajax/learning/writing/revise", "/learning/writing/revise"),
+    ("/ajax/learning/speaking/session", "/learning/speaking/session"),
+    ("/ajax/learning/speaking/message", "/learning/speaking/message"),
+    ("/ajax/learning/speaking/report", "/learning/speaking/report"),
+    ("/ajax/learning/speaking/messages", "/learning/speaking/messages"),
+    ("/ajax/learning/retell/start", "/learning/retell/start"),
+    ("/ajax/learning/retell/submit-round", "/learning/retell/submit-round"),
+    ("/ajax/learning/retell/finish", "/learning/retell/finish"),
+]
+
+
+def test_b1_endpoints_require_login(app, moonwell_configured):
+    client = app.test_client()
+    for local, _ in B1_POSTS:
+        assert client.post(local, json={}).status_code == 302, local
+    assert client.get("/ajax/learning/writing/history").status_code == 302
+    assert client.get("/ajax/learning/speaking/history").status_code == 302
+    assert client.get("/learning/speaking-writing").status_code == 302
+
+
+def test_b1_submit_forwards_cleaned_payload(admin_client, moonwell_configured,
+                                             monkeypatch):
+    proxy = RecordingProxy({"/learning/writing/submit": (_envelope({}), 200)})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    response = admin_client.post(
+        "/ajax/learning/writing/submit",
+        json={"taskId": "T-1", "text": "Hello world.", "evil": "x"},
+        )
+    assert response.status_code == 200
+    call = proxy.call_for("/learning/writing/submit")
+    # 白名单裁剪：未知键不透传；taskId 原样
+    assert call["payload"] == {"taskId": "T-1", "text": "Hello world."}
+
+
+def test_b1_rejects_missing_required_fields_locally(admin_client,
+                                                     moonwell_configured,
+                                                     monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    cases = [
+        ("/ajax/learning/writing/task/generate", {}),                      # 缺 mode
+        ("/ajax/learning/writing/submit", {"taskId": "T-1"}),              # 缺 text
+        ("/ajax/learning/speaking/message", {"sessionId": "S-1"}),         # 缺 text
+        ("/ajax/learning/retell/submit-round", {"retellId": "R-1"}),       # 缺 transcript
+        ("/ajax/learning/retell/finish", {}),                              # 缺 retellId
+    ]
+    for local, body in cases:
+        response = admin_client.post(local, json=body)
+        assert response.status_code == 400, (local, body)
+    assert not proxy.calls, "missing required fields must not reach moon-well"
+
+
+def test_b1_rejects_oversized_text_locally(admin_client, moonwell_configured,
+                                            monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    response = admin_client.post("/ajax/learning/writing/submit",
+                                 json={"taskId": "T-1", "text": "x" * 20001})
+    assert response.status_code == 400
+    assert not proxy.calls
+
+
+def test_b1_retell_round_keeps_int_fields(admin_client, moonwell_configured,
+                                           monkeypatch):
+    proxy = RecordingProxy({"/learning/retell/submit-round": (_envelope({}), 200)})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    response = admin_client.post(
+        "/ajax/learning/retell/submit-round",
+        json={"retellId": "R-1", "round": 2, "durationMs": 153000,
+              "transcript": "I retell the story."},
+        )
+    assert response.status_code == 200
+    # 整数字段保类型透传（Jackson 语义一致）
+    assert proxy.call_for("/learning/retell/submit-round")["payload"] == {
+        "retellId": "R-1", "round": 2, "durationMs": 153000,
+        "transcript": "I retell the story."}
+
+
+def test_b1_rejects_bad_minutes_per_round_locally(admin_client,
+                                                   moonwell_configured,
+                                                   monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    for minutes in (["x"], [], [0], [31], "4,3,2", [True]):
+        response = admin_client.post("/ajax/learning/retell/start",
+                                     json={"paragraphText": "Once upon a time.",
+                                           "minutesPerRound": minutes})
+        assert response.status_code == 400, minutes
+    assert not proxy.calls
+
+
+def test_speaking_writing_page_renders(admin_client, moonwell_configured):
+    response = admin_client.get("/learning/speaking-writing")
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert 'id="sw-csrf"' in html
+    assert "js/speaking_writing.js" in html
+    assert "window.speakingWritingUrls" in html
+    assert '"/ajax/learning/writing/task/generate"' in html
+    # 导航入口（布局层）
+    assert 'id="top_speaking_writing"' in html

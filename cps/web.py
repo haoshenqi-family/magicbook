@@ -667,6 +667,178 @@ def learning_page():
     return render_title_template("learning.html", title=_("Daily Learning"))
 
 
+@web.route("/learning/speaking-writing", methods=["GET"])
+@user_login_required
+def speaking_writing_page():
+    """说与写页（R152 / B1 输出训练）：写作工坊 + AI 口语陪练 + 复述训练。
+
+    与 learning 页同模式：页面零上游调用，全部由 speaking_writing.js 经
+    /ajax/learning/* 异步拉取。
+    """
+    return render_title_template("speaking_writing.html", title=_("Speaking & Writing"))
+
+
+# ---------- B1 输出训练代理（R152）。 ----------
+# Why 薄透传（同 srs/answer）：写作/口语/复述的业务校验与 LLM 编排在 moon-well
+# learning 模块，代理只挡「明显非法」——非 JSON 对象、字段类型/长度越界；业务
+# 语义（场景枚举、评分、会话归属）归上游。LLM 密集端点超时给长（批改/出题/报告
+# 实测 10-40s），纯指标端点给短。
+
+_PROXY_LIMITS = {
+    "taskId": 64, "sessionId": 64, "submissionId": 64, "retellId": 64,
+    "scenario": 16, "scenarioLabel": 60, "coachStyle": 16, "mode": 16,
+    "cefrLevel": 8, "bookId": 64, "bookTitle": 200, "chapter": 100,
+    "prompt": 500, "text": 20000, "paragraphText": 20000, "transcript": 20000,
+}
+
+
+def _b1_payload(allowed, required=()):
+    """校验并裁剪 B1 代理的 JSON 请求体：只留白名单字段，字符串限长、整数限幅。
+
+    Why 白名单裁剪而非逐路由手写：B1 十二个端点的 payload 全是字符串/少量
+    整数字段，语义校验在上游 @Valid + Service；代理统一的职责是防客户端把
+    垃圾字段（超长文本/未知键/离谱数值）透传进 LLM 链路。返回 None 表示本地 400。
+    """
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return None
+    cleaned = {}
+    for key in allowed:
+        if key not in payload or payload[key] is None:
+            continue
+        value = payload[key]
+        if key in ("durationMs", "round"):
+            # 整数字段：保类型透传（Jackson 语义一致），限幅防溢出
+            if isinstance(value, bool) or not isinstance(value, int) \
+                    or not 0 <= value <= 10 ** 9:
+                return None
+            cleaned[key] = value
+            continue
+        if key == "minutesPerRound":
+            if not isinstance(value, list) or not value or len(value) > 5 or \
+                    any(isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= 30
+                        for v in value):
+                return None
+            cleaned[key] = value
+            continue
+        if isinstance(value, bool) or not isinstance(value, str):
+            return None
+        if not value or len(value) > _PROXY_LIMITS.get(key, 200):
+            return None
+        cleaned[key] = value
+    for key in required:
+        if key not in cleaned:
+            return None
+    return cleaned
+
+
+def _b1_proxy(path, allowed, required=(), timeout=30):
+    body = _b1_payload(allowed, required)
+    if body is None:
+        return jsonify({"success": False, "message": "invalid request body"}), 400
+    return _moonwell_proxy(path, body, timeout, "learning b1: " + path)
+
+
+@web.route("/ajax/learning/writing/task/generate", methods=["POST"])
+@user_login_required
+def learning_writing_generate():
+    """Proxy writing task generation（LLM 出题，可结合在读的书）。"""
+    return _b1_proxy("/learning/writing/task/generate",
+                     ("mode", "cefrLevel", "prompt", "bookId", "bookTitle", "chapter"),
+                     required=("mode",), timeout=90)
+
+
+@web.route("/ajax/learning/writing/submit", methods=["POST"])
+@user_login_required
+def learning_writing_submit():
+    """Proxy writing submission（LLM 批改：总体+逐句+升级+四维评分）。"""
+    return _b1_proxy("/learning/writing/submit", ("taskId", "text"),
+                     required=("taskId", "text"), timeout=90)
+
+
+@web.route("/ajax/learning/writing/revise", methods=["POST"])
+@user_login_required
+def learning_writing_revise():
+    """Proxy writing revision（同 submit 契约，多进步确认）。"""
+    return _b1_proxy("/learning/writing/revise", ("taskId", "text"),
+                     required=("taskId", "text"), timeout=90)
+
+
+@web.route("/ajax/learning/writing/history", methods=["GET"])
+@user_login_required
+def learning_writing_history():
+    """Proxy writing history; ?limit=1..50（越界上游收敛）。"""
+    return _moonwell_proxy("/learning/writing/history", None, 15,
+                           "learning writing history", method="GET")
+
+
+@web.route("/ajax/learning/speaking/session", methods=["POST"])
+@user_login_required
+def learning_speaking_session():
+    """Proxy speaking session start（场景+教练风格；greeting 同步返回）。"""
+    return _b1_proxy("/learning/speaking/session",
+                     ("scenario", "scenarioLabel", "coachStyle", "bookId", "bookTitle"),
+                     required=("scenario",), timeout=90)
+
+
+@web.route("/ajax/learning/speaking/message", methods=["POST"])
+@user_login_required
+def learning_speaking_message():
+    """Proxy one speaking turn（用户文本 → coach 回应+分层反馈；LLM 密集）。"""
+    return _b1_proxy("/learning/speaking/message", ("sessionId", "text", "audioUrl"),
+                     required=("sessionId", "text"), timeout=90)
+
+
+@web.route("/ajax/learning/speaking/report", methods=["POST"])
+@user_login_required
+def learning_speaking_report():
+    """Proxy session report（LLM 解读整场对话）。"""
+    return _b1_proxy("/learning/speaking/report", ("sessionId",),
+                     required=("sessionId",), timeout=90)
+
+
+@web.route("/ajax/learning/speaking/messages", methods=["POST"])
+@user_login_required
+def learning_speaking_messages():
+    """Proxy message replay of one past session（POST+body 规范，sessionId 防路径注入）。"""
+    return _b1_proxy("/learning/speaking/messages", ("sessionId",),
+                     required=("sessionId",), timeout=15)
+
+
+@web.route("/ajax/learning/speaking/history", methods=["GET"])
+@user_login_required
+def learning_speaking_history():
+    """Proxy speaking history; ?limit=1..50。"""
+    return _moonwell_proxy("/learning/speaking/history", None, 15,
+                           "learning speaking history", method="GET")
+
+
+@web.route("/ajax/learning/retell/start", methods=["POST"])
+@user_login_required
+def learning_retell_start():
+    """Proxy retell start（素材=用户粘贴段落；时限默认 4/3/2）。"""
+    return _b1_proxy("/learning/retell/start",
+                     ("paragraphText", "bookId", "chapter", "minutesPerRound"),
+                     required=("paragraphText",), timeout=15)
+
+
+@web.route("/ajax/learning/retell/submit-round", methods=["POST"])
+@user_login_required
+def learning_retell_round():
+    """Proxy one retell round（纯指标计算：WPM/填充词/词汇多样性，无 LLM）。"""
+    return _b1_proxy("/learning/retell/submit-round",
+                     ("retellId", "round", "durationMs", "transcript"),
+                     required=("retellId", "transcript"), timeout=15)
+
+
+@web.route("/ajax/learning/retell/finish", methods=["POST"])
+@user_login_required
+def learning_retell_finish():
+    """Proxy retell summary（LLM 解读指标变化）。"""
+    return _b1_proxy("/learning/retell/finish", ("retellId",),
+                     required=("retellId",), timeout=90)
+
+
 @web.route("/ajax/learning/srs/queue", methods=["GET"])
 @user_login_required
 def learning_srs_queue():

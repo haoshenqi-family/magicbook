@@ -4921,3 +4921,207 @@ msgstr "正在估算 {n} 本书的生词量…"
 
 msgid "Books are shelved into six graded stages. We pick the shelf matching your vocabulary size, then estimate unknown-word density per book — two to eight unknown words in every hundred is the sweet spot for comfortable reading."
 msgstr "藏书按六级分阶上架。系统先按你的词汇量选定书架阶，再逐本估算生词密度——每百词 2-8 个生词是舒适阅读的黄金区。"
+
+
+# --- R152 说与写页（speaking_writing）---
+
+msgid "AI Speaking Coach"
+msgstr "AI 口语陪练"
+
+msgid "Better phrasing"
+msgstr "更地道的说法"
+
+msgid "Book (optional)"
+msgstr "书（可选）"
+
+msgid "Book title (optional)"
+msgstr "书名（可选）"
+
+msgid "CEFR level (auto)"
+msgstr "CEFR 等级（自动）"
+
+msgid "Chapter (optional)"
+msgstr "章节（可选）"
+
+msgid "Coach"
+msgstr "教练"
+
+msgid "Coherence"
+msgstr "连贯"
+
+msgid "Corrections"
+msgstr "纠错"
+
+msgid "Daily chat"
+msgstr "日常闲聊"
+
+msgid "Draft"
+msgstr "稿"
+
+msgid "End & report"
+msgstr "结束并出报告"
+
+msgid "Fillers"
+msgstr "填充词"
+
+msgid "Fix what the review flagged, then submit again to see your progress."
+msgstr "改掉批改指出的问题，再提交一次看进步。"
+
+msgid "Free writing"
+msgstr "自由写作"
+
+msgid "Generate a task first"
+msgstr "请先生成题目"
+
+msgid "Generate task"
+msgstr "生成题目"
+
+msgid "Generating…"
+msgstr "生成中…"
+
+msgid "Grammar"
+msgstr "语法"
+
+msgid "Job interview"
+msgstr "求职面试"
+
+msgid "Lenient coach"
+msgstr "宽松教练"
+
+msgid "Lexical diversity"
+msgstr "词汇多样性"
+
+msgid "Loading"
+msgstr "加载中"
+
+msgid "Meaning-focused output: write with feedback, talk with a coach, retell what you read. Every action counts into your daily strands."
+msgstr "意义聚焦的输出：写作有批改、口语有陪练、读完做复述。每次练习都计入每日四股。"
+
+msgid "New drill"
+msgstr "开始训练"
+
+msgid "Ordering at a coffee shop"
+msgstr "在咖啡店点单"
+
+msgid "Paste an English paragraph you have read"
+msgstr "粘贴一段你读过的英文"
+
+msgid "Retell Drill (4-3-2)"
+msgstr "复述训练（4-3-2）"
+
+msgid "Retell the same passage three times with shorter time limits (4-3-2 minutes). Repeating under time pressure is a proven fluency drill. Paste a paragraph you have read."
+msgstr "把同一段落用递减的时限复述三遍（4-3-2 分钟）。时间压力下的重复是经过验证的流利度训练。粘贴一段你读过的英文。"
+
+msgid "Reviewing…"
+msgstr "批改中…"
+
+msgid "Revise your draft"
+msgstr "修订你的稿子"
+
+msgid "Round"
+msgstr "轮次"
+
+msgid "Round lengths (minutes, comma separated)"
+msgstr "每轮时限（分钟，逗号分隔）"
+
+msgid "Round {{n}} of {{m}}"
+msgstr "第 {{n}}/{{m}} 轮"
+
+msgid "Sentence comments"
+msgstr "逐句点评"
+
+msgid "Session report"
+msgstr "会话报告"
+
+msgid "Something went wrong"
+msgstr "出错了，请稍后再试"
+
+msgid "Speaking & Writing"
+msgstr "说与写"
+
+msgid "Speaking history"
+msgstr "口语历史"
+
+msgid "Standard coach"
+msgstr "标准教练"
+
+msgid "Start conversation"
+msgstr "开始对话"
+
+msgid "Stop & submit round"
+msgstr "停表并提交本轮"
+
+msgid "Strict coach"
+msgstr "严格教练"
+
+msgid "Submit for review"
+msgstr "提交批改"
+
+msgid "Submit revision"
+msgstr "提交修订稿"
+
+msgid "Suggestion: "
+msgstr "建议："
+
+msgid "Talk about the book you are reading"
+msgstr "聊聊在读的书"
+
+msgid "Task completion"
+msgstr "任务完成度"
+
+msgid "Task-based writing"
+msgstr "任务写作"
+
+msgid "Thinking…"
+msgstr "思考中…"
+
+msgid "Time left: {{t}}"
+msgstr "剩余时间 {{t}}"
+
+msgid "Topic or notes for the AI (optional)"
+msgstr "给 AI 的主题或备注（可选）"
+
+msgid "Training summary"
+msgstr "训练总结"
+
+msgid "Travelling"
+msgstr "旅行出行"
+
+msgid "Type what you said (as close to verbatim as you can), then submit the round."
+msgstr "尽量逐字打出你说的内容，然后提交本轮。"
+
+msgid "Type what you said first"
+msgstr "先打出你说的内容"
+
+msgid "Type what you would say, in English"
+msgstr "用英文打出你要说的话"
+
+msgid "Upgraded phrasings"
+msgstr "升级表达"
+
+msgid "WPM"
+msgstr "词/分"
+
+msgid "Words you used well"
+msgstr "你用得好的词"
+
+msgid "Write in English. 50-150 words is a good start."
+msgstr "用英文写，50–150 词是好起点。"
+
+msgid "Write your draft"
+msgstr "写初稿"
+
+msgid "Writing Workshop"
+msgstr "写作工坊"
+
+msgid "Writing history"
+msgstr "写作历史"
+
+msgid "You"
+msgstr "你"
+
+msgid "rounds"
+msgstr "轮"
+
+msgid "words"
+msgstr "词"
