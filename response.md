@@ -167,3 +167,17 @@
 - **⚠️ 上线顺序（必须先扩展后本站）**：现在线上扩展是 **v0.8.5，它不写任何标记**。若先推 magicbook 这版，探测恒为假 → 内置气泡与波浪线全部回来，而 v0.8.5 扩展仍在同页画它自己那份 → **双气泡、一词双线重现**，正是 R141 当初要消除的现象。正确顺序：① magiclens 0.8.6 发出并让用户在 `chrome://extensions` 重载 + 刷新页面；② 再推 magicbook `develop`（push 即触发 fnOS 构建上线）。本轮 magicbook 改动**已提交未推送**（`b3f7fd5f`）。
 - **编号更正（教训入档）**：本轮初稿在代码注释与 L1/L2/L3 里都写成 **R144**，占号时才发现 144/145 已被并行会话占用（每日学习页改版 / moon-well 全 token 化）。已把我写的 8 处 R144 全部改为实际号 R146（占号 commit `7cca2b2f`），他人条目一字未动。**下次动笔前先占号并 commit，再往代码注释里写编号。**
 - **总结**：requests.md 本条 R146；response.md 本条使窗口达 10 个 request 的回应（R135–R146，其中 R142 含补记），未超 10，无需搬移；冲突记录：本轮唯一并发问题是编号撞号（已按纪律更正而非回改他人条目）。
+
+## 2026-10-11（R151：四股台账前端——计划行 actual/budget + 阅读活跃心跳）
+
+### R151（四股时间预算实装统计·magicbook 侧，随 moon-well R150 后端）
+
+- **交付**（worktree `../magicbook-strand-ledger`，分支 `feat/r151-strand-ledger`）：
+  - **`cps/static/js/reading/reading_time_tracker.js`（新）**：阅读活跃心跳——页面可见且最近 3 分钟内有交互（翻页/滚动/点击/按键/触摸，capture+passive 监听）才计活跃；30s 结算、每累计 300s 批量 POST `/ajax/learning/strands/reading`；`pagehide` 用 `fetch keepalive` 补发 ≥30s 的尾巴；上报失败静默丢弃（宁低估不重试堆积、不打断阅读）。vanilla JS 零依赖（readtxt/readpdf 无 jQuery），read/readpdf/readtxt 三模板已挂（readcbr/readjvu 暂不挂）。
+  - **模板**：readtxt.html / readpdf.html 补 `<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">`（全局 CSRFProtect 强制 POST 校验，原两模板无 csrf 输入）；read.html 在 epub.js 后挂 tracker。
+  - **`cps/web.py`**：新增 `/ajax/learning/strands/reading` 代理——seconds 域校验 30..600（bool/非整数/越界一律 400 不打上游）、bookId 可选纯数字；`_moonwell_proxy` 5s 短超时（心跳失败静默语义）。
+  - **`cps/static/js/learning.js`**：四股行改 actual/budget——`标签 earned/budgetmin`（如「阅读输入 10/5min」）；earned 为 null（ES 降级或旧后端）显示 `–` 自动退回旧口径；零新增 i18n 词条。
+- **测试**：`tests/test_learning_proxy.py` 增 4 例（合法转发含 bookId、无 bookId 省字段、seconds 域外 400×9、bookId 非法 400×5）+ 登录门槛断言加新端点；与 `test_i18n_seed_contract` 合跑 26 passed（复用主检出 `.venv`，R146 纪律）；`node --check` 两份 JS 通过。
+- **跨仓同源**：moon-well R150（台账/心跳/汇总后端，同日交付）。
+- **归档更正**：初稿曾自建 `response-archive/response-R135.md` 并宣称本条写入触发 R135 搬出——rebase 时发现 R147 会话已先行做过 `response-R135-R137.md` 轮转（含 R145/R146 欠账补账），我的归档文件冗余，已删除并沿用其索引；本条写入后窗口为 R138–R151 共 10 个 request，未超限。
+- **总结**：requests.md 本条 R151；response.md 本条（本节为 rebase 残留补录）；冲突记录：requests.md 冲突（147–149 并行条目与我的 151 同区）按两侧保留解决。
