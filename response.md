@@ -18,20 +18,11 @@
 - `response-archive/response-R132-R133.md`：R132、R133（2026-10-08；2026-10-10 R143 写入触发轮转搬移）
 - `response-archive/response-R134.md`：R134（2026-10-08；2026-10-10 R144 写入触发轮转搬移，其父级日期标题随节一并搬移）
 - `response-archive/response-R143.md`：R143（2026-10-10；2026-10-11 R157 写入触发轮转搬移）
+- `response-archive/response-R144-R153.md`：R144、R145、R147（含嵌套 R146）、R151、R152、R153（2026-10-10 ～ 2026-10-11；2026-10-12 R161 写入触发轮转搬移，清并行欠账）
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R165 写入触发轮转搬移）
-
-## 2026-10-11（R154：导航层级修正——学习入口一级平铺 + 学习页直达说与写）
-
-### R154（用户反馈：学习入口藏 Settings 里层级不对）
-
-- **交付**（worktree `../magicbook-learning-nav`，分支 `feat/r154-learning-nav`，基于 origin/develop 37edb78；worktree 驻留待用户确认）：
-  - **layout.html**：「每日学习」「说与写」从 Settings 下拉撤出，提为左侧一级导航（与高级搜索平级，登录后可见，移动端只留图标）；收纳注释同步更新（R154 例外，防后人按旧口径收回去）。
-  - **learning.html**：Today's Plan 面板标题右侧加「Speaking & Writing →」直达跳转（练完复习接输出，零新增词条，"Speaking & Writing" 复用既有 po 词条）。
-- **测试**：`test_nav_settings_dropdown.py` 增 1 例（两项全页各出现一次且不在下拉块内，防回流）；`test_learning_proxy.py` 页面渲染断言扩为含跳转链接；合计 46 passed。
-- **总结**：requests.md 占号 R154；本条为回应；冲突记录：无。归档：窗口未超。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移）
 
 ## 2026-10-11（R155：worktree 规范微调——merge 后保留待验收，验收通过后删除）
 
@@ -123,6 +114,22 @@
 - **六处驻留 worktree 的处置建议（待用户一句话）**：R162 全部代码已 merge+push+部署验证，若确认验收通过，六树可统一清理（`git worktree remove ../moon-well-<slug> && git branch -d <分支>` ×6）；按纪律等用户验收结论，不擅自删。
 - **总结**：requests.md 占号 R164；本条为回应；冲突记录：无。
 
+## 2026-10-12（R161：magicbook.haoyuhang.top 公网打不开——Tailscale 直连路径过期黑洞，已恢复）
+
+### R161（排查任务：公网域名超时；根因 Server 2 ↔ fnOS tailnet 数据面单向失效，tailscale ping 重发现后自愈）
+
+- **现象**：https://magicbook.haoyuhang.top/ 打不开。实测：DNS → 116.62.200.90 正常；TLS 正常（Let\'s Encrypt，2026-12-27 到期）；HTTP/2 请求发出后 15s 0 字节超时——Traefik 入口活着、后端无响应。
+- **定位链**：①ctl 200 / controller 401 → Traefik 与 Server 2 本机服务正常；②内网直连 192.168.31.9:8083 → 302、容器 healthy → magicbook 服务本身正常；③moon-well.haoshenqi.top 同样超时（两站后端同为 fnOS）；④Server 2 Traefik 配置：magicbook-5771 / moon-well-5762 后端均为 `http://fnos.taila6fff7.ts.net:8083|8082`（MagicDNS）；⑤Server 2 宿主机 curl fnos :8080/:8082/:8083 全部超时、ping 192.168.31.9 100% 丢包 → tailnet 数据面断。nacos.haoshenqi.top 的「通」是假象：静态 nacos-redirect.yml priority 100 的 redirectRegex 在 Traefik 层直接 302，请求根本没到后端。
+- **根因**：Server 2 ↔ fnOS WireGuard 直连路径过期未自愈——fnOS 侧家庭 NAT 重绑定（disco pong 实测端点 60.186.214.140:41641 → :45946），Server 2 仍向旧映射发包 → 单方向黑洞；两侧 `tailscale ping`（用户态 disco，不走内核路由）与 fnOS → Server 2 反向 TCP（controller 401 秒回）均正常，呈典型单向失效，自建 DERP 兜底未接管。在 Server 2 执行 `tailscale ping fnos` 强制端点重发现后数据面立即恢复（内核 ping 10ms、curl fnos:8083 302）。
+- **恢复佐证**：magicbook.haoyuhang.top 连续 4 次 302（0.12–0.21s），302 → /login 全链 200（0.31s）；moon-well.haoshenqi.top 404（其对根路径的固有响应，链路已通）。旁证：magicbook/moon-well 容器当日 15:56/16:02 CST 重启过（fnOS docker daemon 自 09-25 未动，属容器级重启，与本故障相关性未证实）；fnOS dockerd 21:01 仍有容器 DNS 经 100.100.100.100 的 i/o timeout 记录，提示 fnOS 侧 tailscale DNS 代理间歇异常，建议后续观察。
+- **顺带发现（独立问题，未处置）**：Server 2 tailscale `--accept-routes=false`（health check 持续告警 peers advertising routes），external-services.yml 的 vpe/nas/fn/opencode 与 es 等走 192.168.31.x 裸 IP 的后端因此无路可达（es.haoshenqi.top、nas.haoshenqi.top 实测同样超时）。改 accept-routes 还是改走 MagicDNS 属基础设施决策，待用户定夺。
+- **复发风险与加固建议（均为 ops 变更，未经确认不动）**：①Server 2 加 systemd timer 定时 `tailscale ping fnos` 保活/快速重发现；②排查自建 DERP（derp.haoshenqi.top）为何未兜底；③确认 fnOS 侧 NAT 重绑定诱因（光猫/路由重拨）。
+- **改动面**：零代码、零配置变更；排查中唯一「写」动作是 Server 2 上的 `tailscale ping`（无副作用的恢复动作）。
+- **归档**：本条写入前窗口实存 16 条（R144–R164，含并行会话未轮转欠账），按写入即检查把 R144、R145、R147（含嵌套 R146）、R151、R152、R153 七节原样搬至 `response-archive/response-R144-R153.md` 并登记归档索引，窗口恢复 10 条。
+- **总结**：requests.md 占号 R161；本条为回应；冲突记录：无撞号（R161 为空号）。requests.md 总结：追加 R161 占号条目；response.md 总结：搬移 7 节归档后写入本条，窗口 10 条。
+
+## 2026-10-12（R165：单词详解面板头部吸顶——长内容滚动时 ✕ 不再被带走）
+
 ### R165（bug 修复：单词详解面板滚动时丢失 ✕）
 
 - **根因**：`.reading-word-detail` 面板自身是滚动容器（`max-height: min(70vh, 560px)` + `overflow-y: auto`），词目与 ✕ 位于滚动内容之内的 `.wd-head`，滚到底时头部整体移出可视区；面板关闭路径只有 ✕ 与 Esc（R125 起无点外关闭），于是「看到最后没法关」。
@@ -133,4 +140,4 @@
 - **worktree 台账**：`../magicbook-sticky-detail-head`，分支 `fix/r165-sticky-detail-head`（基于 origin/develop fa7b9cfc），提交 `218da661`（初版）+ 复查修正提交；**尚未 merge 回 develop**——主检出当前有并行会话未跟踪文件与九处驻留 worktree，merge 时机等用户定。
 - **同源**：magiclens R42 同一修法（其分支 `fix/r42-sticky-detail-head`，版本 0.8.9-202610122121），两仓详解面板继续保持同构。
 - **顺带发现（未改）**：`docs/reading/hld/hld.md` 接口表仍写「R141 起内置「详」面板入口随气泡下线、本端点暂无调用方」，但 R146 起让位已改为探测 `data-magiclens-selection`，未装/旧版扩展时内置「详」与 `/ajax/reading-word-detail` 是活的——该行表述与现网行为有漂移，属并行会话文档口径，本条只记录不擅改。
-- **总结**：requests.md 占号 R165；本条为回应；冲突记录：无。窗口轮转：写入前本文件含 16 个 request 回应（此前多次写入未触发轮转），按「写入即检查」把最旧 7 条（R144/R145/R146/R147/R151/R152/R153）原样搬至 `response-archive/response-R144-R153.md`，搬后窗口为 R154–R165 共 10 个 request。
+- **总结**：requests.md 占号 R165；本条为回应；冲突记录：无撞号（165 为空号），但**基线漂移一次**——本分支从 fa7b9cfc 切出后，并行会话把 R161（公网超时排查）推上 develop 并**已先把 R144–R153 归档**，我这边同批归档与之撞车；按纪律 `git merge origin/develop` 拉齐后，归档文件取对方版本（正文与我的逐字节相同，仅头部注记不同），requests/response 两侧并存，合并后窗口达 11 条故再搬出最旧的 R154 至 `response-archive/response-R154.md`，窗口回到 10（R155–R165）。
