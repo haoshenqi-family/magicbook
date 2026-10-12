@@ -1,39 +1,44 @@
 # 整本朗读（TTS 预生成）设计
 
-状态：设计（待用户确认决策点 §7 后进入开发）
-需求：2026-10-12「llm 已经重构，整本翻译功能有了，需要一个类似的整本使用 TTS 生成朗读的功能，先检查是否有这个功能，如果没有，先做设计」（magicbook R163 / moon-well R165 同源）
+状态：设计定稿（2026-10-12 用户拍板 D1–D4 + 新增整本选角与计费分层；待确认 §9 假设后进入开发）
+需求：2026-10-12「llm 已经重构，整本翻译功能有了，需要一个类似的整本使用 TTS 生成朗读的功能」（magicbook R163 / moon-well R165 同源）；同日拍板：D1 方案 A、计费分层（发起者按字符 / 调用者按次）、仅单本、不做 find-audio（靠缓存键幂等）、整本预生成前先按书信息 AI 选角、默认模型确认小米 MiMo TTS。
 
-## 0. 检查结论：功能不存在，需新建
+## 0. 检查结论：功能不存在；且 /tts/speak 现状零计费
 
 对四条既有链路逐一核实（代码级，非记忆）：
 
 | 既有能力 | 现状 | 与本需求的差距 |
 | --- | --- | --- |
-| moon-well `/tts/speak`（ReadingTtsController → ReadingTtsService） | 段落级**同步**合成；缓存键 = SHA-256(trim(段落原文))，bookName/chapter 非空即永久缓存（ES 引用 + MinIO `reading-tts/`）；R162 P3 起有用户上下文按字符计费 | 无批次、无进度、无后台批量；一次一段 |
-| magicbook R157 整本连播（epub.js `bookPlayer`） | 前端播放队列，逐段在线请求 `/ajax/reading-tts`，**边播边合成**；其设计文档明确「零等待可先跑 fnOS tts-warm 脚本」 | 首听每段等几秒~几十秒（长段实测最长 78.6s）；预生成靠手工 |
-| magicbook R142 整本预热 | fnOS 宿主机 `tts_warm.py` 手工脚本（不入 Git），逐段调 `/tts/speak` 写永久缓存；book 145《Matilda》1393 段全量跑通 | **运营态方案，零代码**；无产品入口、无进度 UI、断点靠 jsonl 记账 |
-| moon-well llm_task TTS 任务型 | R162 P4 收口后 = **外部 worker 领用契约**（进程内执行器对非 TEXT 显式快速失败），无 worker 部署；产物回写协议属 R162 P4 遗留④「待真实消费者出现再补」 | 队列路径不通，走它需先定协议+部署 worker |
+| moon-well `/tts/speak` | 段落级**同步**合成；缓存键 = SHA-256(trim(段落原文))，bookName/chapter 非空即永久缓存（ES 引用 + MinIO `reading-tts/`）；**ReadingTtsService 直调 TtsProviderChain，不经 AiGateway.speak——缓存命中与 miss 合成都不扣积分**（DefaultAiGateway.speak 的字符计费能力已建好但无消费方） | 无批次、无进度、无后台批量、无计费 |
+| magicbook R157 整本连播（epub.js `bookPlayer`） | 前端播放队列，逐段在线请求 `/ajax/reading-tts`，**边播边合成** | 首听每段等几秒~几十秒（长段最长 78.6s）；预生成靠手工 |
+| magicbook R142 整本预热 | fnOS 宿主机 `tts_warm.py` 手工脚本（不入 Git），book 145《Matilda》1393 段全量跑通并验证缓存键口径 | **运营态方案，零代码**；无产品入口、无进度 UI |
+| moon-well llm_task TTS 任务型 | R162 P4 收口后 = **外部 worker 领用契约**（进程内执行器对非 TEXT 显式快速失败），无 worker 部署 | 队列路径不通（维持 P4 遗留④原判，本设计不消费） |
 
-**结论**：用户要的「类似整本翻译」的整本 TTS 预生成（一键发起 → 后台批量合成 → 进度可查 → 完成后零等待听书）**不存在**。R142 脚本验证过的链路（逐段调 `/tts/speak` 写永久缓存）正是本设计要产品化的对象。
+**结论**：整本 TTS 预生成（一键发起 → 后台批量合成 → 进度可查 → 完成后零等待听书）**不存在，需新建**。R142 脚本验证的链路（逐段调 `/tts/speak` 写永久缓存）正是本设计要产品化的对象。
+
+**默认模型确认（拍板项）**：`tts.fallback-chain` 默认 **`mimo,local,dashscope`——小米 MiMo v2.5 TTS 已是第一顺位（音质最优注释），零改动即满足「默认用小米 TTS」**。MiMo 100 RPM 上限 vs daemon 串行 0.8s 段间隔 ≈ 75 RPM，留 25 RPM 余量给阅读器即时朗读，合规。⚠ 部署检查项：Nacos 若覆盖过链序列表须写**完整列表**（列表键按下标合并的坑，application.yml 注释明示）；上线时以 Nacos 实际快照为准回读确认。MiMo 环 30s 超时失败自然回落 local（180s）——链路既有语义，长段兜底成立。
 
 ## 1. 目标与非目标
 
-**目标**：书详情页一键为整本书预生成朗读音频；后台逐段合成进 moon-well 永久缓存；进度/失败/重试可见；幂等（已缓存段跳过且不重复计费）；完成后 R157 连播与单段朗读全程毫秒级命中。
+**目标**：书详情页一键为整本书预生成朗读音频；**发起前先按书的元信息 AI 选角（音色 + role 风格提示词），整本统一**；后台逐段合成进 moon-well 永久缓存；进度/失败/重试可见；幂等（已缓存段跳过且不重复计费）；**计费分层落地（发起者按字符、调用者按次）**；完成后 R157 连播与单段朗读全程毫秒级命中。
 
 **非目标**：
-- PDF（canvas 渲染无段落）、TXT（阅读器结构简单）——与整本翻译、连播口径一致，仅 EPUB/KEPUB；
-- 不做「全部英文书批量」（R77 翻译有 translate-all；本地 Qwen3-TTS 全局合成锁下串行执行，一本书 1.5~2.5h，批量无意义）；
-- 不改 R157 连播与前端朗读（自动受益：缓存命中即零等待）；
-- 不动 R162 P4 遗留④（TTS 任务型回写协议）——本设计不消费它，见 §2 方案 B 触发条件。
+- PDF、TXT（与整本翻译、连播口径一致，仅 EPUB/KEPUB）；
+- 不做「全部英文书批量」（串行算力下无意义）；
+- 不做 find-audio 批量探测端点（拍板 D4，注意点见 §6）；
+- 不改 R157 连播与前端朗读逻辑（自动受益）；不动 llm_task TTS 任务型（P4 遗留④维持）；
+- 划词翻译（单词级）、批注、口语、写作等其他 AI 能力的计费**不在本期**（用户未点名；purpose 配置体系天然支持后续按需开，见 §4）。
 
-## 2. 架构选型（决策点 D1）
+## 2. 决策记录（2026-10-12 拍板）
 
-| | 方案 A（推荐）：magicbook 批次 + daemon 逐段直调 `/tts/speak` | 方案 B：走 moon-well llm_task TTS 任务型 |
+| # | 决策 | 拍板结果 |
 | --- | --- | --- |
-| 链路 | 镜像整本翻译的批次壳，执行不走 llm_task 队列：daemon 串行逐段 POST `/tts/speak` | 镜像整本翻译全链：逐段 publish，moon-well 补 TTS worker + 产物回写协议 |
-| 依据 | R142 已全量验证（1393 段）；缓存命中天然幂等（命中不合成、不计费、毫秒级）；moon-well 近零改动 | R162 P4 遗留④本就要补 |
-| 代价 | magicbook 新模块（翻译批次基建可复刻）；moon-well 仅加一个只读探测端点（§3.2） | 需定义 audioBase64/缓存编排回写协议 + 部署/内置 worker，工程量数倍；而 TTS 预热的执行特征（串行、长尾单段、断点即缓存）用不上队列编排 |
-| 判定 | **推荐** | 列为未来：出现「无 magicbook HTTP 直调语境的消费者」或 ASR 批量同型需求时再补协议（维持 P4 遗留④原判） |
+| D1 | 执行架构 | **方案 A**：magicbook 批次 + daemon 逐段直调 `/tts/speak`，写永久缓存 |
+| D2 | 计费 | **分层**：发起者（整本预生成）1000 字符=1 积分；调用者（阅读器即时使用）朗读 **1 段=1 积分**；**段落翻译、单词详情同样改按次**（1 段 / 1 次 = 1 积分） |
+| D3 | 范围 | 仅书详情页单本入口（admin） |
+| D4 | moon-well 探测端点 | **不做 find-audio**：靠缓存键（SHA-256(段落原文)）天然幂等——miss 才合成才计费，命中直接返回 |
+| 新增 1 | 整本选角 | 预生成前先把**书的元信息**告诉 AI，由 AI 选合适音色 + role（风格）提示词，整本统一使用 |
+| 新增 2 | 默认模型 | 确认默认 TTS = 小米 MiMo（**现状已满足，零改动**，见 §0） |
 
 ## 3. 总体设计
 
@@ -49,17 +54,17 @@ cps/reading_tts/
 └── service.py      # WholeBookTtsService（start/progress/retry/cancel + daemon 合成线程）
 ```
 
-**数据模型**（镜像 TranslationJob/Item，两处实质差异加粗）：
+**数据模型**（镜像 TranslationJob/Item；无探测端点后计数简化——不区分 cached/synthesized，只关心段状态）：
 
-`reading_tts_job`：id / user_id / book_id / book_format / book_name / book_fingerprint / status（RUNNING / COMPLETED / PARTIAL_FAILED / CANCELLED）/ total_count / cached_count（探测已命中数）/ synthesized_count（**本批次新合成数**，替代翻译的 published_count）/ failed_count / created_at / updated_at。
+`reading_tts_job`：id / user_id / book_id / book_format / book_name / **book_author / book_summary（选角输入，§5）** / book_fingerprint / status（RUNNING / COMPLETED / PARTIAL_FAILED / CANCELLED）/ total_count / done_count / failed_count / **voice / style（选角结果留档，供批次页展示与排查）** / created_at / updated_at。
 
-`reading_tts_job_item`：id / job_id / paragraph_index / chapter / text / text_hash（SHA-256，unique(job_id, text_hash)）/ status（PENDING / DONE / FAILED）/ error_message / attempt_count / created_at / updated_at。**无 task_id 列**（`/tts/speak` 同步无任务号）、**无产物列**（音频在 moon-well 缓存，不在本仓落任何音频）。
+`reading_tts_job_item`：id / job_id / paragraph_index / chapter / text / text_hash（SHA-256，unique(job_id, text_hash)）/ status（PENDING / DONE / FAILED）/ error_message / attempt_count / created_at / updated_at。**无 task_id 列**（`/tts/speak` 同步无任务号）、**无产物列**（音频在 moon-well 缓存，本仓不落任何音频）。
 
-**服务流程**（复刻翻译的 start 骨架）：
+**服务流程**（复刻翻译 start 骨架）：
 
-1. `start(book_id, book_format, force)`：书文件校验（EPUB/KEPUB）→ 指纹（path:size:mtime，翻译同款）→ 幂等复用（同 user+book+fingerprint 的活动批次静默复用）→ 僵尸自愈（updated_at 停滞 >30min 置 PARTIAL_FAILED 关闭）→ **朗读口径提取**（§3.3）→ 按 text_hash 去重建 job+items → `find-audio` 批量探测（§3.2）命中段直接置 DONE（计 cached_count，不消耗）→ spawn daemon 线程 → 立即返回 progress（HTTP 只承诺受理，整本发布在请求线程必被网关超时杀死——翻译 HP2 3160 段实测教训）。
-2. **daemon 合成线程**：串行逐段（仅 PENDING 段）POST moon-well `/tts/speak`，payload `{text, bookName: 书名, chapter: 章名}`（书籍上下文非空 = 永久缓存，moon-well 既有分级语义）；HTTP 客户端超时 **≥200s**（服务端 `tts.local.timeout-ms` 生产现值 180s + 余量；R142 实测最长段 78.6s）；段间限速 **0.8s**（R142 补跑参数）；失败原地重试 1 次，再败置 FAILED 留 error_message；线程内自建 DB session（scoped_session 不能跨线程，翻译同款）；**批次表即断点台账**（R142 done.jsonl 的产品化），容器重启丢线程由 §5 恢复路径兜底。
-3. `progress(job_id, lookup)`：计数聚合 + 懒回收——经 `find-audio` 单向刷新「外部已完成」段（前次批次残留、用户手动听过、脚本预热过），不触发合成。
+1. `start(book_id, book_format, force)`：书文件校验（EPUB/KEPUB）→ 指纹（path:size:mtime）→ 幂等复用（同 user+book+fingerprint 活动批次静默复用）→ 僵尸自愈（updated_at 停滞 >30min 置 PARTIAL_FAILED 关闭）→ 朗读口径提取（§3.3）→ 按 text_hash 去重建 job+items → **调 moon-well 整本选角端点（§5，失败不阻断：回落 moon-well 内部默认选角）** → spawn daemon → 立即返回 progress（HTTP 只承诺受理；整本发布在请求线程必被网关超时杀死——翻译 HP2 3160 段实测教训）。
+2. **daemon 合成线程**：串行逐段（仅 PENDING）POST moon-well `/tts/speak`，payload `{text, bookName, chapter, source: "book-tts-batch"}`（source 标记 = 发起者计费通道，§4）；客户端超时 ≥200s（服务端 local 环 180s + 余量；R142 实测最长段 78.6s）；段间 0.8s 限速（≈75 RPM < MiMo 100 RPM；**命中段也 sleep**——daemon 不识别命中，简单且安全）；失败原地重试 1 次，再败置 FAILED 留 error_message；线程内自建 DB session（scoped_session 不能跨线程）；**批次表即断点台账**（R142 done.jsonl 的产品化），容器重启丢线程由 status 懒回收/start 幂等兜底。
+3. `progress(job_id)`：计数聚合（total/done/failed + 按 done 速率的 ETA 滑动平均）。**无缓存懒回收**（find-audio 不做；「省了多少」从积分流水看，见 §6）。
 4. `retry(job_id)`：FAILED 段重跑；幂等（命中缓存免费）。
 5. `cancel(job_id)`：置 CANCELLED；daemon 每段开跑前查批次状态，见 CANCELLED 即退出。
 
@@ -70,94 +75,146 @@ cps/reading_tts/
 - `POST /ajax/reading-tts-book/retry` `{job_id}`
 - `POST /ajax/reading-tts-book/cancel` `{job_id}`
 
-身份传递：与翻译的 publish 闭包同理——daemon 线程无 Flask 上下文，令牌在请求线程定格为快照传入（R51/R145 教训：线程内解析身份必 RuntimeError 全批 FAILED）。
+身份传递：与翻译 publish 闭包同理——daemon 线程无 Flask 上下文，令牌在请求线程定格为快照传入（R51/R145 教训）。daemon 请求带发起者（admin）身份头（R142 同款：magicbook 代理透传 OIDC 令牌），moon-well 侧 UserContext = 发起者 → 计费挂发起者。
 
-**UI**：`detail.html`「整本翻译」按钮旁加「整本朗读」按钮（admin 可见）；确认弹窗展示 `{总段落数, 已缓存, 待合成, 预计积分}`（积分 = ceil(待合成字符数/1000)，口径见 §3.4）；进度轮询复用翻译的进度展示样式，追加 ETA（按最近 20 段耗时滑动平均）。
+**UI**：`detail.html`「整本翻译」按钮旁加「整本朗读」按钮（admin）；确认弹窗展示 `{总段数, 总字符, 预估积分上限}`（§4 口径，上限 = 全 miss 假设；文案注明「已缓存段落自动跳过、不重复计费，实际以积分流水为准」）+ 选角结果预览（voice + style，选角失败则显示默认）；进度轮询复用翻译进度样式 + ETA。
 
 **阅读器零改动**：R157 连播按段落文本请求 `/ajax/reading-tts`，预热后全量命中。
 
-### 3.2 moon-well 侧（唯一改动：一个只读端点）
+### 3.2 moon-well 侧改动清单
 
-新增 `POST /reading/paragraph-cache/find-audio`（镜像既有 `find-translations`，挂 ReadingParagraphCacheController）：
+| # | 改动 | 说明 |
+| --- | --- | --- |
+| 1 | `/tts/speak` 增加可选 `source` 字段 + 计费接入 | `source=book-tts-batch` → 发起者字符计费（floor(chars/1000)，落点可走 `aiGateway.speak`——其字符计费逻辑现成，仅把 ReadingTtsService 的 providerChain 调用按 source 分流）；无 source（阅读器）→ 调用者按次 1 积分（§4）。**命中一律不计费**（幂等，§9 假设 1） |
+| 2 | 新端点 `POST /tts/book-voice/select` | 整本预选角（§5）：入参书元信息，upsert `tts_book_voice` |
+| 3 | `PromptDefinitions.TTS_BOOK_VOICE` 扩展变量 + Nacos 模板同步 | 加 bookAuthor / bookSummary / language 变量（§5）；Nacos 更新走程序化重建+结构断言（R162 P2 事故教训） |
+| 4 | `CreditBillingProperties` 扩展 per-call 配置 | purpose 级按次计费白名单（§4.2），Nacos 热调 |
+| 5 | 文本链计费模式切换（网关单点） | purpose 命中 per-call 白名单时，`call/callSync` 交互路径按次扣、替代按 token 计量扣费（§4.2）；`callForTask/callWithUsage` 任务路径**维持按 token 计量**（发起者口径） |
+| 6 | OpenApiConfig 分组 | 新端点并入「阅读朗读 TTS」组 |
 
-- 入参 `{paragraphs: [文本...]}`（与 ReadingParagraphCacheLookupRequest 同构）；
-- 出参 `{result: {段落原文: 来源模型标签}}`——只回传**命中标记**（音频与译文共文档，doc id = SHA-256(trim(段落原文))，判 `audioObject` 非空即命中），**不回传音频字节**；
-- 用途：start 时统计已缓存段（省得全量 speak 靠命中幂等——慢且每次都传音频字节，一本书数百 MB 内网流量）；status 懒回收。
-- 批量上限、OpenApiConfig 分组与 find-translations 同口径（并入阅读朗读 TTS 组）。
-
-`/tts/speak` 完全不动：计费（UserContext 身份）、回落链（LocalQwen → DashScope → MiMo）、缓存写回全部原样。
+`/tts/speak` 的回落链（MiMo → local → dashscope）、缓存写回、Media-Type 判定全部原样。
 
 ### 3.3 段落提取口径（核心风险点）
 
-**Why 不能复用整本翻译的 `reading_translation/parser.py`**——两套口径存在系统差异，预生成用错口径 = 缓存键与前端请求键对不上 = **白合成**（烧积分 + 算力，整本数百次无效合成）：
+**Why 不能复用整本翻译的 `reading_translation/parser.py`**——两套口径系统差异，预生成用错口径 = 缓存键与前端请求键对不上 = **白合成**（烧积分 + 算力）：
 
 | 维度 | 前端朗读口径（epub.js，缓存键的消费者） | 翻译提取器（parser.py） |
 | --- | --- | --- |
-| 元素集 | `PARAGRAPH_SELECTOR = 'p, li, blockquote, h1..h6, div'`；DIV 含块级子元素跳过（文字归子元素）；嵌套按 querySelectorAll 语义**双收** | `BLOCK_TAGS = {p, li, blockquote, pre}`；有块级祖先的节点**跳过**（只收最外层） |
+| 元素集 | `PARAGRAPH_SELECTOR = 'p, li, blockquote, h1..h6, div'`；DIV 含块级子元素跳过；嵌套按 querySelectorAll 语义**双收** | `BLOCK_TAGS = {p, li, blockquote, pre}`；有块级祖先的节点**跳过**（只收最外层） |
 | 文本 | `textContent` → `\s+`→`' '` → trim | `itertext()` 拼接 + 命名实体展开 + 同款空白归一 |
-| 超长段 | 连播**切块** ≤2000（后 1/3 窗口从尾向头找 `。！？；…` / `.!?`+空格，找不到硬切）；单段朗读是**截断** | `split_long_text` 句界正则切块（窗口与断点算法不同） |
+| 超长段 | 连播**切块** ≤2000（后 1/3 窗口从尾向头找 `。！？；…` / `.!?`+空格，找不到硬切） | `split_long_text` 句界正则切块（窗口与断点算法不同） |
 
-翻译场景口径差异只造成部分段 miss → 现场翻译（代价小）；TTS 预热场景 miss = 纯浪费（代价大）。**提取器必须以朗读口径为准**，且必须按**连播切块口径**（若按单段截断口径，>2000 的段在听书模式仍要现合成）。
+提取器必须以**朗读口径 + 连播切块口径**为准（按单段截断口径预热，>2000 的段在听书模式仍要现合成）。方案：把 R142 脚本（已对 book 145 实测「同一文本两次调用 4.7s 合成 → 0.028s 命中」验证缓存键一致）的提取逻辑移植固化进 `extractor.py`，并建**口径契约测试双锁**：
 
-方案：把 R142 脚本（fnOS `/app/magicbook/tts-warm/tts_warm.py`，已对 book 145 实测「同一文本两次调用 4.7s 合成 → 0.028s 命中」验证缓存键一致）的提取逻辑移植固化进 `cps/reading_tts/extractor.py`，并建立**口径契约测试**双锁：
+1. 静态锁：测试读 `epub.js` 源码断言 `PARAGRAPH_SELECTOR` / `BOOK_TTS_MAX` / `BLOCK_CHILD_SELECTOR` 常量值与 extractor 对应常量一致（漂移即红）；
+2. 快照锁：book 145（1393 段，R142 全量验证过）段落序列快照入库，extractor 输出逐段比对。
 
-1. 静态锁：测试读 `epub.js` 源码断言 `PARAGRAPH_SELECTOR` / `BOOK_TTS_MAX` / `BLOCK_CHILD_SELECTOR` 常量值与 extractor 中的对应常量一致（漂移即红）；
-2. 快照锁：对固定样例书（book 145，1393 段，R142 全量验证过）产出段落序列快照入库，extractor 输出与快照逐段比对。
+## 4. 计费设计（拍板 D2 落地）
 
-### 3.4 计费与额度（决策点 D2）
+**统一原则：调用者（交互调用，即时使用）按次计费；发起者（批量/任务，垫付成本）按算力计量。**
 
-现状：R162 P3 起 `/tts/speak` 经 DefaultAiGateway 计费——有 UserContext 用户即按 `floor(chars / credit.billing.tts.chars-per-credit)` 扣积分（默认 1000 字符 = 1 积分，Nacos 可调可关）；无用户上下文 = 平台调用不计费。
+### 4.1 TTS 朗读
 
-方案：daemon 以**发起者（admin）令牌**调用 → 逐段扣积分，与整本翻译挂发起者（consumeForLlmTask）口径一致。start 确认弹窗展示预估（book 145 口径：221,296 字符 ≈ **221 积分**）。积分不足段：`precheckSufficient` 拒绝 → FAILED（error_message 可辨）；中途余额耗尽 → 后续段 FAILED，充值后 retry 补跑（幂等，已完成段免费）。
+| 场景 | 计费 | 实现 |
+| --- | --- | --- |
+| 发起者：整本预生成 daemon（`source=book-tts-batch`，发起者身份） | miss 合成时 floor(chars / 1000) 积分（Matilda 全书 221,296 字符 ≈ 221 积分） | ReadingTtsService 按 source 分流到 `aiGateway.speak`（字符计费现成，userId=UserContext=发起者）；台账 modality=tts、credits=实际扣减 |
+| 调用者：阅读器单段朗读 / 连播逐段（无 source，用户身份） | miss 合成时 **1 段 = 1 积分**（按次替代按字符——不足 1000 字符的段不再免费） | ReadingTtsService（或 controller）按次扣 `consumeAmount(userId, 1)` + usageLedger 记账 |
+| 缓存命中（两种场景） | **0 积分**（幂等：重听免费、预生成后收听免费——与段落翻译现状语义一致，假设见 §9） | 计费点在缓存 miss 分支之后 |
 
-备选：Nacos 关 `credit.billing.tts.enabled`（全局免 TTS 计费，仍记台账）——不为此功能单独加豁免通道（避免新概念）；不推荐默认走平台身份（绕过计费且丢失台账归属）。
+积分不足：`precheckSufficient` 拒绝 → 段 FAILED（daemon）/ 朗读报错（阅读器）；充值后 retry 补跑（已完成段免费）。
 
-### 3.5 限速与并发保护（全部复用既有件）
+### 4.2 段落翻译、单词详情改按次（网关单点）
 
-- 本地 Qwen3-TTS 全局合成锁 = 服务端串行，daemon 单线程串行 + 0.8s 段间隔即天然合规；
-- BookVoiceService 同书并发合流闸门（R142 后加固，含 BookVoiceServiceTest 用例）：预热期间用户在阅读器点同一本书朗读，安全；
-- 多批次并发：每批次一线程，moon-well 合成锁全局排队，不做额外限流（个人站）；一期不加同时活动批次上限，进度页可见即可，压观察期数据再定。
+现状：两者经 AiGateway 文本链按 token 计量扣费（1 千 token 折 1 积分，`consumeForLlmTask`）。改为 **purpose 级 per-call 白名单**（`CreditBillingProperties` 扩展，形如 `credit.billing.per-call.{purpose}=1`，Nacos 热调）：
 
-## 4. 关键时序
+- 白名单 purpose：`reading-translate`（段落翻译，miss 段每段 1 积分）、`vocabulary-word-detail`（单词详情，每次调用 1 积分）；
+- 仅交互路径（`call/callSync`，userId=UserContext=调用者）切换按次；任务路径（`callForTask/callWithUsage`，如整本翻译批次执行）**维持按 token 计量**——发起者口径不变；
+- 翻译命中缓存段不调网关（现状语义），自然 0 积分；
+- 其他 purpose（划词、批注、口语、写作等）不配置即维持按 token 计量，后续按需一行配置开。
 
-```
-start    admin → magicbook 建批次 → find-audio 批量探测 → 命中段置 DONE
-         → 返回 {total, cached, toSynthesize, estCredits}（HTTP 即回）
-daemon   逐 PENDING 段 → POST /tts/speak {text, bookName, chapter}
-         → moon-well: 查 ES 缓存 → miss → 计费 → TtsProviderChain 合成（回落链）
-           → 传 MinIO → 写 ES 引用 → 回音频字节 → magicbook 置 DONE
-播放     用户连播 → /ajax/reading-tts → moon-well 缓存命中 → 毫秒级返回
-中断恢复 容器重启丢线程 → status 懒回收（lookup 刷新）/ start 幂等复用
-         （僵尸自愈关旧批 → 新批次 lookup 跳过已缓存段）
-```
+### 4.3 换算率汇总（全部 Nacos 可调）
 
-## 5. 异常与边界
+| 能力 | 调用者 | 发起者 |
+| --- | --- | --- |
+| TTS 朗读 | 1 段 = 1 积分 | 1000 字符 = 1 积分 |
+| 段落翻译 | 1 段（miss）= 1 积分 | 整本翻译批次按 token 计量（不变） |
+| 单词详情 | 1 次 = 1 积分 | — |
 
-| 场景 | 处理 |
+## 5. 整本选角设计（拍板新增 1）
+
+**现状底座**：`BookVoiceService.resolve(bookName, chapter, sampleText)` 已实现按书选角——LLM（callSync，thinking 关闭）从 `MimoVoices.CATALOG` 选 voice + style（role 风格指令 ≤200 字符），落 `tts_book_voice` 表（bookName 唯一），同书并发合流只选一次，失败回落静态默认（Chloe + 平静叙述）。**局限（代码注释明示）**：输入只有书名 + 当前段文本（≤1500 字符）——「moon-well 拿不到书的简介/语种/体裁（book 表没有这些列）」，而**这些信息恰好在 magicbook 的 metadata.db**。
+
+**设计**（补齐 gap，不另起炉灶）：
+
+1. **magicbook start 时**：从 Calibre 元数据取 书名 / 作者 / comments（简介，清洗 HTML 后截断）/ 语言 / 样本文本（extractor 前 2~3 段拼接 ≤1500 字符），调 moon-well 新端点 `POST /tts/book-voice/select`：
+   ```json
+   {"bookName": "...", "author": "...", "summary": "...", "language": "eng",
+    "sampleText": "前几段正文…", "force": false}
+   ```
+   force=false 且 `tts_book_voice` 已有该书 → 直接返回现有选角（复用）；force=true → 重选覆盖（upsert）。
+2. **moon-well 侧**：`BookVoiceService` 增加带元信息的选角入口——`PromptDefinitions.TTS_BOOK_VOICE` 模板增加 `bookAuthor` / `bookSummary` / `language` 变量（缺失时渲染为空串，兼容阅读器旧路径），选角结果 upsert 落库（唯一约束冲突取先写者，沿用 persist 语义）。选角 LLM 调用走 gateway.callSync，计费随调用身份（发起者令牌 → 挂发起者；走平台则不计费）。
+3. **daemon 逐段合成**时 `ReadingTtsService` → `BookVoiceService.resolve(bookName, ...)` 直接命中库中选角，**全书同一 voice + style**；并发合流闸门兜底（预生成与用户即时朗读同书并发安全，既有测试覆盖）。
+4. **阅读器即时朗读路径不动**：未预生成的新书首段朗读仍按旧输入（书名+首段）懒选角——两路径共享 `tts_book_voice`，先到先得。
+5. 选角失败不阻断批次：job 表 voice/style 留空，daemon 用 moon-well 内部默认选角继续合成（选角是增强而非依赖，既有原则）。
+
+## 6. find-audio 移除的注意点（拍板 D4 连带）
+
+| 注意点 | 处置 |
 | --- | --- |
-| 长文本段（>1000 字符） | 服务端 `tts.local.timeout-ms` = 180s（生产现值），daemon 客户端 ≥200s；R142 实测最长 78.6s |
+| start 无法精确报「已缓存 N 段 / 实际待合成」 | 弹窗改报**预估上限**（全 miss 口径字符折算）+ 文案「已缓存段落自动跳过、不重复计费，实际以积分流水为准」；book 145 场景显示上限 221 积分，实际 daemon 全命中 0 消耗 |
+| 命中段也走完整 `/tts/speak` 响应（音频字节全量回传） | 内网可接受（R142 实测命中 0.028s/段）；一本书几百 MB 串行慢传，不占合成锁 |
+| 批次表不区分 cached/synthesized | 计数简化为 done/failed；「实际省了多少」由发起者积分流水（实际扣减 vs 上限）反映，不在批次内重复记账 |
+| 懒回收能力失去（翻译有 lookup 单向回收） | 无影响：daemon 重跑/retry 走缓存幂等天然「回收」；status 无需外部刷新 |
+| 长尾重复探测成本 | 无（根本不探测）；代价转嫁给 daemon 逐段调用的命中快返，可接受 |
+
+## 7. 关键时序
+
+```
+start    admin → magicbook 建批次 → 选角（/tts/book-voice/select：书元信息 → AI 定
+         voice+style，落 tts_book_voice）→ 返回 {total, chars, estCredits 上限, voice}
+daemon   逐 PENDING 段 → POST /tts/speak {text, bookName, chapter, source=book-tts-batch}
+         → moon-well: 查 ES 缓存 → 命中=免费毫秒级返回
+                              → miss → floor(chars/1000) 扣发起者 → TtsProviderChain
+                                合成（MiMo→local→dashscope）→ 传 MinIO → 写 ES → 回字节
+         → magicbook 置 DONE；0.8s 间隔下一段
+播放     用户连播/单段 → /ajax/reading-tts → moon-well 缓存命中 → 毫秒级、0 积分
+即时朗读 未预生成书 → /tts/speak（无 source）→ miss 合成 → 调用者 1 段 1 积分
+中断恢复 容器重启丢线程 → retry / start 幂等复用（僵尸自愈关旧批 → 新批全量重跑，
+         命中段免费快返，仅未完成段真合成）
+```
+
+## 8. 异常与边界
+
+| 场景 | 处置 |
+| --- | --- |
+| 长文本段（>1000 字符） | MiMo 30s 超时 → 回落 local（180s）；daemon 客户端 ≥200s |
+| 选角 LLM 失败 / 输出怪音色 | 回落静态默认（Chloe + 平静叙述），不阻断批次（既有语义） |
 | moon-well 重启 / 网络抖动 | 段请求失败重试 1 次 → FAILED；批次不丢（SQLite），retry 恢复 |
-| 回落链全不可用（DashScope 免费额度已失效为已知现状） | 段 FAILED 透传错误信息；链路恢复后 retry |
-| 同书重复发起 | 同指纹活动批次静默复用；force=true 强制新批（新批仍 lookup 跳过已缓存段，不重复计费） |
-| 重复段落 | unique(job_id, text_hash) 去重（翻译同款；连播命中同一缓存） |
-| EPUB 解析失败（坏文件） | 沿用翻译的宽松解析经验（R101 XMLParser recover）；0 段直接 400 报错，不建空批次 |
-| 预热与阅读器同时朗读 | BookVoiceService 合流闸门保护（既有） |
+| 回落链全不可用 | 段 FAILED 透传错误信息；链路恢复后 retry |
+| 同书重复发起 | 同指纹活动批次静默复用；force=true 强制新批（命中段仍免费） |
+| 重复段落 | unique(job_id, text_hash) 去重（连播命中同一缓存） |
+| EPUB 解析失败 | 宽松解析（R101 XMLParser recover 经验）；0 段直接 400，不建空批次 |
+| 预热与用户即时朗读同书并发 | BookVoiceService 合流闸门（既有，含测试） |
+| 发起者积分中途耗尽 | 后续段 FAILED（error_message 可辨）；充值后 retry 补跑 |
 
-## 6. 测试与验收
+## 9. 待确认假设（1 项）+ 边界声明
 
-**magicbook 单测**：批次服务（幂等复用 / 僵尸自愈 / 提取去重 / lookup 预标 DONE / retry / cancel）；extractor 口径契约测试双锁（§3.3）；路由权限（admin 门禁）+ 请求校验。
+- **假设 1（唯一待确认）**：**「调用者 1 段 1 积分」按「缓存 miss 时扣、命中免费」落地**——与段落翻译现状（命中免费、重看不计费）、用户上轮确认的幂等原则（「已缓存段跳过且不重复计费」）一致；预生成后全家收听免费（admin 垫付模式）。**备选**：若意图是「每请求一段就扣 1 积分（听=消费，命中也扣）」，只需把计费点从 miss 分支前移到入口（一行位置的事），数值语义大变（听全本 1393 积分）——请一句话确认，默认按推荐落地。
+- 边界声明：划词翻译（单词级）、批注、口语、写作、听力等能力计费**本期不动**（未点名）；purpose 白名单机制支持后续一行配置扩展。
 
-**moon-well 单测**：find-audio（命中 / 未命中 / 空列表 / 超长列表拒绝口径同 find-translations）。
+## 10. 测试与验收
 
-**AC（真机）**：① book 145（已由 R142 预热）→ start 秒回 `{cached: 1393, toSynthesize: 0}`，零消耗；② 未预热书 → start → 进度推进 → 完成后连播全程零等待（含 >2000 长段按连播切块口径命中）；③ 中途 cancel 即停；④ 人为制造 FAILED（如临时断 moon-well）→ retry 补跑成功；⑤ 发起者积分流水与 system_ai_usage 台账可查（purpose=tts，chars 计量）。
+**magicbook 单测**：批次服务（幂等复用 / 僵尸自愈 / 提取去重 / retry / cancel / 选角失败不阻断）；extractor 口径契约测试双锁（§3.3）；路由权限（admin 门禁）+ 请求校验；预估上限计算。
 
-**上线后**：R142 脚本退役（fnOS `tts-warm/` 目录留档不删）；L1 `docs/readme/reading.md` 补「整本朗读」入口说明，moon-well L2 `docs/reading/hld/`（或 tts hld）补 find-audio 契约（交付时三级联动）。
+**moon-well 单测**：`/tts/speak` source 分流计费（批量=字符挂发起者 / 阅读器=按次挂调用者 / 命中=0）；`book-voice/select`（元信息入参 / force 重选 / upsert 冲突取先写者 / 失败回落）；purpose per-call 白名单（白名单内按次、任务路径维持按 token 计量、白名单外不变）。
 
-## 7. 决策点汇总（待拍板）
+**AC（真机）**：① book 145（R142 已预热）→ start 后 daemon 全量命中：0 积分消耗（积分流水核对）、分钟级完成、完成后连播零等待；② 未预热书 → start（选角返回 voice/style）→ 进度推进 → 完成后连播全程零等待（含 >2000 长段按连播切块口径命中）；③ 未预生成书阅读器即时朗读一段 → 调用者扣 1 积分（流水 purpose 可查）；④ 段落翻译 / 单词详情调用 → 各扣 1 积分（替代按 token 计量，流水核对）；⑤ 中途 cancel 即停；⑥ 人为制造 FAILED → retry 补跑成功且已完成段 0 重复扣费；⑦ 整本翻译批次计费不变（按 token 计量口径回归）。
 
-| # | 决策 | 推荐 | 备选 |
-| --- | --- | --- | --- |
-| D1 | 执行架构 | A：magicbook 批次 + daemon 直调 `/tts/speak`（R162 P4 遗留④维持不动） | B：补 llm_task TTS worker + 回写协议（工程量数倍，暂无必要） |
-| D2 | 计费 | 挂发起者逐段扣积分 + start 弹窗预估展示 | 全局关 TTS 计费（Nacos 一键，影响所有 TTS 调用） |
-| D3 | 一期范围 | 仅书详情页单本入口（admin） | 追加全部英文书批量（不建议，串行算力下无意义） |
-| D4 | moon-well 改动 | 仅新增 find-audio 探测端点 | 零改动（start 无缓存统计，daemon 全量 speak 靠命中幂等；慢、费带宽，不推荐） |
+**上线后**：R142 脚本退役（fnOS `tts-warm/` 留档不删）；三级文档联动（magicbook L1 `docs/readme/reading.md`、moon-well L2 tts/reading hld 补计费契约与新端点）。
+
+## 11. 开发拆分建议（进 worktree 后）
+
+1. moon-well P1：`book-voice/select` 端点 + prompt 变量扩展（独立可测）；
+2. moon-well P2：计费分层（source 分流 + purpose per-call 白名单 + 文本链切换）；
+3. magicbook P3：extractor + 批次服务 + daemon + 路由 + UI；
+4. 两仓联调 + AC。
