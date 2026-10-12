@@ -126,11 +126,11 @@
 ### R165（bug 修复：单词详解面板滚动时丢失 ✕）
 
 - **根因**：`.reading-word-detail` 面板自身是滚动容器（`max-height: min(70vh, 560px)` + `overflow-y: auto`），词目与 ✕ 位于滚动内容之内的 `.wd-head`，滚到底时头部整体移出可视区；面板关闭路径只有 ✕ 与 Esc（R125 起无点外关闭），于是「看到最后没法关」。
-- **修复**：`.wd-head` 改 `position: sticky; top: 0` 吸顶，白底铺满整行内宽。**关键坑（实测纠正）**：sticky 的吸顶边界是「滚动容器 padding 内缩后的区域」，第一版用 `margin-top: -12px` 把头部顶进面板那 12px 上内边距，被约束回弹（头部仍停在 133px），那 12px 反成头部上方一条漏字的缝——改为把面板的 `padding-top` 移交 `.wd-head`（面板 `padding: 0 14px 12px`）。头部 8px 下内边距用 `margin-bottom: -8px` 收回，未滚动时下方各行位置不变。
+- **修复**：`.wd-head` 改 `position: sticky; top: 0` 吸顶，白底铺满整行内宽。**两个坑都靠实测纠出**：① sticky 的吸顶边界是「滚动容器 padding 内缩后的区域」，第一版用 `margin-top: -12px` 把头部顶进面板那 12px 上内边距被约束回弹（头部仍停在 133px），那 12px 反成头部上方一条漏字的缝——改为把面板的 `padding-top` 移交 `.wd-head`（面板 `padding: 0 14px 12px`）；② 交叉审查指出头部的 8px 下内边距若再用 `margin-bottom: -8px` 收回（本想换取未滚动时逐像素不变），带 z-index 的白底板会压住下一行——变体说明行只有 2px 上边距，`elementFromPoint` 在变体行 top+2 处返回的是头部（gap −6px），故最终不收回负 margin，下方各行下移 8px 换零遮挡。
 - **改动面**：仅 `cps/static/css/reader.css`（`epub.js` 零改动，面板 DOM 结构不变）。
-- **验证**：① 同源复刻页（真实 `reader.css` + epub.js 同款面板 DOM）在 headless Chrome 154 跑「控制组=develop 未修版 / 修复组」对照——滚到底时 ✕ 的 `elementFromPoint` 判定 `clickable=true`（控制组 false，✕ 落在 -1321px），盒模型 12 项几何量改动前后逐项相等，截图确认头部常驻且圆角未被白底方角破坏；② 开发态单测 `tests/test_reading_vocabulary.py` 32 passed（CSS-only 改动，按两级闸门只跑受影响模块）。真机整站验收待用户在阅读器内实测。
+- **验证**：① 同源复刻页（真实 `reader.css` + epub.js 同款面板 DOM，含变体说明行）在 headless Chrome 154 跑三态对照（控制组 develop 未修版 / 初版 `-8px` / 最终版）——滚到底时 ✕ 的 `elementFromPoint` 判定 `clickable=true`（控制组 false，✕ 落在 −1321px）；未滚动时 `head.bottom` 与变体行 `top` 的 gap 为控制组 +2 / 初版 −6 / 最终 +2；截图确认头部常驻、变体行字顶不被白底板盖住、圆角未被破坏。② 开发态单测 `tests/test_reading_vocabulary.py` 32 passed（CSS-only 改动，按两级闸门只跑受影响模块）。真机整站验收待用户在阅读器内实测。
 - **L1**：`docs/readme/reading.md` 划词查词条目补「滚动时词目与 ✕ 常驻顶部」。
-- **worktree 台账**：`../magicbook-sticky-detail-head`，分支 `fix/r165-sticky-detail-head`（基于 origin/develop fa7b9cfc），代码提交 `218da661`；**尚未 merge 回 develop**——主检出当前有并行会话未跟踪文件与九处驻留 worktree，merge 时机等用户定。
-- **同源**：magiclens R42 同一修法（其提交 `7bf73e8`，版本 0.8.9-202610122053），两仓详解面板继续保持同构。
+- **worktree 台账**：`../magicbook-sticky-detail-head`，分支 `fix/r165-sticky-detail-head`（基于 origin/develop fa7b9cfc），提交 `218da661`（初版）+ 复查修正提交；**尚未 merge 回 develop**——主检出当前有并行会话未跟踪文件与九处驻留 worktree，merge 时机等用户定。
+- **同源**：magiclens R42 同一修法（其分支 `fix/r42-sticky-detail-head`，版本 0.8.9-202610122121），两仓详解面板继续保持同构。
 - **顺带发现（未改）**：`docs/reading/hld/hld.md` 接口表仍写「R141 起内置「详」面板入口随气泡下线、本端点暂无调用方」，但 R146 起让位已改为探测 `data-magiclens-selection`，未装/旧版扩展时内置「详」与 `/ajax/reading-word-detail` 是活的——该行表述与现网行为有漂移，属并行会话文档口径，本条只记录不擅改。
 - **总结**：requests.md 占号 R165；本条为回应；冲突记录：无。窗口轮转：写入前本文件含 16 个 request 回应（此前多次写入未触发轮转），按「写入即检查」把最旧 7 条（R144/R145/R146/R147/R151/R152/R153）原样搬至 `response-archive/response-R144-R153.md`，搬后窗口为 R154–R165 共 10 个 request。
