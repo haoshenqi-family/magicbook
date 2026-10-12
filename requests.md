@@ -80,3 +80,5 @@
 160. 语音输入加麦克风设备选择器（用户场景：合盖外接显示器，iPhone 连续互通麦克风为输入）：口语/复述面板各加设备下拉（enumerateDevices，选中值存 localStorage 跨面板同步），getUserMedia 按选择设备采集；解除浏览器 per-site 设备记忆与系统默认不一致的坑。
 
 （R160 占号已在 worktree 创建时登记——麦克风设备选择器）
+
+161. 排查 https://magicbook.haoyuhang.top/ 打不开的问题（2026-10-12：公网入口 TLS 正常但请求超时，需定位 Traefik→NAS 后端链路）。
