@@ -21,6 +21,7 @@
 > **模式：一任务一临时 worktree，合并后保留待验收，验收通过后删除**。先例：R144 发布态全量复跑正是用干净 HEAD worktree 才把 25 个失败定性为本地运行态污染而非代码回归；本仓并行会话多，主检出不宜直接切分支开发。
 
 - **何时必须用**：编码类任务（含 bug 修复）开工时创建专属 worktree 开发，**不得在可能被并行会话共用的主检出上直接改分支**；纯问答、排查、文档微改可在主检出直接进行。
+- **一次会话一个 worktree（2026-10-12 moon-well R164 同源增补；家族统一口径第 7 条）**：同一会话内的连续工作（含多阶段/多子任务）必须**复用同一个 worktree**——阶段收尾 merge 回开发分支后不删树，续作前 `git fetch` 并 merge `origin/<开发分支>` 拉齐基线继续推进；**禁止每阶段/每子任务各开新树**（反面样本：moon-well R162 重构五阶段 + NAS 下线累积 6 处驻留）。跨会话续作优先复用台账登记的该任务 worktree；仅并行会话允许并存多树。
 - **创建**（位置必须在仓库目录外的兄弟目录，命名 `magicbook-<任务slug>`；先 `git fetch origin`，从 `origin/develop` 最新点切出）：
   ```bash
   git worktree add ../magicbook-<slug> -b <type>/r<编号>-<slug> origin/develop
