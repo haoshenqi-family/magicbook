@@ -137,7 +137,9 @@
 - **改动面**：仅 `cps/static/css/reader.css`（`epub.js` 零改动，面板 DOM 结构不变）。
 - **验证**：① 同源复刻页（真实 `reader.css` + epub.js 同款面板 DOM，含变体说明行）在 headless Chrome 154 跑三态对照（控制组 develop 未修版 / 初版 `-8px` / 最终版）——滚到底时 ✕ 的 `elementFromPoint` 判定 `clickable=true`（控制组 false，✕ 落在 −1321px）；未滚动时 `head.bottom` 与变体行 `top` 的 gap 为控制组 +2 / 初版 −6 / 最终 +2；截图确认头部常驻、变体行字顶不被白底板盖住、圆角未被破坏。② 开发态单测 `tests/test_reading_vocabulary.py` 32 passed（CSS-only 改动，按两级闸门只跑受影响模块）。真机整站验收待用户在阅读器内实测。
 - **L1**：`docs/readme/reading.md` 划词查词条目补「滚动时词目与 ✕ 常驻顶部」。
-- **worktree 台账**：`../magicbook-sticky-detail-head`，分支 `fix/r165-sticky-detail-head`（基于 origin/develop fa7b9cfc），提交 `218da661`（初版）+ 复查修正提交；**尚未 merge 回 develop**——主检出当前有并行会话未跟踪文件与九处驻留 worktree，merge 时机等用户定。
+- **交付（上线）**：用户批准「merge + push（等于上线）」。**未走主检出 merge**——那里 `requests.md`/`response.md` 有并行会话未提交改动（R162/R163 占号与回应、还另建了一个同名 `response-archive/response-R154.md`），merge 需 autostash，正是 R164 警示过的现场；改从本 worktree `git push origin HEAD:develop`，推送前 `merge-base --is-ancestor` 验得 fast-forward，远端 `8a4eb153..2a344579`。fnOS webhook-builder 约 40 秒完成构建+部署，公网 `https://magicbook.haoyuhang.top/static/css/reader.css` 已实测到 `.wd-head` 的 `position: sticky` 规则（上线判据）。
+- **上线闸门**：集成后的新基线（含并行会话 R161）全量单测 `pytest tests/` **417 passed / 0 failed**（退出码读 pytest 末行，不用管道末端）。
+- **worktree 驻留待验收**：`../magicbook-sticky-detail-head`（分支 `fix/r165-sticky-detail-head`，HEAD `2a344579`）。验收方式：阅读器里划一个变体词（如 ran）→「详」→ 滚到底，词目与 ✕ 应常驻顶部且变体说明行字顶不被遮。主检出的 develop 现落后于远端，由该会话自行 rebase/pull。
 - **同源**：magiclens R42 同一修法（其分支 `fix/r42-sticky-detail-head`，版本 0.8.9-202610122121），两仓详解面板继续保持同构。
 - **顺带发现（未改）**：`docs/reading/hld/hld.md` 接口表仍写「R141 起内置「详」面板入口随气泡下线、本端点暂无调用方」，但 R146 起让位已改为探测 `data-magiclens-selection`，未装/旧版扩展时内置「详」与 `/ajax/reading-word-detail` 是活的——该行表述与现网行为有漂移，属并行会话文档口径，本条只记录不擅改。
 - **总结**：requests.md 占号 R165；本条为回应；冲突记录：无撞号（165 为空号），但**基线漂移一次**——本分支从 fa7b9cfc 切出后，并行会话把 R161（公网超时排查）推上 develop 并**已先把 R144–R153 归档**，我这边同批归档与之撞车；按纪律 `git merge origin/develop` 拉齐后，归档文件取对方版本（正文与我的逐字节相同，仅头部注记不同），requests/response 两侧并存，合并后窗口达 11 条故再搬出最旧的 R154 至 `response-archive/response-R154.md`，窗口回到 10（R155–R165）。
