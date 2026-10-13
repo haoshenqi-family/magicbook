@@ -20,8 +20,14 @@
    'ln-continue', 'ln-card', 'ln-word', 'ln-encounters', 'ln-stem', 'ln-context',
    'ln-context-source', 'ln-choices', 'ln-recall', 'ln-reveal', 'ln-spell',
    'ln-spell-input', 'ln-spell-check', 'ln-grades', 'ln-feedback', 'ln-card-error',
-   'ln-skip',
+   'ln-skip', 'ln-note',
   ].forEach(function (id) { els[id] = $(id); });
+
+  // 后端会认识而前端不认识的题型一律按 SELF 出卡：未知题型若原样渲染，四选一/揭示/
+  // 拼写三个区都不亮，卡片没有任何作答入口（死卡）。R167 起后端新增 DISCRIMINATE，
+  // 前后端发布不可能永远同刻到位，这条兜底是那个窗口的保底。
+  var KNOWN_TYPES = ['CHOOSE', 'RECALL', 'SPELL', 'LISTEN_CHOOSE', 'LISTEN_SPELL',
+                     'CONTEXT_CLOZE', 'DISCRIMINATE'];
 
   var queue = [];          // 剩余队列（每项已含 questionType 与 choices）
   var current = null;      // 当前卡
@@ -75,11 +81,26 @@
       show(root, false);
       return;
     }
-    // 服务端约定（LearningChoiceService）：干扰池不足时 choices=null，选择题降级回忆题，
+    // 本地呈现态 mode 与后端题型 questionType 分开存：前端会因为缺选项/缺释义把卡
+    // 降级（SELF/RECALL），但回传给后端记答题日志的必须是它当初发下来的题型——
+    // SELF 后端根本不认识，而降级后的 RECALL 会掩盖「当时出的是辨析题」这个事实。
+    var mode = KNOWN_TYPES.indexOf(current.questionType) >= 0 ? current.questionType : 'SELF';
+    // 服务端约定（ReviewChoiceService）：干扰池不足时 choices=null，选择题降级回忆题，
     // 不出「无法作答的死卡」——服务端不回改题型字段，客户端按契约降级。
-    if (current.questionType === 'CHOOSE' && !(current.choices && current.choices.length > 1)) {
-      current.questionType = 'RECALL';
+    if ((mode === 'CHOOSE' || mode === 'DISCRIMINATE') &&
+        !(current.choices && current.choices.length > 1)) {
+      mode = 'RECALL';
     }
+    // R137 题干：释义即题面，词面即答案——有释义时藏词面与语境卡（原句含目标词），
+    // 揭示/判定后再亮。CHOOSE/RECALL/SPELL 没释义就不成立（选它自己 / 揭示已亮着的词 /
+    // 听写自己），只有 SELF 保底诚实可答。
+    // 辨析题例外：它的题干就是词面本身（问「哪个词跟它最接近」），缺释义照样可答。
+    var hasMeaning = !!(current.meaning && current.meaning.length);
+    if (!hasMeaning && mode !== 'DISCRIMINATE') {
+      mode = 'SELF';
+    }
+    current.mode = mode;
+    var isDiscriminate = mode === 'DISCRIMINATE';
     show(els['ln-empty'], false);
     show(root, true);
     inFlight = false;
@@ -90,32 +111,27 @@
     if (current.encounterCount > 0) {
       els['ln-encounters'].textContent = mbT('met {{count}}×').replace('{{count}}', current.encounterCount);
     }
-    // R137 题干：释义即题面，词面即答案——有释义时藏词面与语境卡（原句含目标词），
-    // 揭示/判定后再亮。无释义统一降级 SELF（亮词自评，Anki 基础模式）：
-    // CHOOSE 没题干会变「选它自己」、RECALL 的 Reveal 变「揭示已亮着的词」、
-    // SPELL 没题干变「听写自己」，全不成立，只有自评保底诚实可答。
-    var hasMeaning = !!(current.meaning && current.meaning.length);
-    if (!hasMeaning) {
-      current.questionType = 'SELF';
-    }
-    show(els['ln-stem'], hasMeaning);
-    if (hasMeaning) {
+    show(els['ln-stem'], hasMeaning || isDiscriminate);
+    if (isDiscriminate) {
+      els['ln-stem'].textContent = mbT('Which word below is closest in meaning to it?');
+    } else if (hasMeaning) {
       els['ln-stem'].textContent = mbT('Which word means “{{meaning}}”?')
         .replace('{{meaning}}', current.meaning);
     }
-    show(els['ln-word'], !hasMeaning);
-    showContext(hasMeaning ? false : !!(current.contextSentence && current.contextSentence.length > 0));
+    show(els['ln-word'], !hasMeaning || isDiscriminate);
+    showContext(!hasMeaning && !isDiscriminate &&
+      !!(current.contextSentence && current.contextSentence.length > 0));
     els['ln-spell-input'].value = '';
     els['ln-spell-input'].className = 'form-control';
     show(els['ln-feedback'], false);
     show(els['ln-card-error'], false);
-    var type = current.questionType;
-    show(els['ln-recall'], type === 'RECALL');
-    show(els['ln-reveal'], type === 'RECALL');
-    show(els['ln-spell'], type === 'SPELL');
+    show(els['ln-note'], false);
+    show(els['ln-recall'], mode === 'RECALL');
+    show(els['ln-reveal'], mode === 'RECALL');
+    show(els['ln-spell'], mode === 'SPELL');
     renderChoices(current);
-    show(els['ln-grades'], type === 'SELF');
-    if (type === 'SPELL' && hasMeaning) {
+    show(els['ln-grades'], mode === 'SELF');
+    if (mode === 'SPELL' && hasMeaning) {
       els['ln-spell-input'].focus();
     }
   }
@@ -133,9 +149,10 @@
   }
 
   function renderChoices(item) {
-    var isChoose = item.questionType === 'CHOOSE' && item.choices && item.choices.length > 1;
-    show(els['ln-choices'], isChoose);
-    if (!isChoose) return;
+    var isChoice = (item.mode === 'CHOOSE' || item.mode === 'DISCRIMINATE') &&
+      item.choices && item.choices.length > 1;
+    show(els['ln-choices'], isChoice);
+    if (!isChoice) return;
     var buttons = els['ln-choices'].querySelectorAll('.ln-choice');
     for (var i = 0; i < buttons.length; i++) {
       var btn = buttons[i];
@@ -152,14 +169,19 @@
     }
   }
 
-  // CHOOSE：选中即判定（对→评分；错→亮出正确项并进评分，grade 由用户自报）
+  // 选择题（CHOOSE / DISCRIMINATE）：选中即判定（对→评分；错→亮出正确项并进评分，
+  // grade 由用户自报）
   function onChoicePicked(event) {
     if (inFlight || !current) return;
+    // 正确项按 answer 判，不再按 word：辨析题的正确项是该词的同义词、word 只是调度锚点
+    // 且不在选项里，沿用 word 会把选对判成选错（R167）。老后端不发 answer 时回退 word，
+    // 行为与改动前逐字一致。
+    var answer = current.answer || current.word;
     var picked = event.target.textContent;
-    var correct = picked === current.word;
+    var correct = picked === answer;
     var buttons = els['ln-choices'].querySelectorAll('.ln-choice');
     for (var i = 0; i < buttons.length; i++) {
-      if (buttons[i].textContent === current.word) {
+      if (buttons[i].textContent === answer) {
         buttons[i].className = 'btn btn-success ln-choice';
       } else if (buttons[i] === event.target && !correct) {
         buttons[i].className = 'btn btn-danger ln-choice';
@@ -167,6 +189,10 @@
     }
     show(els['ln-recall'], false);
     show(els['ln-grades'], true);
+    if (current.answerNote) {
+      els['ln-note'].textContent = current.answerNote;
+      show(els['ln-note'], true);
+    }
     if (!correct) {
       show(els['ln-feedback'], true);
       els['ln-feedback'].textContent = mbT('The answer is highlighted — rate yourself honestly.');
@@ -213,6 +239,12 @@
     if (inFlight || !current) return;
     inFlight = true;
     var payload = { scheduleId: current.scheduleId, grade: grade };
+    // 回传后端**当初发下来的**题型（不是本地降级后的 mode）：辨析题在混出带里随机出现，
+    // 服务端事后重算会错一半，而该字段是四技能统计与保持率的底座（R167）。
+    // SELF 是前端呈现态、后端不认识，此时后端按缺省回落重算。
+    if (KNOWN_TYPES.indexOf(current.questionType) >= 0) {
+      payload.questionType = current.questionType;
+    }
     var latency = latencyMs != null ? latencyMs : Math.min(Date.now() - answeredAt, 300000);
     if (latency > 0) payload.latencyMs = latency;
     postJson(urls.answer, payload).then(function (response) {

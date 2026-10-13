@@ -972,10 +972,15 @@ def learning_srs_queue():
 @web.route("/ajax/learning/srs/answer", methods=["POST"])
 @user_login_required
 def learning_srs_answer():
-    """Proxy one review answer; payload {"scheduleId": id, "grade": 1-4, "latencyMs": ms?}.
+    """Proxy one review answer; payload {"scheduleId": id, "grade": 1-4,
+    "latencyMs": ms?, "questionType": "CHOOSE"|...}.
 
     Why scheduleId 校验为纯数字：moon-well 实体是自增 Long，前端 VO 已转字符串；
     代理只挡明显非法（空/负/非数字），归属校验在上游。
+    Why questionType 必须透传（R167）：辨析题在混出带里随机出现，服务端事后重算会与
+    用户实际所做约一半不一致，而该字段是四技能统计与保持率的底座。本代理逐字段重建
+    body，漏抄一个字段就是**静默丢弃**——前端发了、后端收不到、页面不报错，所以这里
+    显式收并补一条透传断言。取值合法性与回落由上游白名单负责。
     """
     payload = request.get_json(silent=True) or {}
     schedule_id = payload.get("scheduleId")
@@ -989,9 +994,16 @@ def learning_srs_answer():
     latency = payload.get("latencyMs")
     if latency is not None and (isinstance(latency, bool) or not isinstance(latency, int) or latency < 0):
         return jsonify({"success": False, "message": "latencyMs must be a non-negative integer"}), 400
+    question_type = payload.get("questionType")
+    if question_type is not None and (not isinstance(question_type, str)
+                                       or not question_type.strip()):
+        return jsonify({"success": False,
+                        "message": "questionType must be a non-empty string"}), 400
     body = {"scheduleId": int(schedule_id), "grade": grade}
     if latency is not None:
         body["latencyMs"] = latency
+    if question_type:
+        body["questionType"] = question_type.strip().upper()
     return _moonwell_proxy("/learning/srs/answer", body, 5, "learning srs answer")
 
 
