@@ -156,3 +156,15 @@
 - **同源**：magiclens R42 同一修法（其分支 `fix/r42-sticky-detail-head`，版本 0.8.9-202610122121），两仓详解面板继续保持同构。
 - **顺带发现（未改）**：`docs/reading/hld/hld.md` 接口表仍写「R141 起内置「详」面板入口随气泡下线、本端点暂无调用方」，但 R146 起让位已改为探测 `data-magiclens-selection`，未装/旧版扩展时内置「详」与 `/ajax/reading-word-detail` 是活的——该行表述与现网行为有漂移，属并行会话文档口径，本条只记录不擅改。
 - **总结**：requests.md 占号 R165；本条为回应；冲突记录：无撞号（165 为空号），但**基线漂移一次**——本分支从 fa7b9cfc 切出后，并行会话把 R161（公网超时排查）推上 develop 并**已先把 R144–R153 归档**，我这边同批归档与之撞车；按纪律 `git merge origin/develop` 拉齐后，归档文件取对方版本（正文与我的逐字节相同，仅头部注记不同），requests/response 两侧并存，合并后窗口达 11 条故再搬出最旧的 R154 至 `response-archive/response-R154.md`，窗口回到 10（R155–R165）。
+
+
+## 2026-10-13（R164 续：P3 批次主体交付 + push 上线 + 部署确认）
+
+### R164 开发与上线回应（feat/r164-whole-book-tts，worktree 驻留待验收）
+
+- **P3 交付（commit 25489563，P1/P2 在 moon-well 侧见其 response.md R166）**：`cps/reading_tts/` 新模块——`extractor.py` 朗读口径提取器（逐条复刻 epub.js：PARAGRAPH_SELECTOR 嵌套双收、DIV 含块级后代跳过、textContent 归一、连播切块后 1/3 窗口句读；Why 不复用翻译 parser：口径差=缓存键差=整本白合成）+ `models.py`（reading_tts_job/item 镜像翻译批次表）+ `service.py`（start 幂等复用/僵尸自愈 30min/daemon 串行 0.8s≈75RPM<MiMo 100/失败重试 1 次/取消/整本选角先行且失败不阻断）；路由四件套（/ajax/reading-tts-book[/status|/retry|/cancel]，admin 门禁，身份闭包请求线程定格）+ detail.html「整本朗读」按钮（确认弹窗含积分口径说明）。**口径契约测试双锁**（设计 §3.3）：epub.js 三常量+切块算法特征静态锁、样例 EPUB 提取序列行为锁——前端口径漂移即红。
+- **测试**：新增 21 例（extractor 11/service 5/routes 5）+ 相邻回归 **47 例全绿**；push 前集成基线全量 **438 passed / 0 failed**（417+21）。
+- **上线**：用户指令 push。主检出代提交并行会话工作区记录（R153 先例）→ 合入 origin R165 轮 5 提交（冲突三处：requests.md 本会话二轮 edit 失误致 163 条重复——去重如实记录；归档索引取 origin 权威版；R162/R165 回应两节并存）→ merge feat 分支 → push `87e9067a..313af994`。fnOS 构建 ~1 分钟，容器健康。
+- **部署确认（moon-well 侧联动）**：Nacos `tts-book-voice` 1.0.1 同步+生产选角冒烟通过（book 145《Matilda》→ voice=Mia、风格指令「轻快明亮温暖俏皮…睡前故事」——元信息进 prompt 实证）；端到端批量合成（AC②）待真机浏览器登录态验收。
+- **worktree 台账（验收期驻留）**：`feat/r164-whole-book-tts`（`../magicbook-whole-book-tts`）已 merge 本地 develop 并 push；验收通过后 `worktree remove` + `branch -d`。
+- **总结**：requests.md R163/R164；本条为开发+上线回应；冲突记录：R165 轮并行 push 一次基线漂移（其 response.md 已自记），本轮 merge 按「两侧并存」收敛；163 重复条系本会话二轮 edit 锚点失误，已去重并如实记录。
