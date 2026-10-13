@@ -23,17 +23,7 @@
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md)（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事）
-
-## 2026-10-11（R158：麦克风转写卡死修复）
-
-### R158（「转写中…」永远不结束：els 注册表漏项 + 同步 TypeError 防御）
-
-- **根因定位**（ES app-log-magicbook + docker logs + 代码比对）：停止分支 `statusNode.textContent = ''` 对未注册的 `els['sw-s-audio-status']`（undefined）赋值 → 同步 TypeError 在 fetch 之前炸掉 → 无 alert、按钮禁用、标签停在「转写中…」——且服务端零日志（请求根本没发出）。只影响口语面板（复述的 sw-r-metrics 已注册）。注册表漏项是 R155 建表时只列了麦克风按钮、R156 改 statusNode 引用时未同步注册表所致。
-- **修复**：①注册表补 `'sw-s-audio-status'`；②停止分支同步段包 try/catch——任何异常都复原按钮 + 提示，永不卡「转写中…」；③新静态测试 `test_speaking_writing_static.py` 双锁：JS 引用的每个元素必已注册、注册表每个 id 必在模板（此类错误 pytest 页面断言抓不到）。
-- **顺带排查结论**（另两条独立线）：①moon-well 直连实测 SiliconFlow 引擎链路 OK（key 200、热重绑 provider=siliconflow 生效），但 RestTemplate 文件 part 默认 octet-stream 会被 SiliconFlow 500 [no body]（audio/wav 同请求 200 实测）——已修（moon-well R160：文件 part 按扩展名给标准 audio/* MIME）；②**Nacos 里的 siliconflow api-key 现在返回 401 Token is invalid**（14:05 实测 200 → 14:2x 失效）——用户需在 SiliconFlow 控制台取当前 key 重新填入 Nacos。
-- **测试**：静态完整性 2 例 + 代理 40 例 = 42 passed。
-- **总结**：requests.md 占号 R158；本条为回应；冲突记录：无。归档：窗口未超。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事）
 
 ## 2026-10-11（R159：语音输入静音检测）
 
@@ -239,3 +229,51 @@
 - **worktree 台账**：`../magicbook-review-distractor` @ `fix/r171-review-distractor`（`a8b86438`）**驻留待用户真机验收**，验收通过后 `worktree remove` → `branch -d`。
 - **交用户的验收动作**：复习队列连做 ≥10 题——①干扰项每题都变；②出现「下面哪个词和它的意思最接近？」的近义词题，选同义词应判绿并显示辨析；③四选一仍不泄露词面。
 - **冲突记录**：无。
+
+## 2026-10-13（R168：写作工坊续写——历史行可点装回任务，顶部一键继续未写完的稿子）
+
+### R168（用户：写作历史运行继续完成上一次未完成的写作；同源 moon-well R172）
+
+- **现状核对**：草稿正文一直存在 `learning_writing_submission.text`，但
+  `GET /learning/writing/history` 从不往外带，所以历史只是摘要、没有「接着写」的路径。
+  四项岔路口经 AskUserQuestion 拍板：入口＝历史行可点 + 顶部一键；取数＝新增任务详情端点
+  （不在列表里塞正文）；`tips` 加列落库；已交初稿的连上次批改一起恢复。
+- **交付**（worktree `../magicbook-learning-hub` 续作，基线 `origin/develop 20589dc8`）：
+  - 代理 `GET /ajax/learning/writing/task`——`taskId` 只认数字（防把任意串拼进转发路径），
+    非法本地 400 不打上游；合法时 GET 透传、超时 20s。
+  - **提交路径收敛**：撤掉批改面板内的「修订框 + 提交修订按钮」，正文只在上层编辑区改，
+    按钮文案与目标端点跟着 `lastDraftNo` 走（null→提交批改/submit、1→提交修订稿/revise、
+    2→两稿已完成且禁用）。Why：续写把第 1 稿装回来后，两条路径会同时可提交同一稿，
+    第二条还会撞上游 50513。
+  - 历史行加状态标签（还没开始写 / 已交第 N 稿·待修订 / 两稿已完成）并可点击续写；
+    顶部「继续上次未完成的写作」取列表里第一条没写完的（列表按创建时间倒序），
+    全部写完则整条隐藏。
+  - `applyTask` 一次铺回：mode/cefr/书名 + 题目 + 要求 + 提示 + 最新稿正文 + 该稿批改结果
+    （复用 `renderReview`，不另起渲染口径）。
+- **旧任务限制如实写进 L1**：R172 之前出题时 `tips` 从未落库，那些任务续写时提示行是空的
+  （题目、要求、正文都在），属数据缺失而非缺陷，补不回来。
+- **测试**：`test_learning_proxy.py` +4 例（登录门禁、GET 透传不裁字段、非数字 taskId 本地
+  400 且不打上游、续写 UI 装配面含「旧修订框已移除」）；`test_learning_pages_static.py`
+  自动覆盖新 els（`sw-w-resume*`）与模板的双向锁；i18n 种子契约覆盖 10 条新 JS 词条。
+  开发态相关 116 例绿，全量 **505 passed / 0 failed**。
+- **交互验收（这一步真正抓到问题）**：交互态静态断言看不见——harness
+  （`docs/temp/run_learning_hub_check.py`，不跟踪）加 `probe=2` 交互探针与写作桩数据，
+  无头 Chrome `--dump-dom` 读三步快照，据此抓出并修掉四个真缺陷：
+  ① `armResumeBar` 写成 `if (candidate || …)`，命中后仍继续覆盖 → 一键续写挑到的是
+  **最后一条**（已写完的任务）；② `refreshSubmitButton` 的 done 分支把基准文案写回初稿
+  文案 → 交满两稿后按钮仍显示「提交批改」；③ `busy(btn,false)` 在 `.finally` 无条件解禁，
+  把「两稿已完成」的 disabled 冲掉；④ 二次提交后状态行停留在「已恢复第 1 稿」。
+  修后快照：initial `提交批改/可点/正文 0` → after-resume `提交修订稿/可点/正文 174/批改面板
+  已开/overall 与逐句都在` → after-second-submit `两稿已完成/禁用/正文 212`。版面截图另看
+  续写条、题目区、编辑区、批改面板、历史状态五块正常。
+- **文档**：L1 `docs/readme/learning.md` 写作工坊段加续写与旧任务限制；
+  L3 新增 `docs/feat/learning-hub/design/us2-writing-resume-lld.md`（含状态机表与四缺陷记录）。
+- **未验**：真实账号下的续写体验与生产 `lastDraftNo` 分布需你线上验收。
+- **worktree 台账（验收期驻留）**：本会话按「一次会话一树」复用 R166 那棵
+  `../magicbook-learning-hub`（分支 `feat/r166-learning-hub`），先 `git fetch` 并 merge
+  `origin/develop 20589dc8` 拉齐基线再续作；R166 部分已上线，R168 部分**未 push**（等你指令）。
+  R166 的验收结论若通过，一并 `worktree remove` + `branch -d`。
+- **总结**：requests.md 占号 R168（原计划记 R167，merge 新基线时发现已被并行会话的复习
+  干扰项前端占用，按「不改既存、续编空号」续编；moon-well 侧 R172 条目里当时写的
+  「magicbook R167」以本条为准更正为 R168）；本条为回应；冲突记录：无撞号。
+  归档：本条写入使窗口达 11，把最旧的 R158 一节原样搬至 `response-archive/` 并登记索引。
