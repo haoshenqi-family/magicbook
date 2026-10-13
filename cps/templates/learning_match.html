@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+{% block body %}
+<div class="discover">
+  <h1>{{_('Book Difficulty Match')}}</h1>
+  <p class="text-muted lh-sub-hint">
+    <a href="{{ url_for('web.learning_page') }}"><span class="glyphicon glyphicon-arrow-left"></span> {{_('Daily Learning')}}</a>
+  </p>
+
+  <div class="panel panel-default" id="ln-match-root"
+       data-books-url="{{ url_for('web.learning_match_books') }}"
+       data-book-url="{{ url_for('web.learning_match_book') }}">
+    <div class="panel-body">
+      <p class="text-muted ln-hint">
+        {{_('Books are shelved into six graded stages. We pick the shelf matching your vocabulary size, then estimate unknown-word density per book — two to eight unknown words in every hundred is the sweet spot for comfortable reading.')}}
+      </p>
+      <div id="ln-match-status" class="text-muted"></div>
+      <ul class="list-unstyled" id="ln-match-list"></ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block header %}
+{{ super() }}
+{% include "learning_sub_css.html" %}
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+  window.learningUrls = {
+    matchBooks: "{{ url_for('web.learning_match_books') }}",
+    matchBook: "{{ url_for('web.learning_match_book') }}"
+  };
+})();
+</script>
+<script src="{{ url_for('static', filename='js/learning-common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-match.js') }}"></script>
+{% endblock %}

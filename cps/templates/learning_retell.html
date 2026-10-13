@@ -1,0 +1,80 @@
+{% extends "layout.html" %}
+{% block body %}
+<input type="hidden" id="lh-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Retell Drill (4-3-2)')}}</h1>
+  <p class="text-muted lh-sub-hint">
+    <a href="{{ url_for('web.learning_page') }}"><span class="glyphicon glyphicon-arrow-left"></span> {{_('Daily Learning')}}</a>
+  </p>
+
+  <div class="panel panel-default">
+    <div class="panel-body">
+      <p class="text-muted sw-hint">{{_('Retell the same passage three times with shorter time limits (4-3-2 minutes). Repeating under time pressure is a proven fluency drill. Paste a paragraph you have read.')}}</p>
+      <textarea id="sw-r-paragraph" class="form-control" rows="4"
+                placeholder="{{_('Paste an English paragraph you have read')}}"></textarea>
+      <div class="form-inline sw-gap">
+        <input id="sw-r-book" class="form-control" style="width:180px"
+               placeholder="{{_('Book (optional)')}}">
+        <input id="sw-r-chapter" class="form-control" style="width:140px"
+               placeholder="{{_('Chapter (optional)')}}">
+        <input id="sw-r-minutes" class="form-control" style="width:140px" value="4,3,2"
+               placeholder="{{_('Round lengths (minutes, comma separated)')}}">
+        <button type="button" id="sw-r-start" class="btn btn-primary">{{_('New drill')}}</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-default" id="sw-r-round-panel" hidden>
+    <div class="panel-body">
+      <p id="sw-r-source" class="sw-source text-muted"></p>
+      <p><strong id="sw-r-round-label"></strong>
+        <span id="sw-r-timer" class="sw-timer"></span></p>
+      <textarea id="sw-r-transcript" class="form-control" rows="5"
+                placeholder="{{_('Type what you said (as close to verbatim as you can), then submit the round.')}}"></textarea>
+      <div class="sw-gap">
+        <select id="sw-r-mic-device" class="form-control sw-mic-device" style="max-width:240px"
+                title="{{_('Microphone device')}}"></select>
+        <button type="button" id="sw-r-mic" class="btn btn-default sw-mic"
+                title="{{_('Record voice')}}"><span class="glyphicon glyphicon-microphone"></span>
+          <span class="sw-mic-label">{{_('Voice input')}}</span></button>
+        <button type="button" id="sw-r-submit" class="btn btn-primary">{{_('Stop & submit round')}}</button>
+        <span id="sw-r-metrics" class="sw-metrics"></span>
+      </div>
+      <div class="sw-gap"><button type="button" id="sw-r-finish" class="btn btn-default" hidden>{{_('Training summary')}}</button></div>
+    </div>
+  </div>
+
+  <div class="panel panel-default" id="sw-r-summary-panel" hidden>
+    <div class="panel-body">
+      <p id="sw-r-summary" class="sw-prompt"></p>
+      <p id="sw-r-improvement"></p>
+      <p id="sw-r-advice"></p>
+      <table class="table table-condensed sw-round-table">
+        <thead><tr><th>{{_('Round')}}</th><th>{{_('WPM')}}</th><th>{{_('Fillers')}}</th><th>{{_('Lexical diversity')}}</th></tr></thead>
+        <tbody id="sw-r-rounds"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block header %}
+{{ super() }}
+{% include "learning_sub_css.html" %}
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+  window.learningUrls = {
+    retellStart: "{{ url_for('web.learning_retell_start') }}",
+    retellRound: "{{ url_for('web.learning_retell_round') }}",
+    retellFinish: "{{ url_for('web.learning_retell_finish') }}",
+    asrTranscribe: "{{ url_for('web.learning_asr_transcribe') }}"
+  };
+})();
+</script>
+<script src="{{ url_for('static', filename='js/learning-common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-voice.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-retell.js') }}"></script>
+{% endblock %}

@@ -113,8 +113,11 @@ def test_dropdown_hidden_for_anonymous(client):
 
 
 def test_learning_entries_are_top_level(settings_page):
-    """R154：每日学习/说与写是一级使用入口，平铺在左侧主导航，不再收进 Settings 下拉。"""
-    # 全页各出现一次（左侧导航），且不在下拉框块内（防回流）
-    for anchor in ("top_learning", "top_speaking_writing"):
-        assert settings_page.count('id="{0}"'.format(anchor)) == 1, anchor
-        assert anchor not in _dropdown_block(settings_page), anchor
+    """R154：每日学习是一级使用入口，平铺在左侧主导航，不收进 Settings 下拉。
+
+    R166：说与写并入每日学习中枢的功能 banner，一级项随之撤掉——这里同时锁
+    「不回流」，防止后来者把它当漏项加回去。
+    """
+    assert settings_page.count('id="top_learning"') == 1
+    assert "top_learning" not in _dropdown_block(settings_page)
+    assert 'id="top_speaking_writing"' not in settings_page

@@ -56,11 +56,11 @@
           {% if current_user.is_authenticated or g.allow_anonymous %}
           <ul class="nav navbar-nav ">
             <li><a href="{{url_for('search.advanced_search')}}" id="advanced_search"><span class="glyphicon glyphicon-search"></span><span class="hidden-sm"> {{_('Advanced Search')}}</span></a></li>
-            {# R154：每日学习/说与写是一级使用入口（每天都要进），与高级搜索平级平铺；
-               不再收进 Settings 下拉（用户反馈：藏设置里层级不对） #}
+            {# R154：每日学习是一级使用入口（每天都要进），与高级搜索平级平铺，
+               不收进 Settings 下拉（用户反馈：藏设置里层级不对）。
+               R166：说与写五个面板并入每日学习中枢的功能 banner，一级项随之撤掉 #}
             {% if not current_user.is_anonymous %}
             <li><a href="{{url_for('web.learning_page')}}" id="top_learning"><span class="glyphicon glyphicon-repeat"></span><span class="hidden-sm"> {{_('Daily Learning')}}</span></a></li>
-            <li><a href="{{url_for('web.speaking_writing_page')}}" id="top_speaking_writing"><span class="glyphicon glyphicon-comment"></span><span class="hidden-sm"> {{_('Speaking & Writing')}}</span></a></li>
             {% endif %}
             {% if simple==true %} <li><a href="{{url_for('basic.index')}}" id="basic"><span class="glyphicon glyphicon-phone"></span><span>{{_('Simple Theme')}}</span></a><li>{% endif %}
           </ul>

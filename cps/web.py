@@ -666,23 +666,73 @@ def vocab_test_history():
 @web.route("/learning", methods=["GET"])
 @user_login_required
 def learning_page():
-    """每日学习页：到期复习队列 + 每日计划 + 统计。
+    """每日学习中枢（R166）：功能卡片 banner + 今日计划 + 复习摘要 + 四股周视图。
 
-    数据全部由 learning.js 异步经 /ajax/learning-* 拉取（与成就页同模式），
-    页面本身零上游调用——moon-well 慢/重启不拖首屏。
+    R166 起本页不再内嵌复习队列与难度匹配面板（搬入各自子页面），只留
+    「今日复习 x/20 · 到期 n 词」摘要卡。数据全部由 learning-hub.js 异步经
+    /ajax/learning-* 拉取——页面本身零上游调用，moon-well 慢/重启不拖首屏。
     """
     return render_title_template("learning.html", title=_("Daily Learning"))
+
+
+@web.route("/learning/review", methods=["GET"])
+@user_login_required
+def learning_review_page():
+    """复习队列子页面（R166）：SRS 到期卡逐张作答，逻辑自 learning.js 迁入。"""
+    return render_title_template("learning_review.html", title=_("Review Queue"))
+
+
+@web.route("/learning/match", methods=["GET"])
+@user_login_required
+def learning_match_page():
+    """选书难度匹配子页面（R166）：选架→估算→推荐，后台补算时前端轮询。"""
+    return render_title_template("learning_match.html", title=_("Book Difficulty Match"))
+
+
+@web.route("/learning/writing", methods=["GET"])
+@user_login_required
+def learning_writing_page():
+    """写作工坊子页面（R166，原说与写页 tab 1）：出题/写稿/AI 批改/二稿进步。"""
+    return render_title_template("learning_writing.html", title=_("Writing Workshop"))
+
+
+@web.route("/learning/speaking", methods=["GET"])
+@user_login_required
+def learning_speaking_page():
+    """AI 口语陪练子页面（R166，原 tab 2）：场景会话 + 逐轮反馈 + 会话报告。"""
+    return render_title_template("learning_speaking.html", title=_("AI Speaking Coach"))
+
+
+@web.route("/learning/retell", methods=["GET"])
+@user_login_required
+def learning_retell_page():
+    """复述训练子页面（R166，原 tab 3）：4-3-2 递减时限三轮 + 指标解读。"""
+    return render_title_template("learning_retell.html", title=_("Retell Drill (4-3-2)"))
+
+
+@web.route("/learning/reread", methods=["GET"])
+@user_login_required
+def learning_reread_page():
+    """计时重读子页面（R166，原 tab 4）：同段朗读三遍实测 WPM 与趋势。"""
+    return render_title_template("learning_reread.html", title=_("Timed rereading"))
+
+
+@web.route("/learning/dictation", methods=["GET"])
+@user_login_required
+def learning_dictation_page():
+    """听写子页面（R166，原 tab 5）：播放段落 + 词级 diff + 漏词入队。"""
+    return render_title_template("learning_dictation.html", title=_("Dictation"))
 
 
 @web.route("/learning/speaking-writing", methods=["GET"])
 @user_login_required
 def speaking_writing_page():
-    """说与写页（R152 / B1 输出训练）：写作工坊 + AI 口语陪练 + 复述训练。
+    """旧「说与写」五合一页（R152）→ 中枢（R166）。
 
-    与 learning 页同模式：页面零上游调用，全部由 speaking_writing.js 经
-    /ajax/learning/* 异步拉取。
+    Why 保留路由而非删除：导航项、用户书签与 R152 期间的文档链接都指向它，
+    302 回中枢比 404 诚实——五个面板各自成页后这里已无对应实体。
     """
-    return render_title_template("speaking_writing.html", title=_("Speaking & Writing"))
+    return redirect(url_for("web.learning_page"))
 
 
 # ---------- B1 输出训练代理（R152）。 ----------

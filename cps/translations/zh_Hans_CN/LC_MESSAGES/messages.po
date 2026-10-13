@@ -5278,3 +5278,96 @@ msgstr "默认（跟随系统）"
 
 msgid "Microphone {{n}}"
 msgstr "麦克风 {{n}}"
+
+msgid "Speaking & writing strand · 15-25 minutes"
+msgstr "说与写股 · 15-25 分钟"
+
+msgid "Speaking & writing strand · 5-15 minutes"
+msgstr "说与写股 · 5-15 分钟"
+
+msgid "Speaking & writing strand · about 12 minutes"
+msgstr "说与写股 · 约 12 分钟"
+
+msgid "Fluency strand · about 5 minutes"
+msgstr "流利度股 · 约 5 分钟"
+
+msgid "Word study strand · 3-8 minutes"
+msgstr "词汇学习股 · 3-8 分钟"
+
+msgid "Word study strand · 20 cards a day, more on request"
+msgstr "词汇学习股 · 每天 20 张卡，可继续加练"
+
+msgid "Reading input strand · choose your next book"
+msgstr "阅读输入股 · 挑下一本读什么"
+
+msgid "Write freely or on an A2-C1 task tied to the book you are reading. The AI returns an overall comment, sentence-by-sentence notes, native upgrades and four scores; revise and submit again to see your progress."
+msgstr "自由写作，或让 AI 按 A2–C1 出与你在读书籍相关的题目。提交后给出总体评价、逐句点评、「母语者会怎么写」的升级表达和四维评分；按批改修订后再交一次就能看到进步。"
+
+msgid "Pick a scene — coffee shop, interview, travel, small talk or the book you are reading — and start chatting. The coach responds to your meaning first, then encourages, corrects and offers a more idiomatic phrasing. Voice input included."
+msgstr "选一个场景——咖啡店点单、面试、旅行、日常闲聊或聊你在读的书——直接开聊。教练先回应你说的内容，再鼓励、纠错，并给出更地道的说法；支持语音输入。"
+
+msgid "Retell the same paragraph three times while the time limit shrinks from four minutes to three and then two. Speaking against a shrinking clock is the classic fluency drill; each round is scored for speed, filler words and lexical variety."
+msgstr "同一段落复述三遍，时限从 4 分钟压到 3 分钟再到 2 分钟。顶着越来越短的时钟开口是最经典的流利度训练；每一轮都会统计语速、填充词和词汇多样性。"
+
+msgid "Read one paragraph aloud three times against the timer. Same words, rising speed — the measured words-per-minute curve is the clearest evidence that fluency comes from repetition, not talent. Paragraphs carrying your due words can be recommended."
+msgstr "掐着表把同一段落朗读三遍。同样的词、越来越快的速度——实测的每分钟词数曲线最能说明流利度来自重复而非天赋。也可以让系统推荐含你到期词的段落。"
+
+msgid "Play a paragraph and type exactly what you hear, as many times as you need. Your answer is diffed word by word — right, wrong, missing, extra — and the words you missed can go straight into the review queue."
+msgstr "播放段落，把听到的内容逐字打出来，需要就反复听。提交后按词比对——对、错、漏、多——漏写和写错的词可以直接进复习队列。"
+
+msgid "Words you marked while reading come back one card at a time, scheduled to surface just as you are about to forget them. Choose, recall or spell, then rate yourself from forgot to easy — the algorithm decides the next visit."
+msgstr "阅读时标记的生词会一张一张回到你面前，安排在你快要忘掉的那一刻出现。四选一、回想或拼写，再从「忘记」到「轻松」给自己打个分——下次什么时候再见由算法决定。"
+
+msgid "The library is shelved into six graded stages. We pick the shelf that fits your measured vocabulary, then estimate the unknown-word density of every book on it — two to eight unknown words in a hundred is the comfortable reading zone."
+msgstr "书库按难度分成六个分级书架。系统先按你的实测词汇量选定书架，再逐本估算生词密度——每百词 2–8 个生词是最舒服的阅读区间。"
+
+msgid "Start practising"
+msgstr "开始练习"
+
+msgid "Start reviewing"
+msgstr "开始复习"
+
+msgid "Find a book"
+msgstr "去找书"
+
+msgid "Open queue"
+msgstr "打开队列"
+
+msgid "Learning activities"
+msgstr "学习活动"
+
+msgid "Previous activity"
+msgstr "上一个活动"
+
+msgid "Next activity"
+msgstr "下一个活动"
+
+msgid "Today's Plan"
+msgstr "今日计划"
+
+msgid "This week by strand"
+msgstr "本周四股"
+
+msgid "Play a paragraph and type what you hear. The checker diffs your answer word by word; missed or wrong words can go straight into your review queue."
+msgstr "播放段落并打出你听到的内容。检查器会逐词比对答案；漏写或写错的词可以直接进复习队列。"
+
+msgid "Type what you hear, then check. Replay as many times as you need."
+msgstr "把听到的打出来再检查，可以反复播放。"
+
+msgid "Read the same paragraph aloud three times. The timer measures your speed (WPM); repetition builds fluency with words you already know."
+msgstr "同一段落朗读三遍。计时器实测你的语速（WPM）；重复能让你已经认识的词变得流利。"
+
+msgid "Failed to load your plan — press retry."
+msgstr "今日计划加载失败，点「重试」再来一次。"
+
+msgid "{{n}} words are due now."
+msgstr "现在有 {{n}} 个词到期。"
+
+msgid "{{done}}/{{target}} reviewed"
+msgstr "今日已复习 {{done}}/{{target}}"
+
+msgid "{{n}} due"
+msgstr "到期 {{n}}"
+
+msgid "{{earned}}/{{budget}} min today"
+msgstr "今日 {{earned}}/{{budget}} 分钟"

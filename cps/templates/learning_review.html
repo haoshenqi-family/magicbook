@@ -1,0 +1,102 @@
+{% extends "layout.html" %}
+{% block body %}
+<input type="hidden" id="lh-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Review Queue')}}</h1>
+  <p class="text-muted lh-sub-hint">
+    <a href="{{ url_for('web.learning_page') }}"><span class="glyphicon glyphicon-arrow-left"></span> {{_('Daily Learning')}}</a>
+  </p>
+
+  <div id="ln-error" class="alert alert-danger" role="alert" hidden>
+    <span id="ln-error-text"></span>
+    <button id="ln-retry" class="btn btn-default btn-xs" style="margin-left:10px">{{_('Retry')}}</button>
+  </div>
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title">{{_('Review Queue')}}
+        <span class="label label-default pull-right" id="ln-progress" hidden></span></h3>
+    </div>
+    <div class="panel-body">
+      <p class="text-muted ln-hint">
+        {{_('Words you marked as unknown while reading come back here on a spaced schedule. Rate each word from "forgot" to "easy" — the algorithm decides when to show it again.')}}
+      </p>
+
+      <div id="ln-empty" class="text-muted" hidden>{{_('Nothing due right now. Keep reading — new words will find their way here.')}}</div>
+
+      {# R144：目标达成但仍有逾期积压时给出继续入口（队列是现算视图，再拉一批即新卡）；
+         原先此时也显示「Nothing due right now」是失实承诺——余量明明还有 #}
+      <div id="ln-today-done" hidden>
+        <p class="text-muted">{{_('Daily review target reached. Keep going?')}}</p>
+        <button type="button" id="ln-continue" class="btn btn-default btn-sm">{{_('Continue reviewing')}}</button>
+      </div>
+
+      <div id="ln-card" hidden>
+        <div class="ln-word-row">
+          <h1 class="ln-word" id="ln-word"></h1>
+          <span class="label label-default" id="ln-encounters" hidden></span>
+        </div>
+        {# R137 题干（中文释义）：三种题型的共同题面。词面即答案，有题干时必须藏词面，
+           语境卡同规则（原句含目标词，提前亮=泄题），揭示/判定后再亮。 #}
+        <p class="ln-stem" id="ln-stem" hidden></p>
+        <p class="text-muted ln-context" id="ln-context" hidden></p>
+        <p class="ln-source" id="ln-context-source" hidden></p>
+
+        {# CHOOSE 题：看释义四选一（R137 起题干是释义，不再是「选出它自己」） #}
+        <div id="ln-choices" class="ln-choices" hidden>
+          <button type="button" class="btn btn-default ln-choice"></button>
+          <button type="button" class="btn btn-default ln-choice"></button>
+          <button type="button" class="btn btn-default ln-choice"></button>
+          <button type="button" class="btn btn-default ln-choice"></button>
+        </div>
+
+        {# RECALL 题：看释义自测，揭示亮词面与语境 #}
+        <div id="ln-recall" hidden>
+          <button type="button" id="ln-reveal" class="btn btn-default">{{_('Reveal')}}</button>
+        </div>
+
+        {# SPELL 题：看释义拼写（R137 新增；复习 4 次以上的词从 RECALL 升级到此） #}
+        <div id="ln-spell" class="ln-spell" hidden>
+          <input type="text" id="ln-spell-input" class="form-control"
+                 autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                 placeholder="{{_('Type the word from its meaning')}}">
+          <button type="button" id="ln-spell-check" class="btn btn-default">{{_('Check')}}</button>
+        </div>
+
+        {# 四档评分（判定/揭示/拼写之后出现） #}
+        <div id="ln-grades" hidden>
+          <p class="help-block">{{_('How well did you recall it?')}}</p>
+          <button type="button" class="btn btn-danger btn-sm" data-grade="1">{{_('Forgot')}}</button>
+          <button type="button" class="btn btn-warning btn-sm" data-grade="2">{{_('Hard')}}</button>
+          <button type="button" class="btn btn-info btn-sm" data-grade="3">{{_('Good')}}</button>
+          <button type="button" class="btn btn-success btn-sm" data-grade="4">{{_('Easy')}}</button>
+        </div>
+
+        <p id="ln-feedback" class="text-muted" hidden></p>
+        <p id="ln-card-error" class="text-danger" hidden></p>
+        <button type="button" id="ln-skip" class="btn btn-link btn-xs ln-exit">{{_('Skip')}}</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block header %}
+{{ super() }}
+{% include "learning_sub_css.html" %}
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+  // 后端路由快照：learning-review.js 拿不到 url_for（中枢页同款注入模式）
+  window.learningUrls = {
+    queue: "{{ url_for('web.learning_srs_queue') }}",
+    answer: "{{ url_for('web.learning_srs_answer') }}",
+    stats: "{{ url_for('web.learning_srs_stats') }}"
+  };
+})();
+</script>
+<script src="{{ url_for('static', filename='js/learning-common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-review.js') }}"></script>
+{% endblock %}

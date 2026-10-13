@@ -1,0 +1,62 @@
+{# R166：每日学习子页面共用样式补丁（中枢页 banner 样式随 learning.html 走，不进本文件）。
+   Why 抽成 include 而非每页复制：七个子页面用的是同一批 .ln-*/.sw-* 规则，
+   复制七份必然漂移（本仓并行会话多，同文重复行正是 R113 事故的形状）。
+   纪律不变：只管间距与字号，颜色一律来自 bootstrap/主题类。 #}
+<style>
+  .lh-sub-hint { font-size: 13px; margin-bottom: 10px; }
+
+  /* 复习队列 */
+  .ln-hint { font-size: 13px; }
+  .ln-word-row { display: flex; align-items: baseline; gap: 10px; }
+  .ln-word { font-size: 34px; margin: 6px 0; word-break: break-word; }
+  .ln-stem { font-size: 20px; margin: 8px 0 4px; }
+  .ln-context { margin: 2px 0 4px; }
+  .ln-source { font-size: 12px; color: #999; margin: 0 0 10px; }
+  .ln-choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .ln-choices .btn { margin: 0; }
+  .ln-spell { display: flex; gap: 8px; margin: 10px 0; max-width: 420px; }
+  .ln-spell .form-control { flex: 1; }
+  .ln-spell .btn { flex: none; }
+  .ln-grades .btn { margin-right: 6px; margin-bottom: 4px; }
+  .ln-exit { padding-left: 0; opacity: .6; }
+
+  /* 选书难度匹配 */
+  #ln-match-list li { font-size: 13px; margin-bottom: 6px; }
+  .ln-match-head { color: #555; font-weight: 600; margin-bottom: 10px; }
+  .ln-match-stage { margin-left: 8px; }
+  .ln-match-badge { margin-left: 8px; }
+  .ln-match-density { color: #999; margin-left: 8px; font-size: 12px; }
+  .ln-match-sample { color: #999; font-size: 12px; margin-left: 8px; }
+
+  /* 说与写五页共用面板 */
+  .sw-hint { font-size: 13px; }
+  .sw-gap { margin-top: 10px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .sw-prompt { font-size: 16px; white-space: pre-wrap; }
+  .sw-list li { margin-bottom: 4px; }
+  .sw-scores { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0; }
+  .sw-score { min-width: 120px; }
+  .sw-score b { font-size: 18px; }
+  .sw-score span { display: block; font-size: 12px; color: #888; }
+  .sw-progress { padding: 8px 10px; background: #f2f9ef; border-radius: 4px; }
+  .sw-chat { max-height: 380px; overflow-y: auto; margin-bottom: 8px; }
+  .sw-msg { margin-bottom: 10px; }
+  .sw-msg-user { text-align: right; color: #555; }
+  .sw-msg-coach { color: #222; }
+  .sw-feedback { margin-top: 4px; padding: 6px 10px; background: #f7f7f7; border-radius: 4px; font-size: 13px; }
+  .sw-correction { margin: 2px 0; font-size: 13px; }
+  .sw-chat-input { flex: 1; min-width: 220px; }
+  .sw-source { max-height: 120px; overflow-y: auto; white-space: pre-wrap; font-size: 13px; }
+  .sw-timer { font-size: 20px; font-weight: 600; margin-left: 10px; }
+  .sw-metrics { color: #555; }
+  .sw-round-table td, .sw-round-table th { padding: 4px 8px; }
+  .sw-mic.sw-rec { color: #fff; background: #c62828; border-color: #c62828; }
+  .sw-rec-status { color: #c62828; font-size: 13px; }
+  .sw-mic-label { margin-left: 4px; }
+  .sw-mic-device { font-size: 12px; }
+  .sw-mic-hint { margin-top: 8px; margin-bottom: 0; }
+  .sw-tts-toggle { font-weight: normal; margin: 0 8px; }
+  .sw-diff { line-height: 1.8; }
+  .sw-diff .sw-tok-ok { color: #2e7d32; }
+  .sw-diff .sw-tok-wrong { color: #c62828; text-decoration: line-through; }
+  .sw-diff .sw-tok-missing { color: #e65100; }
+</style>

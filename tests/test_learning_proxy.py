@@ -246,17 +246,34 @@ def test_match_book_rejects_non_numeric_id(admin_client, moonwell_configured,
 # ---------- 6. 页面与业务错误透传 ----------
 
 def test_learning_page_renders_without_upstream(admin_client, moonwell_configured):
-    """首屏零上游调用：数据由 learning.js 异步取（成就页同模式）。"""
+    """首屏零上游调用：数据由 learning-hub.js 异步取（成就页同模式）。
+
+    R166：中枢只留 banner + 计划 + 复习摘要 + 周视图，三题型 DOM 迁到 /learning/review。
+    """
     response = admin_client.get("/learning")
     assert response.status_code == 200
     html = response.data.decode("utf-8")
-    assert "ln-card" in html
-    assert "js/learning.js" in html
+    assert 'id="lh-banner"' in html
+    assert "js/learning-hub.js" in html
     assert "web.learning_srs_queue" not in html  # url_for 已渲染成路径
-    # R137 三题型契约：释义题干 + 拼写输入必须随模板渲染（JS 才有得绑）
+    # 复习队列的题干/拼写输入不得残留在中枢（迁走即删，否则两处 DOM 会漂移）
+    assert 'id="ln-stem"' not in html
+    assert 'id="ln-spell-input"' not in html
+    assert 'id="ln-spell-check"' not in html
+
+
+def test_learning_review_subpage_renders_queue_dom(admin_client,
+                                                   moonwell_configured):
+    """R137 三题型契约：释义题干 + 拼写输入必须随子页面模板渲染（JS 才有得绑）。"""
+    response = admin_client.get("/learning/review")
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert 'id="ln-card"' in html
     assert 'id="ln-stem"' in html
     assert 'id="ln-spell-input"' in html
     assert 'id="ln-spell-check"' in html
+    assert "js/learning-review.js" in html
+    assert '"/ajax/learning/srs/queue"' in html
 
 
 def test_business_error_passes_through_with_code(admin_client, moonwell_configured,
@@ -285,22 +302,20 @@ def test_unreachable_upstream_returns_503_json_not_500(admin_client,
 # ---------- 7. 页面真实渲染（登录后、db 已 mock） ----------
 
 def test_learning_page_renders_full_dom(admin_client, moonwell_configured):
-    """登录态下 /learning 渲染完整 DOM：卡片、脚本、URL 注入、导航入口。"""
+    """登录态下 /learning 渲染完整 DOM：banner、摘要卡、脚本、URL 注入、导航入口。"""
     response = admin_client.get("/learning")
     assert response.status_code == 200
     html = response.data.decode("utf-8")
-    assert 'id="ln-card"' in html
-    assert 'id="ln-stats"' in html
-    assert 'id="ln-match-root"' in html
-    assert "js/learning.js" in html
+    assert 'id="ln-review-summary"' in html
+    assert 'id="ln-plan"' in html
+    assert "js/learning-common.js" in html
     assert "window.learningUrls" in html
-    assert '"/ajax/learning/srs/queue"' in html
-    # 导航入口（布局层，R154 起为左侧一级导航）+ 计划面板内的「说与写」直达跳转
+    assert '"/ajax/learning/plan/today"' in html
+    # 导航入口（布局层，R154 起为左侧一级导航）；R166 起说与写并入中枢，一级项撤掉
     assert 'id="top_learning"' in html
-    assert "/learning/speaking-writing" in html
-    assert 'ln-go-speak' in html
-    # CSRF 注入（learning.js 读取）
-    assert 'id="ln-csrf"' in html
+    assert 'id="top_speaking_writing"' not in html
+    # CSRF 注入（learning-common.js 按 #lh-csrf 读取）
+    assert 'id="lh-csrf"' in html
 
 
 def test_nav_dropdown_contains_daily_learning(admin_client, moonwell_configured):
@@ -453,16 +468,21 @@ def test_b1_rejects_bad_minutes_per_round_locally(admin_client,
     assert not proxy.calls
 
 
-def test_speaking_writing_page_renders(admin_client, moonwell_configured):
+def test_speaking_writing_page_redirects_to_hub(admin_client, moonwell_configured):
+    """R166：旧五合一页 302 回中枢（书签与 R152 期文档链接不失效）。"""
     response = admin_client.get("/learning/speaking-writing")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/learning")
+
+
+def test_writing_subpage_renders(admin_client, moonwell_configured):
+    response = admin_client.get("/learning/writing")
     assert response.status_code == 200
     html = response.data.decode("utf-8")
-    assert 'id="sw-csrf"' in html
-    assert "js/speaking_writing.js" in html
-    assert "window.speakingWritingUrls" in html
+    assert 'id="lh-csrf"' in html
+    assert "js/learning-writing.js" in html
+    assert "window.learningUrls" in html
     assert '"/ajax/learning/writing/task/generate"' in html
-    # 导航入口（布局层）
-    assert 'id="top_speaking_writing"' in html
 
 
 # ---------- 8. P3 代理：计时重读 / 听写 / 周视图（R153）----------
@@ -517,13 +537,25 @@ def test_rrr_record_keeps_int_fields(admin_client, moonwell_configured,
         "bookId": "97", "order": 5, "round": 2, "durationMs": 92000, "mode": "ALOUD"}
 
 
-def test_speaking_writing_page_has_p3_tabs(admin_client, moonwell_configured):
-    html = admin_client.get("/learning/speaking-writing").data.decode("utf-8")
-    assert 'id="sw-rrr"' in html
-    assert 'id="sw-dictation"' in html
-    assert "listeningMaterials" in html
+def test_reread_and_dictation_subpages_render(admin_client, moonwell_configured):
+    """R153 的 P3 DOM 契约随拆分搬到各自子页面（R166）。"""
+    reread = admin_client.get("/learning/reread").data.decode("utf-8")
+    assert 'id="sw-rr-panel"' in reread
+    assert "listeningMaterials" in reread
+    assert '"/ajax/learning/rrr/recommend"' in reread
+
+    dictation = admin_client.get("/learning/dictation").data.decode("utf-8")
+    assert 'id="sw-d-panel"' in dictation
+    assert 'id="sw-d-add-unknown"' in dictation
+    assert '"/ajax/learning/listening/dictation/check"' in dictation
+
+
+def test_speaking_subpage_has_coach_tts_and_mic(admin_client, moonwell_configured):
+    html = admin_client.get("/learning/speaking").data.decode("utf-8")
     assert 'id="sw-s-tts"' in html
-    assert 'id="sw-d-add-unknown"' in html
+    assert 'id="sw-s-mic"' in html
+    assert "js/learning-voice.js" in html
+    assert '"/ajax/learning/asr/transcribe"' in html
 
 
 def test_learning_page_has_week_panel(admin_client, moonwell_configured):
@@ -579,20 +611,23 @@ def test_asr_transcribe_forwards_file_bytes(admin_client, moonwell_configured,
     assert seen["filename"] == "recording.wav"
 
 
-def test_speaking_writing_page_has_mic_buttons(admin_client, moonwell_configured):
-    html = admin_client.get("/learning/speaking-writing").data.decode("utf-8")
-    assert 'id="sw-s-mic"' in html
-    assert 'id="sw-r-mic"' in html
-    assert 'id="sw-s-audio-status"' in html
-    assert "asrTranscribe" in html
+def test_mic_buttons_render_on_their_own_pages(admin_client, moonwell_configured):
+    speaking = admin_client.get("/learning/speaking").data.decode("utf-8")
+    assert 'id="sw-s-mic"' in speaking
+    assert 'id="sw-s-audio-status"' in speaking
+    assert "asrTranscribe" in speaking
+    # 复述页只带自己的麦克风，不继承口语页的会话 DOM（R166 拆页的隔离断言）
+    retell = admin_client.get("/learning/retell").data.decode("utf-8")
+    assert 'id="sw-r-mic"' in retell
+    assert 'id="sw-s-mic"' not in retell
 
 
 # ---------- 10. 麦克风按钮可用性（R156：带标签/状态自更新/用法提示）----------
 
 def test_mic_buttons_have_labels_and_hint(admin_client, moonwell_configured):
-    html = admin_client.get("/learning/speaking-writing").data.decode("utf-8")
-    # 空白按钮修正：两个麦克风按钮都有文字标签，且口语面板有用法提示
-    assert html.count('sw-mic-label') >= 2
+    html = admin_client.get("/learning/speaking").data.decode("utf-8")
+    # 空白按钮修正：麦克风按钮有文字标签，且面板有用法提示
+    assert html.count('sw-mic-label') >= 1
     assert "Voice input" in html
     assert "sw-mic-hint" in html
 
@@ -600,7 +635,8 @@ def test_mic_buttons_have_labels_and_hint(admin_client, moonwell_configured):
 # ---------- 11. 麦克风设备选择器（R160）----------
 
 def test_mic_device_selector_present(admin_client, moonwell_configured):
-    html = admin_client.get("/learning/speaking-writing").data.decode("utf-8")
-    assert 'id="sw-s-mic-device"' in html
-    assert 'id="sw-r-mic-device"' in html
-    assert "Microphone device" in html
+    speaking = admin_client.get("/learning/speaking").data.decode("utf-8")
+    assert 'id="sw-s-mic-device"' in speaking
+    assert "Microphone device" in speaking
+    retell = admin_client.get("/learning/retell").data.decode("utf-8")
+    assert 'id="sw-r-mic-device"' in retell

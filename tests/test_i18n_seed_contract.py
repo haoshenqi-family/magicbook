@@ -29,9 +29,17 @@ JS_FILES = [
     # R116/US4：词汇量测试状态机的文案全部走 mbT，不列入清单则它的本地化无人守（AC-C8 假绿）
     os.path.join(ROOT, "cps", "static", "js", "vocab-test.js"),
     # R132/B3：每日学习页状态机的文案全部走 mbT，不列入清单则它的本地化无人守（同上先例）
-    os.path.join(ROOT, "cps", "static", "js", "learning.js"),
-    # R152/B1：说与写页三个面板的文案全部走 mbT，同上先例纳入守护
-    os.path.join(ROOT, "cps", "static", "js", "speaking_writing.js"),
+    # R166：learning.js 拆成中枢 + 七个功能模块 + common/voice，清单随之换成新文件
+    os.path.join(ROOT, "cps", "static", "js", "learning-common.js"),
+    os.path.join(ROOT, "cps", "static", "js", "learning-hub.js"),
+    os.path.join(ROOT, "cps", "static", "js", "learning-review.js"),
+    os.path.join(ROOT, "cps", "static", "js", "learning-match.js"),
+    os.path.join(ROOT, "cps", "static", "js", "learning-writing.js"),
+    os.path.join(ROOT, "cps", "static", "js", "learning-speaking.js"),
+    os.path.join(ROOT, "cps", "static", "js", "learning-retell.js"),
+    os.path.join(ROOT, "cps", "static", "js", "learning-reread.js"),
+    os.path.join(ROOT, "cps", "static", "js", "learning-dictation.js"),
+    os.path.join(ROOT, "cps", "static", "js", "learning-voice.js"),
 ]
 
 

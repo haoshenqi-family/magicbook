@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+{% block body %}
+<input type="hidden" id="lh-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Timed rereading')}}</h1>
+  <p class="text-muted lh-sub-hint">
+    <a href="{{ url_for('web.learning_page') }}"><span class="glyphicon glyphicon-arrow-left"></span> {{_('Daily Learning')}}</a>
+  </p>
+
+  <div class="panel panel-default">
+    <div class="panel-body">
+      <p class="text-muted sw-hint">{{_('Read the same paragraph aloud three times. The timer measures your speed (WPM); repetition builds fluency with words you already know.')}}</p>
+      <div class="form-inline sw-gap">
+        <select id="sw-rr-material" class="form-control" style="width:280px"></select>
+        <button type="button" id="sw-rr-load" class="btn btn-default">{{_('Load paragraphs')}}</button>
+        <button type="button" id="sw-rr-recommend" class="btn btn-link btn-sm">{{_('Recommend: paragraphs with your due words')}}</button>
+      </div>
+      <ul id="sw-rr-paragraphs" class="sw-list"></ul>
+    </div>
+  </div>
+  <div class="panel panel-default" id="sw-rr-panel" hidden>
+    <div class="panel-body">
+      <p id="sw-rr-source" class="sw-source text-muted"></p>
+      <p class="sw-gap">
+        <strong id="sw-rr-round-label"></strong>
+        <span id="sw-rr-timer" class="sw-timer"></span>
+      </p>
+      <div class="sw-gap">
+        <button type="button" id="sw-rr-start" class="btn btn-primary">{{_('Begin round')}}</button>
+        <button type="button" id="sw-rr-stop" class="btn btn-warning" hidden>{{_('Stop & record')}}</button>
+        <span id="sw-rr-metrics" class="sw-metrics"></span>
+      </div>
+      <div id="sw-rr-trend"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block header %}
+{{ super() }}
+{% include "learning_sub_css.html" %}
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+  window.learningUrls = {
+    listeningMaterials: "{{ url_for('web.learning_listening_materials') }}",
+    listeningParagraphs: "{{ url_for('web.learning_listening_paragraphs') }}",
+    rrrRecord: "{{ url_for('web.learning_rrr_record') }}",
+    rrrTrend: "{{ url_for('web.learning_rrr_trend') }}",
+    rrrRecommend: "{{ url_for('web.learning_rrr_recommend') }}"
+  };
+})();
+</script>
+<script src="{{ url_for('static', filename='js/learning-common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-reread.js') }}"></script>
+{% endblock %}

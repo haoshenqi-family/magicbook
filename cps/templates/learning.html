@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 {% block body %}
-<input type="hidden" id="ln-csrf" value="{{ csrf_token() }}">
+<input type="hidden" id="lh-csrf" value="{{ csrf_token() }}">
 <div class="discover">
   <h1>{{_('Daily Learning')}}</h1>
   <div class="col-md-10 col-lg-8">
@@ -10,19 +10,150 @@
       <button id="ln-retry" class="btn btn-default btn-xs" style="margin-left:10px">{{_('Retry')}}</button>
     </div>
 
-    {# ---------- 统计头（S4 简报的 SRS 半边：到期/存量/保持率）---------- #}
-    <div id="ln-stats" class="panel panel-default" hidden>
-      <div class="panel-body ln-stats-body">
+    {# ---------- R166 功能 banner：七个学习小功能循环卡片，点击进入各自子页面 ---------- #}
+    {# data-strand 决定徽章取哪一股的今日入账（input/language/output/fluency/none）； #}
+    {# data-key 供 learning-hub.js 定位卡片与 localStorage 里的轮播偏好。          #}
+    <div id="lh-banner" class="lh-banner" role="region"
+         aria-label="{{_('Learning activities')}}" tabindex="0">
+      <div class="lh-banner-viewport">
+
+        <a class="lh-card panel panel-default" data-key="writing" data-strand="output"
+           href="{{ url_for('web.learning_writing_page') }}">
+          <span class="lh-card-media">
+            <img src="{{ url_for('static', filename='img/learning/writing.webp') }}" alt="" width="640" height="436">
+          </span>
+          <span class="lh-card-body">
+            <span class="lh-card-title">{{_('Writing Workshop')}}</span>
+            <span class="lh-card-desc">{{_('Write freely or on an A2-C1 task tied to the book you are reading. The AI returns an overall comment, sentence-by-sentence notes, native upgrades and four scores; revise and submit again to see your progress.')}}</span>
+            <span class="lh-card-meta">{{_('Speaking & writing strand · 15-25 minutes')}}</span>
+            <span class="lh-card-badge label label-default" hidden></span>
+            <span class="lh-card-cta">{{_('Start practising')}} <span class="glyphicon glyphicon-arrow-right"></span></span>
+          </span>
+        </a>
+
+        <a class="lh-card panel panel-default" data-key="speaking" data-strand="output"
+           href="{{ url_for('web.learning_speaking_page') }}">
+          <span class="lh-card-media">
+            <img src="{{ url_for('static', filename='img/learning/speaking.webp') }}" alt="" width="640" height="436">
+          </span>
+          <span class="lh-card-body">
+            <span class="lh-card-title">{{_('AI Speaking Coach')}}</span>
+            <span class="lh-card-desc">{{_('Pick a scene — coffee shop, interview, travel, small talk or the book you are reading — and start chatting. The coach responds to your meaning first, then encourages, corrects and offers a more idiomatic phrasing. Voice input included.')}}</span>
+            <span class="lh-card-meta">{{_('Speaking & writing strand · 5-15 minutes')}}</span>
+            <span class="lh-card-badge label label-default" hidden></span>
+            <span class="lh-card-cta">{{_('Start practising')}} <span class="glyphicon glyphicon-arrow-right"></span></span>
+          </span>
+        </a>
+
+        <a class="lh-card panel panel-default" data-key="retell" data-strand="output"
+           href="{{ url_for('web.learning_retell_page') }}">
+          <span class="lh-card-media">
+            <img src="{{ url_for('static', filename='img/learning/retell.webp') }}" alt="" width="640" height="436">
+          </span>
+          <span class="lh-card-body">
+            <span class="lh-card-title">{{_('Retell Drill (4-3-2)')}}</span>
+            <span class="lh-card-desc">{{_('Retell the same paragraph three times while the time limit shrinks from four minutes to three and then two. Speaking against a shrinking clock is the classic fluency drill; each round is scored for speed, filler words and lexical variety.')}}</span>
+            <span class="lh-card-meta">{{_('Speaking & writing strand · about 12 minutes')}}</span>
+            <span class="lh-card-badge label label-default" hidden></span>
+            <span class="lh-card-cta">{{_('Start practising')}} <span class="glyphicon glyphicon-arrow-right"></span></span>
+          </span>
+        </a>
+
+        <a class="lh-card panel panel-default" data-key="reread" data-strand="fluency"
+           href="{{ url_for('web.learning_reread_page') }}">
+          <span class="lh-card-media">
+            <img src="{{ url_for('static', filename='img/learning/reread.webp') }}" alt="" width="640" height="436">
+          </span>
+          <span class="lh-card-body">
+            <span class="lh-card-title">{{_('Timed rereading')}}</span>
+            <span class="lh-card-desc">{{_('Read one paragraph aloud three times against the timer. Same words, rising speed — the measured words-per-minute curve is the clearest evidence that fluency comes from repetition, not talent. Paragraphs carrying your due words can be recommended.')}}</span>
+            <span class="lh-card-meta">{{_('Fluency strand · about 5 minutes')}}</span>
+            <span class="lh-card-badge label label-default" hidden></span>
+            <span class="lh-card-cta">{{_('Start practising')}} <span class="glyphicon glyphicon-arrow-right"></span></span>
+          </span>
+        </a>
+
+        <a class="lh-card panel panel-default" data-key="dictation" data-strand="language"
+           href="{{ url_for('web.learning_dictation_page') }}">
+          <span class="lh-card-media">
+            <img src="{{ url_for('static', filename='img/learning/dictation.webp') }}" alt="" width="640" height="436">
+          </span>
+          <span class="lh-card-body">
+            <span class="lh-card-title">{{_('Dictation')}}</span>
+            <span class="lh-card-desc">{{_('Play a paragraph and type exactly what you hear, as many times as you need. Your answer is diffed word by word — right, wrong, missing, extra — and the words you missed can go straight into the review queue.')}}</span>
+            <span class="lh-card-meta">{{_('Word study strand · 3-8 minutes')}}</span>
+            <span class="lh-card-badge label label-default" hidden></span>
+            <span class="lh-card-cta">{{_('Start practising')}} <span class="glyphicon glyphicon-arrow-right"></span></span>
+          </span>
+        </a>
+
+        <a class="lh-card panel panel-default" data-key="review" data-strand="language"
+           href="{{ url_for('web.learning_review_page') }}">
+          <span class="lh-card-media">
+            <img src="{{ url_for('static', filename='img/learning/review.webp') }}" alt="" width="640" height="436">
+          </span>
+          <span class="lh-card-body">
+            <span class="lh-card-title">{{_('Review Queue')}}</span>
+            <span class="lh-card-desc">{{_('Words you marked while reading come back one card at a time, scheduled to surface just as you are about to forget them. Choose, recall or spell, then rate yourself from forgot to easy — the algorithm decides the next visit.')}}</span>
+            <span class="lh-card-meta">{{_('Word study strand · 20 cards a day, more on request')}}</span>
+            <span class="lh-card-badge label label-default" hidden></span>
+            <span class="lh-card-cta">{{_('Start reviewing')}} <span class="glyphicon glyphicon-arrow-right"></span></span>
+          </span>
+        </a>
+
+        <a class="lh-card panel panel-default" data-key="match" data-strand="none"
+           href="{{ url_for('web.learning_match_page') }}">
+          <span class="lh-card-media">
+            <img src="{{ url_for('static', filename='img/learning/match.webp') }}" alt="" width="640" height="436">
+          </span>
+          <span class="lh-card-body">
+            <span class="lh-card-title">{{_('Book Difficulty Match')}}</span>
+            <span class="lh-card-desc">{{_('The library is shelved into six graded stages. We pick the shelf that fits your measured vocabulary, then estimate the unknown-word density of every book on it — two to eight unknown words in a hundred is the comfortable reading zone.')}}</span>
+            <span class="lh-card-meta">{{_('Reading input strand · choose your next book')}}</span>
+            <span class="lh-card-badge label label-default" hidden></span>
+            <span class="lh-card-cta">{{_('Find a book')}} <span class="glyphicon glyphicon-arrow-right"></span></span>
+          </span>
+        </a>
+
+      </div>
+
+      <button type="button" id="lh-prev" class="lh-banner-nav lh-prev"
+              aria-label="{{_('Previous activity')}}"><span class="glyphicon glyphicon-chevron-left"></span></button>
+      <button type="button" id="lh-next" class="lh-banner-nav lh-next"
+              aria-label="{{_('Next activity')}}"><span class="glyphicon glyphicon-chevron-right"></span></button>
+      <div id="lh-dots" class="lh-banner-dots" role="tablist"></div>
+    </div>
+
+    {# ---------- 每日计划头：四股预算（来自设置，只读展示）---------- #}
+    <div id="ln-plan" class="panel panel-default" hidden>
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_("Today's Plan")}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="help-block" id="ln-strand-line"></p>
+        <p class="help-block" id="ln-new-words-line" hidden></p>
+      </div>
+    </div>
+
+    {# ---------- 复习摘要卡（R166）：原统计头四格收进这里，主体迁到子页面 ---------- #}
+    <div id="ln-review-summary" class="panel panel-default" hidden>
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Review Queue')}}
+          <a class="ln-rs-go" href="{{ url_for('web.learning_review_page') }}">
+            {{_('Open queue')}} <span class="glyphicon glyphicon-arrow-right"></span></a>
+        </h3>
+      </div>
+      <div class="panel-body">
         <div class="row">
           <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-today-review">–</span><span class="ln-stat-label">{{_("Today's review")}}</span></div>
           <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-due-tomorrow">–</span><span class="ln-stat-label">{{_('Due tomorrow')}}</span></div>
           <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-mastered">–</span><span class="ln-stat-label">{{_('Mastered')}}</span></div>
           <div class="col-xs-3 ln-stat"><span class="ln-stat-value" id="ln-retention">–</span><span class="ln-stat-label">{{_('7-day retention')}}</span></div>
         </div>
+        <p class="help-block" id="ln-due-line"></p>
       </div>
     </div>
 
-    {# ---------- 每日计划头：四股预算（来自设置，只读展示 + 跳转设置）---------- #}
     {# ---------- 四股周视图（R153）：近 7 天各股实际入账 vs 当日预算 ---------- #}
     <div id="ln-week" class="panel panel-default" hidden>
       <div class="panel-heading">
@@ -34,103 +165,6 @@
       </div>
     </div>
 
-    <div id="ln-plan" class="panel panel-default" hidden>
-      <div class="panel-heading">
-        <h3 class="panel-title">{{_("Today's Plan")}}
-          {# R154：说与写是一级入口，学习页给直达跳转（练完复习接着练输出） #}
-          <a class="ln-go-speak" href="{{ url_for('web.speaking_writing_page') }}">
-            {{_('Speaking & Writing')}} <span class="glyphicon glyphicon-arrow-right"></span></a>
-        </h3>
-      </div>
-      <div class="panel-body">
-        <p class="help-block" id="ln-strand-line"></p>
-        <p class="help-block" id="ln-new-words-line" hidden></p>
-      </div>
-    </div>
-
-    {# ---------- 复习队列 ---------- #}
-    <div class="panel panel-default">
-      <div class="panel-heading">
-        <h3 class="panel-title">{{_('Review Queue')}}</h3>
-      </div>
-      <div class="panel-body">
-        <p class="text-muted ln-hint">
-          {{_('Words you marked as unknown while reading come back here on a spaced schedule. Rate each word from "forgot" to "easy" — the algorithm decides when to show it again.')}}
-        </p>
-
-        <div id="ln-empty" class="text-muted" hidden>{{_('Nothing due right now. Keep reading — new words will find their way here.')}}</div>
-
-        {# R144：目标达成但仍有逾期积压时给出继续入口（队列是现算视图，再拉一批即新卡）；
-           原先此时也显示「Nothing due right now」是失实承诺——余量明明还有 #}
-        <div id="ln-today-done" hidden>
-          <p class="text-muted">{{_('Daily review target reached. Keep going?')}}</p>
-          <button type="button" id="ln-continue" class="btn btn-default btn-sm">{{_('Continue reviewing')}}</button>
-        </div>
-
-        <div id="ln-card" hidden>
-          <div class="ln-word-row">
-            <h1 class="ln-word" id="ln-word"></h1>
-            <span class="label label-default" id="ln-encounters" hidden></span>
-          </div>
-          {# R137 题干（中文释义）：三种题型的共同题面。词面即答案，有题干时必须藏词面，
-             语境卡同规则（原句含目标词，提前亮=泄题），揭示/判定后再亮。 #}
-          <p class="ln-stem" id="ln-stem" hidden></p>
-          <p class="text-muted ln-context" id="ln-context" hidden></p>
-          <p class="ln-source" id="ln-context-source" hidden></p>
-
-          {# CHOOSE 题：看释义四选一（R137 起题干是释义，不再是「选出它自己」） #}
-          <div id="ln-choices" class="ln-choices" hidden>
-            <button type="button" class="btn btn-default ln-choice"></button>
-            <button type="button" class="btn btn-default ln-choice"></button>
-            <button type="button" class="btn btn-default ln-choice"></button>
-            <button type="button" class="btn btn-default ln-choice"></button>
-          </div>
-
-          {# RECALL 题：看释义自测，揭示亮词面与语境 #}
-          <div id="ln-recall" hidden>
-            <button type="button" id="ln-reveal" class="btn btn-default">{{_('Reveal')}}</button>
-          </div>
-
-          {# SPELL 题：看释义拼写（R137 新增；复习 4 次以上的词从 RECALL 升级到此） #}
-          <div id="ln-spell" class="ln-spell" hidden>
-            <input type="text" id="ln-spell-input" class="form-control"
-                   autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
-                   placeholder="{{_('Type the word from its meaning')}}">
-            <button type="button" id="ln-spell-check" class="btn btn-default">{{_('Check')}}</button>
-          </div>
-
-          {# 四档评分（判定/揭示/拼写之后出现） #}
-          <div id="ln-grades" hidden>
-            <p class="help-block">{{_('How well did you recall it?')}}</p>
-            <button type="button" class="btn btn-danger btn-sm" data-grade="1">{{_('Forgot')}}</button>
-            <button type="button" class="btn btn-warning btn-sm" data-grade="2">{{_('Hard')}}</button>
-            <button type="button" class="btn btn-info btn-sm" data-grade="3">{{_('Good')}}</button>
-            <button type="button" class="btn btn-success btn-sm" data-grade="4">{{_('Easy')}}</button>
-          </div>
-
-          <p id="ln-feedback" class="text-muted" hidden></p>
-          <p id="ln-card-error" class="text-danger" hidden></p>
-          <button type="button" id="ln-skip" class="btn btn-link btn-xs ln-exit">{{_('Skip')}}</button>
-        </div>
-      </div>
-    </div>
-
-    {# ---------- 难度匹配选书（B3b；R147 选架→估算→推荐）：按词汇量选阶书架 ---------- #}
-    <div class="panel panel-default" id="ln-match-root"
-         data-books-url="{{ url_for('web.learning_match_books') }}"
-         data-book-url="{{ url_for('web.learning_match_book') }}">
-      <div class="panel-heading">
-        <h3 class="panel-title">{{_('Book Difficulty Match')}}</h3>
-      </div>
-      <div class="panel-body">
-        <p class="text-muted ln-hint">
-          {{_('Books are shelved into six graded stages. We pick the shelf matching your vocabulary size, then estimate unknown-word density per book — two to eight unknown words in every hundred is the sweet spot for comfortable reading.')}}
-        </p>
-        <div id="ln-match-status" class="text-muted"></div>
-        <ul class="list-unstyled" id="ln-match-list"></ul>
-      </div>
-    </div>
-
   </div>
 </div>
 {% endblock %}
@@ -138,47 +172,77 @@
 {% block header %}
 {{ super() }}
 <style>
-  /* 布局补丁只管间距与字号；颜色全部来自 bootstrap/主题类（vocab-test 同纪律） */
-  .ln-stats-body { padding: 10px 0 6px; }
+  /* 布局补丁只管间距与字号；面板底色/边框/标签色沿用 bootstrap 主题类（learning 页原纪律）。
+     唯一例外是轮播圆点的强调色 #5b9bd5，与 learning-hub.js 的四股主色同源。 */
+  .lh-banner { position: relative; margin: 6px 0 20px; }
+  .lh-banner-viewport { position: relative; min-height: 180px; overflow: hidden; }
+  .lh-card { display: none; }
+  .lh-card.lh-on { display: flex; gap: 18px; animation: lh-fade .35s ease; }
+  .lh-card.panel { margin-bottom: 0; padding: 14px; border-radius: 6px;
+                   text-decoration: none; color: inherit; }
+  .lh-card:hover, .lh-card:focus { text-decoration: none; }
+  .lh-card-media { display: block; flex: 0 0 40%; max-width: 40%; }
+  .lh-card-media img { display: block; width: 100%; height: auto; border-radius: 4px; }
+  .lh-card-body { flex: 1 1 auto; min-width: 0; display: flex;
+                  flex-direction: column; justify-content: center; }
+  .lh-card-title { display: block; font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .lh-card-desc { display: block; font-size: 13px; line-height: 1.6; color: #555; margin-bottom: 8px; }
+  .lh-card-meta { display: block; font-size: 12px; color: #999; margin-bottom: 8px; }
+  .lh-card-badge { display: inline-block; margin-bottom: 8px; font-size: 12px; }
+  .lh-card-cta { display: block; font-size: 13px; color: #337ab7; }
+  .lh-banner-nav { position: absolute; top: 45%; border: 0; background: transparent;
+                   color: #999; font-size: 18px; padding: 6px 10px; }
+  .lh-banner-nav:hover { color: #555; }
+  .lh-prev { left: -6px; }
+  .lh-next { right: -6px; }
+  .lh-banner-dots { text-align: center; margin-top: 10px; }
+  .lh-dot { display: inline-block; width: 8px; height: 8px; margin: 0 4px; padding: 0;
+            border: 0; border-radius: 50%; background: #ddd; }
+  .lh-dot.lh-on { background: #5b9bd5; }
+  @keyframes lh-fade { from { opacity: 0; } to { opacity: 1; } }
+  @media (max-width: 767px) {
+    .lh-card.lh-on { flex-direction: column; gap: 10px; }
+    /* 收图只能靠宽度，不能靠 max-height：上游 style.css:134 的
+       `.container-fluid img{max-height:100%;height:auto}` 与本文件同特异度，
+       而 layout.html 把 header 块放在该 link 之前（18 行 vs 19 行），
+       后来居上把这里的 max-height 盖掉（实测计算值恒为 100%）。给媒体盒定宽，
+       img 的 width:100% 自然等比缩到位。 */
+    .lh-card-media { display: block; flex: none; width: 220px; max-width: 60%; }
+    .lh-card-media img { margin: 0 auto; }
+    .lh-card-title { font-size: 18px; }
+    .lh-banner-nav { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .lh-card.lh-on { animation: none; }
+  }
+
   .ln-stat { text-align: center; }
   .ln-stat-value { display: block; font-size: 22px; font-weight: 600; }
   .ln-stat-label { font-size: 12px; color: #888; }
-  .ln-word-row { display: flex; align-items: baseline; gap: 10px; }
-  .ln-word { font-size: 34px; margin: 6px 0; word-break: break-word; }
-  .ln-stem { font-size: 20px; margin: 8px 0 4px; }
-  .ln-context { margin: 2px 0 4px; }
-  .ln-source { font-size: 12px; color: #999; margin: 0 0 10px; }
-  .ln-choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
-  .ln-choices .btn { margin: 0; }
-  .ln-spell { display: flex; gap: 8px; margin: 10px 0; max-width: 420px; }
-  .ln-spell .form-control { flex: 1; }
-  .ln-spell .btn { flex: none; }
-  .ln-grades .btn { margin-right: 6px; margin-bottom: 4px; }
-  .ln-exit { padding-left: 0; opacity: .6; }
-  .ln-hint { font-size: 13px; }
-  #ln-match-list li { font-size: 13px; margin-bottom: 6px; }
-  .ln-match-head { color: #555; font-weight: 600; margin-bottom: 10px; }
-  .ln-match-stage { margin-left: 8px; }
-  .ln-match-badge { margin-left: 8px; }
-  .ln-match-density { color: #999; margin-left: 8px; font-size: 12px; }
-  .ln-match-sample { color: #999; font-size: 12px; margin-left: 8px; }
+  .ln-rs-go { float: right; font-size: 13px; font-weight: normal; }
+  .ln-week-legend { margin-top: 6px; font-size: 12px; color: #666; }
+  .ln-legend-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+                   margin: 0 4px 0 10px; }
+  .ln-week-row { display: flex; align-items: center; margin: 4px 0; font-size: 13px; }
+  .ln-week-day { width: 84px; color: #666; }
+  .ln-week-bar { flex: 1; display: flex; height: 14px; border-radius: 3px;
+                 overflow: hidden; background: #eee; }
+  .ln-week-bar span { display: block; height: 100%; }
+  .ln-week-total { width: 64px; text-align: right; color: #666; }
 </style>
 {% endblock %}
 
 {% block js %}
 <script>
 (function () {
-  // 后端路由快照：learning.js 是纯静态文件拿不到 url_for（vocab-test 同款注入模式）
+  // 后端路由快照：learning-*.js 是纯静态文件拿不到 url_for（vocab-test 同款注入模式）
   window.learningUrls = {
-    queue: "{{ url_for('web.learning_srs_queue') }}",
-    answer: "{{ url_for('web.learning_srs_answer') }}",
-    stats: "{{ url_for('web.learning_srs_stats') }}",
     plan: "{{ url_for('web.learning_plan_today') }}",
-    matchBooks: "{{ url_for('web.learning_match_books') }}",
-    matchBook: "{{ url_for('web.learning_match_book') }}",
+    stats: "{{ url_for('web.learning_srs_stats') }}",
     week: "{{ url_for('web.learning_strands_summary') }}"
   };
 })();
 </script>
-<script src="{{ url_for('static', filename='js/learning.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-hub.js') }}"></script>
 {% endblock %}
