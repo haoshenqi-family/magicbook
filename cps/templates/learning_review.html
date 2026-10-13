@@ -42,13 +42,18 @@
         <p class="text-muted ln-context" id="ln-context" hidden></p>
         <p class="ln-source" id="ln-context-source" hidden></p>
 
-        {# CHOOSE 题：看释义四选一（R137 起题干是释义，不再是「选出它自己」） #}
+        {# 选择题：CHOOSE 看释义四选一（R137 起题干是释义，不再是「选出它自己」）；
+           DISCRIMINATE 看词面选近义词（R167，正确项是 answer 不是 word） #}
         <div id="ln-choices" class="ln-choices" hidden>
           <button type="button" class="btn btn-default ln-choice"></button>
           <button type="button" class="btn btn-default ln-choice"></button>
           <button type="button" class="btn btn-default ln-choice"></button>
           <button type="button" class="btn btn-default ln-choice"></button>
         </div>
+
+        {# 辨析说明：选中即显示，讲清目标词与正确项的差别（后端 answerNote，来自单词详解
+           板块5）。单独占位而不复用 ln-feedback——那里要被「下次再见」的调度文案覆盖 #}
+        <p id="ln-note" class="ln-note" hidden></p>
 
         {# RECALL 题：看释义自测，揭示亮词面与语境 #}
         <div id="ln-recall" hidden>

@@ -139,6 +139,44 @@ def test_answer_forwards_valid_payload(admin_client, moonwell_configured,
     assert call["payload"] == {"scheduleId": 42, "grade": 3, "latencyMs": 2500}
 
 
+def test_answer_forwards_question_type(admin_client, moonwell_configured,
+                                       monkeypatch):
+    """R167 回归锁：本代理逐字段重建 body，漏抄 questionType 是**静默丢弃**——
+    前端发了、后端收不到、页面照常，只有答题日志的题型悄悄错一半。"""
+    proxy = RecordingProxy({"/learning/srs/answer": (
+        _envelope({"scheduleId": "42", "word": "hike", "state": "LEARNING",
+                   "dueAt": "2026-10-14T10:00:00", "message": "10 分钟后再见"}), 200)})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    response = admin_client.post("/ajax/learning/srs/answer",
+                                 json={"scheduleId": "42", "grade": 3,
+                                       "questionType": "discriminate"})
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/srs/answer")["payload"] == {
+        "scheduleId": 42, "grade": 3, "questionType": "DISCRIMINATE"}, \
+        "辨析题题型必须透传，且归一成上游白名单的大写形态"
+
+
+def test_answer_forwards_no_question_type_when_absent(admin_client, moonwell_configured,
+                                                      monkeypatch):
+    """老客户端不发该字段时 body 形状不得变化（上游按缺省回落重算）。"""
+    proxy = RecordingProxy({"/learning/srs/answer": (_envelope({}), 200)})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    admin_client.post("/ajax/learning/srs/answer", json={"scheduleId": "42", "grade": 3})
+    assert proxy.call_for("/learning/srs/answer")["payload"] == {"scheduleId": 42, "grade": 3}
+
+
+def test_answer_rejects_bad_question_type_locally(admin_client, moonwell_configured,
+                                                  monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    for question_type in ("", "   ", 42, True, ["CHOOSE"]):
+        response = admin_client.post("/ajax/learning/srs/answer",
+                                     json={"scheduleId": "42", "grade": 3,
+                                           "questionType": question_type})
+        assert response.status_code == 400, question_type
+    assert not proxy.calls, "非法 questionType 不该打到上游"
+
+
 def test_answer_rejects_bad_grades_locally(admin_client, moonwell_configured,
                                            monkeypatch):
     proxy = RecordingProxy({})
