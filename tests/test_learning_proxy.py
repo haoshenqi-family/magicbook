@@ -678,3 +678,55 @@ def test_mic_device_selector_present(admin_client, moonwell_configured):
     assert "Microphone device" in speaking
     retell = admin_client.get("/learning/retell").data.decode("utf-8")
     assert 'id="sw-r-mic-device"' in retell
+
+
+# ---------- 12. 写作续写：任务详情代理（R168，同源 moon-well R172）----------
+
+def test_writing_task_detail_requires_login(app, moonwell_configured):
+    assert app.test_client().get(
+        "/ajax/learning/writing/task?taskId=1").status_code == 302
+
+
+def test_writing_task_detail_forwards_numeric_id_as_get(admin_client,
+                                                        moonwell_configured,
+                                                        monkeypatch):
+    detail = _envelope({"taskId": "42", "mode": "TASK", "cefrLevel": "B1",
+                        "requirements": ["80-120 words"], "tips": [],
+                        "drafts": [{"draftNo": 1, "text": "x" * 120,
+                                    "review": {"overall": "ok"}}]})
+    target = "/learning/writing/task?taskId=42"
+    proxy = RecordingProxy({target: (detail, 200)})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    response = admin_client.get("/ajax/learning/writing/task?taskId=42")
+    assert response.status_code == 200
+    call = proxy.call_for(target)
+    assert call["method"] == "GET" and call["payload"] is None
+    result = json.loads(response.data)["result"]
+    assert result["taskId"] == "42"
+    # 续写要的两样都在：草稿正文 + 上次批改（代理不裁字段）
+    assert result["drafts"][0]["text"].startswith("xxx")
+    assert result["drafts"][0]["review"]["overall"] == "ok"
+
+
+def test_writing_task_detail_rejects_non_numeric_task_id_locally(admin_client,
+                                                                moonwell_configured,
+                                                                monkeypatch):
+    """taskId 只认数字：不合法就不进转发路径（防把任意串拼进上游 URL）。"""
+    proxy = RecordingProxy({})
+    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    for bad in ("", "abc", "42x", "-1", "42/1", "42%2043", "1" * 65):
+        response = admin_client.get("/ajax/learning/writing/task?taskId=%s" % bad)
+        assert response.status_code == 400, bad
+    assert not proxy.calls
+
+
+def test_writing_page_wires_the_resume_ui(admin_client, moonwell_configured):
+    """续写 UI 的装配面：详情端点注入 + 一键续写按钮 + 历史行提示都在页面上。"""
+    html = admin_client.get("/learning/writing").data.decode("utf-8")
+    assert '"/ajax/learning/writing/task"' in html
+    assert 'id="sw-w-resume"' in html
+    assert 'id="sw-w-resume-bar"' in html
+    assert "Continue your last unfinished draft" in html
+    # 双入口已收敛：面板内那套「修订框 + 提交修订按钮」撤掉，只留一个编辑区
+    assert 'id="sw-w-revise-text"' not in html
+    assert 'id="sw-w-revise"' not in html
