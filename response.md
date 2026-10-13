@@ -228,3 +228,14 @@
 - **worktree 台账**：`../magicbook-review-distractor` @ `fix/r171-review-distractor`（基线 `771923c4`，提交 `a8b86438`）**驻留待 P3 真机验收**；moon-well 侧配套树 `../moon-well-review-distractor` @ 同名分支（提交 `31f85a6` + `fa65b31`）同样驻留。两仓须**同批或前端先行**发布（后端先发会让老前端把近义词题判错）。
 - **冲突记录**：无撞号（R167 为空号）。
 - **对话记录**：requests.md 占号 167；response.md 追加本条后窗口达 11 节，续搬最旧的 R156「麦克风按钮可用性修正」一节至 `response-archive/response-R156-mic.md`（与既有 `response-R155-R156.md` 里的同编号「细筛」条目是两回事，故文件名带 `-mic` 后缀区分）并登记索引，窗口回到 10 节。
+
+### R167 续（用户指令「推送，由我验证」= 上线：全量闸门 + push + 部署核验）
+
+- **发布态全量闸门**：merge 进 develop 后在**新基线**重跑 `pytest tests/` → **501 passed, 0 failed**（R166 记录的是 498，多出的 3 例即本次新增的代理透传锁）。
+- **merge**：`--no-ff` 提交 `c4ff5476`（前端仓 4 个提交随分支并入，含账本提交 `f56079e2`）。
+- **推送**：`origin/develop 771923c4..c4ff5476`，推前 `merge-base --is-ancestor` 验得 fast-forward。**按发布顺序硬约束走前端先行**——先推 magicbook，确认线上 JS 已是新版后才推 moon-well。
+- **上线判据**：`https://magicbook.haoyuhang.top/static/js/learning-review.js` 已含 `current.answer || current.word`。该串是本次新写的判分逻辑，旧构建不可能包含，因此命中的不是缓存。
+- **后端侧同步核验**（moon-well 容器）：`Up (healthy)`、`Started MagicbookApplication in 20.7s`、无 ERROR 行。
+- **worktree 台账**：`../magicbook-review-distractor` @ `fix/r171-review-distractor`（`a8b86438`）**驻留待用户真机验收**，验收通过后 `worktree remove` → `branch -d`。
+- **交用户的验收动作**：复习队列连做 ≥10 题——①干扰项每题都变；②出现「下面哪个词和它的意思最接近？」的近义词题，选同义词应判绿并显示辨析；③四选一仍不泄露词面。
+- **冲突记录**：无。
