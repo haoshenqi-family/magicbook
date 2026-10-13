@@ -66,6 +66,7 @@ from .tasks_status import render_task_status
 from .usermanagement import user_login_required
 from .string_helper import strip_whitespaces
 from .reading_translation.service import WholeBookTranslationService
+from .reading_tts.service import WholeBookTtsService
 from .admin import admin_required
 
 
@@ -1156,6 +1157,81 @@ def reading_translate_all_progress():
     # moon-well 的实际完成走，不再是静态快照
     _, lookup = _whole_book_closures()
     return jsonify(whole_book_translation_service.all_books_progress(lookup))
+
+
+# --------------------------------------------------------------------
+# 整本朗读（TTS 预生成，magicbook R166）：批次受理/进度/重试/取消。
+# Why admin 门禁与整本翻译一致：整本合成消耗大（发起者按字符计费）。
+# 身份经 _whole_book_tts_closures 在请求线程定格（daemon 线程无 Flask 上下文）。
+# --------------------------------------------------------------------
+
+whole_book_tts_service = WholeBookTtsService(None)  # proxy 由 start/retry 注入（路由层闭包定格身份）
+
+
+def _whole_book_tts_proxy_factory(token):
+    """构造整本朗读专用的 moon-well 代理闭包（令牌在请求线程定格为快照）。"""
+
+    def _proxy(path, payload, timeout, label, binary=False, method="POST", **kwargs):
+        return _moonwell_proxy(path, payload, timeout, label, binary=binary,
+                               method=method, bearer_token=token)
+    return _proxy
+
+
+def _whole_book_tts_closures():
+    token = flask_session.get("moonwell_access_token")
+    if not token:
+        raise ValueError("moon-well authorization is required")
+    return _whole_book_tts_proxy_factory(token)
+
+
+@web.route("/ajax/reading-tts-book", methods=["POST"])
+@user_login_required
+@admin_required
+def reading_tts_book_start():
+    """受理整本朗读批次：立即返回进度快照，合成在后台 daemon 串行执行。"""
+    payload = request.get_json(silent=True) or {}
+    try:
+        book_id = int(payload.get("book_id"))
+        book_format = str(payload.get("book_format") or "epub").lower()
+        proxy = _whole_book_tts_closures()
+        return jsonify(whole_book_tts_service.start(book_id, book_format, proxy,
+                                                    force_voice=bool(payload.get("force_voice", False))))
+    except (TypeError, ValueError, zipfile.BadZipFile) as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/reading-tts-book/status", methods=["POST"])
+@user_login_required
+@admin_required
+def reading_tts_book_status():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(whole_book_tts_service.get_progress(str(payload.get("job_id"))))
+    except ValueError as error:
+        return jsonify({"success": False, "message": str(error)}), 404
+
+
+@web.route("/ajax/reading-tts-book/retry", methods=["POST"])
+@user_login_required
+@admin_required
+def reading_tts_book_retry():
+    payload = request.get_json(silent=True) or {}
+    try:
+        proxy = _whole_book_tts_closures()
+        return jsonify(whole_book_tts_service.retry(str(payload.get("job_id")), proxy))
+    except ValueError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/reading-tts-book/cancel", methods=["POST"])
+@user_login_required
+@admin_required
+def reading_tts_book_cancel():
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(whole_book_tts_service.cancel(str(payload.get("job_id"))))
+    except ValueError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
 
 
 @web.route("/translate-all", methods=["GET"])

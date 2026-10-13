@@ -82,6 +82,10 @@
                             <button type="button" class="btn btn-primary" id="whole-book-translate"
                                     data-book-id="{{ entry.id }}" data-book-format="{% if 'epub' in entry.reader_list %}epub{% else %}kepub{% endif %}"
                                     data-csrf-token="{{ csrf_token() }}">整本翻译</button>
+                            {% if current_user.role_admin() %}<button type="button" class="btn btn-default" id="whole-book-tts"
+                                    data-book-id="{{ entry.id }}"
+                                    data-book-format="{{ entry.data[0].format|lower}}"
+                                    data-csrf-token="{{ csrf_token() }}">整本朗读</button>{% endif %}
                         {% endif %}
                         <div class="btn-group" role="group">
                             {% if entry.reader_list|length > 1 %}
@@ -403,6 +407,25 @@
             }).fail(function (xhr) {
                 alert((xhr.responseJSON && xhr.responseJSON.message) || '整本翻译提交失败');
             }).always(function () { button.prop('disabled', false).text('整本翻译'); });
+        });
+
+        // 整本朗读(TTS 预生成,R166):受理后 daemon 逐段合成进 moon-well 永久缓存,
+        // 完成后阅读器连播/单段朗读毫秒级命中。预估积分为全 miss 上限,已缓存段自动跳过不重复计费。
+        $('#whole-book-tts').on('click', function () {
+            var button = $(this);
+            if (!window.confirm('开始整本朗读预生成？\n\n已有音频的段落自动跳过、不重复计费;\n仅未合成段落按发起者计费(每 1000 字符 1 积分)。\n完成后听书零等待。')) return;
+            button.prop('disabled', true).text('提交中…');
+            $.ajax({url: '{{ url_for("web.reading_tts_book_start") }}', method: 'POST',
+                contentType: 'application/json', headers: {'X-CSRFToken': button.data('csrf-token')},
+                data: JSON.stringify({book_id: button.data('book-id'), book_format: button.data('book-format')})
+            }).done(function (result) {
+                alert('整本朗读已受理\n书名:' + (result.bookName || '') +
+                    '\n总段落:' + (result.total || 0) +
+                    '\n音色:' + (result.voice || '默认(选角未启用)') +
+                    '\n\n后台逐段合成中,完成后听书零等待。积分消耗以流水为准。');
+            }).fail(function (xhr) {
+                alert((xhr.responseJSON && xhr.responseJSON.message) || '整本朗读提交失败');
+            }).always(function () { button.prop('disabled', false).text('整本朗读'); });
         });
     });
 </script>
