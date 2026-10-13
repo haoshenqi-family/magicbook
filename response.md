@@ -23,27 +23,7 @@
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条）
-
-## 2026-10-11（R157：整本连播（听书）——顺序逐段朗读整本书，随时暂停）
-
-### R157（R155/R156 评估结论落地：moon-well 零改动，播放队列全部在阅读器前端）
-
-- **需求**：为书籍增加一个整本阅读功能：按照顺序一段一段持续朗读，随时可以暂停。（编号说明：R155 评估轮占号 155 及其回应条目曾被并行提交操作清除；155/156 已被并行会话的 worktree 规范/词汇细筛占用，按「不改既存、续编空号」纪律落为 157。评估结论在 moon-well response.md R156 有留档。）
-- **交付**（worktree `../magicbook-whole-book-read`，分支 `feat/r157-whole-book-read`，基于 origin/develop 41918028）：
-  - **moon-well 与 web.py 零改动**（评估已证：/tts/speak 同步音频 + SHA-256(原文) 永久缓存 + 顺序串行天然合规）；
-  - `epub.js` 新增独立播放队列状态机 `bookPlayer`（与单段朗读 `activeTts` 互斥让位）：collectParagraphElements 收集本章段落 → 归一化 + 2000 字符切块（句读优先断句，长段不再静默截断）→ 逐块 `POST /ajax/reading-tts` → Audio(blob) 播放 → ended 接下一块；本章耗尽 `rendition.next()` 等 `rendered` 重建队列，spine 尽头自动停并提示「已到全书末尾」；
-  - 暂停/继续：`audio.pause()/play()` 段内保留进度；合成期间暂停 = 就位 blob 不开播，点击即续；
-  - 预取：当前块 onplay 后预取下一块，全程 ≤1 个在途合成（NAS 本地 TTS CPU 瓶颈、MiMo 100 RPM）；
-  - 视图跟随：当前段不在可见页才 `display(段落实时 CFI)` 跳页（实时 CFI 无旧 CFI 越界毒化显示队列风险）；
-  - 章界：空文字章节（纯图片封面页）自动跳过（≤10 章上限）；20s 未渲染按翻章失败收尾；
-  - 手动导航跟随：rendered 非 internalNav → 重建队列——同章重渲染（字号/主题/分栏）按 lastStartedText 续听原块、换章从新页顶部起播；章内翻页不打断播放；
-  - UI：标题栏 `#tts-book`（▶/❚❚ 切换）+ `#tts-book-stop`（■，连播中显示）；当前段 `.reading-tts-speaking` 高亮；8 条新文案走 mbT 五步链；
-  - 文档：L1 reading.md 朗读条目扩写+整本连播、L3 深入阅读加链；L2 reading hld 新增 §1.1（无新契约）；L3 `docs/feat/whole-book-listening/design/whole-book-listening-design.md` 新建（状态行已上线）。
-- **测试**：i18n seed 契约 5 例绿（JS 字面量 ⊆ seed = po = mo，8 条新词条四层一致）；test_reading_tts + test_csp_media + test_nav_settings_dropdown 20 例绿（代理层零改动回归）；node --check 过；epub.js 全模块通读交叉审查一轮（据此修出：空文字章自动跳过、emptySkips 初始化与重置、FireWaiters 唤醒链抽取）。
-- **归档**：本条使窗口达 11，最早一节 R143 原样搬至 `response-archive/response-R143.md` 并登记索引，窗口 R144–R157。
-- **总结**：requests.md 占号 R157（在 worktree 内落盘，随本分支 merge 入 develop，避开主检出并行覆写区）；本条为回应；冲突记录：R155 评估轮的占号/回应曾被并行提交清除（已在编号说明留痕），本轮在干净基线重落为 157；worktree 交付后驻留等用户真机验收（AC 见 L3 design §4），验收通过后按两段式闸门收尾。
-- **验收与收尾（同日回填）**：用户确认验收通过（2026-10-11「此任务完成的非常好，可以收尾」）——按两段式闸门收尾：worktree `../magicbook-whole-book-read` 已 `git worktree remove`、分支 `feat/r157-whole-book-read` 已 `branch -d` 删除（内容已随 e6a51c48 并入 develop 并部署上线，线上冒烟见前文）。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节）
 
 ## 2026-10-11（R156：麦克风按钮可用性修正——带标签/状态自更新/用法提示）
 
@@ -147,6 +127,14 @@
 - **worktree 台账（验收期驻留）**：`feat/r164-whole-book-tts`（`../magicbook-whole-book-tts`）已 merge 本地 develop 并 push；验收通过后 `worktree remove` + `branch -d`。
 - **总结**：requests.md R163/R164；本条为开发+上线回应；冲突记录：R165 轮并行 push 一次基线漂移（其 response.md 已自记），本轮 merge 按「两侧并存」收敛；163 重复条系本会话二轮 edit 锚点失误，已去重并如实记录。
 
+
+## 2026-10-13（R164 续二：用户验收通过，worktree 清理完成）
+
+### R164 收尾回应
+
+- 用户指令「清理」= 真机验收通过。两树全干净（0 modified / 0 untracked）后 worktree remove + branch -d 成功：feat/r164-whole-book-tts（P3 止于 25489563，均已并入 develop 并 push）。
+- **总结**：本条为收尾回应；冲突记录：无。R164（整本朗读 magicbook 侧）闭环：朗读口径提取器（契约双锁）+批次服务+路由+入口按钮已上线，moon-well 侧选角冒烟通过（voice=Mia），端到端批量合成与扣费流水由用户浏览器验收。
+
 ## 2026-10-13（R166：每日学习中枢化——说与写并入 banner 卡片，七个功能各自子页面）
 
 ### R166（优化每日学习模块，把说与写也包括进去；banner 循环卡片 + 标题/图片/详细描述）
@@ -214,6 +202,8 @@
   feat/r166-learning-hub`。
 - **总结**：requests.md 占号 R166；本条为回应；冲突记录：无撞号（追加时 requests.md 全文无
   166 条目）。归档：本条写入前窗口 11 节、写入后 12，按写入即检查把最旧的 R155、R156（细筛）
-  两节原样搬至 `response-archive/response-R155-R156.md` 并登记索引，窗口恢复 10 节。
+  两节原样搬至 `response-archive/response-R155-R156.md` 并登记索引，窗口恢复 10 节；
+  merge `origin/develop`（并行会话的「R164 续二」收尾节）后窗口又达 11，续搬最旧的 R157
+  一节至 `response-archive/response-R157.md` 并登记索引，最终窗口 10 节。
   另注：主检出工作区此前已手工追加过同一条 R166 占号文本（未提交），merge 时以本分支版本为准、
   工作区那份丢弃，不产生内容分叉。
