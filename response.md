@@ -23,29 +23,7 @@
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移）
-
-## 2026-10-11（R155：worktree 规范微调——merge 后保留待验收，验收通过后删除）
-
-### R155（worktree 收尾闸门改两段式：merge 后保留等验收）
-
-- **用户指令**：不要 merge 即删除 worktree，改为 merge 后保留等用户验收，验收通过后再删除。规范主体（临时 worktree、非占用池、从 origin/develop 切、仓库外兄弟目录）不变，只改收尾时序。R152 已出现「worktree 驻留不关（完成后由用户确认关闭）」的在例——本次修订正是把这一实际工作方式回写为正式规范。
-- **落地改动**：家族根 `AGENTS.md`「Git Worktree 开发纪律」收尾闸门改两段式（merge 后 worktree 原样保留等验收）+ 台账条目改「驻留台账」+ 证据条补记本次用户修订；四仓 AGENTS.md 同步微调。本仓细则新增「验收期驻留（正常状态）」：登记分支名与合并 commit，验收通过后立即删除；并写明本仓验收优势——干净 worktree ＋ 主检出 `.venv` 复用＋拷贝当轮运行期文件即可真机整站验收（R144 已验证）。
-- **窗口**：与远端 R153/R154 集成后窗口含 R141–R155 共 12 个 request，把最旧的 R141、R142 两节原样搬至 `response-archive/response-R141-R142.md` 并登记索引，窗口恢复 10 个（R143–R155）；此前本条初版已搬 R139/R140（当时窗口 11）。
-- **编号说明**：本条与并行会话的 P3 输出训练（R153）、导航层级修正（R154）集成时发现同号 153 已被先行推送占用，按纪律续编 155；同源任务 moon-well R153 / magiclens R41 / app-manager R39。
-- **总结**：requests.md 占号 R155（与并行会话 P3 输出训练撞号 153 后按纪律续编）；本条为回应；冲突记录：R153 撞号如上。本任务只改文档与对话记录，未动任何代码。
-
-## 2026-10-11（R156：词汇量测试「细筛」入口——代理透传/前后对照/细档图）
-
-### R156（细筛前端：magicbook 侧交付，跨仓同源 moon-well R155）
-
-- **交付**（worktree `../magicbook-vocab-refine`，分支 `feat/r154-vocab-refine`，基于 origin/develop 37edb778；merge commit 1d8309f1，worktree 驻留待用户验收）：
-  - **代理**：`/ajax/vocab-test/start` 增 refine 标志透传——只认显式布尔 true，其余（缺省/false/字符串）一律按标准测试转发空体，语义分叉只在 moon-well 一处。
-  - **vocab-test.js**：卡片（有标准结果时）与结果页各一个细筛按钮（报告 `testType` 驱动显隐，对细筛结果不提供二次细筛）；50305（无可细筛基座）回卡片态提示；细筛结果渲染「上次估算」对照行；掌握度图标签按报告 `bandRanges` 秩区间标注（细档序号只在会话档位表内有意义），后端未升级时退回硬编码档名。
-  - **模板/i18n**：两个按钮 + 对照行落 reading_settings.html；`Refine test / Previous estimate / Take a standard test first…` 三词条进种子与 zh po/mo。
-- **测试**：代理透传矩阵用例 +1（true→透传、false/"yes"/缺省→空体）；i18n 种子契约对新词条自动生效；全量 pytest 407 例绿。
-- **编号说明**：本任务原占 154（与并行导航修正撞号），占号条目在工作区被并行提交操作清除；按「不改既存、续编空号」纪律落为 156，既有 commit 内 R154 文案不改。
-- **总结**：requests.md 续编 R156 占号；本条为回应；冲突记录：无（合并为真 merge 无内容冲突；stash 恢复的并行未提交改动原样留在工作区，归其 owner）。归档：窗口 R147–R156 共 10 条未超窗。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条）
 
 ## 2026-10-11（R157：整本连播（听书）——顺序逐段朗读整本书，随时暂停）
 
@@ -168,3 +146,74 @@
 - **部署确认（moon-well 侧联动）**：Nacos `tts-book-voice` 1.0.1 同步+生产选角冒烟通过（book 145《Matilda》→ voice=Mia、风格指令「轻快明亮温暖俏皮…睡前故事」——元信息进 prompt 实证）；端到端批量合成（AC②）待真机浏览器登录态验收。
 - **worktree 台账（验收期驻留）**：`feat/r164-whole-book-tts`（`../magicbook-whole-book-tts`）已 merge 本地 develop 并 push；验收通过后 `worktree remove` + `branch -d`。
 - **总结**：requests.md R163/R164；本条为开发+上线回应；冲突记录：R165 轮并行 push 一次基线漂移（其 response.md 已自记），本轮 merge 按「两侧并存」收敛；163 重复条系本会话二轮 edit 锚点失误，已去重并如实记录。
+
+## 2026-10-13（R166：每日学习中枢化——说与写并入 banner 卡片，七个功能各自子页面）
+
+### R166（优化每日学习模块，把说与写也包括进去；banner 循环卡片 + 标题/图片/详细描述）
+
+- **现状核对（先证后改）**：七个功能**全部已存在**，本轮不是补能力缺口而是信息架构重构——
+  复习队列与选书难度匹配是 `/learning` 的两个面板，写作工坊/AI 口语陪练/复述 4-3-2/计时重读/
+  听写是 `/learning/speaking-writing` 的五个 tab（模板 339 行 + `speaking_writing.js` 1097 行
+  共用一套 els 注册表）。moon-well 后端与 `/ajax/learning/*` 契约**零改动**。
+- **交付**（worktree `../magicbook-learning-hub`，分支 `feat/r166-learning-hub`，基线
+  `origin/develop fb34c1b3`）：中枢 `/learning` = banner 轮播 + 今日计划 + 复习摘要卡 + 本周四股；
+  七个子页面 `/learning/{review,match,writing,speaking,retell,reread,dictation}`；
+  旧 `/learning/speaking-writing` 302 回中枢；一级导航撤掉 Speaking & Writing（R154 才提上来，
+  按新 IA 收回）。
+- **四项决策由用户拍板**（AskUserQuestion 四问）：全 7 项子页面化 + 中枢留复习摘要卡 /
+  单卡整幅轮播（图左文右）/ 移除一级项 + 旧 URL 302 / **JS 拆成 7 个功能模块 + 公共 lib**
+  （放弃低风险「守卫式复用旧大文件」，选彻底那档）。
+- **前端拆分**：`learning-common.js`（HTTP 信封/CSRF/show/busy/四股字段口径表/听力素材下拉）+
+  `learning-voice.js`（WebAudio 录音→16k wav→ASR，只口语与复述载）+ 中枢 + 七个功能模块，
+  每页只载 common + 自己那份；删 `learning.js`、`speaking_writing.js`。元素 id 原样保留
+  （`ln-*`/`sw-*`），只把 CSRF 隐藏域统一成 `lh-csrf`。
+- **banner 卡片**：ImageGen 出 7 张统一风格扁平插画（4:3、画面内不放文字），`cwebp -crop
+  0 0 1024 698 -resize 640 436 -q 72` 压成 webp，7 张合计 **52KB**，落
+  `cps/static/img/learning/`；生成与压缩脚本在 `docs/temp/scripts/`（不跟踪）。
+  **水印处理待你确认**：ImageGen 产物右下角带「Qoder AI 生成」字样，落在画面下方空白带，
+  本轮按裁切底部 70px 去除（未触碰画面）；若你要求保留生成标识，改回不裁切即可。
+  每张卡 = 插画 + 标题 + 详细描述（是什么/怎么玩/多久/计入哪股）+ **今日进度徽章** + CTA；
+  6s 自动轮播、悬停与聚焦暂停、圆点/箭头/键盘/横滑、`prefers-reduced-motion` 关自动播；
+  **今日欠账最多的那股自动排到最前**（缺口只算一次，之后不打断用户手动翻页）。
+- **顺带修掉三个既有缺陷**：① **`learning.js:167` 引用从未声明的 `urls.week`** →
+  严格模式 ReferenceError 被计划请求的 `.catch` 静默吞掉，**今日计划行与四股周视图自 R153
+  （commit 76691314）起就不渲染**，页面照常 200、单测照常绿；本轮拆分后每模块显式声明
+  `var urls = window.learningUrls || {}` 并加静态锁兜底。② 麦克风按钮录完后标签从中文跳回
+  硬编码英文 `'Voice input'`，改为 attach 时读当前文案作复位值。③ 计时重读「推荐段落」入口
+  三遍读完后不重置 Begin/Stop 按钮，会留下无按钮可点的死面板，现与手选段落走同一条复位路径。
+- **i18n**：卡片文案走 Jinja `_()`（英文 msgid），zh po 补 **31 条**译文 + `pybabel compile`；
+  6 条 JS 取词进 `i18n_seed.html`。po 改动采「构造全文→tmp→os.replace」原子替换，且**只追加
+  不重写**——实测 babel 2.18 的 `write_po` 无论 width=76/None/0 都无法原样 round-trip 本仓 po
+  （139,327 → 138,980/139,400 字节），重写会凭空多出上百行折行 diff，正撞并行会话冲突面。
+  最终 diff：**93 行纯新增、0 删除、重复 msgid 0**。
+- **测试**：新增 `tests/test_learning_pages_static.py`（替 `test_speaking_writing_static.py`：
+  R158 两条锁按「模块 ↔ 它自己的模板」逐页参数化 + `urls` 声明锁 + common 先载锁 + 死脚本引用
+  防回流）、`tests/test_learning_hub_cards.py`（七卡标题/配图/描述/股别/顺序、href 与 `url_for`
+  一致且可打开、图文件存在且 <200KB、旧 URL 302、**卡片文案逐条向 `.mo` 取词**）；
+  改 `test_i18n_seed_contract.py`（JS_FILES 换 10 个新模块）、`test_nav_settings_dropdown.py`
+  （一级项不回流）、`test_learning_proxy.py`（中枢/子页面/麦克风断言按新 IA 重写）。
+  开发态闸门实跑 **134 passed / 0 failed**（10 个测试文件）。另因本轮删了两份被多页共用的
+  大文件，随手复跑一次全量兜底：**498 passed / 0 failed**（23.5s，非发布态闸门，
+  发布态全量仍以你显式指令为准）。
+- **UI 验收（本机真实 Flask + 假上游 + 无头 Chrome）**：`docs/temp/run_learning_hub_check.py`
+  加 `?probe=1`（几何探针供 `--dump-dom` 读）与 `?stub=1`（替 `_moonwell_proxy` 喂固定 Result
+  信封）。实证：计划行「四股时间预算（每天 40 分钟）：阅读输入 6/20min · 词汇学习 2/10min ·
+  说与写 0/5min · 流利度训练 5/5min」+ 今日新词 + 摘要卡 3/20·14·212·91% +「现在有 9 个词到期。」
+  + 周视图 7 行全部渲染（①的直接证据）；缺口排序首卡=听写（language 缺 8min）✓；徽章
+  `今日已复习 3/20 · 到期 9`、`今日 2/10 分钟`、选书卡隐藏 ✓；13s 时轮播停在第 3 张 ✓；
+  1440/768/500 三档 `scrollW ≤ innerWidth` 无横向溢出 ✓（500px 档媒体盒 220×150 纵向堆叠）；
+  七个子页面与静态资源全 200。**过程中修掉一处真实缺陷**：移动端卡片图靠 `max-height` 收不动——
+  `style.css:134` 的 `.container-fluid img{max-height:100%}` 与本文件同特异度且
+  `layout.html` 把 header 块放在该 link 之前（18 vs 19 行），后来居上；改为给媒体盒定宽。
+- **未验（需你线上真数据验收）**：真实 moon-well 下四股入账折算、七个子页面的实际练习流程
+  （出题/批改/会话/朗读/听写词级 diff）、深色主题与 caliBlur 下的 banner 观感。
+  本机无 calibre 书库且无合法 OIDC 令牌，这两类只能在生产验。
+- **worktree 台账（验收期驻留）**：`feat/r166-learning-hub`（`../magicbook-learning-hub`）
+  已 merge 本地 develop，**未 push**（push develop 即触发 fnOS 构建上线，按纪律单独等你指令）；
+  验收通过后 `git worktree remove ../magicbook-learning-hub` + `git branch -d
+  feat/r166-learning-hub`。
+- **总结**：requests.md 占号 R166；本条为回应；冲突记录：无撞号（追加时 requests.md 全文无
+  166 条目）。归档：本条写入前窗口 11 节、写入后 12，按写入即检查把最旧的 R155、R156（细筛）
+  两节原样搬至 `response-archive/response-R155-R156.md` 并登记索引，窗口恢复 10 节。
+  另注：主检出工作区此前已手工追加过同一条 R166 占号文本（未提交），merge 时以本分支版本为准、
+  工作区那份丢弃，不产生内容分叉。
