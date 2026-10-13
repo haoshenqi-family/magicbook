@@ -168,3 +168,11 @@
 - **部署确认（moon-well 侧联动）**：Nacos `tts-book-voice` 1.0.1 同步+生产选角冒烟通过（book 145《Matilda》→ voice=Mia、风格指令「轻快明亮温暖俏皮…睡前故事」——元信息进 prompt 实证）；端到端批量合成（AC②）待真机浏览器登录态验收。
 - **worktree 台账（验收期驻留）**：`feat/r164-whole-book-tts`（`../magicbook-whole-book-tts`）已 merge 本地 develop 并 push；验收通过后 `worktree remove` + `branch -d`。
 - **总结**：requests.md R163/R164；本条为开发+上线回应；冲突记录：R165 轮并行 push 一次基线漂移（其 response.md 已自记），本轮 merge 按「两侧并存」收敛；163 重复条系本会话二轮 edit 锚点失误，已去重并如实记录。
+
+
+## 2026-10-13（R164 续二：用户验收通过，worktree 清理完成）
+
+### R164 收尾回应
+
+- 用户指令「清理」= 真机验收通过。两树全干净（0 modified / 0 untracked）后 worktree remove + branch -d 成功：feat/r164-whole-book-tts（P3 止于 25489563，均已并入 develop 并 push）。
+- **总结**：本条为收尾回应；冲突记录：无。R164（整本朗读 magicbook 侧）闭环：朗读口径提取器（契约双锁）+批次服务+路由+入口按钮已上线，moon-well 侧选角冒烟通过（voice=Mia），端到端批量合成与扣费流水由用户浏览器验收。
