@@ -19,20 +19,11 @@
 - `response-archive/response-R134.md`：R134（2026-10-08；2026-10-10 R144 写入触发轮转搬移，其父级日期标题随节一并搬移）
 - `response-archive/response-R143.md`：R143（2026-10-10；2026-10-11 R157 写入触发轮转搬移）
 - `response-archive/response-R144-R153.md`：R144、R145、R147（含嵌套 R146）、R151、R152、R153（2026-10-10 ～ 2026-10-11；2026-10-12 R161 写入触发轮转搬移，清并行欠账）
+- `response-archive/response-R154.md`：R154（2026-10-11；2026-10-12 R162 写入触发轮转搬移）
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153）
-
-## 2026-10-11（R154：导航层级修正——学习入口一级平铺 + 学习页直达说与写）
-
-### R154（用户反馈：学习入口藏 Settings 里层级不对）
-
-- **交付**（worktree `../magicbook-learning-nav`，分支 `feat/r154-learning-nav`，基于 origin/develop 37edb78；worktree 驻留待用户确认）：
-  - **layout.html**：「每日学习」「说与写」从 Settings 下拉撤出，提为左侧一级导航（与高级搜索平级，登录后可见，移动端只留图标）；收纳注释同步更新（R154 例外，防后人按旧口径收回去）。
-  - **learning.html**：Today's Plan 面板标题右侧加「Speaking & Writing →」直达跳转（练完复习接输出，零新增词条，"Speaking & Writing" 复用既有 po 词条）。
-- **测试**：`test_nav_settings_dropdown.py` 增 1 例（两项全页各出现一次且不在下拉块内，防回流）；`test_learning_proxy.py` 页面渲染断言扩为含跳转链接；合计 46 passed。
-- **总结**：requests.md 占号 R154；本条为回应；冲突记录：无。归档：窗口未超。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R162 写入触发轮转搬移）
 
 ## 2026-10-11（R155：worktree 规范微调——merge 后保留待验收，验收通过后删除）
 
@@ -137,4 +128,16 @@
 - **改动面**：零代码、零配置变更；排查中唯一「写」动作是 Server 2 上的 `tailscale ping`（无副作用的恢复动作）。
 - **归档**：本条写入前窗口实存 16 条（R144–R164，含并行会话未轮转欠账），按写入即检查把 R144、R145、R147（含嵌套 R146）、R151、R152、R153 七节原样搬至 `response-archive/response-R144-R153.md` 并登记归档索引，窗口恢复 10 条。
 - **总结**：requests.md 占号 R161；本条为回应；冲突记录：无撞号（R161 为空号）。requests.md 总结：追加 R161 占号条目；response.md 总结：搬移 7 节归档后写入本条，窗口 10 条。
+
+## 2026-10-12（R162：书库两本《傲慢与偏见》对比——原著 vs 书虫改写版）
+
+### R162（问答：book 128 为原著全文，book 337 为书虫·第6级英汉双语改写版——简化重写而非同一内容）
+
+- **核对方式**：两本书详情页元数据（登录态浏览器抓取）＋牛津 Bookworms／外研社公开出版信息交叉验证。阅读器正文未能打开（浏览器面板中途离线），但版本定性不依赖正文。
+- **结论**：
+  - **book 128《Pride and Prejudice》** = Jane Austen 原著全文（纯英文，EPUB 24.8 MB，书架「英文分级·阶5（6500–9000词）」；出版日期 1998-06 与 Project Gutenberg 电子书 #1342 发布时间吻合，即 R136 批次的公版导入）。
+  - **book 337《傲慢与偏见》** = 书虫·牛津英汉双语读物（第6级，外研社出版，EPUB 1.3 MB，书架「书虫·牛津英汉双语读物」；元数据系列「书虫·第6级」第 2 册为库内系列编号，非上下册分卷）——牛津 Bookworms 系列改写本（Clare West 改写），全文 29,455 词（约为原著 1/4），词汇控制在 2,500 headwords（CEFR B2/C1），英汉双语。主线情节与人物保留，但文字全部重写，**不是删节、更不是原文**。按本库分级口径：书虫 6 级约 2500 词族 ≈ 阶2–阶3；原著挂在阶5。
+- **改动面**：零代码、零配置；仅对话记录（requests.md 占号 + 本条 + R154 节归档搬移 + requests.md 头部「当前最大」指针更新为 R162）。
+- **归档**：本条写入前窗口 10 条，写入后超窗，最早一节 R154 原样搬至 `response-archive/response-R154.md` 并登记两处归档索引，窗口恢复 10 条。
+- **总结**：requests.md 占号 R162；本条为回应；冲突记录：无撞号（追加时 requests.md 全文无 162/163 条目；注：response.md 存在并行会话 R164 回应条而其 requests.md 占号条未见，疑被并行写覆盖——按「不改既存」纪律不处理，仅留痕）。
 
