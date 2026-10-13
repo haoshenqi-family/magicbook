@@ -18,12 +18,44 @@
    'sw-w-task', 'sw-w-prompt', 'sw-w-requirements', 'sw-w-tips',
    'sw-w-text', 'sw-w-submit', 'sw-w-status',
    'sw-w-review', 'sw-w-progress', 'sw-w-overall', 'sw-w-scores',
-   'sw-w-sentences', 'sw-w-upgrades', 'sw-w-revise-text', 'sw-w-revise',
+   'sw-w-sentences', 'sw-w-upgrades',
    'sw-w-history-panel', 'sw-w-history',
+   'sw-w-resume-bar', 'sw-w-resume', 'sw-w-resume-label',
   ].forEach(function (id) { els[id] = $(id); });
   if (!els['sw-w-generate']) return;
 
-  var writing = { taskId: null };
+  var writing = { taskId: null, lastDraftNo: null, resumeTaskId: null };
+  // busy() 会把文案换成「批改中…」再按 dataset.label 还原，所以按钮基准文案
+  // 只在初始化时取一次，之后由 refreshSubmitButton 统一改写
+  var SUBMIT_LABEL = els['sw-w-submit'].textContent;
+
+  function fillList(node, items) {
+    clear(node);
+    (items || []).forEach(function (line) {
+      node.appendChild(li(line));
+    });
+  }
+
+  /**
+   * 提交按钮跟着草稿状态走（R168 续写）：一个编辑区、一个提交按钮，
+   * 目标端点由 lastDraftNo 决定——避免「初稿/修订」两个框都能提交同一稿的歧义。
+   * 两稿封顶是上游规则（50513），到 2 就把按钮 disable 而不是让用户去撞错误。
+   */
+  function refreshSubmitButton() {
+    var btn = els['sw-w-submit'];
+    var done = writing.lastDraftNo != null && writing.lastDraftNo >= 2;
+    var label = done ? mbT('Both drafts finished')
+      : (writing.lastDraftNo === 1 ? mbT('Submit revision') : SUBMIT_LABEL);
+    btn.disabled = done;
+    // dataset.label 是 busy() 还原时的基准文案，必须与当前意图一致，
+    // 否则「批改中…」结束会退回初稿态的文案（探针实测踩过）
+    btn.dataset.label = label;
+    btn.textContent = label;
+  }
+
+  function draftEndpoint() {
+    return writing.lastDraftNo && writing.lastDraftNo >= 1 ? urls.writingRevise : urls.writingSubmit;
+  }
 
   function scoreRow(label, value) {
     var wrap = document.createElement('div');
@@ -72,28 +104,92 @@
       els['sw-w-upgrades'].appendChild(li(
         (item.from || '') + ' → ' + (item.to || '') + (item.why ? '（' + item.why + '）' : '')));
     });
-    if (review.draftNo != null) {
-      // 二稿起清空修订框：让用户重写而不是把上一稿原样再交一次（进步确认就没意义了）
-      els['sw-w-revise-text'].value = review.draftNo >= 2 ? '' : els['sw-w-text'].value;
-    }
   }
 
   function loadWritingHistory() {
     getJson(urls.writingHistory).then(function (response) {
       var items = resultOf(response) || [];
       var panel = els['sw-w-history-panel'];
-      if (!items.length) { show(panel, false); return; }
+      if (!items.length) {
+        show(panel, false);
+        show(els['sw-w-resume-bar'], false);
+        return;
+      }
       var list = els['sw-w-history'];
       clear(list);
       items.forEach(function (task) {
-        var line = li((task.prompt || mbT('Free writing')) + ' · ' +
-          (task.submissions || []).map(function (sub) {
-            return mbT('Draft') + ' ' + sub.draftNo;
-          }).join(' · '));
+        var line = li((task.prompt || mbT('Free writing')) + ' · ' + statusLabel(task));
+        // R168：历史行从「只读摘要」变成续写入口——草稿正文与上次批改都在详情里
+        line.style.cursor = 'pointer';
+        line.title = mbT('Click to load this task back');
+        line.addEventListener('click', function () { resume(task.taskId); });
         list.appendChild(line);
       });
       show(panel, true);
-    }).catch(function () { show(els['sw-w-history-panel'], false); });
+      armResumeBar(items);
+    }).catch(function () {
+      show(els['sw-w-history-panel'], false);
+      show(els['sw-w-resume-bar'], false);
+    });
+  }
+
+  function statusLabel(item) {
+    if (!item.lastDraftNo) return mbT('Not started yet');
+    if (item.lastDraftNo < 2) return mbT('Draft {{n}} submitted · revision pending')
+      .replace('{{n}}', item.lastDraftNo);
+    return mbT('Both drafts finished');
+  }
+
+  // 列表按创建时间倒序，第一条没写完的就是「上次未完成的写作」
+  function armResumeBar(items) {
+    var candidate = null;
+    items.forEach(function (item) {
+      if (!candidate && (item.lastDraftNo == null || item.lastDraftNo < 2)) {
+        candidate = item;
+      }
+    });
+    if (!candidate) { show(els['sw-w-resume-bar'], false); return; }
+    writing.resumeTaskId = candidate.taskId;
+    var prompt = candidate.prompt || mbT('Free writing');
+    els['sw-w-resume-label'].textContent = prompt.length > 40
+      ? prompt.slice(0, 40) + '…' : prompt;
+    show(els['sw-w-resume-bar'], true);
+  }
+
+  function resume(taskId) {
+    if (!urls.writingTask) { window.alert(mbT('Resume is unavailable')); return; }
+    els['sw-w-status'].textContent = mbT('Loading');
+    getJson(urls.writingTask + '?taskId=' + encodeURIComponent(taskId))
+      .then(function (response) { applyTask(resultOf(response)); })
+      .catch(function (err) {
+        els['sw-w-status'].textContent = '';
+        window.alert(err.message);
+      });
+  }
+
+  /** 把任务原样铺回页面：题目与要求 + 最新草稿正文 + 该稿批改结果。 */
+  function applyTask(detail) {
+    var drafts = detail.drafts || [];
+    var last = drafts.length ? drafts[drafts.length - 1] : null;
+    writing.taskId = detail.taskId;
+    writing.lastDraftNo = last ? last.draftNo : null;
+    if (detail.mode) els['sw-w-mode'].value = String(detail.mode).toLowerCase();
+    if (detail.cefrLevel) els['sw-w-cefr'].value = detail.cefrLevel;
+    if (detail.bookTitle) els['sw-w-book'].value = detail.bookTitle;
+    esc(els['sw-w-prompt'], detail.prompt || '');
+    fillList(els['sw-w-requirements'], detail.requirements);
+    // R172 之前出题不落 tips：旧任务这里是空的，属预期而非报错
+    fillList(els['sw-w-tips'], detail.tips);
+    show(els['sw-w-task'], !!(detail.prompt || (detail.requirements || []).length));
+    els['sw-w-text'].value = last && last.text ? last.text : '';
+    refreshSubmitButton();
+    if (last && last.review) renderReview(last.review);
+    else show(els['sw-w-review'], false);
+    esc(els['sw-w-status'], last
+      ? mbT('Resumed draft {{n}} — keep editing in the box above and submit again.')
+          .replace('{{n}}', last.draftNo)
+      : mbT('Task loaded — nothing written yet.'));
+    els['sw-w-text'].focus();
   }
 
   els['sw-w-generate'].addEventListener('click', function () {
@@ -106,39 +202,48 @@
     }).then(function (response) {
       var task = resultOf(response);
       writing.taskId = task.taskId;
+      writing.lastDraftNo = null;      // 新任务：一稿未交
       esc(els['sw-w-prompt'], task.prompt);
-      clear(els['sw-w-requirements']);
-      (task.requirements || []).forEach(function (line) {
-        els['sw-w-requirements'].appendChild(li(line));
-      });
-      clear(els['sw-w-tips']);
-      (task.tips || []).forEach(function (line) {
-        els['sw-w-tips'].appendChild(li(line));
-      });
+      fillList(els['sw-w-requirements'], task.requirements);
+      fillList(els['sw-w-tips'], task.tips);
       show(els['sw-w-task'], true);
       show(els['sw-w-review'], false);
+      els['sw-w-status'].textContent = '';
+      refreshSubmitButton();
     }).catch(function (err) { window.alert(err.message); })
       .finally(function () { busy(els['sw-w-generate'], false); });
   });
 
-  function submitDraft(url, btn, textarea) {
+  els['sw-w-resume'].addEventListener('click', function () {
+    if (writing.resumeTaskId) resume(writing.resumeTaskId);
+  });
+
+  els['sw-w-submit'].addEventListener('click', function () {
     if (!writing.taskId) { window.alert(mbT('Generate a task first')); return; }
+    var btn = els['sw-w-submit'];
     busy(btn, true, mbT('Reviewing…'));
-    postJson(url, { taskId: writing.taskId, text: textarea.value })
+    postJson(draftEndpoint(), { taskId: writing.taskId, text: els['sw-w-text'].value })
       .then(function (response) {
-        renderReview(resultOf(response));
+        var review = resultOf(response);
+        if (review.draftNo != null) writing.lastDraftNo = review.draftNo;
+        renderReview(review);
+        refreshSubmitButton();
+        // 状态行跟着走：不然用户看到的还是「已恢复第 1 稿」，不知道刚交的是哪一稿
+        esc(els['sw-w-status'], writing.lastDraftNo >= 2
+          ? mbT('Both drafts finished — this task can only be reviewed now.')
+          : mbT('Draft {{n}} reviewed. Revise it above and submit again.')
+              .replace('{{n}}', review.draftNo == null ? '' : review.draftNo));
         loadWritingHistory();
       })
       .catch(function (err) { window.alert(err.message); })
-      .finally(function () { busy(btn, false); });
-  }
-
-  els['sw-w-submit'].addEventListener('click', function () {
-    submitDraft(urls.writingSubmit, els['sw-w-submit'], els['sw-w-text']);
-  });
-  els['sw-w-revise'].addEventListener('click', function () {
-    submitDraft(urls.writingRevise, els['sw-w-revise'], els['sw-w-revise-text']);
+      .finally(function () {
+        busy(btn, false);
+        // busy(false) 无条件解禁按钮，两稿完成后的 disabled 会被它冲掉（探针实测），
+        // 所以解锁之后必须再按当前草稿状态刷一遍
+        refreshSubmitButton();
+      });
   });
 
+  refreshSubmitButton();
   loadWritingHistory();
 })();

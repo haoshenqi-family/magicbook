@@ -7,6 +7,12 @@
     <a href="{{ url_for('web.learning_page') }}"><span class="glyphicon glyphicon-arrow-left"></span> {{_('Daily Learning')}}</a>
   </p>
 
+  {# R168 一键续写：挑历史里第一条没写完的任务（后端 lastDraftNo 驱动），没有可续的就不显示 #}
+  <div class="sw-gap" id="sw-w-resume-bar" hidden>
+    <button type="button" id="sw-w-resume" class="btn btn-success">{{_('Continue your last unfinished draft')}}</button>
+    <span id="sw-w-resume-label" class="text-muted"></span>
+  </div>
+
   <div class="panel panel-default">
     <div class="panel-body">
       <div class="form-inline sw-gap">
@@ -54,18 +60,16 @@
       <ul id="sw-w-sentences" class="sw-list"></ul>
       <h4>{{_('Upgraded phrasings')}}</h4>
       <ul id="sw-w-upgrades" class="sw-list"></ul>
-      <h4>{{_('Revise your draft')}}</h4>
-      <p class="text-muted sw-hint">{{_('Fix what the review flagged, then submit again to see your progress.')}}</p>
-      <textarea id="sw-w-revise-text" class="form-control" rows="6"></textarea>
-      <div class="sw-gap">
-        <button type="button" id="sw-w-revise" class="btn btn-default">{{_('Submit revision')}}</button>
-      </div>
+      <p class="text-muted sw-hint">{{_('Fix the flagged points in the editor above, then press the submit button again — it becomes “Submit revision” and returns a progress check against this draft.')}}</p>
     </div>
   </div>
 
   <div class="panel panel-default" id="sw-w-history-panel" hidden>
     <div class="panel-heading"><h3 class="panel-title">{{_('Writing history')}}</h3></div>
-    <div class="panel-body"><ul id="sw-w-history" class="sw-list"></ul></div>
+    <div class="panel-body">
+      <p class="text-muted sw-hint">{{_('Click a row to load that task back — its draft goes into the editor and the previous review opens below it.')}}</p>
+      <ul id="sw-w-history" class="sw-list"></ul>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -82,7 +86,8 @@
     writingGenerate: "{{ url_for('web.learning_writing_generate') }}",
     writingSubmit: "{{ url_for('web.learning_writing_submit') }}",
     writingRevise: "{{ url_for('web.learning_writing_revise') }}",
-    writingHistory: "{{ url_for('web.learning_writing_history') }}"
+    writingHistory: "{{ url_for('web.learning_writing_history') }}",
+    writingTask: "{{ url_for('web.learning_writing_task') }}"
   };
 })();
 </script>

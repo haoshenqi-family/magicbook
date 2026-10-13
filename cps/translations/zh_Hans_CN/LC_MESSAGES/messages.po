@@ -5374,3 +5374,39 @@ msgstr "到期 {{n}}"
 
 msgid "{{earned}}/{{budget}} min today"
 msgstr "今日 {{earned}}/{{budget}} 分钟"
+
+msgid "Both drafts finished"
+msgstr "两稿已完成"
+
+msgid "Not started yet"
+msgstr "还没开始写"
+
+msgid "Draft {{n}} submitted · revision pending"
+msgstr "已交第 {{n}} 稿 · 待修订"
+
+msgid "Click to load this task back"
+msgstr "点一下把这个任务装回来继续写"
+
+msgid "Resume is unavailable"
+msgstr "续写暂不可用"
+
+msgid "Resumed draft {{n}} — keep editing in the box above and submit again."
+msgstr "已恢复这个任务的第 {{n}} 稿——在上面的编辑框里接着改，再提交一次就是下一稿。"
+
+msgid "Task loaded — nothing written yet."
+msgstr "题目已载入——这一篇还没写过，直接在上面的编辑框开写。"
+
+msgid "Continue your last unfinished draft"
+msgstr "继续上次未完成的写作"
+
+msgid "Click a row to load that task back — its draft goes into the editor and the previous review opens below it."
+msgstr "点任意一行即可把那个任务装回来：草稿正文进编辑框，上一次的批改结果在它下方展开。"
+
+msgid "Fix the flagged points in the editor above, then press the submit button again — it becomes “Submit revision” and returns a progress check against this draft."
+msgstr "照着点评在上面编辑框里改，再按一次提交按钮——按钮会变成「提交修订稿」，返回与这一稿对比的进步确认。"
+
+msgid "Both drafts finished — this task can only be reviewed now."
+msgstr "两稿已完成——这个任务现在只能回看。"
+
+msgid "Draft {{n}} reviewed. Revise it above and submit again."
+msgstr "第 {{n}} 稿已批改。在上面改完再提交一次就是下一稿。"

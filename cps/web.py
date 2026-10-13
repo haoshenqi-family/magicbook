@@ -834,6 +834,23 @@ def learning_writing_history():
                            "learning writing history", method="GET")
 
 
+@web.route("/ajax/learning/writing/task", methods=["GET"])
+@user_login_required
+def learning_writing_task():
+    """Proxy one writing task with its drafts (R168 续写).
+
+    Why 单独取详情而不是让 history 带正文：草稿上限 4000 字符、每任务两稿、列表
+    默认 20 条，带正文的最坏情况是几百 KB 的列表响应，而续写一次只用其中一条。
+    超时给 20s：详情本身是纯读，但要与同族 LLM 端点同档，避免上游冷启动时前端
+    先超时。taskId 只认数字（防把任意串拼进转发路径），越权/不存在由上游按 50512 回。
+    """
+    task_id = (request.args.get("taskId") or "").strip()
+    if not task_id.isdigit() or len(task_id) > _PROXY_LIMITS["taskId"]:
+        return jsonify({"success": False, "message": "taskId must be a numeric id"}), 400
+    return _moonwell_proxy("/learning/writing/task?taskId=" + task_id, None, 20,
+                           "learning writing task", method="GET")
+
+
 @web.route("/ajax/learning/speaking/session", methods=["POST"])
 @user_login_required
 def learning_speaking_session():
