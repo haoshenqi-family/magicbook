@@ -23,18 +23,7 @@
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节）
-
-## 2026-10-11（R156：麦克风按钮可用性修正——带标签/状态自更新/用法提示）
-
-### R156（用户反馈：「只有一个空白按钮」不会用）
-
-- **交付**（worktree `../magicbook-mic-ux`，分支 `feat/r156-mic-ux`，基于 origin/develop ac10e64c；worktree 驻留待用户确认）：
-  - 两个麦克风按钮从纯图标改为 **图标 + 文字标签**（「语音输入」），图标字体缺失时也不再是空按钮；
-  - 状态全部自更新在按钮上：空闲「语音输入」→ 录音中红底「录音中 0:12 · 再点停止」→「转写中…」（转写期间防连点禁用）→ 回填后复原；
-  - 口语面板加一行用法提示（点麦克风开始说话 → 再点一次停止转写 → 结果回填输入框确认/修改后发送；首次使用会请求麦克风权限）。
-- **测试**：页面断言（标签 ≥2 处 + 提示行）+ i18n 契约（种子 +1/po +4，mo 重编），45 passed。
-- **总结**：requests.md 占号 R156；本条为回应；冲突记录：无。归档：窗口未超。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md)（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事）
 
 ## 2026-10-11（R158：麦克风转写卡死修复）
 
@@ -219,3 +208,23 @@
   一节至 `response-archive/response-R157.md` 并登记索引，最终窗口 10 节。
   另注：主检出工作区此前已手工追加过同一条 R166 占号文本（未提交），merge 时以本分支版本为准、
   工作区那份丢弃，不产生内容分叉。
+
+## 2026-10-13（R167：复习队列接近义词题、判分改按 answer——同源 moon-well R171 的前端半）
+
+- **需求**：承接 moon-well R171。后端把干扰项改成三源随机抽并新增 `DISCRIMINATE`（题干是词面、正确项是该词的同义词），前端不接就会「选对被判错」——老判分是 `picked === current.word`，而辨析题的 `word` 既不是正确项也不在选项里。
+- **交付**：worktree `../magicbook-review-distractor` @ `fix/r171-review-distractor`，提交 `a8b86438`（9 文件 / +130 −34）。**未 merge、未 push**。
+- **改动清单**：
+  1. `learning-review.js`：判分与答后高亮改按 `answer`（老后端不发该字段时回退 `word`，行为与改动前逐字一致）；答后新增辨析说明显示。
+  2. **呈现态 `mode` 与后端 `questionType` 分离**（设计外的结构决定）：旧代码就地篡改 `current.questionType` 做降级，一旦要回传题型，就会把降级后的假题型记进答题日志，且 `SELF` 是后端不认识的值。现 `mode` 只驱动渲染，回传的是后端当初发下来的题型。
+  3. **未知题型兜底成 `SELF`**：原实现对不认识的 `questionType` 三个作答区都不亮，是一张没有任何作答入口的死卡；前后端发布不可能永远同刻到位，这条是那个窗口的保底。
+  4. 缺释义不再误杀辨析题（R137 的「缺释义→SELF」只对释义题干成立，本类题干就是词面本身）。
+  5. `learning_review.html` 新增 `ln-note` 位（不复用 `ln-feedback`——那里要被「下次再见」的调度文案覆盖）+ `learning_sub_css.html` 一行轻样式。
+  6. `i18n_seed.html` + `messages.po` 新文案「下面哪个词和它的意思最接近？」，`.mo` 已 `pybabel compile` 重编译。
+  7. 作答回传 `questionType`。
+- **⚠️ 抓到一条会让整个「回传题型」静默失效的坑**：`cps/web.py` 的 `learning_srs_answer` 代理是**逐字段重建 body** 的，新字段不补就是无声丢弃——页面照常、后端照常返回、单测照常绿，只有答题日志的题型永远走重算（辨析题随机混出，重算会错一半），正是这次要修掉的东西。已补透传 + 三条回归锁（发则大写透传、不发则 body 形状不变、非法值本地 400 不打上游）。**通用教训**：薄透传代理每加一个契约字段，必须配一条「这个字段真的上去了」的断言。
+- **命名收口**：用户界面新题型定名**「近义词题」**。本仓 L1 早就把既有的 `CHOOSE`（看释义四选一）称作「辨析题」，新题型再叫辨析题会两个题同名把人绕晕；`docs/readme/learning.md` 复习队列节一并改成 四选一 / 近义词题 / 回忆题 / 拼写题。代码常量仍是 `DISCRIMINATE`。
+- **验证（不止跑绿）**：无头 Chrome 真渲染夹具（桩 `fetch` 喂队列、脚本自动点题、读 DOM 判定）跑 7 场景全部符合预期——正确同义词标绿并显示辨析、点错标红、CHOOSE 不泄词面、老后端无 `answer` 时回退判分、未知题型成可答的自评卡、缺释义不误杀、缺选项降级回忆。**变异检验**：把判分改回 `current.word` 重跑，DISCRIMINATE 场景如期把用户选对的 `trek` 标成 `btn-danger` 并弹「正确项已高亮」；还原后恢复 `btn-success`。pytest `test_learning_pages_static + test_learning_proxy + test_i18n_seed_contract + test_learning_hub_cards` → **111 例全绿**。
+- **探针自身踩到的两个坑**（记下来免得重犯）：① 夹具只截 `#ln-card` 那个 div 会让模块在 `addEventListener of null` 上炸——`ln-retry`/`ln-continue` 在卡片外面，而 JS 在模块尾部无条件绑事件；② 桩 `fetch` 按 `url === '/q'` 精确匹配收不到请求，真实调用带 `?limit=20`，队列被误判成空数组、页面显示「今日达标」，表现为「卡片从不渲染」，极易误判成产品 bug。
+- **worktree 台账**：`../magicbook-review-distractor` @ `fix/r171-review-distractor`（基线 `771923c4`，提交 `a8b86438`）**驻留待 P3 真机验收**；moon-well 侧配套树 `../moon-well-review-distractor` @ 同名分支（提交 `31f85a6` + `fa65b31`）同样驻留。两仓须**同批或前端先行**发布（后端先发会让老前端把近义词题判错）。
+- **冲突记录**：无撞号（R167 为空号）。
+- **对话记录**：requests.md 占号 167；response.md 追加本条后窗口达 11 节，续搬最旧的 R156「麦克风按钮可用性修正」一节至 `response-archive/response-R156-mic.md`（与既有 `response-R155-R156.md` 里的同编号「细筛」条目是两回事，故文件名带 `-mic` 后缀区分）并登记索引，窗口回到 10 节。
