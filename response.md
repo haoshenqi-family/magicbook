@@ -196,10 +196,22 @@
 - **未验（需你线上真数据验收）**：真实 moon-well 下四股入账折算、七个子页面的实际练习流程
   （出题/批改/会话/朗读/听写词级 diff）、深色主题与 caliBlur 下的 banner 观感。
   本机无 calibre 书库且无合法 OIDC 令牌，这两类只能在生产验。
+- **上线（同日 21:20 完成）**：用户指令「merge and push 我来验收」。merge 已在开发分支完成
+  （develop FF 到 `771923c4`）；push 前在**推送基线**上复跑全量 **498 passed / 0 failed**
+  （发布态闸门），随后 `git push origin develop` → `cf152a5a..771923c4`。
+- **上线核验与一次自愈**：首跑 fnOS 构建成功但 **deploy 阶段失败**——`deploy.sh` 拉
+  filebeat sidecar 镜像时 `docker.elastic.co/v2/` 被 `connection reset by peer`，
+  两次重试后 GIVE UP（`stage=deploy-via-app-manager rc=1`），自动进 AI 修复闭环
+  （streak 1）。elastic 恢复后修复链路重跑成功：`21:20:09 app-manager deploy SUCCESS` +
+  `build END OK (771923c4)`。判据实测：内网 `192.168.31.9:8083` 与公网
+  `magicbook.haoyuhang.top` 上 `learning-common.js`/`learning-hub.js`/
+  `img/learning/*.webp` 全 200，七个子页面路由 302（受保护路由存在，非 404）。
+  **本轮未动任何生产配置**，只读 ssh tail 定位根因。
 - **worktree 台账（验收期驻留）**：`feat/r166-learning-hub`（`../magicbook-learning-hub`）
-  已 merge 本地 develop，**未 push**（push develop 即触发 fnOS 构建上线，按纪律单独等你指令）；
-  验收通过后 `git worktree remove ../magicbook-learning-hub` + `git branch -d
-  feat/r166-learning-hub`。
+  已 merge develop 并 push 上线；验收通过后 `git worktree remove ../magicbook-learning-hub`
+  + `git branch -d feat/r166-learning-hub`。**注**：本条上线补记与 L3 状态行回填
+  （`us1-hub-banner-lld.md` 开发完成 → 已上线 771923c4）只提交在本地 develop，
+  未随 push——再推一次会让容器在用户验收窗口内重启，收益仅一行文档；随下轮 push 带走。
 - **总结**：requests.md 占号 R166；本条为回应；冲突记录：无撞号（追加时 requests.md 全文无
   166 条目）。归档：本条写入前窗口 11 节、写入后 12，按写入即检查把最旧的 R155、R156（细筛）
   两节原样搬至 `response-archive/response-R155-R156.md` 并登记索引，窗口恢复 10 节；
