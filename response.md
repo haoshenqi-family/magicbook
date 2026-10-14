@@ -269,10 +269,18 @@
 - **文档**：L1 `docs/readme/learning.md` 写作工坊段加续写与旧任务限制；
   L3 新增 `docs/feat/learning-hub/design/us2-writing-resume-lld.md`（含状态机表与四缺陷记录）。
 - **未验**：真实账号下的续写体验与生产 `lastDraftNo` 分布需你线上验收。
+- **上线（2026-10-14 08:1x）**：用户指令「推」。发布态闸门在推送基线 `ffadd9fb` 上复跑全量
+  **505 passed / 0 failed**；按依赖顺序 **moon-well 先推**（`f8892fd..1ef990f`，判据＝
+  `/learning/writing/task` 由 404 翻成 401，中途一次 000 是容器重启窗口，也反证 `tips`
+  加列没让启动失败），再推 magicbook（`20589dc8..ffadd9fb`）。上线判据：内网
+  `192.168.31.9:8083/static/js/learning-writing.js` 约 40s 后由 5,870 字节变 10,662 字节
+  且含 `armResumeBar`，公网 `magicbook.haoyuhang.top` 同判据通过；moon-well 公网
+  `moon-well.haoshenqi.top/learning/writing/task` 返回 401（路由在、要鉴权）。
 - **worktree 台账（验收期驻留）**：本会话按「一次会话一树」复用 R166 那棵
   `../magicbook-learning-hub`（分支 `feat/r166-learning-hub`），先 `git fetch` 并 merge
-  `origin/develop 20589dc8` 拉齐基线再续作；R166 部分已上线，R168 部分**未 push**（等你指令）。
-  R166 的验收结论若通过，一并 `worktree remove` + `branch -d`。
+  `origin/develop 20589dc8` 拉齐基线再续作；R166 与 R168 均已上线，**待你真机验收**，
+  通过后 `git worktree remove ../magicbook-learning-hub` + `git branch -d
+  feat/r166-learning-hub`。
 - **总结**：requests.md 占号 R168（原计划记 R167，merge 新基线时发现已被并行会话的复习
   干扰项前端占用，按「不改既存、续编空号」续编；moon-well 侧 R172 条目里当时写的
   「magicbook R167」以本条为准更正为 R168）；本条为回应；冲突记录：无撞号。

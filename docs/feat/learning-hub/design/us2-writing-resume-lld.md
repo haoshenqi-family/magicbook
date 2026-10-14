@@ -1,6 +1,6 @@
 # 写作工坊续写（magicbook R168）· L3 设计
 
-**状态**：已交付待上线（2026-10-13，分支 `feat/r166-learning-hub` 续作，同源 moon-well R172）。
+**状态**：已上线（2026-10-14 08:1x，develop `ffadd9fb`，同源 moon-well `1ef990f`）。
 
 ## 1. 问题与承接
 
