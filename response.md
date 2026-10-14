@@ -8,6 +8,7 @@
 - `response-archive/response-R01-R31.md`：R1–R31（2026-08-14 ～ 2026-08-31）
 - `response-archive/response-R159.md`：R159 语音输入静音检测（2026-10-14 R169 轮转，窗口转入 R160 起）
 - `response-archive/response-R160-R164.md`：R160 麦克风设备选择器 + 同节嵌套的 R164 worktree 纪律修订（2026-10-14 R170 写入触发轮转搬移，父级日期标题随节一并搬移）
+- `response-archive/response-R161-R162.md`：R161 公网入口超时排查（Tailscale 直连黑洞）+ R162 两本《傲慢与偏见》版本对比（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起）
 - `response-archive/response-R32-R49.md`：R32–R49（2026-09-03 ～ 2026-09-17）
 - `response-archive/response-R50.md`：R50（2026-09-18）
 - `response-archive/response-R51-R70.md`：R51–R70（2026-09-18 ～ 2026-09-21）
@@ -25,33 +26,7 @@
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起）
-
-## 2026-10-12（R161：magicbook.haoyuhang.top 公网打不开——Tailscale 直连路径过期黑洞，已恢复）
-
-### R161（排查任务：公网域名超时；根因 Server 2 ↔ fnOS tailnet 数据面单向失效，tailscale ping 重发现后自愈）
-
-- **现象**：https://magicbook.haoyuhang.top/ 打不开。实测：DNS → 116.62.200.90 正常；TLS 正常（Let\'s Encrypt，2026-12-27 到期）；HTTP/2 请求发出后 15s 0 字节超时——Traefik 入口活着、后端无响应。
-- **定位链**：①ctl 200 / controller 401 → Traefik 与 Server 2 本机服务正常；②内网直连 192.168.31.9:8083 → 302、容器 healthy → magicbook 服务本身正常；③moon-well.haoshenqi.top 同样超时（两站后端同为 fnOS）；④Server 2 Traefik 配置：magicbook-5771 / moon-well-5762 后端均为 `http://fnos.taila6fff7.ts.net:8083|8082`（MagicDNS）；⑤Server 2 宿主机 curl fnos :8080/:8082/:8083 全部超时、ping 192.168.31.9 100% 丢包 → tailnet 数据面断。nacos.haoshenqi.top 的「通」是假象：静态 nacos-redirect.yml priority 100 的 redirectRegex 在 Traefik 层直接 302，请求根本没到后端。
-- **根因**：Server 2 ↔ fnOS WireGuard 直连路径过期未自愈——fnOS 侧家庭 NAT 重绑定（disco pong 实测端点 60.186.214.140:41641 → :45946），Server 2 仍向旧映射发包 → 单方向黑洞；两侧 `tailscale ping`（用户态 disco，不走内核路由）与 fnOS → Server 2 反向 TCP（controller 401 秒回）均正常，呈典型单向失效，自建 DERP 兜底未接管。在 Server 2 执行 `tailscale ping fnos` 强制端点重发现后数据面立即恢复（内核 ping 10ms、curl fnos:8083 302）。
-- **恢复佐证**：magicbook.haoyuhang.top 连续 4 次 302（0.12–0.21s），302 → /login 全链 200（0.31s）；moon-well.haoshenqi.top 404（其对根路径的固有响应，链路已通）。旁证：magicbook/moon-well 容器当日 15:56/16:02 CST 重启过（fnOS docker daemon 自 09-25 未动，属容器级重启，与本故障相关性未证实）；fnOS dockerd 21:01 仍有容器 DNS 经 100.100.100.100 的 i/o timeout 记录，提示 fnOS 侧 tailscale DNS 代理间歇异常，建议后续观察。
-- **顺带发现（独立问题，未处置）**：Server 2 tailscale `--accept-routes=false`（health check 持续告警 peers advertising routes），external-services.yml 的 vpe/nas/fn/opencode 与 es 等走 192.168.31.x 裸 IP 的后端因此无路可达（es.haoshenqi.top、nas.haoshenqi.top 实测同样超时）。改 accept-routes 还是改走 MagicDNS 属基础设施决策，待用户定夺。
-- **复发风险与加固建议（均为 ops 变更，未经确认不动）**：①Server 2 加 systemd timer 定时 `tailscale ping fnos` 保活/快速重发现；②排查自建 DERP（derp.haoshenqi.top）为何未兜底；③确认 fnOS 侧 NAT 重绑定诱因（光猫/路由重拨）。
-- **改动面**：零代码、零配置变更；排查中唯一「写」动作是 Server 2 上的 `tailscale ping`（无副作用的恢复动作）。
-- **归档**：本条写入前窗口实存 16 条（R144–R164，含并行会话未轮转欠账），按写入即检查把 R144、R145、R147（含嵌套 R146）、R151、R152、R153 七节原样搬至 `response-archive/response-R144-R153.md` 并登记归档索引，窗口恢复 10 条。
-- **总结**：requests.md 占号 R161；本条为回应；冲突记录：无撞号（R161 为空号）。requests.md 总结：追加 R161 占号条目；response.md 总结：搬移 7 节归档后写入本条，窗口 10 条。
-
-## 2026-10-12（R162：书库两本《傲慢与偏见》对比——原著 vs 书虫改写版）
-
-### R162（问答：book 128 为原著全文，book 337 为书虫·第6级英汉双语改写版——简化重写而非同一内容）
-
-- **核对方式**：两本书详情页元数据（登录态浏览器抓取）＋牛津 Bookworms／外研社公开出版信息交叉验证。阅读器正文未能打开（浏览器面板中途离线），但版本定性不依赖正文。
-- **结论**：
-  - **book 128《Pride and Prejudice》** = Jane Austen 原著全文（纯英文，EPUB 24.8 MB，书架「英文分级·阶5（6500–9000词）」；出版日期 1998-06 与 Project Gutenberg 电子书 #1342 发布时间吻合，即 R136 批次的公版导入）。
-  - **book 337《傲慢与偏见》** = 书虫·牛津英汉双语读物（第6级，外研社出版，EPUB 1.3 MB，书架「书虫·牛津英汉双语读物」；元数据系列「书虫·第6级」第 2 册为库内系列编号，非上下册分卷）——牛津 Bookworms 系列改写本（Clare West 改写），全文 29,455 词（约为原著 1/4），词汇控制在 2,500 headwords（CEFR B2/C1），英汉双语。主线情节与人物保留，但文字全部重写，**不是删节、更不是原文**。按本库分级口径：书虫 6 级约 2500 词族 ≈ 阶2–阶3；原著挂在阶5。
-- **改动面**：零代码、零配置；仅对话记录（requests.md 占号 + 本条 + R154 节归档搬移 + requests.md 头部「当前最大」指针更新为 R162）。
-- **归档**：本条写入前窗口 10 条，写入后超窗，最早一节 R154 原样搬至 `response-archive/response-R154.md` 并登记两处归档索引，窗口恢复 10 条。
-- **总结**：requests.md 占号 R162；本条为回应；冲突记录：无撞号（追加时 requests.md 全文无 162/163 条目；注：response.md 存在并行会话 R164 回应条而其 requests.md 占号条未见，疑被并行写覆盖——按「不改既存」纪律不处理，仅留痕）。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起）
 
 ## 2026-10-12（R165：单词详解面板头部吸顶——长内容滚动时 ✕ 不再被带走）
 
@@ -314,3 +289,18 @@
 - **交付状态**：commit `7be3e7e3`（分支 `feat/r172-ted-audio`，基线 `origin/develop` `e5816e3c`），已推送待部署实测。真机验收项：原声非机器音 / 随播高亮翻页翻章 / 点段跳播 / 暂停继续停止 / 普通书不受影响 / 未缓存隐藏并提示；尤须实测**浏览器能否直放 ADTS `.aac`**（设计 §7 的方案 B 回退条件），以及 `audioUrl` 是内网 MinIO 地址 `http://192.168.31.10:9000/...`（浏览器须在 LAN 内可达，与 learning-dictation 同源现状）。
 - **对话记录**：requests.md 占号 172（占号说明：本 worktree 基线 `requests.md` 止于 R169，但主检出 develop 已有 R170、仓内已有 R171 分支，按「续编空号」锁 R172 避免撞号）；response.md 追加本条，窗口达 11 → 轮转最旧的 R160 一节（含嵌套 R164「worktree 纪律修订」）至 `response-archive/response-R160-R164.md` 并登记两处索引，窗口恢复 10 条（R161 起）。冲突记录：无撞号。
 - **worktree 台账**：`../magicbook-ted-audio`（分支 `feat/r172-ted-audio`）驻留待部署验收；验收通过后 `git worktree remove` + `git branch -d`。
+
+## 2026-10-14（R173：修复 R172「TED 原声伴听」线上仍播 AI 合成音——分流判据恒 false）
+
+### R173（用户实测：「线上 epub.js 已含 tedAudioToggle（计数 2），但 TED 书播的还是 AI 合成音，不是原声」）
+
+- **现象**：R172 已随 develop 部署上线（实拉 `https://magicbook.haoyuhang.top/static/js/reading/epub.js` 校验 `tedAudioToggle` 命中 2），但用户实测 TED 书「整本朗读」仍播 **AI 合成音**（非真人原声）。
+- **根因（同名不同义）**：首版分流判据 `calibre.bookFormat === 'TED'` **恒为 false**。`read.html` 注入的 `bookFormat` 来自 URL 的 `book_format` 段（`web.py` `render_title_template(..., book_format=book_format)`），是 Calibre **文件格式**（`epub`/`pdf`/`txt`；同文件 L327 还把它当 `book_format` 提交给 Calibre），与 moon-well `BookFormatEnum.TED`（内容**形态**）**同名不同义**；而 TED 书在 Calibre 里同样是 `epub` ⇒ 判据永假 ⇒ 分流从未生效，一直走 R157 逐段 TTS。
+- **消歧依据（判据为何成立）**：moon-well `TedAudioService.findByBookId` 查不到 meta → `Optional.empty()`，`BookController` `/ted-audio` → `Result.OK(...orElse(null))`，故非 TED / 未缓存时 `result` 为 `null`，`result.audioUrl` 非空即「有整段原声」。**moon-well 零改动**。
+- **修法（`epub.js` 5 处）**：①判据改**运行时探测**——`tedAudioEnsureLoaded()` 拉 `/ajax/ted-audio`，`result.audioUrl` 非空即 `TED_BOOK = true`（走原声伴听），为空则回落 R157 整本 TTS；②`#tts-book` 点击统一走新增 `bookListenToggle()`（复用同一 Promise 确保探测完成再定分流，探测完成前按钮**不定语义**）；③`#tts-book-stop` 按「原声是否在播」分流；④取消「原声未缓存 → 隐藏按钮 + 提示」——探测区分不了「普通小说书」与「TED 但未缓存原声」，该提示会误伤普通书；改为无原声回落 TTS、两者皆无才隐藏；⑤进阅读页即探测（元数据 + 段落清单），起播零等待。
+- **守卫（静态双锁 + 三条反向变异实测）**：`test_shunt_is_runtime_probe_not_file_format` 正向锁 `tedAudioMetaOk = !!tedAudioData.audioUrl`、`TED_BOOK = tedAudioMetaOk` + **负向锁**禁止 `TED_BOOK = calibre.bookFormat`；`test_tts_book_button_routed_through_probe` 锁 `#tts-book`→`bookListenToggle` 且禁止静态直连 `tedAudioToggle`。本轮变异实测：判据回退 `bookFormat` → 1 failed；`audioUrl` 判据改恒 true → 1 failed；按钮静态直连 `tedAudioToggle` → 1 failed；还原 → 15 passed。全量闸门 **538 passed**。
+- **文档联动**：LLD `docs/feat/ted-audio-companion/design/ted-audio-companion-lld.md` §0/§2/§4.1/§5/§6.1/§6.2/§6.3 全面同步，**新增 §9 变更记录**（现象/根因/修法/教训/守卫）。
+- **教训（家族级）**：**同名跨服务不必然同义**；「字段存在」要验到它的**赋值来源**，不能只验字符串在场——静态锁只能锁「代码形态」，锁不住「语义正确性」。首版静态锁锁的正是那个恒 false 的表达式，**测试全绿却功能失效**（已有 LLD §9 留痕）。
+- **未做 / 待确认**：段落喇叭（`speakParagraph`，`epub.js` L1113）在探测到原声的书上**仍走 TTS**（本轮未改）——`#tts-book`（整本朗读）已走原声，但逐段喇叭按钮点击仍合成机器音；是否改为「跳到该段原声播放」待用户拍板。
+- **交付状态**：commit `a1283aae`（分支 `develop`，基线 `09a47a74`）；已 push `origin/develop` 上线待真机复测。真机验收同 R172（原声非机器音 / 随播高亮翻页翻章 / 点段跳播 / 普通书不受影响），并须实测浏览器可直放 ADTS `.aac` 与内网 MinIO `audioUrl`（`http://192.168.31.10:9000/...`）的 LAN 可达性。
+- **对话记录**：requests.md 占号 173；本条为回应；写入前 response.md 窗口 9 条（<10），写入后 10 条（R165 起），未触发轮转（本轮已先搬 R161+R162 至 `response-archive/response-R161-R162.md` 并登记两处索引）。冲突记录：无撞号。
