@@ -1,6 +1,6 @@
 # 整本朗读（TTS 预生成）设计
 
-状态：设计定稿 v3（2026-10-12 两轮拍板齐全：D1–D4 + 整本选角 + MiMo 默认 + 听=消费 + 积分体系×10；可进开发）
+状态：已上线——magicbook P3 批次主体 2026-10-12 提交（`25489563`，21 例），2026-10-13 随 develop 部署到 fnOS 生产实跑；moon-well 侧选角端点 + 计费分层 + 积分×10（R166）同日上线，`/tts/book-voice/select` 生产冒烟通过（book 145《Matilda》→ voice=Mia）。**真机整书批量与扣费流水 AC（§10 ①–⑩）仍待用户浏览器登录态验收**。R169 停摆自愈修复已开发完成（2026-10-14，分支 `fix/r169-tts-batch-preselect-selfheal`，见 §12）。原 v3 拍板内容（D1–D4 + 整本选角 + MiMo 默认 + 听=消费 + 积分体系×10）保持不变。
 需求：2026-10-12「llm 已经重构，整本翻译功能有了，需要一个类似的整本使用 TTS 生成朗读的功能」（magicbook R163 / moon-well R165）；同日二轮拍板：听=消费（命中也扣）、积分体系×10（注册 1 万 / 充值×10 / 1k token 折 10 积分）、家人送积分用既有 admin adjust（magicbook R164 / moon-well R166）。
 
 ## 0. 检查结论：功能不存在；且 /tts/speak 现状零计费
@@ -235,3 +235,33 @@ daemon   逐 PENDING 段 → POST /tts/speak {text, bookName, chapter, source=bo
 2. moon-well P2：计费分层与积分×10（source 分流 + per-call 白名单 + TOKENS_PER_CREDIT 参数化 + 注册/充值档位 + 文案联动）；
 3. magicbook P3：extractor + 批次服务 + daemon + 路由 + UI；
 4. 两仓联调 + AC。
+
+## 12. R169 修复：元数据崩溃吃掉批次与停摆自愈（2026-10-14）
+
+**现场**：Animal Farm（book 143）批次 `6ff33181…` 停在 RUNNING 21 小时、0/307，307 条 item 全 PENDING 且 `updated_at` 冻结在创建那一刻；moon-well 侧近 24h 零 `source:"book-tts-batch"` 流量。
+
+**根因链（三层，每层都可单独致灾）**
+
+1. 直接触发：`_book_meta` 取 `book.language` → `AttributeError`。本仓 `Books` 没有 `language` 标量列，语言在 `languages` 多对多关系上（`cps/db.py:428`）。
+2. 致命的是**位置**：`start()` 顺序为「commit job + 全部 item」→ `_book_meta` → `_select_voice` → `_spawn_synth_worker`。异常落在「台账已落库、线程尚未起」之间，于是台账永久 RUNNING，而 UI 再点只会命中复用分支。
+3. **恢复路也是死的**：旧 `retry()` 只在「回收到了 FAILED 行」时才补线程，本批 0 FAILED ⇒ 重试等于空转；旧僵尸判定只看 `updated_at` 停滞 30 分钟，且动作是「判死旧批次 + 另起新台账」——既不及时（白等 30 分钟），也会作废断点台账（已合成的段重走 HTTP、进度条回 0）。
+
+**三项修法（对应三层）**
+
+| # | 改动 | 口径 |
+| --- | --- | --- |
+| 1 | 语言取 `book.languages`，并与其他元数据字段同等加守卫 | 取不到退化成空串：选角少一项输入，不是批次级失败 |
+| 2 | 元数据 + 选角整段包异常，`_spawn_synth_worker` 无条件执行 | 这两步是「音色增强」而非执行依赖，崩溃最多退化成 provider 默认音色，绝不决定批次能否起跑。顺带把 `self._proxy = proxy or self._proxy` 提到选角之前——旧顺序下容器启动后的第一次点击 `self._proxy` 仍是构造期的 `None`，选角恒抛错被吞（单测从构造函数注入 proxy，所以看不见这个洞） |
+| 3 | 存活判据改为**本进程线程花名册**，自愈动作改为**原地补线程** | `_live_workers: set[job_id]` 由 `_spawn_synth_worker` 登记、`_synth_worker_guarded` 的 finally 注销（起线程失败当场回滚登记）；`_needs_worker(job)` = 无活线程 且 仍有 PENDING。`start` 的复用分支与 `retry` 都走它；僵尸时钟只保留「停滞且无 PENDING」的终态收尾用途 |
+
+**Why 花名册而不是继续用停滞时钟**：`_synth_worker` 取段是「先查后写」无 CAS，两条线程同跑会抢同一段 ⇒ 双合成、双扣字符（发起者按字符计费），所以补线程前必须确认没有活线程；而「至少 30 分钟没 bump」证明不了当下——R169 正是创建 5 秒后线程从未起成的形态，按旧时钟要白等半小时。magicbook 由 `exec python /app/cps.py` **单进程**起服务（`entrypoint.sh` 末行，无 gunicorn/waitress worker 池），故进程内字典即权威判据；跨进程重启会清空花名册，此时「无线程 + 有 PENDING」正是该补线程的信号。
+
+**测试**（`tests/test_reading_tts_service.py` 现 11 例，新增 7 例）：语言走关系取值、缺 `languages` 属性容错、元数据崩溃仍 spawn、首次点击选角用本次 proxy、retry 无活线程时补线程、retry 有活线程时不双起、start 原地续跑且不新增台账行。**夹具纠偏**：旧 `_Book` 夹具带着 `language = "eng"` 这个真模型根本不存在的属性——21 例全绿而生产 AttributeError 正源于此；已改为镜像真形状（`languages=[_Lang("eng")]`）。相邻回归 56 例全绿（service/routes/extractor/translation/settings）。
+
+**新增 AC（真机）**：⑪ 人为让 `_book_meta` 抛错后 start ⇒ 批次应在数秒内开始合成（voice 为空即选角退化成默认音色）；⑫ 停摆批次（0/307）点重试或再点整本朗读 ⇒ 同一 jobId 原地续跑、`done` 递增；⑬ 活线程在跑时点重试 ⇒ 不起第二条线程（日志无 resume 行），不出现同段双合成。
+
+**遗留（未在本轮处置）**：
+① moon-well 朗读本地后端 `qwen3-tts.service` 于 10-14 11:2x 实测 **inactive**（8086 无监听）——救起批次前需先恢复它，否则合成会整批 FAILED。
+② 抢段问题目前只靠单进程花名册规避；若将来 magicbook 改多进程部署，必须换成 SQL 级认领（以本条为起点）。
+③ **resume 分支不重做整本选角**（待用户拍板，未动码）。实测口径更正：`/tts/speak` 的 payload **从不带 voice**（`service.py` 的 speak 请求体只有 text/bookName/chapter/source），音色由 moon-well 侧按 bookName 查 `tts_book_voice` 决定；R169 现场的批次崩溃在选角之前 ⇒ 表里无行 ⇒ 续跑时 `/tts/speak` 走**懒选角**（按书名 + 首个段落让 LLM 决定，而非「退化成 provider 默认音色」，LLM 失败才回落 Chloe）。后果是整本书的音色由第一段定夺、且首写者永久锁住该行——比整本样本选角粗糙。修法＝resume 且 `job.voice is None` 时补做一次整本选角（代价：一次交互档 LLM 调用，与 §5/R166 冒烟同源）。
+④ 建台账到首次 commit 之间的秒级窗口内并发双击会建出两个批次（不同 job_id，花名册拦不住，同段双 miss 双扣）——**存量**问题，与②同源，可用进程内 `(user, book, fingerprint)` 创建锁闭掉。
