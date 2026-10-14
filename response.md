@@ -6,6 +6,7 @@
 **归档索引**
 
 - `response-archive/response-R01-R31.md`：R1–R31（2026-08-14 ～ 2026-08-31）
+- `response-archive/response-R159.md`：R159 语音输入静音检测（2026-10-14 R169 轮转，窗口转入 R160 起）
 - `response-archive/response-R32-R49.md`：R32–R49（2026-09-03 ～ 2026-09-17）
 - `response-archive/response-R50.md`：R50（2026-09-18）
 - `response-archive/response-R51-R70.md`：R51–R70（2026-09-18 ～ 2026-09-21）
@@ -24,15 +25,6 @@
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事）
-
-## 2026-10-11（R159：语音输入静音检测）
-
-### R159（用户复测 50517 排查：引擎 200+空文本 = 录音无声）
-
-- **排查链**：①先排除 key/模型——Nacos 原样提取直连 SiliconFlow 200 转写成功（前轮 401 系排查命令手抄 key 笔误，用户判断正确）；②再排除编码器——部署版 encodeWav 产物经 wave 解析（1ch/16k/16bit、峰值 -10.5dB）+ 直送 SiliconFlow 200 转写 "Yeah."；③用户两次上传均 **200+空文本**（引擎没听到语音）→ 锁定录音本身静音（设备静音/选错输入源/离麦远）。
-- **修复**：①录音停止后计算 PCM 峰值，<0.005（-46dB）直接提示「麦克风没有采集到声音——请检查系统输入设备选择或静音开关后重试」，不再上传让引擎报模糊失败；峰值幅度打 console.info 支持远程诊断；②AudioContext 挂起兜底 resume（iOS/Safari 场景）。
-- **配套**：moon-well R161 空 50518（空转写与引擎故障分离报错，已上线）。
-- **总结**：requests.md 占号 R159；本条为回应；冲突记录：无。
 
 ## 2026-10-11（R160：麦克风设备选择器）
 
@@ -285,3 +277,25 @@
   干扰项前端占用，按「不改既存、续编空号」续编；moon-well 侧 R172 条目里当时写的
   「magicbook R167」以本条为准更正为 R168）；本条为回应；冲突记录：无撞号。
   归档：本条写入使窗口达 11，把最旧的 R158 一节原样搬至 `response-archive/` 并登记索引。
+
+## 2026-10-14（R169：整本朗读批次修复——元数据崩溃不再吃掉台账 + 停摆自愈，已 merge 未 push）
+
+- **需求**：按方案 C 修复（①`_book_meta` 的 `book.language` AttributeError；②元数据/选角整段不得阻断批次；③retry 与 reuse 遇「停滞且有 PENDING」补线程）。现场＝《Animal Farm》(book 143) 批次 RUNNING 21 小时、0/307、307 条 item 全 PENDING 且 updated_at 冻结在创建那一刻。
+- **worktree**：`../magicbook-tts-batch-fix`，分支 `fix/r169-tts-batch-preselect-selfheal`，基线 `origin/develop` ffadd9fb（切树前已 fetch）。
+- **三项修法落点**（`cps/reading_tts/service.py`）：
+  1. 语言改走 `book.languages` 关系，**列名是 `Languages.lang_code`（db.py:327）**——本仓 `Books` 无 `language` 标量列（关系在 db.py:428）。
+  2. `_spawn_synth_worker` 改为无条件执行：元数据 + 选角整段包异常（这两步是「音色增强」而非执行依赖，崩溃最多退化成默认音色）。顺带把 `self._proxy = proxy or self._proxy` 提到选角之前——原顺序下模块级单例**首次**点击时 `self._proxy` 仍是构造期的 `None`，选角恒抛 `'NoneType' object is not callable` 被吞成默认音色（单测从构造函数注入 proxy，看不见这个洞）。
+  3. 自愈判据换成**本进程线程花名册** `_live_workers` + `_needs_worker`（无活线程且有 PENDING）：`start` 的复用分支与 `retry` 都改为「原地补线程续跑」，不再「判死旧批次 + 新建台账」（那会把已合成段重走 HTTP、进度条回 0，违背批次表即断点台账的 §3.1 设定）；停滞时钟只保留「停滞且无 PENDING → 关闭旧批次」的终态收尾用途。依据：magicbook 单进程起服务（entrypoint.sh 末行 `exec python /app/cps.py`），进程内字典是权威判据；而「至少 30 分钟没 bump」证明不了当下——R169 正是创建 5 秒后线程从未起成。
+- **独立 Agent 交叉审查抓出的 2 条阻断 + 3 条应修，已全部修**（这是本轮最贵的部分）：
+  - 🔴 我第一版把语言列写成 `l.lang`（真列名 `lang_code`）⇒ 生产会被守卫吞成 language **恒空**，修法 1 实际未生效；更打脸的是测试夹具 `_Lang(lang=...)` 原样复制了这个编造属性——**正是本轮要根治的「替模型编造不存在的属性」问题类型**。已改代码 + 夹具 + 断言。
+  - 🔴 同型存量洞：`book.comments` 是 Comments **关系列表**（db.py:218，惯用法 `comments[0].text`），旧代码把列表喂给 `re.sub` ⇒ TypeError 被吞、选角输入 summary 生产恒空。已一并修。
+  - 🟡 TOCTOU 双起：Tornado 把视图跑在真线程池（`cps/server.py:251`），两个并发请求可同时通过 `_needs_worker` 预检各起一条线程 ⇒ 抢同一段、双合成双扣字符。判活与登记已合入同一把锁（`_spawn_synth_worker` 返回 bool）。
+  - 🟡 注释失实：`_is_stalled` 的「补线程唯一闸门」表述、以及不存在的 `cps/web_server.py` 引用，均已更正为 `cps/server.py`。
+  - 🟡 `retry()` 口径矛盾：旧实现「有 FAILED 就把 CANCELLED 批次拨回 RUNNING」与「纯 PENDING 不复活」相反；现 CANCELLED 直接拒绝并记日志。
+- **测试**：`tests/test_reading_tts_service.py` 11 例，本轮新增 11 项覆盖（语言走关系、summary 取关系正文、元数据崩溃仍 spawn、首次点击选角用本次 proxy、retry 无活线程补线程、retry 有活线程不双起、spawn 原子性、CANCELLED 不复活、原地续跑不新增台账行、缺关系属性容错）。夹具 `_Book` 改为镜像真模型形状。开发态闸门：**相邻 5 个文件 59 passed**（service/routes/tts/extractor/translation/settings），worktree 与 merge 后的主检出各跑一遍同为 59 passed。
+- **文档**：L3 `docs/feat/whole-book-tts/design/whole-book-tts-design.md` 新增 §12 事故复盘（含「Why 花名册而不是停滞时钟」的论证与新增 AC ⑪⑫⑬），并回填状态行——原滞留「设计定稿 v3」，实际 P3 于 10-12 提交（25489563）、10-13 已在生产实跑；L1 `docs/readme/reading.md` 补「整本预生成 + 重试原地续跑」的用户可见口径（此前该能力在 L1 完全缺位）。
+- **未扩范围、等你拍板的两条**（已记入 §12 遗留③④）：① resume 分支不重做**整本选角**——评审更正了机制：speak payload 从不带 voice，音色由 moon-well 按 bookName 查 `tts_book_voice`，该批次崩溃在选角之前 ⇒ 续跑会走 `/tts/speak` 的**懒选角**（按书名+第一段定夺整本书音色并首写者锁死），比整本样本选角粗糙；补一次选角的代价是一回交互档 LLM 调用。② 建台账到首次 commit 之间的秒级并发双击会建出两个批次（存量），可加进程内 `(user, book, fingerprint)` 创建锁。
+- **上线前必读**：moon-well 朗读本地后端 `qwen3-tts.service` 当前 **inactive**（8086 无监听）。不先恢复它，救起的批次会整批 FAILED。存量 Animal Farm 批次在本改动上线后点「重试」即可原地续跑。
+- **交付状态**：commit `f519ea1a`，merge 进本地 develop＝`3c6689c0`，**未 push**。⚠️ 本地 develop 现领先 `origin/develop` 两个提交（我的 merge + 并行会话未推的 docs 提交 `82d2c39d`），我 push 会连带把那条一并发布，需你确认。
+- **对话记录**：requests.md 占号 169；response.md 追加本条，条目 10+1 → 轮转 R159 至 `response-archive/response-R159.md` 并登记索引。冲突记录：无。
+- **worktree 台账**：`../magicbook-tts-batch-fix`（分支 `fix/r169-tts-batch-preselect-selfheal`）merge 后驻留待验收；验收通过后 `git worktree remove` + `git branch -d`。
