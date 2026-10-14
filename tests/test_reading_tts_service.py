@@ -26,11 +26,33 @@ def _write_epub(path):
         archive.writestr("OPS/one.xhtml", one)
 
 
+class _Lang:
+    """真模型 Languages 行（cps/db.py:323，列名是 **lang_code**，db.py:327）。"""
+
+    def __init__(self, lang_code):
+        self.lang_code = lang_code
+
+
+class _Comment:
+    """真模型 Comments 行（cps/db.py:218：book.comments 是关系列表，正文在 .text）。"""
+
+    def __init__(self, text):
+        self.text = text
+
+
 class _Book:
+    """镜像本仓真实 `Books` 模型形状——**没有 language 标量列**，comments 也不是字符串。
+
+    Why 逐字镜像：R169 生产崩溃（AttributeError: 'Books' object has no attribute
+    'language'）之所以 21 例单测全绿，正是因为旧夹具替模型编了一个 `language = "eng"`，
+    把真模型根本不存在的属性喂给了被测代码；评审复查又发现同型的 `comments="<p>…"`
+    字符串假形状（真代码 re.sub 收到列表会 TypeError 并被吞成 summary 恒空）。
+    夹具越像真模型，这类洞才越藏不住。
+    """
     id = 1
     title = "Test Book"
-    language = "eng"
-    comments = "<p>A girl who loves books.</p>"
+    languages = [_Lang("eng")]
+    comments = [_Comment("<p>A girl who loves books.</p>")]
     authors = []
     path = ""
 
@@ -182,3 +204,161 @@ def test_cancel_stops_batch(env):
     env.calls.clear()
     service._synth_worker(job_id)
     assert not [c for c in env.calls if c["path"] == svc.SPEAK_PATH]
+
+
+# ---------- R169：元数据崩溃不得吃掉批次 + 线程存活自愈 ----------
+
+
+def _book_meta_of(env):
+    service = svc.WholeBookTtsService(env.proxy)
+    return service._book_meta(_Book(), [("C1", "Para one."), ("C1", "Para two.")])
+
+
+def test_book_meta_reads_languages_relation_not_scalar(env):
+    """真模型只有 languages 关系：取到语言，且不因缺列抛错（R169 根因回归）。"""
+    meta = _book_meta_of(env)
+
+    assert meta["language"] == "eng"
+    assert meta["bookName"] == "Test Book"
+
+
+def test_book_meta_survives_book_without_languages_attr(env):
+    """连 languages/comments 关系都取不到时逐项退化成空串——选角少一项输入，不是批次级失败。"""
+    class _Bare:
+        id, title = 2, "No Relations"
+
+    service = svc.WholeBookTtsService(env.proxy)
+    meta = service._book_meta(_Bare(), [("C1", "Para one.")])
+
+    assert meta["language"] == ""
+    assert meta["summary"] == ""
+    assert meta["bookName"] == "No Relations"
+
+
+def test_book_meta_reads_summary_from_comments_relation(env):
+    """summary 必须真取到正文：旧实现把关系列表喂给 re.sub，异常被吞 ⇒ 生产恒空。"""
+    meta = _book_meta_of(env)
+
+    assert meta["summary"] == "A girl who loves books."
+
+
+def test_spawn_worker_is_atomic_and_never_double_spawns(env, monkeypatch):
+    """判活与登记同锁原子化：并发两次 spawn 只能起一条线程。
+
+    Why 单独钉这条：Tornado 把视图跑在真线程池里，两个「点重试 / 点整本朗读」可能同时
+    通过 `_needs_worker` 预检；`_synth_worker` 取段无 CAS，双线程 ⇒ 同段双合成、双扣字符。
+    """
+    service = svc.WholeBookTtsService(env.proxy)
+    started = []
+
+    class _FakeThread:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def start(self):
+            started.append(self.kwargs["args"][0])
+
+    monkeypatch.setattr(svc.threading, "Thread", _FakeThread)
+
+    first = service._spawn_synth_worker("job-1")
+    second = service._spawn_synth_worker("job-1")
+
+    assert first is True and second is False
+    assert started == ["job-1"]
+
+
+def test_retry_on_cancelled_job_does_not_revive(env, monkeypatch):
+    """cancel 是用户的显式停止意图：retry 不得把它拨回 RUNNING（旧实现有 FAILED 就复活）。"""
+    service = svc.WholeBookTtsService(env.proxy)
+    spawned = []
+    monkeypatch.setattr(service, "_spawn_synth_worker", lambda job_id: spawned.append(job_id))
+    job_id = service.start(1, "EPUB")["jobId"]
+    # 制造 FAILED + CANCELLED 的组合（旧代码正是这条路会复活批次）
+    item = (ub.session.query(ReadingTtsJobItem)
+            .filter(ReadingTtsJobItem.job_id == job_id).first())
+    item.status = "FAILED"
+    service.cancel(job_id)
+    spawned.clear()
+
+    result = service.retry(job_id)
+
+    assert spawned == []
+    assert result["status"] == "CANCELLED"
+
+
+def test_start_still_spawns_worker_when_preselect_crashes(env, monkeypatch):
+    """事故形态复现：_book_meta 抛异常也必须把 daemon 起起来。
+
+    Why 这条是主闸门：R169 的台账之所以停在 RUNNING 0/307，就是异常落在
+    「job 与全部 item 已 commit」与「_spawn_synth_worker」之间。
+    """
+    service = _make_service(env, sync_worker=False)
+    spawned = []
+    monkeypatch.setattr(service, "_spawn_synth_worker", lambda job_id: spawned.append(job_id))
+    monkeypatch.setattr(service, "_book_meta", lambda book, paragraphs: (_ for _ in ()).throw(
+        AttributeError("'Books' object has no attribute 'language'")))
+
+    result = service.start(1, "EPUB")
+
+    assert spawned == [result["jobId"]]
+    assert result["status"] == "RUNNING"
+    assert result["total"] == 2 and result["done"] == 0
+    assert result["voice"] is None  # 选角被跳过，退化成 provider 默认音色
+
+
+def test_first_call_preselect_uses_this_request_proxy(env):
+    """容器启动后的第一次点击：构造期 proxy 是 None，选角仍要用本次请求注入的代理。"""
+    service = svc.WholeBookTtsService(None)  # web.py 的模块级单例就是这个形状
+    env.monkeypatch.setattr(service, "_spawn_synth_worker", lambda job_id: None)
+
+    result = service.start(1, "EPUB", proxy=env.proxy)
+
+    assert env.calls[0]["path"] == svc.BOOK_VOICE_SELECT_PATH
+    assert result["voice"] == "Mia"
+
+
+def test_retry_spawns_when_no_live_worker_and_pending(env, monkeypatch):
+    """R169 现场：0 FAILED、全是 PENDING、线程从未起成——重试必须补线程。"""
+    service = svc.WholeBookTtsService(env.proxy)
+    spawned = []
+    monkeypatch.setattr(service, "_spawn_synth_worker", lambda job_id: spawned.append(job_id))
+    job_id = service.start(1, "EPUB")["jobId"]
+    spawned.clear()
+
+    result = service.retry(job_id)
+
+    assert spawned == [job_id]
+    assert result["status"] == "RUNNING"
+
+
+def test_retry_does_not_double_spawn_while_worker_is_live(env, monkeypatch):
+    """活线程在跑时不得再起一条：_synth_worker 先查后写无 CAS，会抢同一段双合成双扣费。"""
+    service = svc.WholeBookTtsService(env.proxy)
+    spawned = []
+    monkeypatch.setattr(service, "_spawn_synth_worker", lambda job_id: spawned.append(job_id))
+    job_id = service.start(1, "EPUB")["jobId"]
+    spawned.clear()
+
+    with service._workers_lock:
+        service._live_workers.add(job_id)
+    result = service.retry(job_id)
+
+    assert spawned == []
+    assert result["status"] == "RUNNING"
+
+
+def test_start_resumes_dead_batch_in_place_instead_of_new_ledger(env, monkeypatch):
+    """再次点按钮：原地续跑旧台账，不换新的（断点台账不许因自愈而作废）。"""
+    service = svc.WholeBookTtsService(env.proxy)
+    spawned = []
+    monkeypatch.setattr(service, "_spawn_synth_worker", lambda job_id: spawned.append(job_id))
+    first = service.start(1, "EPUB")
+    spawned.clear()
+    jobs_before = ub.session.query(ReadingTtsJob).count()
+
+    second = service.start(1, "EPUB")
+
+    assert second["jobId"] == first["jobId"]
+    assert spawned == [first["jobId"]]
+    # 台账增量必须为 0（共享库夹具里绝对条数会含历史用例，只有增量可信）
+    assert ub.session.query(ReadingTtsJob).count() == jobs_before
