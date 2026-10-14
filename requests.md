@@ -104,3 +104,7 @@
 168. 写作工坊支持「继续上一次未完成的写作」（承接 moon-well R172 后端契约；占号说明：原计划记 R167，merge 新基线时发现 R167 已被并行会话的复习干扰项前端占用，按「不改既存、续编空号」纪律落为 168）：历史列表只能看不能续写。四项拍板＝历史行可点 + 顶部一键续写 / 走新增任务详情端点取草稿 / tips 后端已加列落库（旧任务补不回）/ 已交初稿的连上次批改一起恢复。
 
 169. 按方案 C 修复整本朗读批次：①_book_meta 取 book.language 抛 AttributeError（本仓 Books 无该标量列，语言在 languages 关系上）；②元数据/选角整段不得阻断批次（事故形态＝job+307 条 item 已 commit、daemon 从未 spawn，台账永久 RUNNING 0/N）；③补自愈——retry 与 reuse 遇「停滞且有 PENDING」要重新 spawn，不能只在有 FAILED 时动线程。（生产现场：Animal Farm book=143 批次 0/307 停摆 21h）
+
+## 2026-10-14
+
+172. TED/博客类书的「原声伴听 + 全文同步高亮」（承接 moon-well R178 后的 TED 交付链）。用户指出：博客/TED 本质是「**一段连续原声**」，与小说类「**多段 TTS 拼接**」不同——若不区分，TED 走整本朗读会用机器音念文本而非播原声（语义错 + 白烧算力/积分）。方案：阅读器按 `calibre.bookFormat === 'TED'` 分流——TED 播整段原声 `ted-audio/<slug>.aac`（moon-well `POST /book/ted-audio` 取 `audioUrl`），用注册表段落 `tedAudioStart/End` 做当前段高亮（复用 `.reading-tts-speaking` + `bookPlayerFollowPage`）与段落级切播（点段落 seek 到 `startMs`）；无原声的普通书维持 R157 整本 TTS 连播，两模式互斥。magicbook 侧加两个薄代理 `/ajax/ted-audio`、`/ajax/ted-audio-paragraphs` → moon-well `/book/ted-audio`、`/book/paragraph/list`（**moon-well 零改动**）。本轮先出 L3 设计文档待审（`docs/feat/ted-audio-companion/design/ted-audio-companion-lld.md`）。（占号说明：本 worktree 基线为 `origin/develop`（`requests.md` 止于 R169），但主检出 develop 已有 R170、仓内已存在 R171 分支，按「续编下一个空号」锁 **R172**，避免与并行会话撞号）
