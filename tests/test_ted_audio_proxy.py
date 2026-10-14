@@ -6,14 +6,17 @@
 机器音念文本（语义错）且白烧算力/积分。故：
   - 代理：`/ajax/ted-audio` → `/book/ted-audio`，`/ajax/ted-audio-paragraphs`
     → `/book/paragraph/list`（moon-well 零改动）。
-  - 前端：`calibre.bookFormat === 'TED'` 分流到 tedAudioPlayer（静态锁）。
+  - 前端：运行时探测 `/ajax/ted-audio` 是否有整段原声（有 audioUrl 才走原声伴听，
+    否则回落 R157 整本 TTS 连播）。**不得**用 `calibre.bookFormat === 'TED'`：那是
+    Calibre 文件格式（epub/pdf），与 moon-well BookFormatEnum.TED 同名不同义，恒 false。
 
 覆盖：
   1. 两个端点都要登录门禁。
   2. 转发路径 / body / Bearer / 内网绕过代理 / 超时。
   3. bookId 非数字 → 400，脏串绝不进上游 Long.valueOf。
   4. 上游错误按原状态码透传；上游不可达 → 503。
-  5. 静态锁：分流判据存在、按钮接线接的是 tedAudioPlayer、两端点在 read.html 注入。
+  5. 静态锁：分流由探测结果决定（且不得回退到 bookFormat）、按钮统一走 bookListenToggle、
+     两端点在 read.html 注入。
 """
 
 import json
@@ -142,22 +145,34 @@ def _js():
         return fh.read()
 
 
-def test_book_format_ted_shunt_present():
-    """分流判据必须是 calibre.bookFormat === 'TED'（与 moon-well BookFormatEnum.TED 对齐）。
+def test_shunt_is_runtime_probe_not_file_format():
+    """分流判据必须是「运行时探测是否有整段原声」，而不是 calibre.bookFormat。
 
-    删掉该判据 → TED 会退回逐段 TTS（用机器音念文本），本断言须红（反向变异）。
+    Why: calibre.bookFormat 是 Calibre 文件格式（epub/pdf/txt，read.html 里来自 URL 的
+    book_format 段），与 moon-well BookFormatEnum.TED 同名不同义；TED 书在 Calibre 里同样是
+    epub ⇒ `=== 'TED'` 恒 false。R172 首版正因此从未生效（线上实测：代码已部署但 TED 仍播 TTS）。
     """
-    assert re.search(r"TED_BOOK\s*=\s*calibre\.bookFormat\s*===\s*'TED'", _js()), \
-        "epub.js 缺少 bookFormat === 'TED' 分流判据（须落在 TED_BOOK 赋值上，注释不算数）"
-
-
-def test_tts_book_button_routed_to_ted_player():
-    """同一个 #tts-book 按钮在 TED 书上必须接到 tedAudioToggle（否则分流形同虚设）。"""
     src = _js()
-    assert re.search(r"ttsBookBtn\.addEventListener\('click',\s*tedAudioToggle\)",
-                     src), "TED 分支未把 #tts-book 接到 tedAudioToggle"
-    assert re.search(r"ttsBookBtn\.addEventListener\('click',\s*bookPlayerToggle\)",
-                     src), "非 TED 分支应保留 R157 的 bookPlayerToggle"
+    assert re.search(r"tedAudioMetaOk\s*=\s*!!tedAudioData\.audioUrl", src), \
+        "探测结果未由 audioUrl 是否为空决定（有原声才分流）"
+    assert re.search(r"TED_BOOK\s*=\s*tedAudioMetaOk", src), \
+        "TED_BOOK 未由探测结果置位"
+    assert not re.search(r"TED_BOOK\s*=\s*calibre\.bookFormat", src), \
+        "分流判据不得再依赖 calibre.bookFormat（那是文件格式，恒不等于 'TED'）"
+
+
+def test_tts_book_button_routed_through_probe():
+    """#tts-book 必须统一走 bookListenToggle（探测完成后才决定原声伴听 / 整本 TTS）。"""
+    src = _js()
+    assert re.search(r"ttsBookBtn\.addEventListener\('click',\s*bookListenToggle\)", src), \
+        "#tts-book 未接 bookListenToggle（探测未完成时不得静态定分流）"
+    assert re.search(r"function bookListenToggle\(\)", src), "缺少 bookListenToggle 定义"
+    assert re.search(r"if \(data && data\.audioUrl\) \{ TED_BOOK = true", src), \
+        "bookListenToggle 未按探测结果切到原声伴听"
+    assert re.search(r"if \(calibre\.readingTtsUrl\) bookPlayerToggle\(\)", src), \
+        "无原声时未回落 R157 整本连播"
+    assert not re.search(r"ttsBookBtn\.addEventListener\('click',\s*tedAudioToggle\)", src), \
+        "不应再静态直连 tedAudioToggle（分流判据只能来自运行时探测）"
 
 
 def test_ted_player_uses_proxied_endpoints_and_highlights():

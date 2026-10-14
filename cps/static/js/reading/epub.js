@@ -1720,13 +1720,16 @@ var reader;
     // Why 与整本 TTS 连播分设两个状态机：TED/博客类书的内容本质是「一段连续原声」，
     // 文本段落只是这段录音上的时间轴切片；对 TED 走逐段 TTS 会把真人原声换成机器音
     // （语义错），且一场演讲数万字白烧算力/积分。普通小说书没有原声，仍走 bookPlayer。
-    // 分流判据 = calibre.bookFormat === 'TED'，与 moon-well BookFormatEnum.TED 对齐。
-    var TED_BOOK = calibre.bookFormat === 'TED';
+    // 分流判据：**不能**用 calibre.bookFormat —— 那是 Calibre 文件格式（epub/pdf/txt，
+    // read.html 里来自 URL 的 book_format 段），与 moon-well BookFormatEnum.TED 同名不同义；
+    // 而 TED 书在 Calibre 里同样是 epub ⇒ `=== 'TED'` 恒 false（R172 首版因此从未生效）。
+    // 改为运行时探测 moon-well /book/ted-audio：有 audioUrl（整段原声）就用原声伴听，
+    // 否则回落 R157 整本 TTS 连播（普通书与「TED 但未缓存原声」都走这条，探测无法区分两者）。
+    var TED_BOOK = false;  // 由 tedAudioEnsureLoaded() 的探测结果置位
     var tedAudioPlayer = null;  // 播放态；与 bookPlayer 互斥（任一时刻至多一个非空）
     var tedAudioData = null;    // 预取结果：{audioUrl, segments:[], byChapter:{}}
     var tedAudioLoad = null;    // 预取 Promise（进阅读页即发起，起播不等待）
-    var tedAudioMetaOk = null;  // 原声是否可用；false → 隐藏伴听按钮
-    var tedAudioAbsenceNotified = false;
+    var tedAudioMetaOk = null;  // 原声是否可用（null=探测中，false=无原声）
 
     // 段落记录 → 时间轴索引：片段时间升序 + 按 chapterTitle 分组（TED 章节标题唯一）
     function tedAudioIndex(paragraphs) {
@@ -1767,15 +1770,15 @@ var reader;
         });
     }
 
-    // 原声不可用（未缓存 / 未建注册表）：隐藏伴听按钮并一次性提示（不静默失败）
+    // 探测完成后的按钮可用性：有原声 → 保持可见（接原声伴听）；无原声 → 看 TTS 端点
+    // （有 readingTtsUrl 则回落整本连播、保留按钮；两者都没有才隐藏）。
+    // 不再提示「原声未缓存」：探测区分不了「普通书」与「TED 但未缓存原声」，提示会误伤普通书。
     function tedAudioApplyAvailability() {
-        if (!TED_BOOK || tedAudioMetaOk) return;
         var btn = document.getElementById('tts-book');
-        if (btn) btn.style.display = 'none';
-        if (!tedAudioAbsenceNotified) {
-            tedAudioAbsenceNotified = true;
-            readerToast(mbT('Original audio is not available yet'));
-        }
+        if (!btn) return;
+        if (tedAudioMetaOk) return;
+        if (calibre.readingTtsUrl) return;
+        btn.style.display = 'none';
     }
 
     function tedAudioEnsureLoaded() {
@@ -1792,10 +1795,12 @@ var reader;
                 segments: index.segments, byChapter: index.byChapter
             };
             tedAudioMetaOk = !!tedAudioData.audioUrl;
+            TED_BOOK = tedAudioMetaOk;  // 有整段原声 → 本页按原声伴听分流
             tedAudioApplyAvailability();
             return tedAudioData;
         }).catch(function (err) {
             tedAudioMetaOk = false;
+            TED_BOOK = false;
             tedAudioApplyAvailability();
             throw err;
         });
@@ -2113,6 +2118,19 @@ var reader;
             st.highlightEl.classList.remove('reading-tts-speaking');
         }
         tedAudioUpdateButtons();
+    }
+
+    // 整本朗读按钮的统一入口：先确保原声探测完成（首次点击可能仍在途，复用同一 Promise），
+    // 再决定走原声伴听还是 R157 整本 TTS 连播。TED 判据只能由探测给出（见 TED_BOOK 定义处）。
+    function bookListenToggle() {
+        if (bookPlayer && bookPlayer.active) { bookPlayerToggle(); return; }   // 正在 TTS 连播：切换暂停
+        if (TED_BOOK || (tedAudioPlayer && tedAudioPlayer.active)) { tedAudioToggle(); return; }
+        tedAudioEnsureLoaded().then(function (data) {
+            if (data && data.audioUrl) { TED_BOOK = true; tedAudioToggle(); return; }
+            if (calibre.readingTtsUrl) bookPlayerToggle();
+        }).catch(function () {
+            if (calibre.readingTtsUrl) bookPlayerToggle();
+        });
     }
 
     // 离开阅读页 / 换书：释放整段原声
@@ -2434,31 +2452,23 @@ var reader;
 
     // R157 整本连播按钮：▶/❚❚ 起播暂停切换，■ 停止；依赖 moon-well TTS 代理，
     // 未配置（readingTtsUrl 缺失）时隐藏（单段朗读有浏览器兜底，连播没有）。
-    // R172：TED/博客类书同一个按钮改接「原声伴听」（calibre.bookFormat === 'TED'），
-    // 不再走 TTS 逐段合成——TED 是整段真人原声，逐段合成会把原声换成机器音。
+    // R172：同一个按钮在「探测到整段原声」的书上改接原声伴听（TED/博客类），不再走 TTS
+    // 逐段合成——TED 是整段真人原声，逐段合成会把原声换成机器音。分流判据只能运行时探测
+    // （calibre.bookFormat 是 Calibre 文件格式，见 TED_BOOK 定义处），故点击统一走 bookListenToggle。
     var ttsBookBtn = document.getElementById('tts-book');
     var ttsBookStopBtn = document.getElementById('tts-book-stop');
-    if (ttsBookBtn) {
-        if (TED_BOOK) {
-            ttsBookBtn.addEventListener('click', tedAudioToggle);
-        } else {
-            if (!calibre.readingTtsUrl) ttsBookBtn.style.display = 'none';
-            ttsBookBtn.addEventListener('click', bookPlayerToggle);
-        }
-    }
+    if (ttsBookBtn) ttsBookBtn.addEventListener('click', bookListenToggle);
     if (ttsBookStopBtn) {
         ttsBookStopBtn.addEventListener('click', function () {
-            if (TED_BOOK) tedAudioStop();
+            if (tedAudioPlayer && tedAudioPlayer.active) tedAudioStop();
             else bookPlayerStop(false);
         });
     }
-    if (TED_BOOK) {
-        // 进阅读页即预取原声元数据 + 段落清单：起播无等待；不可用则隐藏按钮并提示一次
-        tedAudioUpdateButtons();
-        tedAudioEnsureLoaded().catch(function () {});
-    } else {
-        bookPlayerUpdateButtons();
-    }
+    // 进阅读页即探测原声（元数据 + 段落清单）：起播零等待；结果决定按钮语义与可用性。
+    bookPlayerUpdateButtons();
+    tedAudioEnsureLoaded().then(function () {
+        if (TED_BOOK) tedAudioUpdateButtons();
+    }).catch(function () {});
 
     // ===== 段落批注（与翻译/朗读缓存同 ES 文档） =====
     // 段落文本用与翻译/朗读一致的 paragraphSpeechText 归一化，moon-well 按
