@@ -21,28 +21,11 @@
 - `response-archive/response-R143.md`：R143（2026-10-10；2026-10-11 R157 写入触发轮转搬移）
 - `response-archive/response-R144-R153.md`：R144、R145、R147（含嵌套 R146）、R151、R152、R153（2026-10-10 ～ 2026-10-11；2026-10-12 R161 写入触发轮转搬移，清并行欠账）
 - `response-archive/response-R154.md`：R154（2026-10-11；2026-10-12 R162 写入触发轮转搬移）
+- `response-archive/response-R160.md`：R160（2026-10-11；2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起。含嵌套 R164「worktree 纪律修订」一节随父级日期标题一并搬移）
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事）
-
-## 2026-10-11（R160：麦克风设备选择器）
-
-### R160（用户场景：合盖外接显示器，iPhone 连续互通麦克风为系统输入；magicbook 页面仍无声）
-
-- **场景定性**：M1 Pro 合盖时 macOS 硬件级禁用内建麦克风（Apple Silicon 安全设计）→ 内建麦全场景无声；用户切 iPhone 连续互通麦克风为系统默认（正确），且 iPhone 麦在其他 Mac 应用有声音——浏览器页面仍无声的最常见原因是 **per-site 设备记忆**：站点钉在旧设备上，系统默认切换不影响已记住的选择。
-- **交付**：口语/复述面板各加麦克风设备下拉（enumerateDevices，权限未授予时占位编号），选中值存 localStorage 跨面板同步，getUserMedia 按 `deviceId.exact` 取流；devicechange 监听热刷新；i18n 3 词条（种子/po/mo）。
-- **测试**：页面断言 + i18n 契约 + 静态完整性 = 48 passed。
-- **总结**：requests.md 占号 R160（worktree 创建时登记）；本条为回应；冲突记录：无。
-
-### R164：worktree 纪律修订——一次会话一个 worktree（手册已写入）
-
-- **用户指令**：一次会话一个 worktree 就够了——R162 重构一个连续任务开了 6 个 worktree（五阶段 5 + NAS 下线 1）是反面做法。
-- **手册落地（四仓同源 + 家族根）**：家族根 `AGENTS.md`「Git Worktree 开发纪律」新增**第 7 条：一次会话一个 worktree**（同一会话的多阶段/多子任务复用同一树，阶段 merge 回开发分支后续作前 fetch+merge 拉齐基线；跨会话优先复用台账登记的驻留树；仅并行会话允许多树并存）；moon-well/magicbook/magiclens/app-manager 四仓 AGENTS.md「Git Worktree 使用规范」节同源增补。magicbook push 首次被拒后 rebase --autostash 处理。
-- **⚠️ magicbook 主检出警示（并行会话现场）**：该仓工作区有并行会话未提交工作（18 文件 +25/−753，涉及 learning/speaking_writing/i18n_seed 等），被本轮 rebase 的 autostash 收进 `stash@{0}`；恢复 pop 时与远端 R160 已合入内容冲突（UU），已按「不擅自解他人冲突」原则 `git reset --hard` 恢复安全态——**stash@{0} 完整保留对方改动，该会话回来需自行 pop 并人工解决与 614522fd（R160 麦克风选择器）的重叠**。我的 docs 提交（3fc23575）已在远端最新之上，不影响对方。
-- **提交**：家族根 AGENTS.md（非 git 直接改）；moon-well 975d048；magicbook 3fc23575；magiclens ec9ae45；app-manager 4ce05bb。
-- **六处驻留 worktree 的处置建议（待用户一句话）**：R162 全部代码已 merge+push+部署验证，若确认验收通过，六树可统一清理（`git worktree remove ../moon-well-<slug> && git branch -d <分支>` ×6）；按纪律等用户验收结论，不擅自删。
-- **总结**：requests.md 占号 R164；本条为回应；冲突记录：无。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160.md](response-archive/response-R160.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起）
 
 ## 2026-10-12（R161：magicbook.haoyuhang.top 公网打不开——Tailscale 直连路径过期黑洞，已恢复）
 
@@ -299,3 +282,23 @@
 - **交付状态**：commit `f519ea1a`，merge 进本地 develop＝`3c6689c0`，**未 push**。⚠️ 本地 develop 现领先 `origin/develop` 两个提交（我的 merge + 并行会话未推的 docs 提交 `82d2c39d`），我 push 会连带把那条一并发布，需你确认。
 - **对话记录**：requests.md 占号 169；response.md 追加本条，条目 10+1 → 轮转 R159 至 `response-archive/response-R159.md` 并登记索引。冲突记录：无。
 - **worktree 台账**：`../magicbook-tts-batch-fix`（分支 `fix/r169-tts-batch-preselect-selfheal`）merge 后驻留待验收；验收通过后 `git worktree remove` + `git branch -d`。
+
+## 2026-10-14（R172：TED/博客类书原声伴听——整段原声 + 时间轴高亮，与逐段 TTS 连播分流）
+
+### R172（用户指出「博客/TED 只有一段音频，书是很多段拼在一起，不分流会有问题」；同源 moon-well R178 交付链）
+
+- **需求本质（用户原话）**：「博客和书不一样，博客包括 TED 其实只有一段音频。书是很多段拼在一起的。因此如果不修改逻辑，博客类的书会有问题吧？」→ 定性正确。TED/博客类书 = **一段连续原声**（`ted-audio/<slug>.aac`），文本段落只是这段录音上的**时间轴切片**；小说类书 = **无原声**，靠 `reading_tts` 逐段 TTS 合成（缓存键 SHA-256(段落原文)）再拼接。不分流则 TED 走「整本朗读」= 用机器音念文本（语义错）+ 白烧算力/积分。
+- **方案（用户 AskUserQuestion 拍板）**：播放模型 = **方案 A 整段原声 + 时间轴**（非逐段切播）；下一步 = **先实现 + 守卫测试**，不暂停等审阅。设计文档 `docs/feat/ted-audio-companion/design/ted-audio-companion-lld.md`（状态已回填「已实现（方案 A，待真机验收）」）。
+- **交付**：
+  - `web.py` 两个薄代理：`POST /ajax/ted-audio` → moon-well `POST /book/ted-audio`（取整段 `audioUrl`）、`POST /ajax/ted-audio-paragraphs` → `POST /book/paragraph/list`（段落 `tedAudioStart/End` 时间轴）。均 `@user_login_required`、timeout 15、Bearer 二选一、内网绕过代理；`bookId` 非数字挡成 400（不把脏串透传给上游 `Long.valueOf`）。**moon-well 零改动**。
+  - `read.html` 注入 `tedAudioUrl` / `tedAudioParagraphsUrl`。
+  - `epub.js` 新增 `tedAudioPlayer`（与 R157 `bookPlayer` 互斥）：分流判据 `calibre.bookFormat === 'TED'`，同一个 `#tts-book` 按钮接 `tedAudioToggle`；整段 `new Audio(audioUrl)`；`timeupdate` 节流 ≤4 次/秒驱动当前段高亮（复用 `.reading-tts-speaking` + 抽出共用的 `followPageInSection`）；段落点击经 `data-ted-order` seek 到 `startMs`（有划词选择时让位）；跨章前向跟随；`ended`/`error`/`pagehide` 释放。
+  - 段落↔时间轴对齐：主用「章节标题 + 段内序」（EpubBuilder 保证一章 xhtml = 该章全部段落、一段一 `<p>`，且注册表 `chapterTitle` 与 `toc.ncx` label 同源），兜底归一化文本匹配；失败占比 >20% 该章降级为「仅整段播放、不高亮/不切播」并 `console.warn`（不静默失败）。
+  - i18n：复用 R157 按钮/错误文案，仅新增 1 条 `Original audio is not available yet`，按五步链同步 seed + po 并重编译 `messages.mo`。
+  - 顺带抽公共件（避免重造第二套 UI）：`bookPlayerUpdateButtons` → `ttsButtonsRender(st)`；`bookPlayerFollowPage` → `followPageInSection(section, el)`。
+- **守卫测试**：`tests/test_ted_audio_proxy.py` 19 例——登录门禁；转发路径/body/Bearer/内网绕过/超时；脏 `bookId` 400 且上游不被调用；上游错误按原状态码透传、不可达 503；静态锁（分流判据须落在 `TED_BOOK` 赋值上而非注释、按钮接线、代理端点注入 read.html）。**反向变异已验证有效**：`TED_BOOK` 改 `false` → 分流锁红；代理 path 改错 → 映射锁红。开发态闸门：新增 + 回归（i18n 五步链 / TTS 路由 / 静态 JS）**55 passed**。中途发现首版正则会被注释命中（假绿），已收紧为「赋值上下文」并复验。
+- **⚠️ 上线前必读（本轮实测定性的关键）**：**线上没部署 R172**——实拉 `https://magicbook.haoyuhang.top/static/js/reading/epub.js`（HTTP 200 / 136KB）校验：`tedAudioToggle` 与 `bookFormat === 'TED'` 命中数均为 **0**，`bookPlayerToggle`/`bookPlayerMaybePrefetch` 存在。⇒ 线上 TED 书走的仍是 **R157 逐段 TTS**。用户反馈的「段落之间停顿好久」根因即此：TED 段落是时间轴切片、**很短**，而 TTS 冷合成比播放还慢，段间必然长卡顿（普通书因做过整本预生成才快）。**TED 的正解是 R172 本身：播整段真人原声，没有「逐段取音频」这一步**。
+- **未做（用户已明确暂缓/越界不碰）**：① 用户建议的「预读 1~2 段、边播边取下一段」对 TTS 路径成立（R157 已有预取，但只提前 1 块、且在当前块 `onplay` 后才发起、翻页会被丢弃），但**对 TED 治标不治本**；是否补强 R157 预取待用户另行拍板，本轮不动。② 第 3 档（r176-tier3 定时锁 + DDL 兼容）不做；teslamate 暂下线。③ `LearningParagraphResolver.audioUrlOf` 返回的是**切片** URL 而 learning-dictation 按其 `audioStartMs` seek（潜在口径不一致）属旁支发现，非本轮范围。
+- **交付状态**：commit `7be3e7e3`（分支 `feat/r172-ted-audio`，基线 `origin/develop` `e5816e3c`），已推送待部署实测。真机验收项：原声非机器音 / 随播高亮翻页翻章 / 点段跳播 / 暂停继续停止 / 普通书不受影响 / 未缓存隐藏并提示；尤须实测**浏览器能否直放 ADTS `.aac`**（设计 §7 的方案 B 回退条件），以及 `audioUrl` 是内网 MinIO 地址 `http://192.168.31.10:9000/...`（浏览器须在 LAN 内可达，与 learning-dictation 同源现状）。
+- **对话记录**：requests.md 占号 172（占号说明：本 worktree 基线 `requests.md` 止于 R169，但主检出 develop 已有 R170、仓内已有 R171 分支，按「续编空号」锁 R172 避免撞号）；response.md 追加本条，窗口达 11 → 轮转最旧的 R160 一节（含嵌套 R164「worktree 纪律修订」）至 `response-archive/response-R160.md` 并登记两处索引，窗口恢复 10 条（R161 起）。冲突记录：无撞号。
+- **worktree 台账**：`../magicbook-ted-audio`（分支 `feat/r172-ted-audio`）驻留待部署验收；验收通过后 `git worktree remove` + `git branch -d`。
