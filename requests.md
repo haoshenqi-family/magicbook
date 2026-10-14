@@ -104,3 +104,5 @@
 168. 写作工坊支持「继续上一次未完成的写作」（承接 moon-well R172 后端契约；占号说明：原计划记 R167，merge 新基线时发现 R167 已被并行会话的复习干扰项前端占用，按「不改既存、续编空号」纪律落为 168）：历史列表只能看不能续写。四项拍板＝历史行可点 + 顶部一键续写 / 走新增任务详情端点取草稿 / tips 后端已加列落库（旧任务补不回）/ 已交初稿的连上次批改一起恢复。
 
 169. 按方案 C 修复整本朗读批次：①_book_meta 取 book.language 抛 AttributeError（本仓 Books 无该标量列，语言在 languages 关系上）；②元数据/选角整段不得阻断批次（事故形态＝job+307 条 item 已 commit、daemon 从未 spawn，台账永久 RUNNING 0/N）；③补自愈——retry 与 reuse 遇「停滞且有 PENDING」要重新 spawn，不能只在有 FAILED 时动线程。（生产现场：Animal Farm book=143 批次 0/307 停摆 21h）
+
+170. 承接 moon-well R175 的前端接线：伴读 agent 新增 `synthesize_tts` 工具与 SSE `audio` 事件后，magicbook 必须接上播放，否则用户只看到工具芯片打勾而不出声（正是家族纪律禁止的静默降级）。新增不计费回读代理 `/ajax/reading-tts-cached` → moon-well `POST /tts/cached-audio`；`ai_chat.js` 接 `audio` 事件播放，取不到/被浏览器拦下都要在对话里可见。关键约束：`/tts/speak` 是「听=消费」（每次含缓存命中都扣 1 积分），工具内已扣过，前端复用就会同一次朗读扣两遍——必须走回读端点。

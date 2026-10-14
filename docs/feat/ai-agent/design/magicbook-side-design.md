@@ -2,7 +2,7 @@
 
 **特性代号**：`ai-agent`
 **日期**：2026-09-29
-**状态**：设计已完成，待排期开发（本期仅设计，不开发）
+**状态**：已上线（R98 交付薄代理 + 抽屉前端 + 数据迁出，见文末实施记录与 magicbook `response.md`；状态行原写「待排期开发」已于 2026-10-14 R170 回填）。**R170 追加**：接上后端 `audio` SSE 事件的朗读播放（对应 moon-well R175 的 `synthesize_tts` 工具落地）。
 **对应后端设计**：moon-well `docs/feat/ai-agent/design/ai-agent-backend-design.md`（R66–R70 对话链）
 **决策来源**：magicbook requests R90–R95 / moon-well requests R66–R70
 
@@ -216,3 +216,24 @@ requireConfirm 高亮）；final 显示 token 用量角标；记忆面板（🧠
 
 **测试**：全量 214 passed（基线 229：删除 26 个旧 chat/admin 行为测试，新增薄代理 8、
 迁移脚本 5、退役语义改写 13、过渡 E2E 4）。
+
+---
+
+## R170 朗读播放接线（2026-10-14，承接 moon-well R175）
+
+后端 `synthesize_tts` 落地后，SSE 多出一个 `audio` 事件（`{step, name, text}`，只带朗读原文、不带字节）。本仓必须接上，否则工具芯片打勾而不出声——用户视角就是「AI 说读了但我什么都没听到」。
+
+**改两处**：
+
+| 位置 | 内容 |
+| --- | --- |
+| `cps/web.py` `reading_tts_cached()` | 新代理 `POST /ajax/reading-tts-cached` → moon-well `POST /tts/cached-audio`（binary 透传，20s）。入参 `text` 先 `str(payload.get("text") or "")` 再 `strip()`：JSON null 走 `get("text","")` 会被 `str(None)` 变成合法文本 `"None"` 送出去合成（白扣一次积分、播一句「None」）；长度闸在代理之前，空/超 2000 一律 400 且不打上游 |
+| `cps/static/js/ai_chat.js` `playCachedSpeech()` + `case "audio"` | 按事件里的原文回读缓存 → blob → `new Audio().play()`；`text` 原样发送不改写（它就是缓存键 `SHA-256(trim)` 的输入）；`tool_result` 先收尾芯片再出声 |
+
+**为什么必须另开一条代理**：`/ajax/reading-tts` 走 `/tts/speak`，那是「听=消费」——每次请求（含缓存命中）都扣 1 积分。工具在 moon-well 侧已经扣过这一分，前端复用 `/speak` 就是同一次朗读扣两遍，而且功能上一切正常、界面上完全看不出来。守卫写在 `tests/test_reading_tts_cached.py::test_forwards_to_unbilled_cache_endpoint_not_speak`。
+
+**失败一律可见**（不给静默留空间）：回读 404（音频没住进缓存）、上游 5xx、以及 Chrome 无用户手势拒播 `play()`，都在对话流里追加一行 `⚠ …`（走与既有 `error` 事件相同的呈现方式），绝不只留一枚绿色芯片。
+
+**上线顺序**：本仓改动必须先于或同批于 moon-well 上线。前端先行是安全的（`audio` 事件不来就什么都不做）；反过来只发 moon-well，就会出现上面那个「打勾不出声」的形态。
+
+**测试**：`tests/test_reading_tts_cached.py` 新增 8 例（门禁 302 / 目标端点必须是 `/tts/cached-audio` / 字节与 Content-Type 透传 / 空值与 null 与超长的 400 前置闸 / 2000 边界放行 / 首尾空白按缓存键口径 trim 后原样转发 / 上游 404 原样透传不伪装成空音频）；受影响面回归 `test_reading_tts_routes|service|extractor` 39 例 + `test_ai_agent_proxy` + `test_reading_tts` 18 例，全绿。JS 无自动化框架，`node --check` 通过，真机验收判据见上（说话「把这段读给我听」→ 芯片 ✓ 且出声；把 `/tts/cached-audio` 指向未合成文本 → 对话里出现 ⚠ 而不是沉默）。
