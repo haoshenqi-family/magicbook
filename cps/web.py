@@ -309,6 +309,28 @@ def reading_tts():
     return _moonwell_proxy("/tts/speak", payload, 65, "reading tts", binary=True)
 
 
+@web.route("/ajax/reading-tts-cached", methods=["POST"])
+@user_login_required
+def reading_tts_cached():
+    """回读已合成好的朗读音频（R170，伴读 agent 播放用），透传 moon-well 不计费端点。
+
+    Why 不复用 /ajax/reading-tts：那条走 moon-well `/tts/speak`，语义是「听=消费」——
+    每次请求（含缓存命中）都扣 1 积分。伴读工具 synthesize_tts 已在工具内合成并扣过分，
+    前端再走 /speak 就是同一次朗读扣两遍，所以走 /tts/cached-audio（只读缓存、miss 404）。
+    text 必须原样透传：moon-well 的缓存键是 trim 后原文的 SHA-256，这里再清洗一次反而会 miss。
+    """
+    payload = request.get_json(silent=True) or {}
+    # `or ""` 而不是 get("text", "")：JSON null 会命中默认值失效的路径，str(None)=="None"
+    # 会被当成合法文本送去合成（白扣一次积分、播一句「None」）
+    text = str(payload.get("text") or "").strip()
+    if not text or len(text) > 2000:
+        return jsonify({"success": False,
+                        "message": "text must be between 1 and 2000 characters"}), 400
+    # 20s：只有一次 ES GET + 一次 MinIO 对象读取，远快于合成链路
+    return _moonwell_proxy("/tts/cached-audio", {"text": text}, 20,
+                           "reading tts cache", binary=True)
+
+
 @web.route("/reading/settings", methods=["GET"])
 @user_login_required
 def reading_settings():

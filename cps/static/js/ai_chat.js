@@ -15,9 +15,50 @@
   var currentConversationId = null;
   var sending = false;
   var deleting = false;
+  var ttsAudio = null;
 
   function getCsrfToken() {
     return $("input[name='csrf_token']").val() || "";
+  }
+
+  /**
+   * R170：播放伴读工具（synthesize_tts）已合成好的朗读。
+   *
+   * 音频字节不走 SSE：工具在 moon-well 侧已扣过那 1 积分，这里按原文回读**不计费**的缓存
+   * 端点取字节。text 必须原样发送——它就是缓存键（trim 后 SHA-256）的输入，前端做任何
+   * 「顺手清洗/截断」都会 miss。
+   *
+   * 失败一律交给 onError 显示，绝不静默：用户听到的「AI 说读了但没声音」和被吞掉的
+   * 自动播放拒绝，都只会变成一句「功能坏了」的报障，排查成本远高于这里多打一行提示。
+   */
+  function playCachedSpeech(text, onError) {
+    if (!text) {
+      if (onError) onError(mbT("Nothing to read"));
+      return;
+    }
+    fetch("/ajax/reading-tts-cached", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({ text: text }),
+    }).then(function (response) {
+      if (!response.ok) throw new Error(mbT("Read-aloud audio is unavailable"));
+      return response.blob();
+    }).then(function (blob) {
+      if (ttsAudio) {
+        try { ttsAudio.pause(); } catch (e) { /* 上一段可能已释放 */ }
+      }
+      ttsAudio = new Audio(URL.createObjectURL(blob));
+      ttsAudio.play().catch(function () {
+        // Chrome 在无用户手势时拒播，必须说出来：不说就等于「扣了分却没声音」
+        if (onError) onError(mbT("Browser blocked auto-play, interact with the page first"));
+      });
+    }).catch(function (err) {
+      if (onError) onError(err.message || String(err));
+    });
   }
 
   function getBookIdFromUrl() {
@@ -394,6 +435,14 @@
             break;
           case "tool_result":
             finishToolChip(obj.step, obj.name, obj.ok, obj.resultSummary, obj.durationMs);
+            break;
+          case "audio":
+            // 顺序固定：tool_result 之后才到 audio，芯片先收尾再出声
+            playCachedSpeech(obj.text, function (why) {
+              fullText += (fullText ? "\n" : "") + "⚠ " + why;
+              $msg.html(renderMarkdown(fullText));
+              scrollMessages();
+            });
             break;
           case "final":
             conversationIdFromFinal = obj.conversationId || null;
