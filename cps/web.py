@@ -331,6 +331,51 @@ def reading_tts_cached():
                            "reading tts cache", binary=True)
 
 
+# ---------- R172 TED 原声伴听代理（TED/博客类书：整段原声，非逐段 TTS） ----------
+
+def _ted_audio_book_id():
+    """取并校验 TED 音频查询的 bookId（Calibre 书号，纯数字）。
+
+    Why 单独校验：bookId 直接进 moon-well 的 Long.valueOf，脏串会变成上游 500，
+    在代理层挡掉可给出确定的 400，而不是把错误透传成「服务不可用」。
+    """
+    payload = request.get_json(silent=True) or {}
+    book_id = str(payload.get("bookId", "")).strip()
+    if not book_id.isdigit():
+        return None
+    return book_id
+
+
+@web.route("/ajax/ted-audio", methods=["POST"])
+@user_login_required
+def reading_ted_audio():
+    """Proxy TED talk original-audio cache lookup（整段原声地址/时长）。
+
+    R172：TED/博客类书的内容本质是「一段连续原声」，阅读器伴听直接播整段，
+    不走逐段 TTS 合成（逐段合成会把真人原声换成机器音且白烧算力/积分）。
+    未缓存 / 未建注册表时 moon-well 的 result 为 null，前端据此隐藏伴听按钮。
+    """
+    book_id = _ted_audio_book_id()
+    if book_id is None:
+        return jsonify({"success": False, "message": "bookId must be a number"}), 400
+    return _moonwell_proxy("/book/ted-audio", {"bookId": book_id}, 15, "ted audio")
+
+
+@web.route("/ajax/ted-audio-paragraphs", methods=["POST"])
+@user_login_required
+def reading_ted_audio_paragraphs():
+    """Proxy TED book paragraph registry（段落 order + 原声时间轴切片）。
+
+    R172：时间轴驱动的高亮依赖段落级 tedAudioStart/End（该段在整段原声中的
+    毫秒偏移），与 EPUB 段落 1:1；与 /ajax/ted-audio 同批并发拉取。
+    """
+    book_id = _ted_audio_book_id()
+    if book_id is None:
+        return jsonify({"success": False, "message": "bookId must be a number"}), 400
+    return _moonwell_proxy("/book/paragraph/list", {"bookId": book_id}, 15,
+                           "ted audio paragraphs")
+
+
 @web.route("/reading/settings", methods=["GET"])
 @user_login_required
 def reading_settings():

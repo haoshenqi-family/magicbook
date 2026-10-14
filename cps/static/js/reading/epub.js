@@ -1111,8 +1111,9 @@ var reader;
     }
 
     function speakParagraph(el, btn) {
-        // 整本连播让位单段朗读：同一扬声器互斥，避免两路音频叠播
+        // 整本连播 / TED 原声伴听让位单段朗读：同一扬声器互斥，避免两路音频叠播
         if (bookPlayer && bookPlayer.active) bookPlayerStop(false);
+        if (tedAudioPlayer && tedAudioPlayer.active) tedAudioStop();
         if (btn.classList.contains('is-playing')) { stopTts(); return; }
         stopTts();
         var text = paragraphSpeechText(el);
@@ -1235,11 +1236,13 @@ var reader;
     var BOOK_TTS_MAX = 2000;      // 与 /ajax/reading-tts 前后端一致的单请求上限
     var BOOK_TTS_CHUNK_GAP = 260; // 段落间自然停顿（毫秒，暂停期间冻结）
 
-    function bookPlayerUpdateButtons() {
+    // #tts-book（▶/❚❚）与 #tts-book-stop（■）是整本 TTS 连播与 TED 原声伴听**共用**的
+    // 同一对按钮：两种播放状态机互斥（任一时刻只有一个非空），故渲染逻辑共用，
+    // 只把状态对象作为参数传入（R172 复用 R157 的按钮与文案，避免重造一套 UI）。
+    function ttsButtonsRender(st) {
         var btn = document.getElementById('tts-book');
         var stopBtn = document.getElementById('tts-book-stop');
         if (!btn) return;
-        var st = bookPlayer;
         if (!st) {
             btn.textContent = '▶';
             btn.title = mbT('Listen to this book');
@@ -1256,6 +1259,8 @@ var reader;
             stopBtn.title = mbT('Stop reading aloud');
         }
     }
+
+    function bookPlayerUpdateButtons() { ttsButtonsRender(bookPlayer); }
 
     // 超长段落切分为 ≤2000 字符的朗读块：优先在后 1/3 窗口找句读断句，找不到硬切。
     // Why: 单段朗读把 2000 字符以外直接截断（paragraphSpeechText），听书模式不能
@@ -1363,11 +1368,11 @@ var reader;
     // 视图跟随朗读进度：仅当当前段落不在可见页内才 display 跳页（听一段闪一下
     // 很难受）。跳页用段落元素当下实时算出的 CFI，不存在旧 CFI 越界毒化显示
     // 队列的风险（IndexSizeError 事故只发生在恢复历史保存位置的场景）。
-    function bookPlayerFollowPage(el) {
+    // 章节由调用方给出（TTS 连播用 bookPlayer.section，TED 原声用 tedAudioPlayer.section）。
+    function followPageInSection(section, el) {
         try {
-            var st = bookPlayer;
-            if (!st || !st.section || typeof st.section.cfiFromElement !== 'function') return;
-            var paraCfi = st.section.cfiFromElement(el);
+            if (!section || typeof section.cfiFromElement !== 'function') return;
+            var paraCfi = section.cfiFromElement(el);
             if (!paraCfi) return;
             var locations = reader.book.locations;
             var location = renditionLocation();
@@ -1383,6 +1388,12 @@ var reader;
                 if (p && typeof p.catch === 'function') p.catch(function () {});
             }
         } catch (e) {}
+    }
+
+    function bookPlayerFollowPage(el) {
+        var st = bookPlayer;
+        if (!st) return;
+        followPageInSection(st.section, el);
     }
 
     function bookPlayerFetchAudio(text) {
@@ -1636,6 +1647,7 @@ var reader;
     function bookPlayerStart() {
         if (!calibre.readingTtsUrl) return;
         stopTts(); // 单段朗读让位
+        if (tedAudioPlayer && tedAudioPlayer.active) tedAudioStop(); // TED 原声让位
         var content = null;
         try {
             var contents = reader.rendition.getContents();
@@ -1703,6 +1715,410 @@ var reader;
         bookPlayerUpdateButtons();
         if (reachedEnd) readerToast(mbT('Reached the end of the book'));
     }
+
+    // ===== R172 TED 原声伴听：整段原声 + 时间轴高亮（与 bookPlayer 互斥） =====
+    // Why 与整本 TTS 连播分设两个状态机：TED/博客类书的内容本质是「一段连续原声」，
+    // 文本段落只是这段录音上的时间轴切片；对 TED 走逐段 TTS 会把真人原声换成机器音
+    // （语义错），且一场演讲数万字白烧算力/积分。普通小说书没有原声，仍走 bookPlayer。
+    // 分流判据 = calibre.bookFormat === 'TED'，与 moon-well BookFormatEnum.TED 对齐。
+    var TED_BOOK = calibre.bookFormat === 'TED';
+    var tedAudioPlayer = null;  // 播放态；与 bookPlayer 互斥（任一时刻至多一个非空）
+    var tedAudioData = null;    // 预取结果：{audioUrl, segments:[], byChapter:{}}
+    var tedAudioLoad = null;    // 预取 Promise（进阅读页即发起，起播不等待）
+    var tedAudioMetaOk = null;  // 原声是否可用；false → 隐藏伴听按钮
+    var tedAudioAbsenceNotified = false;
+
+    // 段落记录 → 时间轴索引：片段时间升序 + 按 chapterTitle 分组（TED 章节标题唯一）
+    function tedAudioIndex(paragraphs) {
+        var segments = [];
+        var byChapter = {};
+        (paragraphs || []).forEach(function (p) {
+            if (!p || p.tedAudioStart == null || p.tedAudioEnd == null) return;
+            var seg = {
+                order: p.order,
+                chapterTitle: p.chapterTitle || '',
+                chapterOrder: p.chapterOrder == null ? null : Number(p.chapterOrder),
+                startMs: Number(p.tedAudioStart),
+                endMs: Number(p.tedAudioEnd),
+                text: (p.text || '').replace(/\s+/g, ' ').trim()
+            };
+            segments.push(seg);
+            (byChapter[seg.chapterTitle] || (byChapter[seg.chapterTitle] = [])).push(seg);
+        });
+        segments.sort(function (a, b) { return a.startMs - b.startMs; });
+        Object.keys(byChapter).forEach(function (key) {
+            byChapter[key].sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
+        });
+        return {segments: segments, byChapter: byChapter};
+    }
+
+    function tedAudioFetch(url) {
+        return fetch(url, {
+            method: 'POST', credentials: 'same-origin',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': readerCsrfToken()},
+            body: JSON.stringify({bookId: calibre.bookId})
+        }).then(function (resp) {
+            return resp.text().then(function (body) {
+                var data = null;
+                try { data = JSON.parse(body); } catch (e) {}
+                if (resp.ok && data && data.success) return data.result;
+                throw new Error((data && (data.message || data.msg)) || ('HTTP ' + resp.status));
+            });
+        });
+    }
+
+    // 原声不可用（未缓存 / 未建注册表）：隐藏伴听按钮并一次性提示（不静默失败）
+    function tedAudioApplyAvailability() {
+        if (!TED_BOOK || tedAudioMetaOk) return;
+        var btn = document.getElementById('tts-book');
+        if (btn) btn.style.display = 'none';
+        if (!tedAudioAbsenceNotified) {
+            tedAudioAbsenceNotified = true;
+            readerToast(mbT('Original audio is not available yet'));
+        }
+    }
+
+    function tedAudioEnsureLoaded() {
+        if (tedAudioLoad) return tedAudioLoad;
+        tedAudioLoad = Promise.all([
+            tedAudioFetch(calibre.tedAudioUrl),
+            tedAudioFetch(calibre.tedAudioParagraphsUrl)
+        ]).then(function (res) {
+            var meta = res[0] || null;
+            var list = res[1] || {};
+            var index = tedAudioIndex(list.paragraphs);
+            tedAudioData = {
+                audioUrl: meta && meta.audioUrl ? meta.audioUrl : '',
+                segments: index.segments, byChapter: index.byChapter
+            };
+            tedAudioMetaOk = !!tedAudioData.audioUrl;
+            tedAudioApplyAvailability();
+            return tedAudioData;
+        }).catch(function (err) {
+            tedAudioMetaOk = false;
+            tedAudioApplyAvailability();
+            throw err;
+        });
+        return tedAudioLoad;
+    }
+
+    function tedAudioUpdateButtons() { ttsButtonsRender(tedAudioPlayer); }
+
+    // 当前渲染章节的真实标题（与 currentChapterTitle 同源：优先 toc.ncx label）
+    function tedChapterTitle(section) {
+        try {
+            var nav = reader.book.navigation;
+            if (!nav || !nav.toc) return '';
+            if (section) {
+                if (nav.toc[section.index] && nav.toc[section.index].label) {
+                    return nav.toc[section.index].label;
+                }
+                if (section.href) {
+                    var label = findTocLabel(nav.toc, section.href);
+                    if (label) return label;
+                }
+            }
+        } catch (e) {}
+        return '';
+    }
+
+    function tedAudioChapterOrder(title) {
+        var st = tedAudioPlayer;
+        var group = (st && title && st.byChapter[title]) || null;
+        return group && group.length && group[0].chapterOrder != null
+            ? group[0].chapterOrder : null;
+    }
+
+    function tedAudioSegmentByOrder(st, order) {
+        var segs = st && st.segments;
+        if (!segs) return null;
+        for (var i = 0; i < segs.length; i++) {
+            if (segs[i].order === order) return segs[i];
+        }
+        return null;
+    }
+
+    function tedAudioSegmentAt(st, ms) {
+        var segs = st.segments;
+        if (!segs || !segs.length) return null;
+        if (ms < segs[0].startMs) return segs[0];
+        var lo = 0, hi = segs.length - 1, found = 0;
+        while (lo <= hi) {
+            var mid = (lo + hi) >> 1;
+            if (segs[mid].startMs <= ms) { found = mid; lo = mid + 1; }
+            else hi = mid - 1;
+        }
+        return segs[found];
+    }
+
+    // 段落元素 ↔ 注册表段落记录对齐。主：chapterTitle 分组 + 段内序（EpubBuilder
+    // 保证「一章 xhtml = 该章全部段落、一段一 <p>」，且注册表 chapterTitle 与
+    // toc.ncx label 同源，故两端数量相符即可按位对齐）。兜底：归一化文本匹配
+    // （两侧文本同源；重复文本按出现序一一消费）。
+    function tedAudioAlignChapter(st, section, doc) {
+        if (!st || !doc) return null;
+        var els = collectParagraphElements(doc);
+        if (!els.length) return null;
+        var title = tedChapterTitle(section);
+        var segs = (title && st.byChapter[title]) || null;
+        var map = {};
+        if (segs && segs.length && segs.length === els.length) {
+            segs.forEach(function (seg, i) { map[seg.order] = els[i]; });
+            return {map: map, matched: els.length, total: els.length};
+        }
+        var pool = segs || st.segments;
+        var buckets = {};
+        pool.forEach(function (seg) {
+            (buckets[seg.text] || (buckets[seg.text] = [])).push(seg);
+        });
+        var matched = 0;
+        els.forEach(function (el) {
+            var text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+            var bucket = text && buckets[text];
+            if (!bucket || !bucket.length) return;
+            map[bucket.shift().order] = el;
+            matched++;
+        });
+        return {map: map, matched: matched, total: els.length};
+    }
+
+    // 对齐结果入状态；失败段落占比 > 20% → 该章降级「仅整段播放、不高亮/不切播」
+    // 并 console.warn（不静默失败，与设计 §4.4 一致）。
+    function tedAudioSetAligned(st, section, doc) {
+        st.section = section;
+        var aligned = tedAudioAlignChapter(st, section, doc);
+        if (aligned && aligned.total &&
+                (aligned.matched / aligned.total) < 0.8) {
+            try {
+                console.warn('[ted-audio] paragraph alignment degraded: '
+                    + aligned.matched + '/' + aligned.total
+                    + ' @ ' + (tedChapterTitle(section) || '?'));
+            } catch (eW) {}
+            aligned = null;
+        }
+        st.aligned = aligned;
+        if (aligned) {
+            // data-ted-order 供段落点击切播时向上查找所属段落（不依赖闭包内映射）
+            Object.keys(aligned.map).forEach(function (order) {
+                var el = aligned.map[order];
+                if (el && el.setAttribute) el.setAttribute('data-ted-order', order);
+            });
+        }
+        return aligned;
+    }
+
+    function tedAudioHighlight(el) {
+        var st = tedAudioPlayer;
+        if (!st) return;
+        if (st.highlightEl && st.highlightEl.classList) {
+            st.highlightEl.classList.remove('reading-tts-speaking');
+        }
+        st.highlightEl = null;
+        if (!el || !el.classList) return;
+        el.classList.add('reading-tts-speaking');
+        st.highlightEl = el;
+        followPageInSection(st.section, el);
+    }
+
+    function tedAudioClearHighlight() {
+        var st = tedAudioPlayer;
+        if (st && st.highlightEl && st.highlightEl.classList) {
+            st.highlightEl.classList.remove('reading-tts-speaking');
+        }
+        if (st) st.highlightEl = null;
+    }
+
+    // 当前段落在别的章节且在其之后：整段原声是全书连续时间轴，播放会跨章——前向
+    // 翻章跟随。翻章由 rendered 钩子复位 navigating 并重建对齐，避免递归等待链。
+    function tedAudioNavForward(st) {
+        if (st.navigating) return;
+        st.navigating = true;
+        setTimeout(function () {
+            if (tedAudioPlayer === st) st.navigating = false;
+        }, 20000);
+        try {
+            var p = reader.rendition.next();
+            if (p && typeof p.catch === 'function') {
+                p.catch(function () { if (tedAudioPlayer === st) st.navigating = false; });
+            }
+        } catch (e) { st.navigating = false; }
+    }
+
+    function tedAudioFollowSegment(seg) {
+        var st = tedAudioPlayer;
+        if (!st) return;
+        var el = st.aligned && st.aligned.map[seg.order];
+        if (el) { tedAudioHighlight(el); return; }
+        // 段在本章但未对齐：静默跳过（降级章）；段在别的章：仅当在其之后才前向翻章
+        var curTitle = tedChapterTitle(st.section);
+        if (curTitle && seg.chapterTitle === curTitle) return;
+        var curOrder = tedAudioChapterOrder(curTitle);
+        if (seg.chapterOrder != null && (curOrder == null || seg.chapterOrder > curOrder)) {
+            st.pendingSegOrder = seg.order;
+            tedAudioNavForward(st);
+        }
+    }
+
+    // timeupdate 节流（≤4 次/秒）后按 currentTime 命中当前段并高亮/跟随
+    function tedAudioOnTimeUpdate() {
+        var st = tedAudioPlayer;
+        if (!st || !st.active || st.paused || !st.audio) return;
+        var now = Date.now();
+        if (now - st.lastTick < 250) return;
+        st.lastTick = now;
+        var seg = tedAudioSegmentAt(st, st.audio.currentTime * 1000);
+        if (!seg || seg.order === st.segIdx) return;
+        st.segIdx = seg.order;
+        tedAudioFollowSegment(seg);
+    }
+
+    // rendered 钩子（阅读器 rendered 事件里调用）：重建对齐，并按播放位置续高亮
+    function tedAudioOnRendered(section, view) {
+        var st = tedAudioPlayer;
+        if (!st || !st.active) return;
+        st.navigating = false;
+        var doc = view && view.contents && view.contents.document;
+        if (!doc) return;
+        tedAudioSetAligned(st, section, doc);
+        var seg = st.pendingSegOrder != null
+            ? tedAudioSegmentByOrder(st, st.pendingSegOrder) : null;
+        if (seg && st.aligned && st.aligned.map[seg.order]) {
+            st.pendingSegOrder = null;
+            tedAudioHighlight(st.aligned.map[seg.order]);
+            return;
+        }
+        if (st.segIdx >= 0) {
+            var cur = tedAudioSegmentByOrder(st, st.segIdx);
+            var curEl = cur && st.aligned && st.aligned.map[cur.order];
+            if (curEl) tedAudioHighlight(curEl);
+        }
+    }
+
+    // 段落点击切播：跳到该段原声起点并高亮（不打断播放）。有文字选择（划词）时让位。
+    function tedAudioBindSeek(doc) {
+        if (!doc || doc.__tedAudioSeekBound) return;
+        doc.__tedAudioSeekBound = true;
+        doc.addEventListener('click', function (ev) {
+            var st = tedAudioPlayer;
+            if (!st || !st.active || !st.audio || !st.aligned) return;
+            try {
+                var sel = doc.getSelection ? doc.getSelection() : null;
+                if (sel && sel.toString && sel.toString().trim()) return;
+            } catch (eSel) {}
+            var el = ev.target;
+            var hit = null;
+            while (el && el !== doc.body && el.parentNode) {
+                if (el.getAttribute && el.getAttribute('data-ted-order') != null) { hit = el; break; }
+                el = el.parentNode;
+            }
+            if (!hit) return;
+            var order = parseInt(hit.getAttribute('data-ted-order'), 10);
+            var seg = tedAudioSegmentByOrder(st, order);
+            if (!seg) return;
+            try { st.audio.currentTime = seg.startMs / 1000; } catch (eSeek) {}
+            st.segIdx = order;
+            tedAudioHighlight(hit);
+        });
+    }
+
+    function tedAudioStart() {
+        stopTts();
+        if (bookPlayer && bookPlayer.active) bookPlayerStop(false); // 两模式互斥
+        tedAudioPlayer = {
+            active: true, paused: false, audio: null, segments: [], byChapter: {},
+            section: null, aligned: null, highlightEl: null, segIdx: -1,
+            pendingSegOrder: null, navigating: false, lastTick: 0, warned: false
+        };
+        tedAudioUpdateButtons();
+        tedAudioEnsureLoaded().then(function (data) {
+            var st = tedAudioPlayer;
+            if (!st || !st.active) return;
+            if (!data.audioUrl) { tedAudioStop(); return; }
+            st.segments = data.segments;
+            st.byChapter = data.byChapter;
+            var view = tedAudioCurrentView();
+            tedAudioSetAligned(st, view.section, view.doc);
+            var audio = new Audio(data.audioUrl);
+            st.audio = audio;
+            audio.addEventListener('ended', function () {
+                if (tedAudioPlayer === st) tedAudioStop();
+            });
+            audio.addEventListener('error', function () {
+                if (tedAudioPlayer !== st) return;
+                tedAudioStop();
+                readerToast(mbT('Audio playback failed'));
+            });
+            audio.addEventListener('timeupdate', tedAudioOnTimeUpdate);
+            var p = audio.play();
+            if (p && typeof p.catch === 'function') {
+                p.catch(function () {
+                    if (tedAudioPlayer !== st) return;
+                    // 浏览器拦截自动播放：转暂停态，用户点一下即恢复（点击即新手势）
+                    st.paused = true;
+                    tedAudioUpdateButtons();
+                    readerToast(mbT('Autoplay was blocked, tap to continue'));
+                });
+            }
+        }).catch(function (err) {
+            if (!tedAudioPlayer || !tedAudioPlayer.active) return;
+            tedAudioStop();
+            if (reloadIfCsrfBlocked(err && err.message)) return;
+            readerToast(mbT('Original audio is not available yet'));
+        });
+    }
+
+    function tedAudioCurrentView() {
+        var doc = null, section = null;
+        try {
+            var contents = reader.rendition.getContents();
+            var content = contents && contents.length ? contents[0] : null;
+            doc = content && content.document;
+        } catch (e) {}
+        try {
+            var loc = renditionLocation();
+            var cfi = loc && loc.start && loc.start.cfi;
+            if (cfi) section = reader.book.spine.get(cfi);
+        } catch (e2) {}
+        return {section: section, doc: doc};
+    }
+
+    function tedAudioToggle() {
+        var st = tedAudioPlayer;
+        if (!st) { tedAudioStart(); return; }
+        if (!st.audio) return; // 原声仍在加载
+        if (!st.paused) {
+            st.paused = true;
+            tedAudioUpdateButtons();
+            try { st.audio.pause(); } catch (ePause) {}
+            return;
+        }
+        st.paused = false;
+        tedAudioUpdateButtons();
+        if (st.audio.ended) { try { st.audio.currentTime = 0; } catch (eSeek) {} }
+        st.audio.play().catch(function () { readerToast(mbT('Audio playback failed')); });
+    }
+
+    function tedAudioStop() {
+        var st = tedAudioPlayer;
+        tedAudioPlayer = null;
+        if (!st) return;
+        st.active = false;
+        if (st.audio) {
+            try { st.audio.pause(); } catch (ePause) {}
+            try { st.audio.removeEventListener('timeupdate', tedAudioOnTimeUpdate); } catch (eOff) {}
+            try { st.audio.src = ''; } catch (eSrc) {}
+            st.audio = null;
+        }
+        if (st.highlightEl && st.highlightEl.classList) {
+            st.highlightEl.classList.remove('reading-tts-speaking');
+        }
+        tedAudioUpdateButtons();
+    }
+
+    // 离开阅读页 / 换书：释放整段原声
+    window.addEventListener('pagehide', function () {
+        if (tedAudioPlayer) tedAudioStop();
+    });
 
     // --- 朗读引擎设置 ---
     var ttsEngineSelect = document.getElementById('ttsEngine');
@@ -2017,16 +2433,31 @@ var reader;
     if (wholeBookToggle) wholeBookToggle.addEventListener('click', startWholeBookTranslation);
 
     // R157 整本连播按钮：▶/❚❚ 起播暂停切换，■ 停止；依赖 moon-well TTS 代理，
-    // 未配置（readingTtsUrl 缺失）时隐藏（单段朗读有浏览器兜底，连播没有）
+    // 未配置（readingTtsUrl 缺失）时隐藏（单段朗读有浏览器兜底，连播没有）。
+    // R172：TED/博客类书同一个按钮改接「原声伴听」（calibre.bookFormat === 'TED'），
+    // 不再走 TTS 逐段合成——TED 是整段真人原声，逐段合成会把原声换成机器音。
     var ttsBookBtn = document.getElementById('tts-book');
     var ttsBookStopBtn = document.getElementById('tts-book-stop');
     if (ttsBookBtn) {
-        if (!calibre.readingTtsUrl) ttsBookBtn.style.display = 'none';
-        ttsBookBtn.addEventListener('click', bookPlayerToggle);
-        bookPlayerUpdateButtons();
+        if (TED_BOOK) {
+            ttsBookBtn.addEventListener('click', tedAudioToggle);
+        } else {
+            if (!calibre.readingTtsUrl) ttsBookBtn.style.display = 'none';
+            ttsBookBtn.addEventListener('click', bookPlayerToggle);
+        }
     }
     if (ttsBookStopBtn) {
-        ttsBookStopBtn.addEventListener('click', function () { bookPlayerStop(false); });
+        ttsBookStopBtn.addEventListener('click', function () {
+            if (TED_BOOK) tedAudioStop();
+            else bookPlayerStop(false);
+        });
+    }
+    if (TED_BOOK) {
+        // 进阅读页即预取原声元数据 + 段落清单：起播无等待；不可用则隐藏按钮并提示一次
+        tedAudioUpdateButtons();
+        tedAudioEnsureLoaded().catch(function () {});
+    } else {
+        bookPlayerUpdateButtons();
     }
 
     // ===== 段落批注（与翻译/朗读缓存同 ES 文档） =====
@@ -2511,11 +2942,17 @@ var reader;
         if (content && content.document) {
             bindSelectionTranslation(content);
             injectParagraphTools(content);
+            // R172 TED 原声伴听：段落点击切播（跳到该段原声位置）
+            if (tedAudioPlayer && tedAudioPlayer.active) {
+                tedAudioBindSeek(content.document);
+            }
         }
         // 新章节渲染后仅回填缓存译文，翻译由段落按钮/工具栏手动触发
         if (translationEnabled()) setTimeout(restoreCachedTranslations, 60);
         // R157 整本连播：翻章/重渲染时重建播放队列（播放器自身翻章走 internalNav 分支）
         if (bookPlayer && bookPlayer.active) bookPlayerOnRendered(section, view);
+        // R172 TED 原声伴听：翻章/重渲染后重建段落↔时间轴对齐并续高亮
+        if (tedAudioPlayer && tedAudioPlayer.active) tedAudioOnRendered(section, view);
     });
 
     document.addEventListener('mousedown', function (event) {

@@ -3893,6 +3893,9 @@ msgstr "本书已提问 {n} 次，学情摘要待生成。"
 msgid "Audio playback failed"
 msgstr "音频播放失败"
 
+msgid "Original audio is not available yet"
+msgstr "原声尚未缓存"
+
 msgid "Book"
 msgstr "书名"
 
@@ -5227,6 +5230,15 @@ msgstr "AI 朗读失败，已跳过该段"
 
 msgid "Autoplay was blocked, tap to continue"
 msgstr "浏览器拦截了自动播放，点击继续"
+
+msgid "Nothing to read"
+msgstr "没有可朗读的内容"
+
+msgid "Read-aloud audio is unavailable"
+msgstr "朗读音频不可用"
+
+msgid "Browser blocked auto-play, interact with the page first"
+msgstr "浏览器拦截了自动播放，请先与页面交互"
 
 
 # --- R155 语音输入 ---
