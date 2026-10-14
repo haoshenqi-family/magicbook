@@ -7,6 +7,7 @@
 
 - `response-archive/response-R01-R31.md`：R1–R31（2026-08-14 ～ 2026-08-31）
 - `response-archive/response-R159.md`：R159 语音输入静音检测（2026-10-14 R169 轮转，窗口转入 R160 起）
+- `response-archive/response-R160-R164.md`：R160 麦克风设备选择器 + 同节嵌套的 R164 worktree 纪律修订（2026-10-14 R170 写入触发轮转搬移，父级日期标题随节一并搬移）
 - `response-archive/response-R32-R49.md`：R32–R49（2026-09-03 ～ 2026-09-17）
 - `response-archive/response-R50.md`：R50（2026-09-18）
 - `response-archive/response-R51-R70.md`：R51–R70（2026-09-18 ～ 2026-09-21）
@@ -25,24 +26,6 @@
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事）
-
-## 2026-10-11（R160：麦克风设备选择器）
-
-### R160（用户场景：合盖外接显示器，iPhone 连续互通麦克风为系统输入；magicbook 页面仍无声）
-
-- **场景定性**：M1 Pro 合盖时 macOS 硬件级禁用内建麦克风（Apple Silicon 安全设计）→ 内建麦全场景无声；用户切 iPhone 连续互通麦克风为系统默认（正确），且 iPhone 麦在其他 Mac 应用有声音——浏览器页面仍无声的最常见原因是 **per-site 设备记忆**：站点钉在旧设备上，系统默认切换不影响已记住的选择。
-- **交付**：口语/复述面板各加麦克风设备下拉（enumerateDevices，权限未授予时占位编号），选中值存 localStorage 跨面板同步，getUserMedia 按 `deviceId.exact` 取流；devicechange 监听热刷新；i18n 3 词条（种子/po/mo）。
-- **测试**：页面断言 + i18n 契约 + 静态完整性 = 48 passed。
-- **总结**：requests.md 占号 R160（worktree 创建时登记）；本条为回应；冲突记录：无。
-
-### R164：worktree 纪律修订——一次会话一个 worktree（手册已写入）
-
-- **用户指令**：一次会话一个 worktree 就够了——R162 重构一个连续任务开了 6 个 worktree（五阶段 5 + NAS 下线 1）是反面做法。
-- **手册落地（四仓同源 + 家族根）**：家族根 `AGENTS.md`「Git Worktree 开发纪律」新增**第 7 条：一次会话一个 worktree**（同一会话的多阶段/多子任务复用同一树，阶段 merge 回开发分支后续作前 fetch+merge 拉齐基线；跨会话优先复用台账登记的驻留树；仅并行会话允许多树并存）；moon-well/magicbook/magiclens/app-manager 四仓 AGENTS.md「Git Worktree 使用规范」节同源增补。magicbook push 首次被拒后 rebase --autostash 处理。
-- **⚠️ magicbook 主检出警示（并行会话现场）**：该仓工作区有并行会话未提交工作（18 文件 +25/−753，涉及 learning/speaking_writing/i18n_seed 等），被本轮 rebase 的 autostash 收进 `stash@{0}`；恢复 pop 时与远端 R160 已合入内容冲突（UU），已按「不擅自解他人冲突」原则 `git reset --hard` 恢复安全态——**stash@{0} 完整保留对方改动，该会话回来需自行 pop 并人工解决与 614522fd（R160 麦克风选择器）的重叠**。我的 docs 提交（3fc23575）已在远端最新之上，不影响对方。
-- **提交**：家族根 AGENTS.md（非 git 直接改）；moon-well 975d048；magicbook 3fc23575；magiclens ec9ae45；app-manager 4ce05bb。
-- **六处驻留 worktree 的处置建议（待用户一句话）**：R162 全部代码已 merge+push+部署验证，若确认验收通过，六树可统一清理（`git worktree remove ../moon-well-<slug> && git branch -d <分支>` ×6）；按纪律等用户验收结论，不擅自删。
-- **总结**：requests.md 占号 R164；本条为回应；冲突记录：无。
 
 ## 2026-10-12（R161：magicbook.haoyuhang.top 公网打不开——Tailscale 直连路径过期黑洞，已恢复）
 
@@ -86,7 +69,6 @@
 - **顺带发现（未改）**：`docs/reading/hld/hld.md` 接口表仍写「R141 起内置「详」面板入口随气泡下线、本端点暂无调用方」，但 R146 起让位已改为探测 `data-magiclens-selection`，未装/旧版扩展时内置「详」与 `/ajax/reading-word-detail` 是活的——该行表述与现网行为有漂移，属并行会话文档口径，本条只记录不擅改。
 - **总结**：requests.md 占号 R165；本条为回应；冲突记录：无撞号（165 为空号），但**基线漂移一次**——本分支从 fa7b9cfc 切出后，并行会话把 R161（公网超时排查）推上 develop 并**已先把 R144–R153 归档**，我这边同批归档与之撞车；按纪律 `git merge origin/develop` 拉齐后，归档文件取对方版本（正文与我的逐字节相同，仅头部注记不同），requests/response 两侧并存，合并后窗口达 11 条故再搬出最旧的 R154 至 `response-archive/response-R154.md`，窗口回到 10（R155–R165）。
 
-
 ## 2026-10-13（R164 续：P3 批次主体交付 + push 上线 + 部署确认）
 
 ### R164 开发与上线回应（feat/r164-whole-book-tts，worktree 驻留待验收）
@@ -97,7 +79,6 @@
 - **部署确认（moon-well 侧联动）**：Nacos `tts-book-voice` 1.0.1 同步+生产选角冒烟通过（book 145《Matilda》→ voice=Mia、风格指令「轻快明亮温暖俏皮…睡前故事」——元信息进 prompt 实证）；端到端批量合成（AC②）待真机浏览器登录态验收。
 - **worktree 台账（验收期驻留）**：`feat/r164-whole-book-tts`（`../magicbook-whole-book-tts`）已 merge 本地 develop 并 push；验收通过后 `worktree remove` + `branch -d`。
 - **总结**：requests.md R163/R164；本条为开发+上线回应；冲突记录：R165 轮并行 push 一次基线漂移（其 response.md 已自记），本轮 merge 按「两侧并存」收敛；163 重复条系本会话二轮 edit 锚点失误，已去重并如实记录。
-
 
 ## 2026-10-13（R164 续二：用户验收通过，worktree 清理完成）
 
@@ -299,3 +280,17 @@
 - **交付状态**：commit `f519ea1a`，merge 进本地 develop＝`3c6689c0`，**未 push**。⚠️ 本地 develop 现领先 `origin/develop` 两个提交（我的 merge + 并行会话未推的 docs 提交 `82d2c39d`），我 push 会连带把那条一并发布，需你确认。
 - **对话记录**：requests.md 占号 169；response.md 追加本条，条目 10+1 → 轮转 R159 至 `response-archive/response-R159.md` 并登记索引。冲突记录：无。
 - **worktree 台账**：`../magicbook-tts-batch-fix`（分支 `fix/r169-tts-batch-preselect-selfheal`）merge 后驻留待验收；验收通过后 `git worktree remove` + `git branch -d`。
+
+## 2026-10-14（R170：接上伴读朗读播放，承接 moon-well R175 的 SSE `audio` 事件）
+
+### R170（用户：moon-well 的文档差值逐项修，其中 `synthesize_tts` 选择「实现该工具」+ 真合成并新增 audio 事件，前端接线属同一交付）
+
+- **为什么本仓必须动**：后端把工具做出来了，SSE 多一个 `audio` 事件；本仓不接，用户看到的就是工具芯片打勾而**不出声**——正是家族纪律⑦禁止的「静默降级把故障伪装成正常」。反过来说，本仓先行是安全的（事件不来就什么都不做），所以**上线顺序＝本仓先于或同批于 moon-well**。
+- **两处改动**：① `cps/web.py` 新增 `POST /ajax/reading-tts-cached` → moon-well `POST /tts/cached-audio`（binary 透传、20s、miss 404 原样透传）；② `cps/static/js/ai_chat.js` 新增 `playCachedSpeech()` 与 `case "audio"`，按事件里的原文回读缓存 → blob → 播放，`tool_result` 先收尾芯片再出声。
+- **最关键的一条约束（不写测试就会错）**：不能复用现成的 `/ajax/reading-tts`。那条走 moon-well `/tts/speak`，语义是「听=消费」——**每次请求含缓存命中都扣 1 积分**（计费点在缓存查询之前），而工具内已经扣过这一分，复用就是**同一次朗读扣两遍**，且功能表现完全正常、界面上无从发现。守卫＝`test_forwards_to_unbilled_cache_endpoint_not_speak`。
+- **另一个坑（测试替我抓出来的）**：入参清洗最初写 `str(payload.get("text", ""))`，JSON `null` 会走 `str(None)` 变成合法文本 `"None"` 被送去合成——白扣一次分、播一句「None」，且路由照样返 200。改为 `get("text") or ""` 收口；`test_blank_text_rejected_before_upstream` 用 `{}` 与 `{"text": None}` 两种入参把这条钉住。长度闸与空值闸都在打上游之前，失败不发一次上游调用。
+- **失败一律可见**：回读 404、上游 5xx、Chrome 无用户手势拒播 `play()`，都在对话流追加一行 `⚠ 原因`（沿用既有 `error` 事件的呈现），绝不只留一枚绿色芯片。
+- **文档**：L1 `docs/readme/reading.md` 朗读条目补「跟伴读说读这一段」及其积分/7 天临时档口径；L3 `docs/feat/ai-agent/design/magicbook-side-design.md` 追加 R170 节，并把它长期滞留的状态行从「设计已完成，待排期开发」回填为已上线（该漂移本轮实测确认——文中「测试 214 passed」的 P0–P3 交付早已入库）。
+- **验证**：新增 8 例全绿；受影响面回归 `test_reading_tts_routes|service|extractor` 39 例 + `test_ai_agent_proxy` + `test_reading_tts` 18 例全绿（判据读 pytest 末行汇总，不用管道退出码）；`node --check ai_chat.js` 通过。本仓无自动化 UI 断言音频，**真机出声验收在用户**：伴读里说「把这段读给我听」→ 芯片 ✓ 且出声；重复播放不再扣分、再让 AI 读一遍再扣（预期）。
+- **worktree 台账**：`../magicbook-agent-tts`（分支 `feat/r170-agent-tts-playback`，commit `67537f54`，merge 进本地 develop＝`19ade770`），**未 push**，驻留待验收；同源 moon-well 树 `../moon-well-doc-gap`（分支 `fix/r175-doc-code-divergence`，merge `d0a3bf1`）需一并验收、一并清理。
+- **对话记录**：requests.md 占号 170；response.md 追加本条。窗口轮转：本条写入后达 11 条，按「写入即检查」把最旧的 R160 日期节（含嵌套 R164 纪律修订那条）原样搬至 `response-archive/response-R160-R164.md` 并登记索引，窗口恢复 10 条。冲突记录：无（与并行会话的 R169 条目相邻但不触及同一文件区域）。
