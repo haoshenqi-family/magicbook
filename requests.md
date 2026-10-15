@@ -115,4 +115,26 @@
 
 ## 2026-10-15
 
+174. 家族根架构评审任务拆分建档（跨四仓同源：moon-well R180 / magicbook R174 / magiclens R45 / app-manager R42）：阅读家族根 `docs/architecture-review-2026-10-14.md`，把评审结论拆分为各仓待办并落入各仓文档，**仅写文档不做开发**。magicbook 侧落位 `docs/feat/arch-review-2026-10/design/`（overview 总表 / refactor-items B1–B8 + X2 本仓部分 / doc-fixes DF1–DF8，含 S1/S2 状态滞留、N2 端口旧值、K1 旧域、悬空 feat 与计数失实等登记项），跨仓协同项 X1–X6 与家族根修正任务登记在家族根 `docs/arch-review-2026-10-tasks-crossrepo.md`。
+
+176. 发布固化（同源 moon-well R182）：从 develop 检出 release/2026-10-15 分支并推送远端；给 docker 镜像打固定 release tag（不再只有 latest）方便回滚。用户拍板：仅 registry 补 tag（ssh fnOS 把 ACR 现有 latest 补打成 `release-2026-10-15`，部署引用不动）；范围仅 moon-well + magicbook；release 分支从 origin/develop 最新点切并 push。回滚姿势写入 ops/apps/app-magicbook.md。（编号说明：本地最大 R174（架构评审拆分）；并行提交已在 origin/develop 占用 R175（阅读页 CSP 放行 MinIO 外网源）；按全史最大编号 +1 取 176）
+
+177. 架构评审波 1 开工——B5 / X1 本仓部分：统一 API 公共层。前端三套请求层（learning-common.js / ai_chat.js / vocab-test.js）+ CSRF 获取三份（#lh-csrf / #credit-csrf / input[name=csrf_token]）+ 解包语义漂移（ai_chat 容错 vs credits 严格）收编为 `static/js/common/api.js`（window.MBApi）；解包容错（非信封不误判）+ 失败必须可见；同窗口对接 moon-well M4 包装兑底（magiclens L1 后补即 X1 三端合围）。范围（用户拍板）：本轮只做 moon-well + magicbook。（编号说明：接 R176）
+
+178. 架构评审波 2 继续——B1：抽 `cps/moonwell/` 防腐层包（web.py:1483-1977 的 _moonwell_proxy/refresh/base_url/trace_id/system_token/multipart/settings_fetch 迁出为 MoonWellClient），统一三元组返回形态（消灭失败二元组/成功三元组隐式契约），收编 oidc.py exchange 直连，7 处反向 import web 清零（ai/proxy、__init__ 恢复闭包、book_import），bridge（业务编排 107 行）按计划留守 B2。push 待用户指令。（编号说明：接 R177）
+
+179. 架构评审波 3——B2：web.py 蓝图分域拆分（routes/reading|learning|credit|vocab，94 条定制路由迁移，endpoint 名不变，web.py 回归原版形状）。**本轮尝试未完成，已撤销回基线（549 passed）**——踩到四类坑（详见 response），方案与完整迁移清单已留存供小步重做。另：迁移中发现游离 ''' 死字符串块在 web.py 行删除后会扩大吞呑范围（get_sort_function 及大段原版路由被吞），getcomic 死块的处置需先行确认。（编号说明：接 R178）
+
+180. B2 前置小修两项（用户指令「先做 2 和 3」）：① getcomic 死字符串块清除激活（删除 1828/1874 两个游离 ''' 行，getcomic 路由从死代码变为注册可用，真机验证点：/ajax/getcomic/<id>/<fmt>/<page> 漫画页）；② gdriveutils.py 守卫化（cli_param.gd_path 为 None 时 engine 用内存库兑底、create_all 跳过——消除 sqlite:///None 错误文件与 os.path.exists(None) TypeError，配置就绪时行为逐字不变）。完成后再启动 B2 小步重做。（编号说明：接 R179）
+
+181. 架构评审波 3 继续——B2 小步重做完成：web.py 3304→2299 行，94 条定制路由分四批迁出（每批跑一次全量：reading 28 段→credit 19→vocab 9→learning 38），cps/routes/ 四域文件（reading 470/credit 227/vocab 146/learning 432 行，全部 <1000）；装饰注册沿用原 web blueprint（endpoint 名不变，前后比对 133 无丢失）；getcomic 死字符串块同步清除（路由激活）。push 待用户指令。（编号说明：接 R180）
+
+182. 架构评审波 4——B7：i18n 种子与 JS 清单生成化（scripts/generate_i18n_seed.py：扫描 static/js 的 mbT() 字面量，种子字典自动追加新词条（幂等不删旧）+ tests/i18n_js_files.json 生成物入库替代手维护清单——手维护漏 3 个用 mbT 的 js 文件的实证修复；五步链两处人肉环节消除）。push 待用户指令。（编号说明：接 R181）
+
+## 2026-10-15
+
 175. 修复 TED 音频仍无法播放（承接 moon-well R181：MinIO 外网直链与 Nacos 配置已就绪，用户复测仍失败）。根因＝**阅读页 CSP 的 media-src 白名单拦住了 MinIO 外网源**：控制台报 `Loading media from 'https://home.haoshenqi.top:9001/magicbook/ted-audio/…' violates the following Content Security Policy directive: "media-src 'self' blob: https://dict.youdao.com"`。R172 起 TED 原声由浏览器**直连** moon-well 返回的 MinIO 公共 HTTPS 直链播放（不经 magicbook 代理），而阅读页 CSP 只放行了 `'self'`/`blob:`/有道词库源，跨源 media 被拦而静默无声。修法＝在 `cps/web.py` 的 `add_security_headers` **仅对阅读页**（`request.endpoint == "web.read_book"`）的 `media-src` 追加 `https://home.haoshenqi.top:9001`（沿用有道源同款硬编码先例；非阅读页不动，不扩大攻击面）。配套：`tests/test_csp_media.py` 新增「阅读页放行 MinIO 源」正向守卫 + 反向变异实测报红，保留「非阅读页不 emit media-src」负向锁。附：用户同时贴出的 `Blocked script execution in 'about:srcdoc'…` 系 epub.js 内容沙箱既有告警（默认 `allowScriptedContent: false` → iframe `sandbox="allow-same-origin"`，拦的是书内脚本，非父页 audio），与本次阻塞无关，判定无害不改。（占号说明：主检出 develop 工作区已有并行会话未提交的 R174 文档任务，本 worktree 基线 `origin/develop` 止于 R173，按「续编下一个空号」锁 **R175** 避免撞号）
+
+176. 「全文单词详解」功能（跨项目 moon-well R185）：给定一本书，抽正文词表→比对详解缓存→按批把缺失词入队生成，与整本翻译、整本朗读并列为详情页第三个整本按钮。含 job/item 台账与进度页。
+
+183. 架构评审波 3 继续——B4：`cps/static/js/reading/epub.js`（3,279 行单 IIFE、12+ 功能域混居、全仓最热文件）按文件内注释分域拆模块，epub.js 收缩为装配层（评审报告 §2.2 B4 / §3.2 🟠）。复用台账登记的该任务驻留 worktree `magicbook-arch-b5`（不新建树），基线拉到 develop（含 r176 全文详解、r181 web.py 分域、r182 i18n 生成化）。（编号说明：接本文件全史最大 182；主检出另有并行会话未提交的 R174/R175/R176 条目，本条不与既有记录重排）

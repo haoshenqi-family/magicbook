@@ -9,6 +9,8 @@
 
 ## B1 · 抽 `cps/moonwell/` 防腐层包（MoonWellClient）
 
+> 状态：已完成（2026-10-15，分支 `refactor/r178-moonwell-client`，已 merge 本地 develop `9f7db964` 待验收；全量 549 passed 零失败；bridge 留守 B2，附带发现 get_comic 路由被游离三引号包死待用户确认，见 response R178）
+
 - **严重度 / 波次 / 前置**：🔴 ｜ 波 2 ｜ 无
 - **模式**：防腐层
 - **现状问题**：防腐层本体住在 web.py——`_moonwell_proxy` / refresh / base_url / trace_id / system_token（`web.py:1480-1973`）全部在路由模块里，7 个模块反向 import 它（`opds.py:38`、`editbooks.py:418,531`、`kobo.py:52` 等）。且 `_moonwell_proxy` 返回形态不一致（失败二元组 / 成功三元组，`web.py:660` 注释自认），66 处调用靠「原样 return 不解包」的隐式契约——一旦解包即 ValueError→500 白页。
@@ -16,6 +18,8 @@
 - **验收判据**：① 66 处代理调用改为显式契约（无「原样 return」隐式依赖）；② 7 个模块不再 import web；③ moon-well 代理链路回归（翻译/标记/详解/TTS/伴读冒烟）；④ 上游 merge 冲突面不升（diff 检查）。
 
 ## B2 · web.py 蓝图分域拆分
+
+> 状态：**已完成**（2026-10-15，r181：94 条定制路由分四批迁出 cps/routes/{reading,credit,vocab,learning}.py（全部 <1000 行），web.py 3304→2299 行回归原版形状，endpoint 前后比对无丢失，全量 549 passed 零回归；getcomic 死字符串块同步清除路由激活；merge 本地 develop `3211f600` 待验收。上轮 r179 尝试的四类坑与方案记录见 response R179）
 
 - **严重度 / 波次 / 前置**：🟠 ｜ 波 3 ｜ B1（防腐层先迁出，web.py 才能回归原版形状）
 - **模式**：蓝图分域
@@ -33,6 +37,8 @@
 
 ## B4 · epub.js 按注释域拆 12 模块
 
+> 状态：进行中（2026-10-15 批次 1，分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`，已 merge 本地 develop `72b97ad5` 待验收；横切原语下沉 `cps/static/js/reading/reader-core.js`，epub.js 3,279→3,212，全量 585 passed 零回归；静态锁改为按 `read.html` 载入顺序拼接 reader 模块全集 `tests/reader_js_modules.py`）
+
 - **严重度 / 波次 / 前置**：🟠 ｜ 波 3 ｜ 无
 - **模式**：门面拆模块
 - **现状问题**：`cps/static/js/reading/epub.js` 3,279 行单 IIFE、141 函数、12+ 功能域混居，全仓最热文件（61 commits）——并行开发必然冲突。
@@ -40,6 +46,8 @@
 - **验收判据**：① 每文件 <1,000 行（波 3 判据）；② 阅读器全功能真机回归（段落译/整页译/整本译/朗读/连播/TED 原声/生词/伴读/批注）；③ R172/R173 已修缺陷不回退（TED 分流探测判据、bookListenToggle 链路）。
 
 ## B5 · 统一 API client【X1 本仓部分】
+
+> 状态：开发中（2026-10-15，分支 `refactor/r177-unified-api-client`，已 merge 本地 develop `e750a739` 待验收；公共层落位 `cps/static/js/common/api.js`，全量 545 passed 零回归）
 
 - **严重度 / 波次 / 前置**：🟠 ｜ **波 1（X1 三端合围）** ｜ 无
 - **模式**：统一 API client
@@ -56,6 +64,8 @@
 - **验收判据**：① 两服务既有测试全绿（含 R169 批次自愈用例）；② 重复骨架归一；③ 整本翻译与整本朗读各跑一轮真机批次回归。
 
 ## B7 · i18n 五步链生成化
+
+> 状态：**已完成**（2026-10-15，r182：scripts/generate_i18n_seed.py + tests/i18n_js_files.json 生成物入库 + 契约测试适配；**手维护清单漏 3 文件的实证修复**；全量 549 passed；merge 本地 develop `8f4197c3` 待验收）
 
 - **严重度 / 波次 / 前置**：🟡 ｜ 波 4 ｜ 无
 - **模式**：生成化
