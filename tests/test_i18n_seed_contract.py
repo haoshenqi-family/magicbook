@@ -11,6 +11,7 @@ Why: epub.js / ai_chat.js / onboarding.js 是静态 JS，拿不到 Jinja 的 `_(
 """
 import ast
 import gettext
+import json
 import os
 import re
 
@@ -22,27 +23,13 @@ PO_PATH = os.path.join(ROOT, "cps", "translations", "zh_Hans_CN",
                        "LC_MESSAGES", "messages.po")
 MO_PATH = os.path.join(ROOT, "cps", "translations", "zh_Hans_CN",
                        "LC_MESSAGES", "messages.mo")
-JS_FILES = [
-    os.path.join(ROOT, "cps", "static", "js", "onboarding.js"),
-    os.path.join(ROOT, "cps", "static", "js", "reading", "epub.js"),
-    os.path.join(ROOT, "cps", "static", "js", "ai_chat.js"),
-    # R116/US4：词汇量测试状态机的文案全部走 mbT，不列入清单则它的本地化无人守（AC-C8 假绿）
-    os.path.join(ROOT, "cps", "static", "js", "vocab-test.js"),
-    # R132/B3：每日学习页状态机的文案全部走 mbT，不列入清单则它的本地化无人守（同上先例）
-    # R166：learning.js 拆成中枢 + 七个功能模块 + common/voice，清单随之换成新文件
-    os.path.join(ROOT, "cps", "static", "js", "learning-common.js"),
-    os.path.join(ROOT, "cps", "static", "js", "learning-hub.js"),
-    os.path.join(ROOT, "cps", "static", "js", "learning-review.js"),
-    os.path.join(ROOT, "cps", "static", "js", "learning-match.js"),
-    os.path.join(ROOT, "cps", "static", "js", "learning-writing.js"),
-    os.path.join(ROOT, "cps", "static", "js", "learning-speaking.js"),
-    os.path.join(ROOT, "cps", "static", "js", "learning-retell.js"),
-    os.path.join(ROOT, "cps", "static", "js", "learning-reread.js"),
-    os.path.join(ROOT, "cps", "static", "js", "learning-dictation.js"),
-    os.path.join(ROOT, "cps", "static", "js", "learning-voice.js"),
-    # R177（架构评审 B5）：全站 API 公共层（unwrap 兕底文案走 mbT），不列入清单则它的本地化无人守
-    os.path.join(ROOT, "cps", "static", "js", "common", "api.js"),
-]
+
+# R187（B7）：JS_FILES 清单由 scripts/generate_i18n_seed.py 生成（tests/i18n_js_files.json，
+# 生成物入库）——手维护清单曾漏 3 个用 mbT 的 js 文件（漏一步=静默英文回退），生成化后
+# 扫描即得；新增 JS 文案后重跑脚本即可，五步链的人肉环节消除。
+with open(os.path.join(ROOT, "tests", "i18n_js_files.json"), encoding="utf-8") as _f:
+    _MANIFEST = json.load(_f)
+JS_FILES = [os.path.join(ROOT, _p) for _p in _MANIFEST["files"]]
 
 
 def _seed_pairs():
@@ -144,7 +131,9 @@ def test_seed_msgids_survive_mo_compilation():
 def test_onboarding_step_strings_are_seeded():
     """契约 4：引导步骤表的 title/body 走 mbT(step.title) 动态取词，正则抓不到，
     单独抽出来比对——R112 的尾点缺陷正是出在这一类词条上。"""
-    with open(JS_FILES[0], encoding="utf-8") as fh:
+    # R187（B7）：JS_FILES 改生成清单后按字母序，不再保证 onboarding.js 在首位——
+    # 本契约的对象是 onboarding.js，显式定位不依赖清单顺序
+    with open(os.path.join(ROOT, "cps", "static", "js", "onboarding.js"), encoding="utf-8") as fh:
         src = fh.read()
     strings = re.findall(r'^\s*(?:title|body):\s*"((?:\\.|[^"\\])*)"', src, re.M)
     assert len(strings) >= 20, "步骤表文案抽取异常，正则需同步更新"
