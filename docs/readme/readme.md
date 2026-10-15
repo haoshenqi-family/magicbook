@@ -33,3 +33,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | **L3 详细设计（LLD）** | `docs/feat/` | 开发/维护者 | 具体设计、验收、测试（12 个 feat） |
 
 模块对应的 L3 详细设计在 `docs/feat/`（如 `whole-book-translation`、`vocab-size-test`、`llm-task-run` 等）；后端契约的**唯一权威**是 moon-well 仓库的 L2（`moon-well/docs/<module>/hld/`）。
+
+## 开发者入口（非用户能力）
+
+- 架构评审任务拆分（2026-10）：重构项 B1–B8 与文档修正 DF1–DF8 的任务清单与波次，见 [docs/feat/arch-review-2026-10/design/overview.md](../feat/arch-review-2026-10/design/overview.md)。
