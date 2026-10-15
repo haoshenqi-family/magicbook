@@ -248,93 +248,14 @@ def update_view():
     return "1", 200
 
 
-@web.route("/ajax/reading-vocabulary", methods=["POST"])
-@user_login_required
-def reading_vocabulary():
-    """Proxy the reader's word context using the caller's moon-well JWT."""
-    # 15s 超时容忍 moon-well 重启后首次连接 ES 的临时慢响应
-    return _moonwell_proxy("/vocabulary/reading/analyze",
-                           request.get_json(silent=True) or {}, 15,
-                           "reading vocabulary")
 
 
-@web.route("/ajax/reading-translate", methods=["POST"])
-@user_login_required
-def reading_translate():
-    """Proxy selected reader text using the caller's moon-well JWT."""
-    payload = request.get_json(silent=True) or {}
-    text = str(payload.get("text", "")).strip()
-    if not text or len(text) > 2000:
-        return jsonify({"success": False, "message": "selected text must be between 1 and 2000 characters"}), 400
-    payload["text"] = text
-    return _moonwell_proxy("/vocabulary/reading/translate", payload, 20,
-                           "reading translation")
 
 
-@web.route("/ajax/reading-translate-batch", methods=["POST"])
-@user_login_required
-def reading_translate_batch():
-    """Proxy paragraph translation (one paragraph per request; the frontend
-    fans a page out into concurrent single-paragraph calls)."""
-    payload = request.get_json(silent=True) or {}
-    paragraphs = payload.get("paragraphs")
-    if not isinstance(paragraphs, list) or not 1 <= len(paragraphs) <= 20:
-        return jsonify({"success": False,
-                        "message": "paragraphs must contain 1 to 20 items"}), 400
-    cleaned = []
-    for item in paragraphs:
-        text = str(item or "").strip()
-        if not text or len(text) > 2000:
-            return jsonify({"success": False,
-                            "message": "each paragraph must be between 1 and 2000 characters"}), 400
-        cleaned.append(text)
-    payload["paragraphs"] = cleaned
-    # 书籍上下文供 LLM 保持全书译法一致（moon-well 提示词模板变量）
-    payload["bookName"] = str(payload.get("bookName") or "").strip()[:200]
-    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
-    # 20s：现在是单段一次 LLM 调用（前端并发），不再需要整页批量的长超时
-    return _moonwell_proxy("/vocabulary/reading/translate-batch", payload, 20,
-                           "reading batch translation")
 
 
-@web.route("/ajax/reading-tts", methods=["POST"])
-@user_login_required
-def reading_tts():
-    """Proxy reader paragraph speech to moon-well (relays to Bailian TTS)."""
-    payload = request.get_json(silent=True) or {}
-    text = str(payload.get("text", "")).strip()
-    if not text or len(text) > 2000:
-        return jsonify({"success": False,
-                        "message": "text must be between 1 and 2000 characters"}), 400
-    payload["text"] = text
-    # 书籍上下文决定 moon-well 侧音频缓存分级（有上下文=书籍段落，永久缓存；
-    # 无上下文=AI 临时语音，7 天清理）。与翻译代理同口径清洗，避免超长字符串进 ES 文档
-    payload["bookName"] = str(payload.get("bookName") or "").strip()[:200]
-    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
-    # 65s：moon-well 调百炼合成并下载音频，比 JSON 接口慢
-    return _moonwell_proxy("/tts/speak", payload, 65, "reading tts", binary=True)
 
 
-@web.route("/ajax/reading-tts-cached", methods=["POST"])
-@user_login_required
-def reading_tts_cached():
-    """回读已合成好的朗读音频（R170，伴读 agent 播放用），透传 moon-well 不计费端点。
-
-    Why 不复用 /ajax/reading-tts：那条走 moon-well `/tts/speak`，语义是「听=消费」——
-    每次请求（含缓存命中）都扣 1 积分。伴读工具 synthesize_tts 已在工具内合成并扣过分，
-    前端再走 /speak 就是同一次朗读扣两遍，所以走 /tts/cached-audio（只读缓存、miss 404）。
-    text 必须原样透传：moon-well 的缓存键是 trim 后原文的 SHA-256，这里再清洗一次反而会 miss。
-    """
-    payload = request.get_json(silent=True) or {}
-    # `or ""` 而不是 get("text", "")：JSON null 会命中默认值失效的路径，str(None)=="None"
-    # 会被当成合法文本送去合成（白扣一次积分、播一句「None」）
-    text = str(payload.get("text") or "").strip()
-    if not text or len(text) > 2000:
-        return jsonify({"success": False,
-                        "message": "text must be between 1 and 2000 characters"}), 400
-    # 20s：只有一次 ES GET + 一次 MinIO 对象读取，远快于合成链路
-    return _moonwell_proxy("/tts/cached-audio", {"text": text}, 20,
-                           "reading tts cache", binary=True)
 
 
 # ---------- R172 TED 原声伴听代理（TED/博客类书：整段原声，非逐段 TTS） ----------
@@ -352,45 +273,10 @@ def _ted_audio_book_id():
     return book_id
 
 
-@web.route("/ajax/ted-audio", methods=["POST"])
-@user_login_required
-def reading_ted_audio():
-    """Proxy TED talk original-audio cache lookup（整段原声地址/时长）。
-
-    R172：TED/博客类书的内容本质是「一段连续原声」，阅读器伴听直接播整段，
-    不走逐段 TTS 合成（逐段合成会把真人原声换成机器音且白烧算力/积分）。
-    未缓存 / 未建注册表时 moon-well 的 result 为 null，前端据此隐藏伴听按钮。
-    """
-    book_id = _ted_audio_book_id()
-    if book_id is None:
-        return jsonify({"success": False, "message": "bookId must be a number"}), 400
-    return _moonwell_proxy("/book/ted-audio", {"bookId": book_id}, 15, "ted audio")
 
 
-@web.route("/ajax/ted-audio-paragraphs", methods=["POST"])
-@user_login_required
-def reading_ted_audio_paragraphs():
-    """Proxy TED book paragraph registry（段落 order + 原声时间轴切片）。
-
-    R172：时间轴驱动的高亮依赖段落级 tedAudioStart/End（该段在整段原声中的
-    毫秒偏移），与 EPUB 段落 1:1；与 /ajax/ted-audio 同批并发拉取。
-    """
-    book_id = _ted_audio_book_id()
-    if book_id is None:
-        return jsonify({"success": False, "message": "bookId must be a number"}), 400
-    return _moonwell_proxy("/book/paragraph/list", {"bookId": book_id}, 15,
-                           "ted audio paragraphs")
 
 
-@web.route("/reading/settings", methods=["GET"])
-@user_login_required
-def reading_settings():
-    """阅读设置独立页：用户难度档位等 per-user 阅读偏好（后续配置统一挂这里）。"""
-    settings, error = _moonwell_settings_fetch()
-    # 词汇量测试卡片不在这里拉历史：服务端同步拉等于给首屏再加一次上游超时预算（最坏 10s×2），
-    # 历史只是摘要，交给模板里的 vocab-test.js 异步取、失败静默降级（成就页 /ajax/achievements-* 同模式）
-    return render_title_template("reading_settings.html", title=_("Reading Settings"),
-                                 settings=settings, load_error=error)
 
 
 @web.route("/achievements", methods=["GET"])
@@ -400,238 +286,49 @@ def achievements_page():
     return render_title_template("achievements.html", title=_("Achievements"))
 
 
-@web.route("/ajax/achievements-summary", methods=["GET"])
-@user_login_required
-def achievements_summary():
-    """Proxy the achievement summary (level / XP / badge counts / streak)."""
-    body, status, headers = _moonwell_proxy("/achievements/summary", None, 10,
-                                            "achievements summary", method="POST")
-    return body, status, headers
 
 
-@web.route("/ajax/achievements-detail", methods=["GET"])
-@user_login_required
-def achievements_detail():
-    """Proxy the achievement detail list; query param category=READ|VOCAB|STREAK."""
-    category = request.args.get("category", "")
-    payload = {"category": category} if category else {}
-    body, status, headers = _moonwell_proxy("/achievements/detail", payload, 10,
-                                            "achievements detail")
-    return body, status, headers
 
 
-@web.route("/ajax/achievements-pending", methods=["GET"])
-@user_login_required
-def achievements_pending():
-    """Proxy the pending (unlocked but unclaimed) achievements for polling."""
-    body, status, headers = _moonwell_proxy("/achievements/pending", None, 10,
-                                            "achievements pending", method="POST")
-    return body, status, headers
 
 
-@web.route("/ajax/achievements-claim", methods=["POST"])
-@user_login_required
-def achievements_claim():
-    """Proxy the achievement claim; payload {"code": "..."}."""
-    payload = request.get_json(silent=True) or {}
-    code = payload.get("code")
-    if not code:
-        return jsonify({"success": False, "message": "code is required"}), 400
-    return _moonwell_proxy("/achievements/claim", {"code": code}, 10,
-                           "achievements claim")
 
 
-@web.route("/subscription", methods=["GET"])
-@user_login_required
-def subscription_page():
-    """Deprecated: 订阅页已由积分充值页取代（套餐暂时隐藏），重定向保兼容。"""
-    return redirect(url_for("web.credits_page"))
 
 
-@web.route("/ajax/subscription/plans", methods=["GET"])
-@user_login_required
-def subscription_plans():
-    """Proxy the purchasable plan list (moon-well /api/saas/plan/list)."""
-    body, status, headers = _moonwell_proxy("/api/saas/plan/list", None, 10,
-                                            "subscription plans", method="GET")
-    return body, status, headers
 
 
-@web.route("/ajax/subscription/current", methods=["GET"])
-@user_login_required
-def subscription_current():
-    """Proxy the user's current subscription (moon-well /api/saas/subscription/current)."""
-    body, status, headers = _moonwell_proxy("/api/saas/subscription/current", None, 10,
-                                            "subscription status", method="GET")
-    return body, status, headers
 
 
-@web.route("/ajax/subscription/order", methods=["POST"])
-@user_login_required
-@limiter.limit("10/minute", key_func=get_remote_address)
-def subscription_create_order():
-    """Proxy order creation (moon-well /api/saas/order/create); payload {"planId": N}."""
-    payload = request.get_json(silent=True) or {}
-    plan_id = payload.get("planId")
-    # Why: 上游 CreateOrderRequest.planId 是 Long，非正整数直接拒绝，避免打到 moon-well 才报错
-    if not isinstance(plan_id, int) or isinstance(plan_id, bool) or plan_id <= 0:
-        return jsonify({"success": False, "message": "planId is required"}), 400
-    return _moonwell_proxy("/api/saas/order/create", {"planId": plan_id}, 10,
-                           "subscription order")
 
 
-@web.route("/ajax/subscription/pay", methods=["POST"])
-@user_login_required
-@limiter.limit("10/minute", key_func=get_remote_address)
-def subscription_pay():
-    """Proxy Alipay precreate (moon-well /api/saas/payment/alipay/precreate);
-    payload {"orderNo": "..."} -> result.qrCode 为二维码内容串。"""
-    payload = request.get_json(silent=True) or {}
-    order_no = payload.get("orderNo")
-    if not order_no:
-        return jsonify({"success": False, "message": "orderNo is required"}), 400
-    # Why: 预下单在 moon-well 侧同步调用支付宝网关，超时给足外呼预算
-    return _moonwell_proxy("/api/saas/payment/alipay/precreate", {"orderNo": order_no}, 15,
-                           "subscription payment")
 
 
-@web.route("/ajax/subscription/order-status", methods=["POST"])
-@user_login_required
-def subscription_order_status():
-    """Proxy order polling (moon-well /api/saas/payment/alipay/query);
-    moon-well 侧对待支付订单主动查支付宝补偿落账，返回最新订单体。"""
-    payload = request.get_json(silent=True) or {}
-    order_no = payload.get("orderNo")
-    if not order_no:
-        return jsonify({"success": False, "message": "orderNo is required"}), 400
-    return _moonwell_proxy("/api/saas/payment/alipay/query", {"orderNo": order_no}, 15,
-                           "subscription order status")
 
 
 # ---------- 积分充值（moon-well credit 模块代理） ----------
 # Why: 订阅套餐暂时隐藏（R61），页面仅提供积分充值；subscription 代理保留以便随时恢复
 
-@web.route("/credits", methods=["GET"])
-@user_login_required
-def credits_page():
-    """积分充值页：余额 + 档位 + 支付宝扫码收银台，数据经 /ajax/credit-* 异步加载。"""
-    return render_title_template("credits.html", title=_("Credits"))
 
 
-@web.route("/ajax/credit/account", methods=["POST"])
-@user_login_required
-def credit_account():
-    """Proxy the user's credit balance (moon-well POST /credit/account)."""
-    body, status, headers = _moonwell_proxy("/credit/account", None, 10,
-                                            "credit account", method="POST")
-    return body, status, headers
 
 
-@web.route("/ajax/credit/packages", methods=["GET"])
-@user_login_required
-def credit_packages():
-    """Proxy the recharge package list (moon-well GET /credit/recharge/packages)."""
-    body, status, headers = _moonwell_proxy("/credit/recharge/packages", None, 10,
-                                            "credit packages", method="GET")
-    return body, status, headers
 
 
-@web.route("/ajax/credit/recharge-order", methods=["POST"])
-@user_login_required
-@limiter.limit("10/minute", key_func=get_remote_address)
-def credit_recharge_order():
-    """Proxy recharge order creation (moon-well POST /credit/recharge/order);
-    payload {"packageId": "..."}，金额/积分由 moon-well 按档位决定。"""
-    payload = request.get_json(silent=True) or {}
-    package_id = payload.get("packageId")
-    if not package_id:
-        return jsonify({"success": False, "message": "packageId is required"}), 400
-    return _moonwell_proxy("/credit/recharge/order", {"packageId": package_id}, 10,
-                           "credit recharge order")
 
 
-@web.route("/ajax/credit/recharge-pay", methods=["POST"])
-@user_login_required
-@limiter.limit("10/minute", key_func=get_remote_address)
-def credit_recharge_pay():
-    """Proxy Alipay precreate (moon-well POST /credit/recharge/pay);
-    payload {"orderNo": "..."} -> result.qrCode 为二维码内容串。"""
-    payload = request.get_json(silent=True) or {}
-    order_no = payload.get("orderNo")
-    if not order_no:
-        return jsonify({"success": False, "message": "orderNo is required"}), 400
-    # Why: 预下单在 moon-well 侧同步调用支付宝网关，超时给足外呼预算
-    return _moonwell_proxy("/credit/recharge/pay", {"orderNo": order_no}, 15,
-                           "credit recharge payment")
 
 
-@web.route("/ajax/credit/recharge-status", methods=["POST"])
-@user_login_required
-def credit_recharge_status():
-    """Proxy recharge polling (moon-well POST /credit/recharge/status);
-    moon-well 侧对待支付充值单主动查支付宝补偿发放，返回最新充值单体。"""
-    payload = request.get_json(silent=True) or {}
-    order_no = payload.get("orderNo")
-    if not order_no:
-        return jsonify({"success": False, "message": "orderNo is required"}), 400
-    return _moonwell_proxy("/credit/recharge/status", {"orderNo": order_no}, 15,
-                           "credit recharge status")
 
 
-@web.route("/ajax/credit/admin-adjust", methods=["POST"])
-@user_login_required
-def credit_admin_adjust():
-    """Proxy admin credit adjustment (moon-well POST /credit/admin/adjust, R54).
-
-    Front-end gate: only admins see the entry; moon-well re-checks its own
-    admin whitelist server-side (defense in depth).
-    """
-    if not current_user.role_admin():
-        return jsonify({"success": False, "message": "admin only"}), 403
-    payload = request.get_json(silent=True) or {}
-    return _moonwell_proxy("/credit/admin/adjust", payload, 10,
-                           "credit admin adjust")
 
 
-@web.route("/ajax/credit/consume-page", methods=["POST"])
-@user_login_required
-def credit_consume_page():
-    """Proxy the user's credit consume detail page (moon-well POST /credit/consume/page);
-    payload {pageNo,pageSize,caller,model,startDate,endDate}，全部可选。"""
-    payload = request.get_json(silent=True) or {}
-    return _moonwell_proxy("/credit/consume/page", payload, 10,
-                           "credit consume page")
 
 
-@web.route("/ajax/credit/consume-summary", methods=["POST"])
-@user_login_required
-def credit_consume_summary():
-    """Proxy the user's credit consume summary (moon-well POST /credit/consume/summary);
-    payload 与 consume-page 相同的过滤条件，返回合计 + 按模块/按模型分组。"""
-    payload = request.get_json(silent=True) or {}
-    return _moonwell_proxy("/credit/consume/summary", payload, 10,
-                           "credit consume summary")
 
 
-@web.route("/ajax/reading-settings", methods=["GET"])
-@user_login_required
-def reading_settings_get():
-    """Proxy the user's reading settings (currently hard level only)."""
-    body, status, headers = _moonwell_proxy("/vocabulary/reading/settings", None, 10,
-                                            "reading settings", method="GET")
-    return body, status, headers
 
 
-@web.route("/ajax/reading-settings/hard-level", methods=["POST"])
-@user_login_required
-def reading_settings_update_hard_level():
-    """Proxy the hard level update; payload {"hardLevel": 0-9}."""
-    payload = request.get_json(silent=True) or {}
-    level = payload.get("hardLevel")
-    if level is None:
-        return jsonify({"success": False, "message": "hardLevel is required"}), 400
-    return _moonwell_proxy("/vocabulary/reading/settings/hard-level", payload, 10,
-                           "reading settings update")
 
 
 # ---------- 词汇量测试代理（R116/US4）----------
@@ -654,80 +351,12 @@ def _vt_positive_int(value):
     return value
 
 
-@web.route("/ajax/vocab-test/start", methods=["POST"])
-@user_login_required
-def vocab_test_start():
-    """Proxy the vocab size test start: creates a session and returns the first question.
-
-    R154 细筛：body {"refine": true} 透传为上游 start 的细筛开关；只认显式布尔 true，
-    其余（缺省/其他类型）一律按标准测试转发空体——代理不替用户解释字段。
-    旧客户端不带 body，行为不变。
-
-    Why 原样 return 而不解包：_moonwell_proxy 的失败分支返回 (jsonify, 503) 二元组
-    （未配置 / RequestException），解包三元组会抛 ValueError 变成 500 白页；
-    Flask 视图对两种返回形态都能直接透传。
-    """
-    payload = request.get_json(silent=True) or {}
-    body = {"refine": True} if payload.get("refine") is True else {}
-    return _moonwell_proxy("/vocabulary/test/start", body, 10, "vocab test start")
 
 
-@web.route("/ajax/vocab-test/answer", methods=["POST"])
-@user_login_required
-def vocab_test_answer():
-    """Proxy one answer; payload {"sessionId": id, "seq": N, "answer": 0|1}.
-
-    Why 必透传 seq：它是后端区分「同题重发（幂等回放）」与「跳题（50304）」的唯一依据，
-    代理层丢掉它会让断网重试变成串序污染。请求体不含 word——题面由服务端按 seq 定位。
-    """
-    payload = request.get_json(silent=True) or {}
-    session_id = _vt_positive_int(payload.get("sessionId"))
-    seq = _vt_positive_int(payload.get("seq"))
-    answer = payload.get("answer")
-    if session_id is None:
-        return jsonify({"success": False,
-                        "message": "sessionId must be a positive integer"}), 400
-    if seq is None:
-        return jsonify({"success": False, "message": "seq must be a positive integer"}), 400
-    if isinstance(answer, bool) or answer not in (0, 1):
-        return jsonify({"success": False, "message": "answer must be 0 or 1"}), 400
-    # 5s：答题是一次内存态机重放 + 单行 insert，短超时快失败（用户正等着下一题）
-    return _moonwell_proxy("/vocabulary/test/answer",
-                           {"sessionId": session_id, "seq": seq, "answer": answer},
-                           5, "vocab test answer")
 
 
-@web.route("/ajax/vocab-test/finish", methods=["POST"])
-@user_login_required
-def vocab_test_finish():
-    """Proxy the submit; payload {"sessionId": id, "addUnknownToNotebook": bool}.
-
-    Why 开关必填：它决定不认识词是否进生词本，允许缺省等于替用户决定（后端 DTO 同口径）。
-    """
-    payload = request.get_json(silent=True) or {}
-    session_id = _vt_positive_int(payload.get("sessionId"))
-    add_unknown = payload.get("addUnknownToNotebook")
-    if session_id is None:
-        return jsonify({"success": False,
-                        "message": "sessionId must be a positive integer"}), 400
-    if not isinstance(add_unknown, bool):
-        return jsonify({"success": False,
-                        "message": "addUnknownToNotebook must be true or false"}), 400
-    return _moonwell_proxy("/vocabulary/test/finish",
-                           {"sessionId": session_id, "addUnknownToNotebook": add_unknown},
-                           10, "vocab test finish")
 
 
-@web.route("/ajax/vocab-test/history", methods=["GET"])
-@user_login_required
-def vocab_test_history():
-    """Proxy the recent finished sessions (backend already caps at 10, newest first).
-
-    原样透传（同 vocab_test_start）：解包三元组会让上游不可达时变成 500 白页，
-    而这份数据只是卡片摘要，前端拿到任何非 2xx 都静默降级为无历史态。
-    """
-    return _moonwell_proxy("/vocabulary/test/history", None, 10,
-                           "vocab test history", method="GET")
 
 
 # ---------- 每日学习代理（R132 / B3）----------
@@ -736,76 +365,22 @@ def vocab_test_history():
 # 50501-50506 的语义只有它知道；代理只做登录与参数域校验，业务错误按原状态码与
 # Result 信封透传，前端按 Result.code 分支。
 
-@web.route("/learning", methods=["GET"])
-@user_login_required
-def learning_page():
-    """每日学习中枢（R166）：功能卡片 banner + 今日计划 + 复习摘要 + 四股周视图。
-
-    R166 起本页不再内嵌复习队列与难度匹配面板（搬入各自子页面），只留
-    「今日复习 x/20 · 到期 n 词」摘要卡。数据全部由 learning-hub.js 异步经
-    /ajax/learning-* 拉取——页面本身零上游调用，moon-well 慢/重启不拖首屏。
-    """
-    return render_title_template("learning.html", title=_("Daily Learning"))
 
 
-@web.route("/learning/review", methods=["GET"])
-@user_login_required
-def learning_review_page():
-    """复习队列子页面（R166）：SRS 到期卡逐张作答，逻辑自 learning.js 迁入。"""
-    return render_title_template("learning_review.html", title=_("Review Queue"))
 
 
-@web.route("/learning/match", methods=["GET"])
-@user_login_required
-def learning_match_page():
-    """选书难度匹配子页面（R166）：选架→估算→推荐，后台补算时前端轮询。"""
-    return render_title_template("learning_match.html", title=_("Book Difficulty Match"))
 
 
-@web.route("/learning/writing", methods=["GET"])
-@user_login_required
-def learning_writing_page():
-    """写作工坊子页面（R166，原说与写页 tab 1）：出题/写稿/AI 批改/二稿进步。"""
-    return render_title_template("learning_writing.html", title=_("Writing Workshop"))
 
 
-@web.route("/learning/speaking", methods=["GET"])
-@user_login_required
-def learning_speaking_page():
-    """AI 口语陪练子页面（R166，原 tab 2）：场景会话 + 逐轮反馈 + 会话报告。"""
-    return render_title_template("learning_speaking.html", title=_("AI Speaking Coach"))
 
 
-@web.route("/learning/retell", methods=["GET"])
-@user_login_required
-def learning_retell_page():
-    """复述训练子页面（R166，原 tab 3）：4-3-2 递减时限三轮 + 指标解读。"""
-    return render_title_template("learning_retell.html", title=_("Retell Drill (4-3-2)"))
 
 
-@web.route("/learning/reread", methods=["GET"])
-@user_login_required
-def learning_reread_page():
-    """计时重读子页面（R166，原 tab 4）：同段朗读三遍实测 WPM 与趋势。"""
-    return render_title_template("learning_reread.html", title=_("Timed rereading"))
 
 
-@web.route("/learning/dictation", methods=["GET"])
-@user_login_required
-def learning_dictation_page():
-    """听写子页面（R166，原 tab 5）：播放段落 + 词级 diff + 漏词入队。"""
-    return render_title_template("learning_dictation.html", title=_("Dictation"))
 
 
-@web.route("/learning/speaking-writing", methods=["GET"])
-@user_login_required
-def speaking_writing_page():
-    """旧「说与写」五合一页（R152）→ 中枢（R166）。
-
-    Why 保留路由而非删除：导航项、用户书签与 R152 期间的文档链接都指向它，
-    302 回中枢比 404 诚实——五个面板各自成页后这里已无对应实体。
-    """
-    return redirect(url_for("web.learning_page"))
 
 
 # ---------- B1 输出训练代理（R152）。 ----------
@@ -874,326 +449,62 @@ def _b1_proxy(path, allowed, required=(), timeout=30):
     return _moonwell_proxy(path, body, timeout, "learning b1: " + path)
 
 
-@web.route("/ajax/learning/writing/task/generate", methods=["POST"])
-@user_login_required
-def learning_writing_generate():
-    """Proxy writing task generation（LLM 出题，可结合在读的书）。"""
-    return _b1_proxy("/learning/writing/task/generate",
-                     ("mode", "cefrLevel", "prompt", "bookId", "bookTitle", "chapter"),
-                     required=("mode",), timeout=90)
 
 
-@web.route("/ajax/learning/writing/submit", methods=["POST"])
-@user_login_required
-def learning_writing_submit():
-    """Proxy writing submission（LLM 批改：总体+逐句+升级+四维评分）。"""
-    return _b1_proxy("/learning/writing/submit", ("taskId", "text"),
-                     required=("taskId", "text"), timeout=90)
 
 
-@web.route("/ajax/learning/writing/revise", methods=["POST"])
-@user_login_required
-def learning_writing_revise():
-    """Proxy writing revision（同 submit 契约，多进步确认）。"""
-    return _b1_proxy("/learning/writing/revise", ("taskId", "text"),
-                     required=("taskId", "text"), timeout=90)
 
 
-@web.route("/ajax/learning/writing/history", methods=["GET"])
-@user_login_required
-def learning_writing_history():
-    """Proxy writing history; ?limit=1..50（越界上游收敛）。"""
-    return _moonwell_proxy("/learning/writing/history", None, 15,
-                           "learning writing history", method="GET")
 
 
-@web.route("/ajax/learning/writing/task", methods=["GET"])
-@user_login_required
-def learning_writing_task():
-    """Proxy one writing task with its drafts (R168 续写).
-
-    Why 单独取详情而不是让 history 带正文：草稿上限 4000 字符、每任务两稿、列表
-    默认 20 条，带正文的最坏情况是几百 KB 的列表响应，而续写一次只用其中一条。
-    超时给 20s：详情本身是纯读，但要与同族 LLM 端点同档，避免上游冷启动时前端
-    先超时。taskId 只认数字（防把任意串拼进转发路径），越权/不存在由上游按 50512 回。
-    """
-    task_id = (request.args.get("taskId") or "").strip()
-    if not task_id.isdigit() or len(task_id) > _PROXY_LIMITS["taskId"]:
-        return jsonify({"success": False, "message": "taskId must be a numeric id"}), 400
-    return _moonwell_proxy("/learning/writing/task?taskId=" + task_id, None, 20,
-                           "learning writing task", method="GET")
 
 
-@web.route("/ajax/learning/speaking/session", methods=["POST"])
-@user_login_required
-def learning_speaking_session():
-    """Proxy speaking session start（场景+教练风格；greeting 同步返回）。"""
-    return _b1_proxy("/learning/speaking/session",
-                     ("scenario", "scenarioLabel", "coachStyle", "bookId", "bookTitle"),
-                     required=("scenario",), timeout=90)
 
 
-@web.route("/ajax/learning/speaking/message", methods=["POST"])
-@user_login_required
-def learning_speaking_message():
-    """Proxy one speaking turn（用户文本 → coach 回应+分层反馈；LLM 密集）。"""
-    return _b1_proxy("/learning/speaking/message", ("sessionId", "text", "audioUrl"),
-                     required=("sessionId", "text"), timeout=90)
 
 
-@web.route("/ajax/learning/speaking/report", methods=["POST"])
-@user_login_required
-def learning_speaking_report():
-    """Proxy session report（LLM 解读整场对话）。"""
-    return _b1_proxy("/learning/speaking/report", ("sessionId",),
-                     required=("sessionId",), timeout=90)
 
 
-@web.route("/ajax/learning/speaking/messages", methods=["POST"])
-@user_login_required
-def learning_speaking_messages():
-    """Proxy message replay of one past session（POST+body 规范，sessionId 防路径注入）。"""
-    return _b1_proxy("/learning/speaking/messages", ("sessionId",),
-                     required=("sessionId",), timeout=15)
 
 
-@web.route("/ajax/learning/speaking/history", methods=["GET"])
-@user_login_required
-def learning_speaking_history():
-    """Proxy speaking history; ?limit=1..50。"""
-    return _moonwell_proxy("/learning/speaking/history", None, 15,
-                           "learning speaking history", method="GET")
 
 
-@web.route("/ajax/learning/retell/start", methods=["POST"])
-@user_login_required
-def learning_retell_start():
-    """Proxy retell start（素材=用户粘贴段落；时限默认 4/3/2）。"""
-    return _b1_proxy("/learning/retell/start",
-                     ("paragraphText", "bookId", "chapter", "minutesPerRound"),
-                     required=("paragraphText",), timeout=15)
 
 
-@web.route("/ajax/learning/retell/submit-round", methods=["POST"])
-@user_login_required
-def learning_retell_round():
-    """Proxy one retell round（纯指标计算：WPM/填充词/词汇多样性，无 LLM）。"""
-    return _b1_proxy("/learning/retell/submit-round",
-                     ("retellId", "round", "durationMs", "transcript"),
-                     required=("retellId", "transcript"), timeout=15)
 
 
-@web.route("/ajax/learning/retell/finish", methods=["POST"])
-@user_login_required
-def learning_retell_finish():
-    """Proxy retell summary（LLM 解读指标变化）。"""
-    return _b1_proxy("/learning/retell/finish", ("retellId",),
-                     required=("retellId",), timeout=90)
 
 
 # ---------- B2/B3 输出扩展代理（R153：计时重读 + 听写；素材接口共用） ----------
 
-@web.route("/ajax/learning/listening/materials", methods=["GET"])
-@user_login_required
-def learning_listening_materials():
-    """Proxy listening materials; ?source=ted|tts（默认 ted，越界上游报错）。"""
-    return _moonwell_proxy("/learning/listening/materials", None, 15,
-                           "learning listening materials", method="GET")
 
 
-@web.route("/ajax/learning/listening/paragraphs", methods=["POST"])
-@user_login_required
-def learning_listening_paragraphs():
-    """Proxy paragraph list of one material（RRR 与听写共用段落源）。"""
-    return _b1_proxy("/learning/listening/paragraphs", ("bookId",),
-                     required=("bookId",), timeout=15)
 
 
-@web.route("/ajax/learning/listening/dictation/check", methods=["POST"])
-@user_login_required
-def learning_listening_dictation():
-    """Proxy dictation check（词级 diff；addUnknown=true 时错/漏词入生词本）。"""
-    return _b1_proxy("/learning/listening/dictation/check",
-                     ("bookId", "order", "answer", "addUnknown"),
-                     required=("bookId", "order", "answer"), timeout=15)
 
 
-@web.route("/ajax/learning/rrr/record", methods=["POST"])
-@user_login_required
-def learning_rrr_record():
-    """Proxy one timed-rereading round（durationMs 实测直入流利度股）。"""
-    return _b1_proxy("/learning/rrr/record",
-                     ("bookId", "order", "round", "durationMs", "mode"),
-                     required=("bookId", "order", "round", "durationMs"), timeout=15)
 
 
-@web.route("/ajax/learning/rrr/trend", methods=["GET"])
-@user_login_required
-def learning_rrr_trend():
-    """Proxy same-paragraph rounds trend; ?bookId&order（30 分钟切会话语义在上游）。"""
-    return _moonwell_proxy("/learning/rrr/trend", None, 10,
-                           "learning rrr trend", method="GET")
 
 
-@web.route("/ajax/learning/strands/summary", methods=["GET"])
-@user_login_required
-def learning_strands_summary():
-    """Proxy per-day strand ledger for the weekly panel; ?days=1..30（默认 7）。"""
-    return _moonwell_proxy("/learning/strands/summary", None, 10,
-                           "learning strands summary", method="GET")
 
 
-@web.route("/ajax/learning/rrr/recommend", methods=["GET"])
-@user_login_required
-def learning_rrr_recommend():
-    """Proxy due-word paragraph recommendations; ?limit=1..20。"""
-    return _moonwell_proxy("/learning/rrr/recommend", None, 15,
-                           "learning rrr recommend", method="GET")
 
 
-@web.route("/ajax/learning/srs/queue", methods=["GET"])
-@user_login_required
-def learning_srs_queue():
-    """Proxy the due review queue; ?limit=1..50（moon-well 上限 50，越界自动收敛）。"""
-    return _moonwell_proxy("/learning/srs/queue", None, 10,
-                           "learning srs queue", method="GET")
 
 
-@web.route("/ajax/learning/srs/answer", methods=["POST"])
-@user_login_required
-def learning_srs_answer():
-    """Proxy one review answer; payload {"scheduleId": id, "grade": 1-4,
-    "latencyMs": ms?, "questionType": "CHOOSE"|...}.
-
-    Why scheduleId 校验为纯数字：moon-well 实体是自增 Long，前端 VO 已转字符串；
-    代理只挡明显非法（空/负/非数字），归属校验在上游。
-    Why questionType 必须透传（R167）：辨析题在混出带里随机出现，服务端事后重算会与
-    用户实际所做约一半不一致，而该字段是四技能统计与保持率的底座。本代理逐字段重建
-    body，漏抄一个字段就是**静默丢弃**——前端发了、后端收不到、页面不报错，所以这里
-    显式收并补一条透传断言。取值合法性与回落由上游白名单负责。
-    """
-    payload = request.get_json(silent=True) or {}
-    schedule_id = payload.get("scheduleId")
-    grade = payload.get("grade")
-    if isinstance(schedule_id, bool) or not schedule_id:
-        return jsonify({"success": False, "message": "scheduleId is required"}), 400
-    if not re.match(r"^\d+$", str(schedule_id)):
-        return jsonify({"success": False, "message": "scheduleId must be a positive integer"}), 400
-    if isinstance(grade, bool) or not isinstance(grade, int) or not 1 <= grade <= 4:
-        return jsonify({"success": False, "message": "grade must be an integer 1-4"}), 400
-    latency = payload.get("latencyMs")
-    if latency is not None and (isinstance(latency, bool) or not isinstance(latency, int) or latency < 0):
-        return jsonify({"success": False, "message": "latencyMs must be a non-negative integer"}), 400
-    question_type = payload.get("questionType")
-    if question_type is not None and (not isinstance(question_type, str)
-                                       or not question_type.strip()):
-        return jsonify({"success": False,
-                        "message": "questionType must be a non-empty string"}), 400
-    body = {"scheduleId": int(schedule_id), "grade": grade}
-    if latency is not None:
-        body["latencyMs"] = latency
-    if question_type:
-        body["questionType"] = question_type.strip().upper()
-    return _moonwell_proxy("/learning/srs/answer", body, 5, "learning srs answer")
 
 
-@web.route("/ajax/learning/srs/stats", methods=["GET"])
-@user_login_required
-def learning_srs_stats():
-    """Proxy the SRS stats snapshot (due counts / retention)."""
-    return _moonwell_proxy("/learning/srs/stats", None, 10,
-                           "learning srs stats", method="GET")
 
 
-@web.route("/ajax/learning/plan/today", methods=["GET"])
-@user_login_required
-def learning_plan_today():
-    """Proxy today's plan (reviews + new words + strand budget).
-
-    首次访问会在上游自动落默认设置行；15s 容忍首建超时。
-    """
-    return _moonwell_proxy("/learning/plan/today", None, 15,
-                           "learning plan today", method="GET")
 
 
-@web.route("/ajax/learning/plan/settings", methods=["POST"])
-@user_login_required
-def learning_plan_settings():
-    """Proxy the plan settings update; payload 为 moon-well DTO 的同构子集。
-
-    代理域校验：数值型且在 UI 允许范围内（与后端 @Min/@Max 对齐）；四股之和
-    的 100 校验留在上游（50503 语义归它）。
-    """
-    payload = request.get_json(silent=True) or {}
-
-    def _int_in(name, lo, hi):
-        value = payload.get(name)
-        if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
-            return None
-        return value
-
-    daily_new = _int_in("dailyNewLimit", 0, 50)
-    daily_minutes = _int_in("dailyMinutes", 5, 240)
-    strands = [_int_in("strandInputPct", 0, 100), _int_in("strandLanguagePct", 0, 100),
-               _int_in("strandOutputPct", 0, 100), _int_in("strandFluencyPct", 0, 100)]
-    if daily_new is None or daily_minutes is None or any(s is None for s in strands):
-        return jsonify({"success": False, "message": "invalid plan settings"}), 400
-    return _moonwell_proxy("/learning/plan/settings", {
-        "dailyNewLimit": daily_new, "dailyMinutes": daily_minutes,
-        "strandInputPct": strands[0], "strandLanguagePct": strands[1],
-        "strandOutputPct": strands[2], "strandFluencyPct": strands[3],
-    }, 10, "learning plan settings")
 
 
-@web.route("/ajax/learning/match/books", methods=["GET"])
-@user_login_required
-def learning_match_books():
-    """Proxy the graded-shelf recommendation (R147: 词汇量选阶 → 阶窗口书画像).
-
-    响应 result = {vocabSize, stage, books}；books[].bookId 是本站 Calibre 书 id
-    （moon-well 只读直读 metadata.db，与站内同源）。未算/过期的画像上游异步补算、
-    立即返回 null 密度，前端按 estimating 展示并轮询。
-    """
-    return _moonwell_proxy("/learning/match/books", None, 15,
-                           "learning match books", method="GET")
 
 
-@web.route("/ajax/learning/strands/reading", methods=["POST"])
-@user_login_required
-def learning_strands_reading():
-    """Proxy the reading-time heartbeat (R151，moon-well R150 四股台账 INPUT 股).
-
-    payload {"seconds": 30..600, "bookId": "123"?}——阅读器每满 5 分钟批量上报，
-    卸载时补发尾巴。域校验与 srs/answer 同款；上游再钳一次并做槽位幂等。
-    心跳语义：失败静默不重试（前端已兜底），代理超时给短（5s）避免拖阅读器。
-    """
-    payload = request.get_json(silent=True) or {}
-    seconds = payload.get("seconds")
-    if isinstance(seconds, bool) or not isinstance(seconds, int) or not 30 <= seconds <= 600:
-        return jsonify({"success": False, "message": "seconds must be an integer 30-600"}), 400
-    book_id = payload.get("bookId")
-    body = {"seconds": seconds}
-    if book_id is not None:
-        if isinstance(book_id, bool) or not re.match(r"^\d+$", str(book_id)):
-            return jsonify({"success": False, "message": "bookId must be a positive integer"}), 400
-        body["bookId"] = str(book_id)
-    return _moonwell_proxy("/learning/strands/reading", body, 5, "learning strands reading")
 
 
-@web.route("/ajax/learning/match/book", methods=["POST"])
-@user_login_required
-def learning_match_book():
-    """Proxy a single-book difficulty profile; payload {"bookId": str}.
-
-    bookId 即本站 Calibre 书 id（R147 起两端同源，moon-well 按 metadata.db 校验）；
-    60s：缺失/过期画像走同步计算（分词+词族比对，秒级）。
-    """
-    payload = request.get_json(silent=True) or {}
-    book_id = payload.get("bookId")
-    if isinstance(book_id, bool) or not book_id or not re.match(r"^\d+$", str(book_id)):
-        return jsonify({"success": False, "message": "bookId must be a positive integer"}), 400
-    return _moonwell_proxy("/learning/match/book", {"bookId": str(book_id)}, 60,
-                           "learning match book")
 
 def _whole_book_closures():
     """构造整本翻译的 publish/lookup 闭包（start/retry/status 共用）。
@@ -1233,57 +544,12 @@ def _whole_book_closures():
     return publish, lookup
 
 
-@web.route("/ajax/reading-translate-book", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_translate_book():
-    """Create a durable whole-book translation batch from an EPUB/Kepub."""
-    payload = request.get_json(silent=True) or {}
-    try:
-        book_id = int(payload.get("book_id"))
-        book_format = str(payload.get("book_format") or "epub").lower()
-        force = bool(payload.get("force", False))
-
-        publish, lookup = _whole_book_closures()
-        return jsonify(whole_book_translation_service.start(book_id, book_format, force, publish, lookup))
-    except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
-        return jsonify({"success": False, "message": str(error)}), 400
 
 
-@web.route("/ajax/reading-translate-book/status", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_translate_book_status():
-    payload = request.get_json(silent=True) or {}
-    try:
-        # 去回调化：查询进度时对未完成项单向查 moon-well 缓存，懒回收完成状态。
-        _, lookup = _whole_book_closures()
-        return jsonify(whole_book_translation_service.get_progress(str(payload.get("job_id")), lookup))
-    except ValueError as error:
-        return jsonify({"success": False, "message": str(error)}), 404
 
 
-@web.route("/ajax/reading-translate-book/retry", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_translate_book_retry():
-    payload = request.get_json(silent=True) or {}
-    try:
-        publish, _ = _whole_book_closures()
-        return jsonify(whole_book_translation_service.retry(str(payload.get("job_id")), publish))
-    except ValueError as error:
-        return jsonify({"success": False, "message": str(error)}), 400
 
 
-@web.route("/ajax/reading-translate-book/cancel", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_translate_book_cancel():
-    payload = request.get_json(silent=True) or {}
-    try:
-        return jsonify(whole_book_translation_service.cancel(str(payload.get("job_id"))))
-    except ValueError as error:
-        return jsonify({"success": False, "message": str(error)}), 400
 
 
 # --------------------------------------------------------------------
@@ -1292,23 +558,8 @@ def reading_translate_book_cancel():
 # --------------------------------------------------------------------
 
 
-@web.route("/ajax/reading-translate-all", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_translate_all_books():
-    """一键翻译全部英文书：逐本建批次并后台发布，正在跑的书跳过。"""
-    publish, lookup = _whole_book_closures()
-    return jsonify(whole_book_translation_service.translate_all_english_books(publish, lookup))
 
 
-@web.route("/ajax/reading-translate-all/progress", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_translate_all_progress():
-    # R78: 传入 lookup——进度页每次刷新顺带做缓存懒回收，数字跟着
-    # moon-well 的实际完成走，不再是静态快照
-    _, lookup = _whole_book_closures()
-    return jsonify(whole_book_translation_service.all_books_progress(lookup))
 
 
 # --------------------------------------------------------------------
@@ -1336,54 +587,12 @@ def _whole_book_tts_closures():
     return _whole_book_tts_proxy_factory(token)
 
 
-@web.route("/ajax/reading-tts-book", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_tts_book_start():
-    """受理整本朗读批次：立即返回进度快照，合成在后台 daemon 串行执行。"""
-    payload = request.get_json(silent=True) or {}
-    try:
-        book_id = int(payload.get("book_id"))
-        book_format = str(payload.get("book_format") or "epub").lower()
-        proxy = _whole_book_tts_closures()
-        return jsonify(whole_book_tts_service.start(book_id, book_format, proxy,
-                                                    force_voice=bool(payload.get("force_voice", False))))
-    except (TypeError, ValueError, zipfile.BadZipFile) as error:
-        return jsonify({"success": False, "message": str(error)}), 400
 
 
-@web.route("/ajax/reading-tts-book/status", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_tts_book_status():
-    payload = request.get_json(silent=True) or {}
-    try:
-        return jsonify(whole_book_tts_service.get_progress(str(payload.get("job_id"))))
-    except ValueError as error:
-        return jsonify({"success": False, "message": str(error)}), 404
 
 
-@web.route("/ajax/reading-tts-book/retry", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_tts_book_retry():
-    payload = request.get_json(silent=True) or {}
-    try:
-        proxy = _whole_book_tts_closures()
-        return jsonify(whole_book_tts_service.retry(str(payload.get("job_id")), proxy))
-    except ValueError as error:
-        return jsonify({"success": False, "message": str(error)}), 400
 
 
-@web.route("/ajax/reading-tts-book/cancel", methods=["POST"])
-@user_login_required
-@admin_required
-def reading_tts_book_cancel():
-    payload = request.get_json(silent=True) or {}
-    try:
-        return jsonify(whole_book_tts_service.cancel(str(payload.get("job_id"))))
-    except ValueError as error:
-        return jsonify({"success": False, "message": str(error)}), 400
 
 
 @web.route("/translate-all", methods=["GET"])
@@ -1412,11 +621,6 @@ _LLM_TASK_PATHS = {
 }
 
 
-@web.route("/llm-tasks", methods=["GET"])
-@user_login_required
-@admin_required
-def llm_task_runner_page():
-    return render_title_template("llm_tasks.html", title=(_("LLM Task Runner")), page="llm_tasks")
 
 
 def _llm_task_admin_gate():
@@ -1431,51 +635,12 @@ def _llm_task_admin_gate():
     return None
 
 
-@web.route("/ajax/llm-task/options", methods=["POST"])
-@user_login_required
-def llm_task_options():
-    """拉取面板初始数据：供应商/模型候选、并发与上限、队列现状、活跃 run。"""
-    denied = _llm_task_admin_gate()
-    if denied is not None:
-        return denied
-    return _moonwell_proxy(_LLM_TASK_PATHS["options"], {}, 15, "llm task options")
 
 
-@web.route("/ajax/llm-task/run", methods=["POST"])
-@user_login_required
-def llm_task_run():
-    """受理一批手动执行（moon-well 立即返回 runId，执行在其进程内异步进行）。
-
-    Why 请求体原样透传不做字段映射：前端直接按 moon-well 的 DTO 命名
-    （provider/model/concurrency/maxTasks/caller/taskType/replayFailed）提交，
-    多一层 snake_case 映射只会让两边的契约漂移无人发现；范围校验由
-    moon-well 服务端夹取（并发硬上限、上限夹取、taskType 白名单）。
-    """
-    denied = _llm_task_admin_gate()
-    if denied is not None:
-        return denied
-    payload = request.get_json(silent=True) or {}
-    return _moonwell_proxy(_LLM_TASK_PATHS["run"], payload, 15, "llm task run")
 
 
-@web.route("/ajax/llm-task/status", methods=["POST"])
-@user_login_required
-def llm_task_status():
-    denied = _llm_task_admin_gate()
-    if denied is not None:
-        return denied
-    payload = request.get_json(silent=True) or {}
-    return _moonwell_proxy(_LLM_TASK_PATHS["status"], payload, 10, "llm task status")
 
 
-@web.route("/ajax/llm-task/stop", methods=["POST"])
-@user_login_required
-def llm_task_stop():
-    denied = _llm_task_admin_gate()
-    if denied is not None:
-        return denied
-    payload = request.get_json(silent=True) or {}
-    return _moonwell_proxy(_LLM_TASK_PATHS["stop"], payload, 15, "llm task stop")
 
 
 # ---- R178（架构评审 B1）：moon-well 防腐层本体已迁 cps/moonwell/client.py ----
@@ -1517,147 +682,18 @@ def _moonwell_multipart(path, file_bytes, filename, timeout, label):
 
 
 
-@web.route("/ajax/learning/asr/transcribe", methods=["POST"])
-@user_login_required
-def learning_asr_transcribe():
-    """Proxy voice-input transcription（R155 语音输入：录音 multipart 直传转写）。
-
-    浏览器 WebAudio 采集端已编码 16k 单声道 wav（≈32KB/s，3 分钟 <6MB）；
-    上限 10MB 与 moon-well maxAudioBytes 对齐，超限本地 400 不打上游。
-    """
-    upload = request.files.get("file")
-    if upload is None or not upload.filename:
-        return jsonify({"success": False, "message": "file is required"}), 400
-    data = upload.read()
-    if not data:
-        return jsonify({"success": False, "message": "录音内容为空"}), 400
-    if len(data) > 10 * 1024 * 1024:
-        return jsonify({"success": False, "message": "录音超过大小上限（10MB）"}), 400
-    filename = upload.filename if "." in upload.filename else "recording.wav"
-    return _moonwell_multipart("/learning/asr/transcribe", data, filename, 60,
-                               "语音转写")
 def _moonwell_settings_fetch():
     return _moonwell_client.settings_fetch()
-@web.route("/ajax/reading-annotation-create", methods=["POST"])
-@user_login_required
-def reading_annotation_create():
-    """Proxy paragraph annotation creation to moon-well.
-
-    批注与段落缓存（翻译/音频）落在 moon-well 同一 ES 文档；paragraph
-    必须与翻译/朗读链路相同的归一化文本（trim + 压缩空白，≤2000），
-    才能命中同一段落文档。署名与时间由 moon-well 凭 OIDC 身份头取，客户端不可传。
-    """
-    payload = request.get_json(silent=True) or {}
-    paragraph_value = payload.get("paragraph")
-    content_value = payload.get("content")
-    # JSON null 不能被 str() 静默转换成 "None"，否则会写入错误的段落文档。
-    if not isinstance(paragraph_value, str) or not isinstance(content_value, str):
-        return jsonify({"success": False,
-                        "message": "paragraph and content must be strings"}), 400
-    paragraph = paragraph_value.strip()
-    content = content_value.strip()
-    if not paragraph or len(paragraph) > 2000 or not content or len(content) > 2000:
-        return jsonify({"success": False,
-                        "message": "paragraph and content must be between 1 and 2000 characters"}), 400
-    payload["paragraph"] = paragraph
-    payload["content"] = content
-    payload["bookName"] = str(payload.get("bookName") or "").strip()[:200]
-    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
-    # 15s：与阅读生词/翻译同量级的 JSON 接口
-    return _moonwell_proxy("/reading/annotation/create", payload, 15,
-                           "reading annotation")
 
 
-@web.route("/ajax/reading-annotation-list-by-paragraph", methods=["POST"])
-@user_login_required
-def reading_annotation_list_by_paragraph():
-    """Proxy per-paragraph annotation listing to moon-well."""
-    payload = request.get_json(silent=True) or {}
-    paragraph_value = payload.get("paragraph")
-    if not isinstance(paragraph_value, str):
-        return jsonify({"success": False, "message": "paragraph must be a string"}), 400
-    paragraph = paragraph_value.strip()
-    if not paragraph or len(paragraph) > 2000:
-        return jsonify({"success": False,
-                        "message": "paragraph must be between 1 and 2000 characters"}), 400
-    payload["paragraph"] = paragraph
-    return _moonwell_proxy("/reading/annotation/list-by-paragraph", payload, 15,
-                           "reading annotation")
 
 
-@web.route("/ajax/reading-annotation-list-by-book", methods=["POST"])
-@user_login_required
-def reading_annotation_list_by_book():
-    """Proxy book-level annotation listing to moon-well (ES search, slower)."""
-    payload = request.get_json(silent=True) or {}
-    book_name = str(payload.get("bookName") or "").strip()
-    if not book_name or len(book_name) > 200:
-        return jsonify({"success": False,
-                        "message": "bookName must be between 1 and 200 characters"}), 400
-    payload["bookName"] = book_name
-    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
-    # 20s：moon-well 侧为 ES exists+term 检索，容忍冷启动慢响应
-    return _moonwell_proxy("/reading/annotation/list-by-book", payload, 20,
-                           "reading annotation")
 
 
-@web.route("/ajax/reading-companion-roles", methods=["POST"])
-@user_login_required
-def reading_companion_roles():
-    """Proxy the fixed reading-companion role list to moon-well.
-
-    角色清单固定在 moon-well 代码（本期不可添加）；前端页面级缓存一次即可。
-    """
-    return _moonwell_proxy("/reading/companion/roles", {}, 10, "reading companion")
 
 
-@web.route("/ajax/reading-companion-annotate", methods=["POST"])
-@user_login_required
-def reading_companion_annotate():
-    """Proxy AI companion annotation (role-based paragraph annotation) to moon-well.
-
-    AI 批注缓存在 moon-well 段落文档 aiAnnotations 字段（key=roleId），paragraph
-    必须与翻译/批注链路相同的归一化文本（trim，≤2000）才能命中同一段落文档；
-    force=true 跳过缓存强制重新生成并覆盖。roleId 仅接受 LLM_ANNOTATION 类角色
-    （moon-well 侧校验），翻译/朗读仍走各自既有通道。
-    """
-    payload = request.get_json(silent=True) or {}
-    paragraph_value = payload.get("paragraph")
-    role_value = payload.get("roleId")
-    # JSON null 不能被 str() 静默转换成 "None"（与批注路由同因）
-    if not isinstance(paragraph_value, str) or not isinstance(role_value, str):
-        return jsonify({"success": False,
-                        "message": "paragraph and roleId must be strings"}), 400
-    paragraph = paragraph_value.strip()
-    role_id = role_value.strip()
-    if not paragraph or len(paragraph) > 2000 or not role_id or len(role_id) > 50:
-        return jsonify({"success": False,
-                        "message": "paragraph must be 1-2000 chars and roleId required"}), 400
-    payload["paragraph"] = paragraph
-    payload["roleId"] = role_id
-    payload["bookName"] = str(payload.get("bookName") or "").strip()[:200]
-    payload["chapter"] = str(payload.get("chapter") or "").strip()[:200]
-    payload["force"] = bool(payload.get("force"))
-    # 60s：单段一次同步 LLM 调用（参考段落朗读 65s 的先例）
-    return _moonwell_proxy("/reading/companion/annotate", payload, 60,
-                           "reading companion")
 
 
-@web.route("/ajax/reading-companion-list-by-paragraph", methods=["POST"])
-@user_login_required
-def reading_companion_list_by_paragraph():
-    """Proxy per-paragraph AI companion annotation listing to moon-well."""
-    payload = request.get_json(silent=True) or {}
-    paragraph_value = payload.get("paragraph")
-    if not isinstance(paragraph_value, str):
-        return jsonify({"success": False, "message": "paragraph must be a string"}), 400
-    paragraph = paragraph_value.strip()
-    if not paragraph or len(paragraph) > 2000:
-        return jsonify({"success": False,
-                        "message": "paragraph must be between 1 and 2000 characters"}), 400
-    payload["paragraph"] = paragraph
-    return _moonwell_proxy("/reading/companion/list-by-paragraph", payload, 15,
-                           "reading companion")
 
 
 # 划词标记的词形白名单：字母开头/结尾，中间仅字母/撇号/连字符。首尾
@@ -1667,55 +703,8 @@ def reading_companion_list_by_paragraph():
 _READING_WORD_RE = re.compile(r"^[A-Za-z](?:[A-Za-z'\u2019-]*[A-Za-z])?$")
 
 
-@web.route("/ajax/reading-word-mark", methods=["POST"])
-@user_login_required
-def reading_word_mark():
-    """Mark a selected word as unknown (+) or known (-) via moon-well.
-
-    划词气泡的 ＋/－ 按钮调用。词形先归一化为小写 + 直撇号（与
-    markVocabulary 及 moon-well ES 索引的词 key 一致），再转发到
-    moon-well 的 GET /vocabulary/unknown|known/{word}。
-    """
-    payload = request.get_json(silent=True) or {}
-    # word 必须是字符串（null 会被 str() 转成 "None" 通过校验，存成脏词）
-    word = payload.get("word")
-    if not isinstance(word, str):
-        return jsonify({"success": False, "message": "invalid word"}), 400
-    # unknown 必须是 JSON boolean（"false" 字符串经 bool() 恒为真，易误标）
-    unknown = payload.get("unknown")
-    if not isinstance(unknown, bool):
-        return jsonify({"success": False, "message": "invalid unknown flag"}), 400
-    # 弯撇号归一化为直撇号、小写：与前端 vocabularyRecords 的 key 保持一致
-    word = word.strip().replace("\u2019", "'").lower()
-    if not _READING_WORD_RE.match(word) or len(word) > 64:
-        return jsonify({"success": False, "message": "invalid word"}), 400
-    path = ("/vocabulary/unknown/" if unknown else "/vocabulary/known/") + quote(word, safe="")
-    # 标记是即时小操作，8s 足够
-    return _moonwell_proxy(path, None, 8, "reading word mark", method="GET")
 
 
-@web.route("/ajax/reading-word-detail", methods=["POST"])
-@user_login_required
-def reading_word_detail():
-    """单词详解（R123，与 magiclens v0.4.0 同源）：六板块结构化内容。
-
-    划词气泡的「详」按钮调用；口径与 word_mark 一致（POST+JSON+CSRF，
-    词形归一化后转发 moon-well 的 GET /vocabulary/detail/{word}）。
-    变体词（ran/running）由 moon-well 的 LLM 还原词目并针对词目讲解，
-    缓存按词目落档（magicbook-vocabulary 索引），重复查询不再计费。
-    """
-    payload = request.get_json(silent=True) or {}
-    # word 必须是字符串（null 会被 str() 转成 "None" 拼进上游 path）
-    word = payload.get("word")
-    if not isinstance(word, str):
-        return jsonify({"success": False, "message": "invalid word"}), 400
-    # 弯撇号归一化为直撇号、小写：与 word_mark 及 moon-well 缓存词目口径一致
-    word = word.strip().replace("\u2019", "'").lower()
-    if not _READING_WORD_RE.match(word) or len(word) > 64:
-        return jsonify({"success": False, "message": "invalid word"}), 400
-    # 缓存 miss 时 moon-well 现场生成（一次 LLM 调用），30s 覆盖慢响应
-    return _moonwell_proxy("/vocabulary/detail/" + quote(word, safe=""), None, 30,
-                           "reading word detail", method="GET")
 
 
 def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=None):
@@ -1825,7 +814,6 @@ def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=Non
     threading.Thread(target=_worker, name="moonwell-book-bridge", daemon=True).start()
 
 
-'''
 @web.route("/ajax/getcomic/<int:book_id>/<book_format>/<int:page>")
 @user_login_required
 def get_comic_book(book_id, book_format, page):
@@ -1871,7 +859,6 @@ def get_comic_book(book_id, book_format, page):
                 fileData={"name": names[page], "page":page, "last":len(names)-1, "content": extractedfile}
                 return make_response(json.dumps(fileData))
         return "", 204
-'''
 
 
 # ################################### Typeahead ##################################################################
@@ -3302,3 +2289,11 @@ def show_book(book_id):
         flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
               category="error")
         return redirect(url_for("web.index"))
+
+
+
+# ---- R181（架构评审 B2）：定制路由按域分文件（cps/routes/）----
+# 装饰注册沿用原 web blueprint（endpoint 名不变，url_for/模板/前端零改动）；
+# 原版路由留在本文件（上游同款）。本 import 必须在全部辅助符号定义之后。
+from cps.routes import register_domain_routes
+register_domain_routes(web)

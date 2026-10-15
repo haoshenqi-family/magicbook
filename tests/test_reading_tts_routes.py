@@ -50,7 +50,7 @@ def stub_batches(monkeypatch):
             return dict(self.progress)
 
     fake = _FakeService()
-    monkeypatch.setattr(w, "whole_book_tts_service", fake)
+    monkeypatch.setattr("cps.routes.reading.whole_book_tts_service", fake)
     return types_namespace(captured=captured)
 
 

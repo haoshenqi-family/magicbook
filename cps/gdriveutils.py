@@ -145,7 +145,14 @@ def is_gdrive_ready():
     return os.path.exists(SETTINGS_YAML) and os.path.exists(CREDENTIALS)
 
 
-engine = create_engine('sqlite:///{0}'.format(cli_param.gd_path), echo=False)
+# R180（架构评审 B2 前置）：cli_param.gd_path 在测试环境/未初始化时为 None——
+# 原实现会 create_engine('sqlite:///None') 在进程工作目录建出名为 None 的库文件，
+# 且紧随的 os.path.exists(None) 直接 TypeError（B2 迁移的 import 时序变化使其暴露）。
+# 未配置 gdrive 时以内存库兜底：gdrive 功能经下方 is_gdrive_ready() 已有条件降级，
+# 永不触达该引擎；配置就绪时行为与原实现逐字一致。
+engine = create_engine(
+    'sqlite:///{0}'.format(cli_param.gd_path) if cli_param.gd_path else 'sqlite://',
+    echo=False)
 Base = declarative_base()
 
 # Open session for database connection
@@ -176,7 +183,7 @@ class PermissionAdded(Base):
         return str(self.gdrive_id)
 
 
-if not os.path.exists(cli_param.gd_path):
+if cli_param.gd_path and not os.path.exists(cli_param.gd_path):
     try:
         Base.metadata.create_all(engine)
     except Exception as ex:

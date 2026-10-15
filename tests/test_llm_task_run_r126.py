@@ -316,9 +316,9 @@ class TestTemplateContract:
                       if len(before) >= 20 and before == after]
         assert not duplicates, "相邻同文行（合并残留嫌疑）: {}".format(duplicates[:3])
 
-    def test_all_ajax_urls_point_at_registered_endpoint_names(self):
-        from cps import web
-
+    def test_all_ajax_urls_point_at_registered_endpoint_names(self, app):
+        # R181（B2）：路由函数已迁 cps/routes/vocab.py，web 模块属性改为
+        # endpoint 注册断言（url_for 依赖的是 url_map 注册而非模块属性）
         for name in ("llm_task_options", "llm_task_run", "llm_task_status",
                      "llm_task_stop", "llm_task_runner_page"):
-            assert hasattr(web, name), "模板 url_for 依赖的视图函数缺失: " + name
+            assert "web." + name in {r.endpoint for r in app.url_map.iter_rules()},                 "模板 url_for 依赖的 endpoint 未注册: " + name
