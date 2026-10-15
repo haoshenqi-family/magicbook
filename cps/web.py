@@ -67,6 +67,7 @@ from .usermanagement import user_login_required
 from .string_helper import strip_whitespaces
 from .reading_translation.service import WholeBookTranslationService
 from .reading_tts.service import WholeBookTtsService
+from .reading_word_detail.service import WordDetailBatchService
 from .admin import admin_required
 
 
@@ -1392,6 +1393,169 @@ def reading_tts_book_cancel():
 def translate_all_page():
     return render_title_template("translate_all.html", title=(_("Translate All English Books")),
                                  page="translate_all")
+
+
+# --------------------------------------------------------------------
+# 全文单词详解（R176，对端 moon-well R188）：给一本书把「查不到详解的词」
+# 补进详解缓存。与整本翻译/整本朗读并列的第三个整本能力，但刻意是**两步式**
+# （预览→入队）：详解是全仓最贵的调用且按发起者计费（R106 实测单次 21.6s），
+# 而「这本书到底缺多少个词」在真书上没有实测样本（小说去重词 5k~15k），
+# 必须先让管理员看到数字再点第二次（同 R118 US4「先预案后执行」）。
+# 门禁沿用 _llm_task_admin_gate：真正的白名单在 moon-well 侧二检
+# （ai.llm.task-manual-run.admin-user-ids），这里只挡 UI 入口，纵深防御同 R126。
+# --------------------------------------------------------------------
+
+word_detail_batch_service = WordDetailBatchService()
+
+_WORD_DETAIL_PATHS = {
+    "cachedCheck": "/vocabulary/detail/cached-check",
+    "warmByWords": "/vocabulary/detail/warm-publish-by-words",
+}
+
+
+def _word_detail_unwrap(response, label):
+    """解 moon-well 的 Result 包装并取出 result；任何失败都抛带原文案的 ValueError。
+
+    Why 不静默返回空：接口故障若被降级成「缓存里没有」，页面就把故障显示成
+    「这本书还缺 N 个词」，用户报回来的永远是错误结论（家族纪律：失败必须在界面上可见）。
+    Why 透传 message：灌队闸门（在途上限、单次词数上限）都以 GlobalException 报业务文案，
+    吞掉它用户只剩一个 500，无从判断是该分批还是该等资源。
+    """
+    if not isinstance(response, tuple) or len(response) < 2:
+        raise ValueError("%s service unavailable" % label)
+    body, status = response[0], response[1]
+    try:
+        data = json.loads(body)
+    except (TypeError, ValueError):
+        raise ValueError("%s returned unreadable response" % label)
+    message = data.get("message") if isinstance(data, dict) else None
+    if status >= 400 or (isinstance(data, dict) and data.get("success") is False):
+        raise ValueError(message or "%s failed (HTTP %s)" % (label, status))
+    result = data.get("result") if isinstance(data, dict) else None
+    return result or {}
+
+
+def _word_detail_closures():
+    """check/publish 两个闭包：令牌在请求线程定格成快照。
+
+    Why 快照而不是线程内读 session：发布在 daemon 线程分批跑，线程里没有 Flask
+    请求上下文，那时再解析 current_user/flask_session 会 RuntimeError，
+    整批被标 FAILED（整本翻译 R78 生产事故同款）。
+    """
+    token = flask_session.get("moonwell_access_token")
+
+    def check(words):
+        if not token:
+            raise ValueError("moon-well authorization is required")
+        return _word_detail_unwrap(_moonwell_proxy(_WORD_DETAIL_PATHS["cachedCheck"],
+                                                   {"words": list(words)}, 30,
+                                                   "word detail cached check",
+                                                   bearer_token=token), "cached-check")
+
+    def publish(payload):
+        if not token:
+            raise ValueError("moon-well authorization is required")
+        return _word_detail_unwrap(_moonwell_proxy(_WORD_DETAIL_PATHS["warmByWords"],
+                                                   payload, 60,
+                                                   "word detail warm publish",
+                                                   bearer_token=token), "warm-publish-by-words")
+
+    return check, publish
+
+
+@web.route("/ajax/word-detail-preview", methods=["POST"])
+@user_login_required
+def reading_word_detail_preview():
+    """只读预览：这本书的去重词数 / 已缓存 / 待生成 / 粗算 tokens。
+
+    Why 只拿 check 闭包：预览路径**没有** publish 能力，把「不产生副作用」做成
+    结构约束而不是靠约定（单测据此断言 warm-publish-by-words 一次都没被调）。
+    """
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    try:
+        book_id = int(payload.get("book_id"))
+        book_format = str(payload.get("book_format") or "epub").lower()
+        check, _ = _word_detail_closures()
+        return jsonify(word_detail_batch_service.preview(book_id, book_format, check))
+    except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/word-detail-start", methods=["POST"])
+@user_login_required
+def reading_word_detail_start():
+    """建台账并后台分批入队；HTTP 立即返回批次快照。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    try:
+        book_id = int(payload.get("book_id"))
+        book_format = str(payload.get("book_format") or "epub").lower()
+        force = bool(payload.get("force", False))
+        check, publish = _word_detail_closures()
+        return jsonify(word_detail_batch_service.start(book_id, book_format, force, publish, check))
+    except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/word-detail-progress", methods=["POST"])
+@user_login_required
+def reading_word_detail_progress():
+    """覆盖率进度（轮询）：顺带做一轮缓存懒回收。
+
+    Why 进度口径是覆盖率而不是任务状态：详解的执行方是队列消费者，magicbook 既不是
+    发起者也不是唯一消费者；把 COMPLETED 当完成还会踩 R188 记下的坑——
+    872 条 COMPLETED 里约 202 条产出不合契约、缓存里根本没有。
+    """
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    try:
+        job_id = payload.get("job_id")
+        if not job_id:
+            book_id = int(payload.get("book_id"))
+            job = word_detail_batch_service.latest_job(book_id)
+            if not job:
+                return jsonify({"status": "NONE"})
+            job_id = job.id
+        check, _ = _word_detail_closures()
+        return jsonify(word_detail_batch_service.get_progress(str(job_id), check))
+    except (TypeError, ValueError) as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/word-detail-cancel", methods=["POST"])
+@user_login_required
+def reading_word_detail_cancel():
+    """停止本批次继续入队（已入队的任务仍由队列消费者生成，不归本接口管）。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(word_detail_batch_service.cancel(str(payload.get("job_id"))))
+    except ValueError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/word-detail-batch", methods=["GET"])
+@user_login_required
+@admin_required
+def word_detail_batch_page():
+    """按书补缺单词详解面板：打开即预览（只读），第二次点击才入队。"""
+    book_id = request.args.get("book_id", "")
+    # 与 learning_match_book 同款入参校验：非数字必须挡住，不能让 int() 在模板里炸成 500
+    if not re.match(r"^\d+$", str(book_id)):
+        abort(400)
+    book_format = str(request.args.get("book_format") or "epub").lower()
+    return render_title_template("word_detail_batch.html", title=(_("Whole-book Word Details")),
+                                 page="word_detail_batch", book_id=int(book_id),
+                                 book_format=book_format)
 
 
 # --------------------------------------------------------------------
