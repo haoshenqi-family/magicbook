@@ -22,8 +22,11 @@ EPUB_JS = "cps/static/js/reading/epub.js"
 
 
 def _read_epub_js():
-    with open(EPUB_JS, encoding="utf-8") as handle:
-        return handle.read()
+    # R183（B4 批次 1）：段落口径常量已下沉 reader-core.js，静态锁改读「按 read.html
+    # 载入顺序拼接的 reader 模块全集」——口径只有一份，但出处可以随拆分移动。
+    from tests.reader_js_modules import reader_blob
+
+    return reader_blob()
 
 
 # ---------- 静态锁：前端口径常量 ↔ extractor 常量 ----------
