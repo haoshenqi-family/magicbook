@@ -129,3 +129,13 @@
 - **worktree 台账**：`../magicbook-arch-b5` 现检出 `refactor/r183-epub-modules`；该目录原分支 `refactor/r178-moonwell-client`（B1/B5/B2/B7 六项交付）仍待验收未删。两树合并驻留，验收通过后按闸门 `worktree remove` + `branch -d`。
 - **归档**：本条写入使 `response.md` 达 19 条（并行会话多轮未轮转的欠账），按纪律把最旧 8 节（R165、R166、R167、R168、R169、R170、R172、R173，277 行）原样搬至 `response-archive/response-R165-R173.md`，窗口回 10 条内；只搬移、不总结、不改写。
 - **总结**：requests.md 占号 R183（接全史最大 182）；冲突记录：无撞号，主检另有 R174/R175/R176 三条未提交并行条目，本条不重排既有记录。
+
+### R183 续（批次 2：单词详解面板迁出 reader-word-detail.js，浏览器探针实测）
+
+- **交付**（commit `d25ac150`，merge 本地 develop 未 push）：D 节 217 行（面板 DOM、请求序号守卫、六板块渲染、定位、Esc/✕ 关闭）整体搬到 `cps/static/js/reading/reader-word-detail.js`，epub.js 3,212→**3,018** 行。
+- **边界设计（本批次的关键决定）**：两侧不能互相 import IIFE 私有函数，故由 epub.js 在载入时 `RD.setHost({normalizedWord, schedulePopoverHide, cancelAutoHide})` 注入三个回调——词形归一（C 节）与气泡自动隐藏定时器（B 节 `popoverHideTimer`）的可变状态仍由 epub.js 独占，模块只在面板生命周期里请求「挂起 / 恢复」，不带第二份真相。`RD` 缺失时 `console.error` 明报而非静默跳过（静默的表现是「详按钮点了没反应」，报障指不到载入顺序）。
+- **契约测试的等价改写（只动一条）**：面板存活判定从 `wordDetailPanel` 变量改成 `RD.isOpen()`，`test_word_detail_reader_wiring_contract` 里 `if (wordDetailPanel) return;` 随之改为 `if (RD.isOpen()) return;`；其余断言（`appendWordDetailButton(popover, text)` 调用点、`function renderWordDetail…positionWordDetailPanel`、`var seq = ++wordDetailRequest`、禁止 `wordDetailRequest++`、`closeTranslationPopover` 体内不得出现 `closeWordDetailPanel`）靠 blob 读取**全部原样成立**，未削弱。
+- **真机证据（静态测试看不见模块边界）**：无头 Chrome 探针 `docs/temp/wd_probe.html`（`$.ajax` 桩返回六板块 Result 信封，五步快照 initial / after-click-pending / after-render / after-esc-close / after-x-close）实测：`ReaderCore`+`ReaderWordDetail` 按 read.html 顺序均就位；点「详」走**宿主注入的** `normalizedWord`（面板标题先显示 `RUN-NORMALIZED`）；渲染出 Meaning/词源/搭配·用法·习语/变形/同反义/俚语/冷知识共 8 个小节且 lemma 把标题词替换为 `run`、变体行显示；`Esc` 关面板并恢复气泡倒计时（sched 1→2）、`✕` 同样（→4）；**全程零非空 `innerHTML` 写入**（用 `Element.prototype.innerHTML` setter 拦截计数）。
+- **验证**：`node --check` 三个 JS 通过；merge 后在 develop 新基线复跑 **585 passed**（与批次 1 同数）。
+- **台账**：分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`（批次 3 起继续复用，不新建树）；按家族新增的 PingCode 闭环补登 **MAGICBOOK-2 `4X51sVcJ`（In progress，等验收）**。
+- **冲突记录（PingCode 侧重复风险）**：并行会话正在做「全史 requests 迁入 MAGICBOOK 需求池」（本仓 R184，其 requests 行仍在工作区未提交），其范围含 R01–**R183**；我这条 R183 已先行建为 MAGICBOOK-2。**批量迁移若按 requests.md 逐条建条目会产出一条重复的 R183**，去重归迁移会话处置（保留带进度正文的 MAGICBOOK-2 或改由迁移条目承载均可）。本轮不代改他人未提交的 requests.md。

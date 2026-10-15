@@ -37,7 +37,7 @@
 
 ## B4 · epub.js 按注释域拆 12 模块
 
-> 状态：进行中（2026-10-15 批次 1，分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`，已 merge 本地 develop `72b97ad5` 待验收；横切原语下沉 `cps/static/js/reading/reader-core.js`，epub.js 3,279→3,212，全量 585 passed 零回归；静态锁改为按 `read.html` 载入顺序拼接 reader 模块全集 `tests/reader_js_modules.py`）
+> 状态：进行中（2026-10-15 批次 1+2，分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`，已 merge 本地 develop `72b97ad5` / `d25ac150` 待验收；批次 1 横切原语 → `reader-core.js` + 静态锁改读 reader 模块全集，批次 2 单词详解面板 217 行 → `reader-word-detail.js`（宿主回调注入 normalizedWord / schedulePopoverHide / cancelAutoHide），epub.js 3,279→3,018，两轮全量 585 passed，无头 Chrome 五步快照实测面板生命周期与零非空 innerHTML；余 6 域待批，TTS 簇拆前需先定装配层反向依赖接缝；PingCode MAGICBOOK-2 `4X51sVcJ` In progress）
 
 - **严重度 / 波次 / 前置**：🟠 ｜ 波 3 ｜ 无
 - **模式**：门面拆模块
