@@ -18,7 +18,8 @@
   var ttsAudio = null;
 
   function getCsrfToken() {
-    return $("input[name='csrf_token']").val() || "";
+    // R177：CSRF 单点迁 common/api.js（三形态链式探测，read.html 的隐藏域为第 3 形态）
+    return window.MBApi.csrfToken();
   }
 
   /**
@@ -72,11 +73,11 @@
   }
 
   /** moon-well Result 包装解包：{success, result, message} → result（失败时抛错）。 */
+  // R177（架构评审 B5）：解包/CSRF 单点迁至 common/api.js。unwrapResult 为原
+  // unwrap 的容错超集——非信封响应（登录页/网关错误）不再误入解包分支；失败
+  // message 仍必须经调用方 catch 呈现（下方各 alert/面板错误行）。
   function unwrap(data) {
-    if (data && data.success === false) {
-      throw new Error(data.message || mbT('moon-well request failed'));
-    }
-    return data && data.result !== undefined ? data.result : data;
+    return window.MBApi.unwrapResult(data);
   }
 
   function init() {

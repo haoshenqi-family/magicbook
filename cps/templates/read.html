@@ -535,6 +535,8 @@
       <script src="{{ url_for('static', filename='js/libs/reader.min.js') }}"></script>
       {# R112：i18n 种子必须在 epub.js 之前——epub.js 顶层就读取 mbT（如 CSS 角标词条） #}
       {% include 'i18n_seed.html' %}
+      {# R177（架构评审 B5）：read.html 为独立骨架不继承 layout，api.js 单独引入（先于 ai_chat.js）#}
+      <script src="{{ url_for('static', filename='js/common/api.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
       {# R151 阅读活跃心跳：四股台账 INPUT 股信号源（可见 + 近 3 分钟有交互才计） #}
       <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>

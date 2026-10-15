@@ -35,44 +35,34 @@
     el.style.display = visible ? '' : 'none';
   }
 
+  // R177（架构评审 B5）：HTTP 基元/CSRF/解包单点迁至 static/js/common/api.js
+  //（window.MBApi，layout.html 全局载入）；本文件保留导出名（MBLearning.*），
+  // 内部委托——learning 九页调用方零改动。resultOf 走 strict 解包（与原口径
+  // 等价：非信封一律抛，页面 catch 呈现），容错版见 MBApi.unwrapResult。
   function csrfToken() {
-    var el = byId('lh-csrf');
-    return el ? el.value : '';
+    return window.MBApi.csrfToken();
   }
 
   function httpJson(url, options) {
-    return fetch(url, options).then(function (response) {
-      return response.text().then(function (text) {
-        var data = null;
-        try { data = text ? JSON.parse(text) : null; } catch (e) { /* 非 JSON 按失败处理 */ }
-        return { ok: response.ok, status: response.status, data: data, raw: text };
-      });
-    });
+    return window.MBApi.httpJson(url, options);
   }
 
   function getJson(url) {
-    return httpJson(url, { credentials: 'same-origin' });
+    return window.MBApi.getJson(url);
   }
 
   function postJson(url, body) {
-    return httpJson(url, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
-      body: JSON.stringify(body || {}),
-    });
+    return window.MBApi.postJson(url, body);
   }
 
   function isBusinessError(response) {
-    return response.data && response.data.success === false && response.data.code &&
-      response.data.code !== 200;
+    return window.MBApi.isBusinessError(response);
   }
 
   // 契约（moon-well learning 模块）：统一 Result 信封 {success, result, message}；
   // success=false 时 message 已是上游业务文案（zh），直接抛给调用方展示。
   function resultOf(response) {
-    if (response.data && response.data.success) return response.data.result;
-    throw new Error((response.data && response.data.message) || mbT('Something went wrong'));
+    return window.MBApi.unwrapStrict(response.data);
   }
 
   // LLM 端点慢（批改/出题/报告 10-40s），按钮一律加在途锁防连击（R152 纪律）

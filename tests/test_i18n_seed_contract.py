@@ -40,6 +40,8 @@ JS_FILES = [
     os.path.join(ROOT, "cps", "static", "js", "learning-reread.js"),
     os.path.join(ROOT, "cps", "static", "js", "learning-dictation.js"),
     os.path.join(ROOT, "cps", "static", "js", "learning-voice.js"),
+    # R177（架构评审 B5）：全站 API 公共层（unwrap 兕底文案走 mbT），不列入清单则它的本地化无人守
+    os.path.join(ROOT, "cps", "static", "js", "common", "api.js"),
 ]
 
 

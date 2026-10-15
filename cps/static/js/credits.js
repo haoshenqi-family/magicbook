@@ -8,7 +8,7 @@
 (function ($) {
     'use strict';
 
-    var CSRF = $('#credit-csrf').val();
+    var CSRF = window.MBApi.csrfToken();  // R177：CSRF 单点迁 common/api.js（#credit-csrf 为链式第 2 形态，值等价）
     var IS_ADMIN = $('#credit-page').attr('data-is-admin') === '1';
     var POLL_INTERVAL_MS = 3000;
     var MAX_CONSECUTIVE_ERRORS = 5;
@@ -35,11 +35,10 @@
         $('#credit-alert').hide();
     }
 
+    // R177（架构评审 B5）：解包迁 common/api.js 的 strict 口径（与原实现等价：
+    // 非信封/parse 失败一律抛，告警框呈现，null 不漏到渲染层）。
     function unwrap(response) {
-        if (!response || response.success !== true) {
-            throw new Error(response && response.message ? response.message : 'request failed');
-        }
-        return response.result;
+        return window.MBApi.unwrapStrict(response);
     }
 
     // Why: CSRFProtect 校验失败返回非 JSON 的 400；自动 reload 一次取新 token 自愈，

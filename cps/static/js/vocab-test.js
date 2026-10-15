@@ -88,8 +88,8 @@
 
   // CSRF：token 不放 cookie，项目惯例是渲染进 hidden input 再由 JS 读取
   function csrfToken() {
-    var input = document.querySelector("input[name='csrf_token']");
-    return input ? input.value : '';
+    // R177：CSRF 单点迁 common/api.js（input[name=csrf_token] 为链式第 3 形态，值等价）
+    return window.MBApi.csrfToken();
   }
 
   // CSRF 失败自愈：token 过期/会话重建后服务端 400，刷新取新 token（独立标记键防死循环）
