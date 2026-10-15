@@ -98,6 +98,34 @@ def test_reader_page_allows_youdao_word_audio(app, make_response_headers):
     )
 
 
+def test_reader_page_allows_ted_audio_minio_origin(app, make_response_headers):
+    """Reader must allow media-src https://home.haoshenqi.top:9001 for TED audio.
+
+    TED-type books (R172 "原声伴听") play one continuous native recording whose
+    URL moon-well returns as a MinIO *public* HTTPS direct link, e.g.
+    https://home.haoshenqi.top:9001/magicbook/ted-audio/<slug>.aac. The browser
+    loads that cross-origin media directly (it is not proxied through magicbook),
+    so the reader CSP must explicitly allow that origin; otherwise playback is
+    blocked with "Loading media from '...' violates ... media-src" and the book
+    stays silent (R181 field retest). Only the reader page needs this — keep the
+    surface narrow.
+    """
+    with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):
+        resp = make_response_headers("web.read_book")
+
+    csp = resp.headers.get("Content-Security-Policy")
+    assert csp, "reader page must set a Content-Security-Policy"
+
+    media_directive = [d.strip() for d in csp.split(";") if d.strip().startswith("media-src")]
+    assert media_directive, (
+        "reader page CSP must explicitly set media-src; CSP was: " + csp
+    )
+    assert "https://home.haoshenqi.top:9001" in media_directive[0], (
+        "media-src must allow the MinIO public origin https://home.haoshenqi.top:9001 "
+        "for TED native audio; directive was: " + media_directive[0]
+    )
+
+
 def test_non_reader_pages_still_block_blob_media(app, make_response_headers):
     """Any non-reader page keeps the stricter (no blob) CSP default.
 

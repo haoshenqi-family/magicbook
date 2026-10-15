@@ -110,6 +110,7 @@ tedAudioPlayer = {
 | 浏览器拦截自动播放 | 转暂停态，点击恢复（同 `bookPlayer` 形态） |
 | 浏览器不支持 ADTS `.aac` 直放 | **验收项实测**；不支持则回退方案 B（§7） |
 | moon-well 不可达 / 超时 | 提示原声不可用；单段朗读（有浏览器兜底）与整本翻译不受影响 |
+| 阅读页 CSP 未放行音频源 | 浏览器按 `media-src` 拦截跨源 media，播放静默失败且服务端无异常日志；须在 `web.py` 阅读页 CSP 显式放行 MinIO 外网源（R175，见 §9） |
 
 ## 6. 测试与验收
 
@@ -160,3 +161,20 @@ tedAudioPlayer = {
   锁不住"语义正确性"；跨服务语义对齐必须实测或读上游定义）。
 - **守卫**：`test_shunt_is_runtime_probe_not_file_format`（正向锁探测置位 + **负向锁**禁止再用
   `bookFormat`）、`test_tts_book_button_routed_through_probe`；三条反向变异已实测报红（§6.2）。
+
+### 2026-10-15 CSP 拦截事故（R181 直链就绪后仍无声）
+
+- **现象**：moon-well R181 已把对外音频基址改 MinIO 公共直链并放匿名只读，用户复测 TED 音频仍无声，
+  控制台报 `Loading media from 'https://home.haoshenqi.top:9001/magicbook/ted-audio/…' violates the
+  following Content Security Policy directive: "media-src 'self' blob: https://dict.youdao.com"`。
+- **根因**：TED 原声由浏览器**直连** MinIO 公共直链（不经 magicbook 代理），而阅读页 CSP 的
+  `media-src` 只放行了 `'self'` / `blob:` / 有道词库源，跨源 media 未在白名单内即被拦。
+  ⇒ 与 R181 的「投递」根因**分属两层**：R181 修「直链对不对」，本条修「阅读页准不准放」。
+- **修法**：`cps/web.py` `add_security_headers` **仅阅读页**（`web.read_book`）的 `media-src` 追加
+  `https://home.haoshenqi.top:9001`（沿用有道源同款硬编码先例）；非阅读页不 emit `media-src`，
+  不放宽全局攻击面。
+- **附带澄清**：`Blocked script execution in 'about:srcdoc' …'` 系 epub.js 内容沙箱既有告警
+  （默认 `allowScriptedContent: false` → iframe `sandbox="allow-same-origin"`，拦的是书内脚本而非父页
+  audio），与本次阻塞无关。
+- **守卫**：`test_reader_page_allows_ted_audio_minio_origin`（正向锁阅读页放行 MinIO 源）+ 保留
+  `test_non_reader_pages_still_block_blob_media`（负向锁）；反向变异实测：摘掉该源 → 1 failed，还原 → 4 passed。

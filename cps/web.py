@@ -119,8 +119,14 @@ def add_security_headers(resp):
         # media-src；CSP 未显式声明时回退 default-src（不含 blob:）导致播放被
         # 拦（控制台 "Loading media from 'blob:...' violates CSP"），必须显式放行。
         # 划词单词发音直连有道 dictvoice 词库 mp3（免费免 key），同样属 media
-        # 加载，需一并放行该源（仅阅读页，其余页面不受影响）
-        csp += "; media-src 'self' blob: https://dict.youdao.com"
+        # 加载，需一并放行该源（仅阅读页，其余页面不受影响）。
+        # TED 类书的整段原声（R172「原声伴听」）由 moon-well 返回 MinIO 外网直链
+        # （https://home.haoshenqi.top:9001，取值见 moon-well R181 的 minio.public-url），
+        # 由浏览器直连该源播放，同属 media 加载；未放行时阅读页报
+        # "Loading media from 'https://home.haoshenqi.top:9001/…' violates … CSP
+        # directive: media-src" 且静默无声（R181 复测现场），故一并放行。仅阅读页。
+        csp += ("; media-src 'self' blob: https://dict.youdao.com"
+                " https://home.haoshenqi.top:9001")
     csp += "; img-src 'self'"
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"
