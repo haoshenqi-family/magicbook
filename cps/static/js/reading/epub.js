@@ -8,6 +8,13 @@ var reader;
   var mbT = window.mbT || function (id) { return id; };
   // R183（B4 批次 1）：横切原语单点（toast / CSRF 自愈 / 段落口径），实现见 reader-core.js
   var RC = window.ReaderCore;
+  // R183（B4 批次 2）：单词详解面板（R123）实现见 reader-word-detail.js
+  var RD = window.ReaderWordDetail;
+  if (!RD) {
+      // Why 显式报错而不是静默跳过：详解面板会整块失效，静默降级在界面上的表现是
+      // 「详按钮点了没反应」，用户报障永远指不到载入顺序这一步
+      console.error('[reader] reader-word-detail.js 未载入，单词详解面板不可用');
+  }
 
     EPUBJS.filePath = calibre.filePath;
     EPUBJS.cssPath = calibre.cssPath;
@@ -362,7 +369,7 @@ var reader;
         if (text !== undefined) popoverHideText = text;
         // Why 挂起：详解面板存活期间气泡不自动隐藏（单词译文默认仅 5 秒，
         // 而面板要承载 30s 级的现场生成与阅读）；面板关闭时由其负责重挂计时
-        if (wordDetailPanel) return;
+        if (RD.isOpen()) return; // R183：面板态归模块持有
         // 气泡已被收走（如翻页联动）时无需再计时
         if (!translationPopover) return;
         // 译文结果未到达（loading 态点击）：没有可计时的内容
@@ -593,223 +600,22 @@ var reader;
         popover.appendChild(minusBtn);
     }
 
-    // ===== 单词详解面板（R123，与 magiclens v0.4.0 同构）=====
-    // 六板块：基本意思 → 词源 → 搭配·用法·习语 → 变体衍生 → 同/反义词 → 俚语冷知识。
-    // Why textContent 组装：内容来自 LLM，绝不进 innerHTML，杜绝注入。
-    var wordDetailRequest = 0;
-    var wordDetailPanel = null;
-
-    function wdEl(tag, cls, text) {
-        var el = document.createElement(tag);
-        if (cls) el.className = cls;
-        if (text !== undefined && text !== null) el.textContent = text;
-        return el;
-    }
-
-    function wdSection(title) {
-        var sec = wdEl('div', 'wd-sec');
-        sec.appendChild(wdEl('h4', null, title));
-        var ul = wdEl('ul');
-        sec.appendChild(ul);
-        return {sec: sec, ul: ul};
-    }
-
-    function closeWordDetailPanel() {
-        wordDetailRequest++; // 在途响应作废，旧词慢响应不得覆盖新面板
-        if (wordDetailPanel) {
-            wordDetailPanel.remove();
-            wordDetailPanel = null;
-        }
-        document.removeEventListener('keydown', closeWordDetailPanelOnEsc, true);
-        // 面板存活期间气泡自动隐藏被挂起：关闭面板后恢复倒计时
-        //（气泡已不在时 schedulePopoverHide 内部会直接跳过，不会形成循环）
-        schedulePopoverHide();
-    }
-
-    // R125：不再有点外关闭——面板是独立浮层，用户阅读/复制/点正文都不应误杀
-    // 一趟 15~30s 的生成；关闭路径只有 ✕ 按钮与 Esc（捕获先于分层退出链）
-
-    function closeWordDetailPanelOnEsc(ev) {
-        if (ev.key === 'Escape') {
-            // 捕获先于分层退出链：面板是最表层，本次 Esc 只关面板，
-            // 阻断后续监听才不会连带收走划词气泡（一次 Esc 只关一层）
-            ev.stopImmediatePropagation();
-            closeWordDetailPanel();
-        }
-    }
-
+    // ===== 单词详解面板（R123）——实现已迁出 reader-word-detail.js（R183 B4 批次 2）=====
+    // 面板 DOM/请求守卫/六板块渲染都在模块内；这里只留气泡调用点需要的薄委托与宿主回调。
     function appendWordDetailButton(popover, text) {
-        var btn = wdEl('span', 'translation-detail', '详');
-        btn.title = mbT('Word detail (etymology, phrases, forms…)');
-        btn.addEventListener('click', function (ev) {
-            ev.stopPropagation();
-            openWordDetailPanel(normalizedWord(text), popover);
-        });
-        popover.appendChild(btn);
+        RD.appendButton(popover, text);
     }
 
-    function openWordDetailPanel(word, anchor) {
-        // Why 先清理再取序号：closeWordDetailPanel 会自增序号作废旧响应，
-        // 若先取 seq 再清理，本请求的响应会被自己的守卫丢弃（审查 P0）
-        closeWordDetailPanel();
-        var seq = ++wordDetailRequest;
-        var panel = wdEl('div', 'reading-word-detail');
-        panel._anchor = anchor;
-        var head = wdEl('div', 'wd-head');
-        var wordEl = wdEl('span', 'wd-word', word);
-        var tag = wdEl('span', 'wd-tag', mbT('variant'));
-        tag.hidden = true;
-        var closeBtn = wdEl('span', 'wd-close', '✕');
-        closeBtn.title = mbT('Close');
-        closeBtn.addEventListener('click', function (ev) {
-            ev.stopPropagation();
-            closeWordDetailPanel();
-        });
-        head.appendChild(wordEl);
-        head.appendChild(tag);
-        head.appendChild(closeBtn);
-        var variantLine = wdEl('p', 'wd-variant');
-        variantLine.hidden = true;
-        var body = wdEl('div', 'wd-body');
-        body.appendChild(wdEl('div', 'wd-msg',
-            mbT('AI is generating… (first lookup takes 15-30s, the panel stays open and shows the result automatically)')));
-        panel.appendChild(head);
-        panel.appendChild(variantLine);
-        panel.appendChild(body);
-        document.body.appendChild(panel);
-        wordDetailPanel = panel;
-        positionWordDetailPanel();
-        // 面板存活期间挂起气泡自动隐藏（30s 级生成与阅读不被 5s 倒计时收走）
-        if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
-        // R125：仅 Esc 关闭（点外/新选区/翻页不再误关面板，关闭路径只有 ✕ 与 Esc）
-        document.addEventListener('keydown', closeWordDetailPanelOnEsc, true);
-        $.ajax({
-            url: calibre.readingWordDetailUrl, method: 'POST', contentType: 'application/json',
-            headers: {'X-CSRFToken': readerCsrfToken()},
-            data: JSON.stringify({word: word})
-        }).done(function (response) {
-            if (seq !== wordDetailRequest || !wordDetailPanel) return;
-            renderWordDetail(response.result || response.data || {}, word);
-        }).fail(function (xhr) {
-            // CSRF 过期/会话重建：刷新页面拿新 token，避免误导性报错
-            if (reloadIfCsrfBlocked(xhr)) return;
-            if (seq !== wordDetailRequest || !wordDetailPanel) return;
-            body.innerHTML = '';
-            var errMsg = wdEl('div', 'wd-msg is-err', mbT('Failed to load detail, please retry later'));
-            // R19/R125：非鉴权失败给点击重试（后端已缓存部分结果或下次命中）
-            errMsg.style.cursor = 'pointer';
-            errMsg.addEventListener('click', function () {
-                openWordDetailPanel(word, anchor);
-            });
-            body.appendChild(errMsg);
-        });
-    }
-
-    function positionWordDetailPanel() {
-        if (!wordDetailPanel || !wordDetailPanel._anchor) return;
-        var r = wordDetailPanel._anchor.getBoundingClientRect();
-        var b = wordDetailPanel.getBoundingClientRect();
-        var top = r.bottom + 8, left = r.left;
-        if (top + b.height > window.innerHeight) top = Math.max(8, r.top - b.height - 8);
-        left = Math.min(Math.max(8, left), window.innerWidth - b.width - 8);
-        wordDetailPanel.style.top = top + 'px';
-        wordDetailPanel.style.left = left + 'px';
-    }
-
-    function renderWordDetail(d, queriedWord) {
-        if (!wordDetailPanel) return;
-        var body = wordDetailPanel.querySelector('.wd-body');
-        var tag = wordDetailPanel.querySelector('.wd-tag');
-        var variantLine = wordDetailPanel.querySelector('.wd-variant');
-        body.innerHTML = '';
-        // 标题展示词目（lemma）：划的是变体（ran）时讲解主体是词目（run）
-        wordDetailPanel.querySelector('.wd-word').textContent = d.lemma || d.word || queriedWord;
-        if (d.isVariant) {
-            tag.hidden = false;
-            variantLine.hidden = !d.variantNote;
-            variantLine.textContent = d.variantNote || '';
+    // Why 注入回调而不是让模块反向 import：词形归一（C 节 normalizedWord）与气泡自动
+    // 隐藏定时器（B 节 popoverHideTimer）都是 epub.js 的 IIFE 私有态，闭包注入让它们
+    // 仍由本文件独占可变状态，模块只负责在面板生命周期里请求「挂起 / 恢复」
+    RD.setHost({
+        normalizedWord: normalizedWord,
+        schedulePopoverHide: schedulePopoverHide,
+        cancelAutoHide: function () {
+            if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
         }
-        var arr = function (v) { return Array.isArray(v) ? v : []; };
-
-        // 1 基本意思
-        if (arr(d.meaning).length) {
-            var ms = wdSection(mbT('Meaning'));
-            arr(d.meaning).forEach(function (m) {
-                var li = wdEl('li');
-                if (m.pos) li.appendChild(wdEl('span', 'wd-pos', '【' + m.pos + '】'));
-                li.appendChild(wdEl('span', 'wd-en', m.sense || ''));
-                if (m.example) li.appendChild(wdEl('span', 'wd-note', '　' + m.example));
-                ms.ul.appendChild(li);
-            });
-            body.appendChild(ms.sec);
-        }
-        // 2 词源（重点板块）
-        if (d.etymology) {
-            var es = wdSection(mbT('Etymology'));
-            es.ul.appendChild(wdEl('li', null, d.etymology));
-            body.appendChild(es.sec);
-        }
-        // 3 固定搭配 / 常见用法 / 习语
-        if (arr(d.phrases).length) {
-            var ps = wdSection(mbT('Phrases · Usage · Idioms'));
-            arr(d.phrases).forEach(function (p) {
-                var li = wdEl('li');
-                if (p.kind) li.appendChild(wdEl('span', 'wd-pos', '【' + p.kind + '】'));
-                li.appendChild(wdEl('span', 'wd-en', p.phrase || ''));
-                if (p.meaning) li.appendChild(wdEl('span', 'wd-note', '　' + p.meaning));
-                if (p.example) li.appendChild(wdEl('span', 'wd-note', '　' + p.example));
-                ps.ul.appendChild(li);
-            });
-            body.appendChild(ps.sec);
-        }
-        // 4 变体与衍生词（不规则变化金色高亮）
-        if (arr(d.forms).length) {
-            var fs = wdSection(mbT('Forms & Derivatives'));
-            var chips = wdEl('li');
-            arr(d.forms).forEach(function (f) {
-                var chip = wdEl('span', 'wd-chip' + (f.irregular ? ' is-irregular' : ''));
-                chip.appendChild(wdEl('b', null, f.form || ''));
-                if (f.type) chip.appendChild(document.createTextNode(' ' + f.type));
-                chips.appendChild(chip);
-            });
-            fs.ul.appendChild(chips);
-            body.appendChild(fs.sec);
-        }
-        // 5 同义词 / 反义词
-        var wordList = function (title, list) {
-            var s = wdSection(title);
-            arr(list).forEach(function (w) {
-                var li = wdEl('li');
-                li.appendChild(wdEl('span', 'wd-en', w.word || ''));
-                if (w.note) li.appendChild(wdEl('span', 'wd-note', '　' + w.note));
-                s.ul.appendChild(li);
-            });
-            body.appendChild(s.sec);
-        };
-        if (arr(d.synonyms).length) wordList(mbT('Synonyms'), d.synonyms);
-        if (arr(d.antonyms).length) wordList(mbT('Antonyms'), d.antonyms);
-        // 6 俚语 / 冷知识
-        if (arr(d.slang).length) {
-            var sl = wdSection(mbT('Slang & Informal'));
-            arr(d.slang).forEach(function (it) {
-                var li = wdEl('li');
-                li.appendChild(wdEl('span', 'wd-en', it.meaning || ''));
-                if (it.example) li.appendChild(wdEl('span', 'wd-note', '　' + it.example));
-                sl.ul.appendChild(li);
-            });
-            body.appendChild(sl.sec);
-        }
-        if (arr(d.funFacts).length) {
-            var ff = wdSection(mbT('Fun Facts'));
-            arr(d.funFacts).forEach(function (t) { ff.ul.appendChild(wdEl('li', null, t)); });
-            body.appendChild(ff.sec);
-        }
-        if (!body.childElementCount) {
-            body.appendChild(wdEl('div', 'wd-msg', mbT('No detail available')));
-        }
-        positionWordDetailPanel(); // 内容撑开面板后重新定位
-    }
-
+    });
     // ===== 划词右键快捷菜单：引用选中内容到 AI 伴读输入框 =====
     // 有选区时右键用自定义菜单替换原生菜单（原生菜单被拦截后「复制」入口
     // 没了，作为第二个菜单项补回）；无选区时放行原生菜单。
@@ -2905,7 +2711,7 @@ var reader;
             closeSelectionMenu();
         }
         if (translationPopover && !translationPopover.contains(event.target)
-            && !(wordDetailPanel && wordDetailPanel.contains(event.target))) {
+            && !RD.containsNode(event.target)) {
             // 详解面板是气泡的兄弟节点：面板内点击不算「点气泡外」，
             // 否则会在面板里按鼠标时把气泡和面板一起收走（审查 P0）
             closeTranslationPopover();

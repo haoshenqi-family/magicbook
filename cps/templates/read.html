@@ -540,6 +540,7 @@
       {# R183（架构评审 B4 批次 1）：横切原语（toast/CSRF 自愈/段落口径）必须先于 epub.js——
          epub.js 顶层就取 window.ReaderCore 与 PARAGRAPH_SELECTOR 常量 #}
       <script src="{{ url_for('static', filename='js/reading/reader-core.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/reader-word-detail.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
       {# R151 阅读活跃心跳：四股台账 INPUT 股信号源（可见 + 近 3 分钟有交互才计） #}
       <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>

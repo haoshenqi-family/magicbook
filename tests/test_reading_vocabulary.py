@@ -871,7 +871,11 @@ def test_word_detail_reader_wiring_contract(moonwell_configured):
     带 CSRF；详解内容必须 textContent 组装（LLM 内容禁入 innerHTML）。"""
     import re
 
-    source = _reader_js_source("epub.js")
+    # R183（B4 批次 2）：面板实现迁至 reader-word-detail.js，接线契约跨文件成立，
+    # 故读按 read.html 载入顺序拼接的 reader 模块全集
+    from tests.reader_js_modules import reader_blob
+
+    source = reader_blob()
     # 配置注入与按钮挂载（与生词标记同口径：仅单个英文单词）
     assert re.search(r"readingWordDetailUrl && SINGLE_WORD_RE\.test\(text\)", source)
     assert "appendWordDetailButton(popover, text)" in source
@@ -893,7 +897,8 @@ def test_word_detail_reader_wiring_contract(moonwell_configured):
     assert "wordDetailRequest++" not in open_body.group(0), \
         "seq 取号后又自增序号，会把本请求的响应一并作废"
     # 面板存活期间挂起气泡自动隐藏（5s 倒计时否则必然收走 30s 级生成）
-    assert re.search(r"if \(wordDetailPanel\) return;", source)
+    # R183：面板态改由模块持有，气泡侧的存活判定走 RD.isOpen()
+    assert re.search(r"if \(RD\.isOpen\(\)\) return;", source)
     # R125 生命周期解耦：面板仅由 ✕/Esc 关闭——收气泡不得连带收面板，
     # 点外监听必须不存在（生成等待期的滚动/翻选/点正文都不应误杀一趟生成）
     close_body = re.search(r"function closeTranslationPopover\(\)[\s\S]*?\n    \}", source)
