@@ -1,0 +1,211 @@
+{% extends "layout.html" %}
+{% block header %}
+<style>
+  .wd-muted { color: #777; font-size: 12px; }
+  .wd-running { color: #8a6d3b; }
+  .wd-done { color: #3c763d; }
+  .wd-failed { color: #a94442; }
+  .wd-bar { position: relative; height: 18px; background: #f2f2f2; border-radius: 3px;
+            margin: 10px 0 4px; overflow: hidden; }
+  .wd-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #4cae4c; width: 0;
+                 transition: width .3s ease; }
+  .wd-bar-text { position: absolute; width: 100%; text-align: center; font-size: 12px; line-height: 18px; }
+  .wd-numbers span { margin-right: 18px; }
+  .wd-sample { word-break: break-all; }
+</style>
+{% endblock %}
+{% block body %}
+<input type="hidden" id="wd-csrf" value="{{ csrf_token() }}">
+<input type="hidden" id="wd-book-id" value="{{ book_id }}">
+<input type="hidden" id="wd-book-format" value="{{ book_format }}">
+<div class="discover">
+  <h1>{{_('Whole-book Word Details')}}</h1>
+  <div class="col-md-12">
+    <p class="text-muted">
+      {{_('Backfill only the words of this book that have no word detail yet. The first step is read-only: it counts the words and tells you how many would be generated. Nothing is queued until you press Start.')}}
+    </p>
+    <div id="wd-preview" class="wd-numbers wd-muted">{{_('Loading preview…')}}</div>
+    <div id="wd-sample" class="wd-sample wd-muted"></div>
+    <p style="margin-top:12px">
+      <button class="btn btn-primary" id="wd-start" disabled>{{_('Start Backfill')}}</button>
+      <button class="btn btn-default" id="wd-refresh">{{_('Refresh Progress')}}</button>
+      <button class="btn btn-danger" id="wd-cancel" style="display:none">{{_('Stop This Batch')}}</button>
+      <span id="wd-note" class="wd-muted" style="margin-left:12px"></span>
+    </p>
+  </div>
+  <div class="col-md-12" style="margin-top:8px">
+    <div id="wd-progress">
+      <div class="wd-bar"><div class="wd-bar-fill" id="wd-fill"></div>
+        <span class="wd-bar-text" id="wd-bar-text">—</span></div>
+      <div id="wd-counters" class="wd-numbers wd-muted"></div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+    // Why 内联脚本 + 自备 CSRF：沿用 translate_all.html/llm_tasks.html 的形制，
+    // 不新增 static/js 文件（CSRFProtect 全局启用，POST 必须带 token）。
+    var csrf = document.getElementById('wd-csrf').value;
+    var bookId = document.getElementById('wd-book-id').value;
+    var bookFormat = document.getElementById('wd-book-format').value;
+    // Why 30s 而不是整本翻译的 4s：覆盖率的真源是 moon-well 的 cached-check，
+    // 服务端每次都是一趟索引级扫描（search_after 翻页）。4s 一轮等于拿管理页
+    // 当 ES 人肉刷新器；整本翻译能 4s 是因为它的进度源是本地 SQLite 行计数。
+    var POLL_MS = 30000;
+    var jobId = null;
+    var preview = null;
+    var timer = null;
+
+    function post(url, data, done) {
+        $.ajax({url: url, method: 'POST', contentType: 'application/json',
+                headers: {'X-CSRFToken': csrf}, data: JSON.stringify(data || {})})
+            .done(function (r) { done(null, r); })
+            .fail(function (xhr) {
+                // Why 优先显示 responseJSON.message：moon-well 的灌队闸门（在途上限、
+                // 单次词数上限）都靠这句业务文案说明「该分批还是该等资源」，
+                // 只剩 HTTP 500 等于把可执行的结论抹成一句报错。
+                done((xhr.responseJSON && xhr.responseJSON.message) || ('HTTP ' + xhr.status));
+            });
+    }
+
+    // Why 一律 textContent：书名来自书库，拼进 innerHTML 就是把存储型 XSS 请进管理页
+    // （translate_all.html 的旧拼接形制不在这里复刻）。
+    function text(node, value) {
+        document.getElementById(node).textContent = value;
+    }
+
+    function loadPreview() {
+        text('wd-note', '');
+        post('{{ url_for("web.reading_word_detail_preview") }}',
+             {book_id: bookId, book_format: bookFormat}, function (err, r) {
+            if (err) {
+                text('wd-preview', err);
+                text('wd-note', err);
+                return;
+            }
+            preview = r;
+            text('wd-preview',
+                 '{{_('Distinct words in this book')}}: ' + r.distinctWords +
+                 ' · {{_('Already have details')}}: ' + r.cachedWords +
+                 ' · {{_('To generate')}}: ' + r.targetWords +
+                 ' · {{_('rough estimate')}} ≈ ' + r.estimatedTokens.toLocaleString() + ' tokens');
+            var sample = document.getElementById('wd-sample');
+            if (r.missingSample && r.missingSample.length) {
+                sample.textContent = '{{_('Missing words (first 20)')}}: ' + r.missingSample.join(' ');
+            } else {
+                sample.textContent = '';
+            }
+            var start = document.getElementById('wd-start');
+            start.disabled = !r.targetWords;
+            if (!r.targetWords) {
+                text('wd-note', '{{_('Every word in this book already has a word detail.')}}');
+            }
+        });
+    }
+
+    function renderProgress(r) {
+        if (r.status === 'NONE') {
+            text('wd-bar-text', '—');
+            document.getElementById('wd-fill').style.width = '0';
+            text('wd-counters', '');
+            document.getElementById('wd-cancel').style.display = 'none';
+            jobId = null;
+            return;
+        }
+        jobId = r.jobId;
+        var pct = Math.round((r.coverage || 0) * 100);
+        document.getElementById('wd-fill').style.width = pct + '%';
+        text('wd-bar-text', r.coveredWords + ' / ' + r.targetWords + ' (' + pct + '%)');
+        var counters = document.getElementById('wd-counters');
+        counters.textContent = '';
+        [
+            {label: '{{_('Book')}}', value: r.bookName},
+            {label: '{{_('Status')}}', value: r.status},
+            {label: '{{_('Queued by this batch')}}', value: r.publishedWords},
+            {label: '{{_('Open batches')}}', value: r.openBatches},
+            {label: '{{_('Failed batches')}}', value: r.failedBatches}
+        ].forEach(function (cell) {
+            var span = document.createElement('span');
+            span.textContent = cell.label + ': ' + cell.value;
+            if (cell.label === '{{_('Status')}}') {
+                span.className = r.status === 'COMPLETED' ? 'wd-done'
+                    : (r.status === 'PARTIAL_FAILED' ? 'wd-failed' : 'wd-running');
+            }
+            counters.appendChild(span);
+        });
+        document.getElementById('wd-cancel').style.display =
+            (r.status === 'RUNNING' || r.status === 'PENDING') ? '' : 'none';
+        // Why 批次失败要在页面上显形：发布在后台线程，start 的响应先于失败发生，
+        // 闸门文案只有落进进度里管理员才看得到（不然只剩一个永远涨不满的覆盖率）。
+        if (r.lastError) {
+            text('wd-note', r.lastError);
+        }
+    }
+
+    function refresh() {
+        post('{{ url_for("web.reading_word_detail_progress") }}',
+             {job_id: jobId, book_id: bookId}, function (err, r) {
+            if (err) { text('wd-note', err); return; }
+            renderProgress(r);
+            text('wd-note', '');
+        });
+    }
+
+    // Why 只在页面可见时轮询：管理页常驻打开的标签不该替一条队列消费者路径持续扫 ES。
+    function schedule() {
+        if (timer) clearInterval(timer);
+        timer = setInterval(function () {
+            if (!document.hidden) refresh();
+        }, POLL_MS);
+    }
+
+    document.getElementById('wd-refresh').addEventListener('click', refresh);
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden && jobId) refresh();
+    });
+
+    document.getElementById('wd-start').addEventListener('click', function () {
+        if (!preview) return;
+        // 二次确认必须把数字复述一遍：这一步是真花钱的（按发起者计费）。
+        // Why 每个取词单独成行拼接、不在 Jinja 表达式里写换行：Jinja 会把模板字符串里的
+        // '\n' 解析成真实换行，写进 JS 单引号串里就是「未闭合字符串」——整块 confirm
+        // 文案的换行必须留在 JS 侧转义。（同理：注释里也不能出现成对的花括号取词写法，
+        // 那会被 Jinja 当表达式执行。）
+        var question = '{{_('Queue word details for this book now?')}}' + '\n\n' +
+            '{{_('To generate')}}: ' + preview.targetWords + '\n' +
+            '{{_('rough estimate')}}: ~ ' + preview.estimatedTokens.toLocaleString() + ' tokens\n' +
+            '{{_('Already-generated words and words still in the queue are skipped by the server.')}}';
+        if (!window.confirm(question)) return;
+        var btn = this;
+        btn.disabled = true;
+        btn.textContent = '\u2026';
+        post('{{ url_for("web.reading_word_detail_start") }}',
+             {book_id: bookId, book_format: bookFormat, force: false}, function (err, r) {
+            btn.disabled = false;
+            btn.textContent = '{{_('Start Backfill')}}';
+            if (err) {
+                text('wd-note', err);
+                return;
+            }
+            renderProgress(r);
+            schedule();
+            loadPreview();
+        });
+    });
+
+    document.getElementById('wd-cancel').addEventListener('click', function () {
+        if (!jobId) return;
+        if (!window.confirm('{{_('Stop this batch? Tasks already queued will still be generated by the queue consumer.')}}')) return;
+        post('{{ url_for("web.reading_word_detail_cancel") }}', {job_id: jobId}, function (err, r) {
+            if (err) { text('wd-note', err); return; }
+            renderProgress(r);
+            text('wd-note', '{{_('Batch stopped: remaining batches will not be queued.')}}');
+        });
+    });
+
+    loadPreview();
+    refresh();
+    schedule();
+})();
+</script>
+{% endblock %}

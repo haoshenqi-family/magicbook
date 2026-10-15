@@ -86,6 +86,11 @@
                                     data-book-id="{{ entry.id }}"
                                     data-book-format="{{ entry.data[0].format|lower}}"
                                     data-csrf-token="{{ csrf_token() }}">整本朗读</button>{% endif %}
+                            {# 全文单词详解(R176)：整本翻译/整本朗读之后的第三个整本能力。
+                               做成链接而不是按钮——它是两步式页面(只读预览→确认入队),
+                               点一下就下单会把最贵的调用藏在一次 click 里。 #}
+                            {% if current_user.role_admin() %}<a class="btn btn-default"
+                                    href="{{ url_for('web.word_detail_batch_page', book_id=entry.id, book_format=('epub' if 'epub' in entry.reader_list else 'kepub')) }}">全文单词详解</a>{% endif %}
                         {% endif %}
                         <div class="btn-group" role="group">
                             {% if entry.reader_list|length > 1 %}

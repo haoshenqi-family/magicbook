@@ -29,6 +29,24 @@
 
 - `GET` 当前档位 + 全集档位（测试报告推荐一键应用的落点）；`POST /hard-level` 改档实时生效。
 
+### 5. 全文单词详解（按书补缺，R176）
+
+详情页第三个整本能力（与整本翻译/整本朗读并列），对端 moon-well R188。
+
+| 端点 | 副作用 | 说明 |
+| --- | --- | --- |
+| `POST /ajax/word-detail-preview` | **只读** | `{book_id, book_format}` → `{distinctWords, cachedWords, targetWords, notWordLike, estimatedTokens, missingSample}` |
+| `POST /ajax/word-detail-start` | 建台账 + 后台分批入队 | `{book_id, book_format, force}` → 批次进度快照（立即返回，发布在 daemon 线程） |
+| `POST /ajax/word-detail-progress` | 只读 + 覆盖率懒回收 | `{job_id?}`（缺省按 `book_id` 取该书最新批次） |
+| `POST /ajax/word-detail-cancel` | 停本批次 | 已入队任务仍由队列消费者生成完毕 |
+| `GET /word-detail-batch` | 页面 | 管理员；`book_id` 非数字直接 400 |
+
+- 门禁：四个 ajax 端点返回 **JSON 403**（`_llm_task_admin_gate` 形制，页面路由仍用 `@admin_required`）；权威白名单在 moon-well 侧二检，与 R126 面板同一纵深防御。
+- **进度口径＝词覆盖率**（`coveredWords / targetWords`），不是任务状态：执行方是队列消费者，本站既非发起者也非唯一消费者，`COMPLETED` 不等于缓存里真有。
+- 上游业务文案不被吞：灌队闸门（在途上限、单次 2000 词上限）的 `Result.message` 经 `progress.lastError` 原样到达页面。
+- 台账 `reading_word_detail_job` / `reading_word_detail_job_item`，**item 粒度＝一批 200 词**（不是一词一行）；词形过滤（缩略形/连字符/单字母噪声）只存在于 moon-well 发布内核一处，本站照抽不滤，避免同一本书在两入口得出不同集合。
+- 轮询 **30s** 且仅页面可见时：覆盖率源是 moon-well 的索引级扫描，不同于整本翻译的本地行计数（4s）。
+
 ## 调用方契约
 
 - 鉴权：同 reading 模块——当前用户 JWT 代理，不走内网互信。
@@ -37,4 +55,5 @@
 ## L3 索引
 
 - [词汇量测试 LLD（含 magicbook 侧 US4 代理与设置 UI）](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/vocab-size-test/design/vocab-size-test-lld.md)
+- [全文单词详解：台账与页面（R176）](../feat/word-detail/design/book-batch-panel.md) · 对端 [moon-well R188](/Users/haoshenqi/codelib/haoshenqi-family/moon-well/docs/feat/word-detail/design/book-batch-warm-by-words.md)
 - [阅读单词学习规格](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/reading-vocabulary.md)
