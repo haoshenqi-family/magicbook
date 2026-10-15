@@ -296,7 +296,11 @@ def test_epub_js_reloads_on_csrf_failure():
     失败路径的引用。"""
     import re
 
-    source = _reader_js_source("epub.js")
+    # R183（B4 批次 1）：reloadIfCsrfBlocked 的实现下沉 reader-core.js，epub.js 只留
+    # 同名薄委托与全部调用点——本锁要同时看到两者，故读按载入顺序拼接的模块全集
+    from tests.reader_js_modules import reader_blob
+
+    source = reader_blob()
     assert 'function reloadIfCsrfBlocked' in source, \
         "epub.js must define reloadIfCsrfBlocked for CSRF-failure self-healing"
     assert "/csrf/i.test" in source, "CSRF detection must match response body text"

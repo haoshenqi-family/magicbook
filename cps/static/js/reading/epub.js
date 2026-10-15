@@ -6,6 +6,8 @@ var reader;
     "use strict";
   // R112: i18n 取词（种子缺失时回退 msgid 本身）
   var mbT = window.mbT || function (id) { return id; };
+  // R183（B4 批次 1）：横切原语单点（toast / CSRF 自愈 / 段落口径），实现见 reader-core.js
+  var RC = window.ReaderCore;
 
     EPUBJS.filePath = calibre.filePath;
     EPUBJS.cssPath = calibre.cssPath;
@@ -930,104 +932,44 @@ var reader;
     // 翻译内容自动隐藏时长：按原文词数动态折算——配置值是「每 100 词显示的
     // 秒数」，段落/选区越长显示越久，供「看一眼译文继续读原文」的使用方式；
     // 0 = 一直显示（关闭自动隐藏）。新 key 与旧的固定秒数语义区分，
-    // 旧值不会被误读为每 100 词秒数。
-    var TRANSLATION_DISPLAY_KEY = 'calibre.reader.translationDisplaySecondsPer100';
-    var TRANSLATION_DISPLAY_DEFAULT = 5;
+    // 旧值不会被误读为每 100 词秒数。键名与默认值出自 reader-core.js（单一真相，
+    // 设置面板与折算实现必须读同一个 key，R183）
+    var TRANSLATION_DISPLAY_KEY = RC.TRANSLATION_DISPLAY_KEY;
+    var TRANSLATION_DISPLAY_DEFAULT = RC.TRANSLATION_DISPLAY_DEFAULT;
     // 配置值同时是最小显示秒数：折算不足时按配置值整秒显示，避免单词/短句一闪而过
 
+    // R183（B4 批次 1）：以下三组实现已下沉 reader-core.js（window.ReaderCore），
+    // 这里保留同名薄委托——调用点与静态锁的计数口径都不变，一个过渡期后再逐步改直调。
     function translationDisplaySecondsPer100() {
-        var raw = null;
-        try { raw = localStorage.getItem(TRANSLATION_DISPLAY_KEY); } catch (e) {}
-        var value = parseInt(raw, 10);
-        return (isNaN(value) || value < 0) ? TRANSLATION_DISPLAY_DEFAULT : value;
+        return RC.translationDisplaySecondsPer100();
     }
 
-    // 词数统计：中文每字算一词，连续拉丁字母/数字串算一词（英文段落按单词
-    // 计、中文段落按字计），作为显示时长的折算基数
     function countWords(text) {
-        var normalized = String(text || '').replace(/\s+/g, ' ').trim();
-        if (!normalized) return 0;
-        var cjk = (normalized.match(/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g) || []).length;
-        var latin = (normalized.match(/[A-Za-z0-9]+(?:['\u2019-][A-Za-z0-9]+)*/g) || []).length;
-        return cjk + latin;
+        return RC.countWords(text);
     }
 
-    // 显示秒数 = max(配置值, 词数 * 配置值 / 100)，四舍五入到整秒：
-    // 配置值即最小显示时长：单词/短句按配置值整秒显示、不会一闪而过；长段落按词数折算显示更久
     function translationDisplaySecondsFor(sourceText) {
-        var per100 = translationDisplaySecondsPer100();
-        if (!per100) return 0;
-        var scaled = Math.round(countWords(sourceText) * per100 / 100);
-        return Math.max(per100, scaled);
+        return RC.translationDisplaySecondsFor(sourceText);
     }
 
     function readerCsrfToken() {
-        return $("input[name='csrf_token']").val() || "";
+        return RC.csrfToken();
     }
 
-    // CSRF 失败自愈：页面长期打开（token 过期/会话重建后旧 token 与
-    // session 不匹配）时，服务端会以 400 拒绝而阅读器内多数请求是静默
-    // 失败。检测到 CSRF 类错误即刷新页面——epub.js 会从 localStorage
-    // 恢复原阅读位置，仅一次轻微闪断。sessionStorage 标记防死循环刷新。
     function reloadIfCsrfBlocked(xhrOrText) {
-        var text = typeof xhrOrText === 'string' ? xhrOrText
-            : (xhrOrText && (xhrOrText.responseText || '')) || '';
-        if (!/csrf/i.test(text)) return false;
-        var key = 'calibre.reader.csrfReloaded';
-        var seen = false;
-        try { seen = sessionStorage.getItem(key) === '1'; } catch (e) {}
-        if (seen) return true;
-        try { sessionStorage.setItem(key, '1'); } catch (e) {}
-        location.reload();
-        return true;
+        return RC.reloadIfCsrfBlocked(xhrOrText);
     }
-
-    // 注入 iframe 的按钮/译文样式：用 currentColor 跟随阅读主题
-    var READER_TOOLS_STYLE = [
-        '.reading-para-btn{display:inline-block;margin-left:6px;padding:0 2px;font-size:.8em;line-height:1;opacity:0;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit}',
-        '.reading-para-btn:hover{opacity:1}',
-        '.reading-para-btn.is-loading,.reading-para-btn.is-playing{opacity:.85}',
-        'p:hover>.reading-para-btn,li:hover>.reading-para-btn,blockquote:hover>.reading-para-btn,h1:hover>.reading-para-btn,h2:hover>.reading-para-btn,h3:hover>.reading-para-btn,h4:hover>.reading-para-btn,h5:hover>.reading-para-btn,h6:hover>.reading-para-btn,div:hover>.reading-para-btn{opacity:.5}',
-        '@media (hover:none){.reading-para-btn{opacity:.35}}',
-        '.reading-tts-btn::before{content:"▶"}',
-        '.reading-tts-btn.is-loading::before{content:"⟳"}',
-        '.reading-tts-btn.is-playing::before{content:"■"}',
-        '.reading-translate-btn::before{content:"' + mbT('Tr') + '"}',
-        '.reading-translate-btn.is-loading::before{content:"⟳"}',
-        '.reading-translate-btn.is-done{opacity:.5}',
-        '.reading-annotation-btn::before{content:"✎"}',
-        '.reading-companion-btn::before{content:"✨"}',
-        '.reading-companion-btn.is-loading::before{content:"⟳"}',
-        '.reading-translation{margin:6px 0 14px;font-size:.92em;line-height:1.5;color:inherit;opacity:.72;border-left:2px solid currentColor;padding-left:10px}',
-        '.reading-translation.is-loading{opacity:.4;font-style:italic}',
-        '.reading-translation.is-error{cursor:pointer;color:#c0392b;opacity:.9;font-style:italic;border-left-color:#c0392b}',
-        '.reading-tts-speaking{background:rgba(255,193,7,.24);box-shadow:inset 3px 0 0 rgba(255,152,0,.85)}'
-    ].join('');
 
     function injectReaderToolsStyle(doc) {
-        if (doc.getElementById('reading-tools-style')) return;
-        var style = doc.createElement('style');
-        style.id = 'reading-tools-style';
-        style.textContent = READER_TOOLS_STYLE;
-        (doc.head || doc.documentElement).appendChild(style);
+        RC.injectToolsStyle(doc);
     }
 
-    // 段落选择：常见块级元素；div 只取无块级子元素的"叶子段落"（部分 EPUB 用 div 当自然段）
-    var PARAGRAPH_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4, h5, h6, div';
-    var BLOCK_CHILD_SELECTOR = 'p, li, div, blockquote, section, article, table, ul, ol, h1, h2, h3, h4, h5, h6';
-
     function collectParagraphElements(doc) {
-        var els = Array.prototype.slice.call(doc.querySelectorAll(PARAGRAPH_SELECTOR));
-        return els.filter(function (el) {
-            if (el.tagName === 'DIV' && el.querySelector(BLOCK_CHILD_SELECTOR)) return false;
-            return (el.textContent || '').trim().length > 0;
-        });
+        return RC.collectParagraphs(doc);
     }
 
     function paragraphSpeechText(el) {
-        var text = (el.textContent || '').replace(/\s+/g, ' ').trim();
-        // 与后端 /ajax/reading-tts 校验一致的上限；超长段落截断朗读
-        return text.length > 2000 ? text.slice(0, 2000) : text;
+        return RC.paragraphSpeechText(el);
     }
 
     // --- 朗读/翻译按钮注入 ---
@@ -1211,18 +1153,9 @@ var reader;
         } catch (e) {}
     }
 
-    var readerToastTimer = null;
+    // R183（B4 批次 1）：toast 实现下沉 reader-core.js，此处保留同名薄委托（27 处调用不动）
     function readerToast(message) {
-        var el = document.getElementById('reader-toast');
-        if (!el) {
-            el = document.createElement('div');
-            el.id = 'reader-toast';
-            document.body.appendChild(el);
-        }
-        el.textContent = message;
-        el.classList.add('is-visible');
-        if (readerToastTimer) clearTimeout(readerToastTimer);
-        readerToastTimer = setTimeout(function () { el.classList.remove('is-visible'); }, 2600);
+        RC.toast(message);
     }
 
     // --- 整本连播（听书）状态机（R157）---
