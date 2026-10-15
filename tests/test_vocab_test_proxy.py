@@ -94,7 +94,7 @@ def test_start_forwards_empty_body_to_flat_path(admin_client, moonwell_configure
                                            "seq": 1, "band": 3},
              "progress": {"answered": 0, "known": 0, "band": 3}}), 200),
     })
-    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", proxy)
 
     response = admin_client.post("/ajax/vocab-test/start")
     assert response.status_code == 200
@@ -117,7 +117,7 @@ def test_start_forwards_refine_flag_only_when_explicit_true(
                                            "seq": 1, "band": 7},
              "progress": {"answered": 0, "known": 0, "band": 7}}), 200),
     })
-    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", proxy)
 
     assert admin_client.post("/ajax/vocab-test/start",
                              json={"refine": True}).status_code == 200
@@ -143,7 +143,7 @@ def test_answer_forwards_session_seq_and_value(admin_client, moonwell_configured
              "finished": False, "progress": {"answered": 1, "known": 1, "band": 3},
              "estimation": None}), 200),
     })
-    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", proxy)
 
     response = admin_client.post("/ajax/vocab-test/answer",
                                  json={"sessionId": 42, "seq": 1, "answer": 0})
@@ -159,7 +159,7 @@ def test_finish_forwards_switch(admin_client, moonwell_configured, monkeypatch):
     import cps.web as w
 
     proxy = RecordingProxy({"/vocabulary/test/finish": (_envelope(REPORT), 200)})
-    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", proxy)
 
     response = admin_client.post("/ajax/vocab-test/finish",
                                  json={"sessionId": 42, "addUnknownToNotebook": True})
@@ -174,7 +174,7 @@ def test_history_uses_get_without_payload(admin_client, moonwell_configured, mon
     import cps.web as w
 
     proxy = RecordingProxy({"/vocabulary/test/history": (_envelope([REPORT]), 200)})
-    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", proxy)
 
     response = admin_client.get("/ajax/vocab-test/history")
     assert response.status_code == 200
@@ -202,7 +202,7 @@ def test_bad_answer_payloads_are_rejected_locally(admin_client, moonwell_configu
     def exploding_proxy(*args, **kwargs):  # 校验必须在出网之前
         raise AssertionError("upstream must not be called")
 
-    monkeypatch.setattr(w, "_moonwell_proxy", exploding_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", exploding_proxy)
     assert admin_client.post("/ajax/vocab-test/answer", json=payload).status_code == 400
 
 
@@ -218,7 +218,7 @@ def test_bad_finish_payloads_are_rejected_locally(admin_client, moonwell_configu
     def exploding_proxy(*args, **kwargs):
         raise AssertionError("upstream must not be called")
 
-    monkeypatch.setattr(w, "_moonwell_proxy", exploding_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", exploding_proxy)
     assert admin_client.post("/ajax/vocab-test/finish", json=payload).status_code == 400
 
 
@@ -232,7 +232,7 @@ def test_business_error_passes_through_with_code(admin_client, moonwell_configur
     failure = json.dumps({"success": False, "code": 50302,
                           "message": "会话已超时，请重新开始", "result": None})
     proxy = RecordingProxy({"/vocabulary/test/answer": (failure, 500)})
-    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", proxy)
 
     response = admin_client.post("/ajax/vocab-test/answer",
                                  json={"sessionId": 42, "seq": 3, "answer": 1})
@@ -255,7 +255,7 @@ def test_page_renders_card_with_single_upstream_call(admin_client, moonwell_conf
         body, status = _settings_reply()
         return body, status, _json_headers()
 
-    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", proxy)
 
     html = admin_client.get("/reading/settings").get_data(as_text=True)
     assert 'id="vt-root"' in html
@@ -283,7 +283,7 @@ def test_result_view_renders_level_recommendation_surface(admin_client, moonwell
         body, status = _settings_reply()
         return body, status, _json_headers()
 
-    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", proxy)
 
     html = admin_client.get("/reading/settings").get_data(as_text=True)
     assert 'data-level-url' in html, "应用推荐要调档位设置既有端点"
@@ -306,7 +306,7 @@ def test_card_survives_settings_load_failure(admin_client, moonwell_configured,
                       **kwargs):
         return jsonify({"success": False, "message": label + " service unavailable"}), 503
 
-    monkeypatch.setattr(w, "_moonwell_proxy", failing_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", failing_proxy)
 
     html = admin_client.get("/reading/settings").get_data(as_text=True)
     assert "Failed to load reading settings" in html
@@ -333,7 +333,7 @@ def test_unreachable_upstream_returns_503_json_not_500(admin_client, moonwell_co
                       **kwargs):
         return jsonify({"success": False, "message": label + " service unavailable"}), 503
 
-    monkeypatch.setattr(w, "_moonwell_proxy", failing_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", failing_proxy)
 
     kwargs = {"json": {"sessionId": 42, "seq": 1, "answer": 1,
                        "addUnknownToNotebook": True}}

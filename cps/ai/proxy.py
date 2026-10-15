@@ -37,15 +37,14 @@ _SSE_IDLE_TIMEOUT = 300
 
 
 def _web_helpers():
-    """运行时取 cps.web 的代理基础设施（trace id/JWT 刷新/base url）。
+    """运行时取 moon-well 防腐层客户端（trace id/JWT 刷新/base url）。
 
-    Why 延迟导入：cps.web 是巨型模块且互相注册顺序敏感，模块级导入会在
-    部分部署路径（如仅加载 AI blueprint 的测试）造成循环依赖。
+    R178（架构评审 B1）：防腐层本体已迁 cps/moonwell/client.py，本模块不再
+    import cps.web。Why 延迟导入保留：与既有调用点相同的惰性节奏，避免模块
+    加载顺序变化。
     """
-    from cps.web import (_MOONWELL_NO_PROXY, _moonwell_base_url,
-                         _moonwell_refresh_session_token, _moonwell_trace_id)
-    return (_MOONWELL_NO_PROXY, _moonwell_base_url,
-            _moonwell_refresh_session_token, _moonwell_trace_id)
+    from cps.moonwell.client import NO_PROXY, client
+    return (NO_PROXY, client.base_url, client.refresh_session_token, client.trace_id)
 
 
 def _relay_json(path, payload, label, timeout=20):
@@ -54,8 +53,8 @@ def _relay_json(path, payload, label, timeout=20):
     Why 原样透传不解包：前端统一处理 moon-well Result 包装（{success, result}），
     代理保持「薄」——任何一层自作主张解包都会让错误路径（success=false）变形。
     """
-    from cps.web import _moonwell_proxy
-    body, status, headers = _moonwell_proxy(path, payload, timeout, label)
+    from cps.moonwell.client import client
+    body, status, headers = client.proxy(path, payload, timeout, label)
     return Response(body, status=status, headers={
         "Content-Type": headers.get("Content-Type", "application/json")})
 

@@ -34,13 +34,13 @@ def test_consume_page_forwards_payload(admin_client, moonwell_configured, monkey
 
     captured = {}
 
-    def fake_proxy(path, payload, timeout, label, binary=False, method="POST"):
+    def fake_proxy(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
         captured["path"] = path
         captured["payload"] = payload
         return (json.dumps({"success": True, "result": {"records": [], "total": 0}}), 200,
                 {"Content-Type": "application/json"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
 
     payload = {"pageNo": 2, "pageSize": 10, "caller": "book-reader",
                "model": "deepseek-v4-flash", "startDate": "2026-09-01", "endDate": "2026-09-20"}
@@ -55,13 +55,13 @@ def test_consume_summary_forwards_payload(admin_client, moonwell_configured, mon
 
     captured = {}
 
-    def fake_proxy(path, payload, timeout, label, binary=False, method="POST"):
+    def fake_proxy(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
         captured["path"] = path
         captured["payload"] = payload
         return (json.dumps({"success": True, "result": {"totalAmount": 0}}), 200,
                 {"Content-Type": "application/json"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
 
     rv = admin_client.post("/ajax/credit/consume-summary", json={"caller": "book-reader"})
     assert rv.status_code == 200
@@ -96,14 +96,14 @@ def test_admin_adjust_forwards_payload(admin_client, moonwell_configured, monkey
 
     captured = {}
 
-    def fake_proxy(path, payload, timeout, label, binary=False, method="POST"):
+    def fake_proxy(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
         captured["path"] = path
         captured["payload"] = payload
         return (json.dumps({"success": True,
                             "result": {"userId": 1, "balance": 94}}), 200,
                 {"Content-Type": "application/json"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
 
     payload = {"userId": 1, "amount": 2215, "reason": "R53 计费口径冲正"}
     rv = admin_client.post("/ajax/credit/admin-adjust", json=payload)

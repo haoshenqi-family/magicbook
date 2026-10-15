@@ -15,6 +15,7 @@ from unittest.mock import patch
 import pytest
 
 from cps.ai.models import AiConversation, AiMessage, AiUserMemory
+from cps.moonwell.client import client as _mb_client
 
 
 def _ensure_db_configured():
@@ -61,7 +62,7 @@ class TestAgentProxyEndToEnd:
             return json.dumps({"success": True, "result": [
                 {"id": 3, "title": "第一章问过 sidebars", "bookId": 89}]}), 200, {}
 
-        monkeypatch.setattr("cps.web._moonwell_proxy", fake_proxy)
+        monkeypatch.setattr(_mb_client, "proxy", fake_proxy)
         _ensure_db_configured()
         rv = admin_client.get("/ai/agent/conversations?bookId=89")
         assert rv.status_code == 200
@@ -79,7 +80,7 @@ class TestAgentProxyEndToEnd:
                 return json.dumps({"success": True, "result": {"id": 9, "memory": payload["memory"]}}), 200, {}
             return json.dumps({"success": True, "result": [{"id": 9, "memory": "偏好简洁"}]}), 200, {}
 
-        monkeypatch.setattr("cps.web._moonwell_proxy", fake_proxy)
+        monkeypatch.setattr(_mb_client, "proxy", fake_proxy)
         _ensure_db_configured()
         rv = admin_client.post("/ai/agent/memory/save", json={"memory": "偏好简洁", "bookId": 89})
         assert rv.status_code == 200
@@ -147,6 +148,6 @@ class TestMigrationWindowCoexistence:
             assert path == "/ai/agent/conversations"
             return json.dumps({"success": True, "result": []}), 200, {}
 
-        with patch("cps.web._moonwell_proxy", fake_proxy):
+        with patch.object(_mb_client, "proxy", fake_proxy):
             rv = admin_client.get("/ai/agent/conversations?bookId=7")
             assert rv.status_code == 200

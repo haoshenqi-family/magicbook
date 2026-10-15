@@ -80,10 +80,11 @@ def _system_closures():
     """
     import json
 
-    from . import web as web_module
+    # R178（架构评审 B1）：防腐层迁 cps/moonwell/client.py，不再绕道 cps.web
+    from cps.moonwell.client import client as _moonwell_client
 
     def publish(task_payload):
-        response = web_module._moonwell_proxy("/llm/task/publish", task_payload, 20,
+        response = _moonwell_client.proxy("/llm/task/publish", task_payload, 20,
                                               "book-import translation",
                                               system_identity=True)
         if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
@@ -91,7 +92,7 @@ def _system_closures():
         return json.loads(response[0])
 
     def lookup(paragraphs):
-        response = web_module._moonwell_proxy("/reading/paragraph-cache/find-translations",
+        response = _moonwell_client.proxy("/reading/paragraph-cache/find-translations",
                                               {"paragraphs": paragraphs}, 20,
                                               "book-import translation cache",
                                               system_identity=True)

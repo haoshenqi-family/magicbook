@@ -36,12 +36,12 @@ def test_requires_login(app, moonwell_configured):
 def test_page_renders_with_settings(admin_client, moonwell_configured, monkeypatch):
     import cps.web as w
 
-    def fake_proxy(path, payload, timeout, label, binary=False, method="POST"):
+    def fake_proxy(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
         assert method == "GET" and path.endswith("/settings")
         return (json.dumps({"success": True, "result": SETTINGS}), 200,
                 {"Content-Type": "application/json"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
 
     rv = admin_client.get("/reading/settings")
     assert rv.status_code == 200
@@ -56,11 +56,11 @@ def test_page_shows_error_when_upstream_fails(admin_client, moonwell_configured,
     """moon-well 返回失败 → 页面渲染错误态而不是 500。"""
     import cps.web as w
 
-    def failing_proxy(path, payload, timeout, label, binary=False, method="POST"):
+    def failing_proxy(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
         return (json.dumps({"success": False, "message": "boom"}), 503,
                 {"Content-Type": "application/json"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", failing_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", failing_proxy)
 
     rv = admin_client.get("/reading/settings")
     assert rv.status_code == 200
@@ -74,12 +74,12 @@ def test_ajax_get_proxies_envelope(admin_client, moonwell_configured, monkeypatc
 
     captured = {}
 
-    def fake_proxy(path, payload, timeout, label, binary=False, method="POST"):
+    def fake_proxy(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
         captured["path"], captured["method"] = path, method
         return (json.dumps({"success": True, "result": SETTINGS}), 200,
                 {"Content-Type": "application/json"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
 
     rv = admin_client.get("/ajax/reading-settings")
     assert rv.status_code == 200
@@ -95,14 +95,14 @@ def test_ajax_post_forwards_level(admin_client, moonwell_configured, monkeypatch
 
     captured = {}
 
-    def fake_proxy(path, payload, timeout, label, binary=False, method="POST"):
+    def fake_proxy(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
         captured["path"], captured["payload"] = path, payload
         return (json.dumps({"success": True,
                             "result": dict(SETTINGS, hardLevel=payload["hardLevel"],
                                            usingDefault=False)}), 200,
                 {"Content-Type": "application/json"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
 
     rv = admin_client.post("/ajax/reading-settings/hard-level", json={"hardLevel": 8})
     assert rv.status_code == 200
@@ -122,11 +122,11 @@ def test_ajax_post_passes_through_csrf_400(admin_client, moonwell_configured, mo
     服务端侧验证 400 原样透传不抛异常。"""
     import cps.web as w
 
-    def csrf_reject(path, payload, timeout, label, binary=False, method="POST"):
+    def csrf_reject(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
         return ("<html>The CSRF token is invalid.</html>", 400,
                 {"Content-Type": "text/html"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", csrf_reject)
+    monkeypatch.setattr(w._moonwell_client, "proxy", csrf_reject)
 
     rv = admin_client.post("/ajax/reading-settings/hard-level", json={"hardLevel": 4})
     assert rv.status_code == 400

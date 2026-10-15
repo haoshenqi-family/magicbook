@@ -1478,39 +1478,66 @@ def llm_task_stop():
     return _moonwell_proxy(_LLM_TASK_PATHS["stop"], payload, 15, "llm task stop")
 
 
-# moon-well 走内网直连（fnos:8082）。进程可能因封面下载等功能携带 http_proxy
-# 环境变量，requests 默认信任它，内网域名会被代理断连导致 503，必须显式绕过。
-_MOONWELL_NO_PROXY = {"http": None, "https": None}
+# ---- R178（架构评审 B1）：moon-well 防腐层本体已迁 cps/moonwell/client.py ----
+# 以下薄委托保留原函数名：web.py 内 ~70 处调用点零改动，上游 merge 冲突面最小。
+# 返回形态契约统一为三元组 (body, status, headers)，失败分支同样是三元组（手拼
+# JSON，daemon 线程安全）——「失败二元组/成功三元组」的隐式契约（解包即
+# ValueError→500）就此消灭。_moonwell_book_finished_bridge（业务编排 107 行）
+# 属 B2 蓝图分域范围，暂留本文件。
+from cps.moonwell.client import NO_PROXY, client as _moonwell_client
+
+_MOONWELL_NO_PROXY = NO_PROXY
 
 
 def _moonwell_base_url():
-    """Return the configured moon-well internal endpoint."""
-    url = constants.MOON_WELL_READING_URL
-    return url.rstrip("/") if url else None
+    return _moonwell_client.base_url()
 
 
 def _moonwell_trace_id():
-    """当前请求的 trace-id：优先沿用上游 X-Trace-Id（全链路同一 ID），缺失时生成。
-    Why: moon-well 侧 TraceIdFilter 优先透传该头；两端日志已入 ES（app-log-*），
-    同一 traceId 可在 Kibana 一次拉出 magicbook→moon-well 全链路日志。
-    恢复线程/后台线程无 flask 上下文时 request 会抛 RuntimeError，返回新生成 ID。"""
-    try:
-        upstream = request.headers.get("X-Trace-Id")
-    except RuntimeError:
-        upstream = None
-    return upstream or uuid.uuid4().hex
+    return _moonwell_client.trace_id()
 
 
 def _moonwell_system_token():
-    """系统身份凭证（R145 全 token 化）：magicbook-system 服务账号的 mk- API key。
+    return _moonwell_client.system_token()
 
-    Why: 启动恢复线程、连接器闭包、toggleread 桥接没有用户会话，token 化后
-    改用服务账号静态 key 调 moon-well（拦截器 mk- 分支按 user.token 查库校验，
-    任务归属 magicbook-system 账号）。key 只存 fnOS .env 的 MOONWELL_SYSTEM_TOKEN。
+
+def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
+                    system_identity=False, bearer_token=None):
+    return _moonwell_client.proxy(path, payload, timeout, label, binary=binary,
+                                  method=method, system_identity=system_identity,
+                                  bearer_token=bearer_token)
+
+
+def _moonwell_refresh_session_token():
+    return _moonwell_client.refresh_session_token()
+
+
+def _moonwell_multipart(path, file_bytes, filename, timeout, label):
+    return _moonwell_client.multipart(path, file_bytes, filename, timeout, label)
+
+
+
+@web.route("/ajax/learning/asr/transcribe", methods=["POST"])
+@user_login_required
+def learning_asr_transcribe():
+    """Proxy voice-input transcription（R155 语音输入：录音 multipart 直传转写）。
+
+    浏览器 WebAudio 采集端已编码 16k 单声道 wav（≈32KB/s，3 分钟 <6MB）；
+    上限 10MB 与 moon-well maxAudioBytes 对齐，超限本地 400 不打上游。
     """
-    return os.environ.get("MOONWELL_SYSTEM_TOKEN", "")
-
-
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        return jsonify({"success": False, "message": "file is required"}), 400
+    data = upload.read()
+    if not data:
+        return jsonify({"success": False, "message": "录音内容为空"}), 400
+    if len(data) > 10 * 1024 * 1024:
+        return jsonify({"success": False, "message": "录音超过大小上限（10MB）"}), 400
+    filename = upload.filename if "." in upload.filename else "recording.wav"
+    return _moonwell_multipart("/learning/asr/transcribe", data, filename, 60,
+                               "语音转写")
+def _moonwell_settings_fetch():
+    return _moonwell_client.settings_fetch()
 @web.route("/ajax/reading-annotation-create", methods=["POST"])
 @user_login_required
 def reading_annotation_create():
@@ -1691,23 +1718,6 @@ def reading_word_detail():
                            "reading word detail", method="GET")
 
 
-def _moonwell_settings_fetch():
-    """服务端拉取阅读设置（reading_settings 页面首屏渲染）；失败返回 (None, 提示文案)。"""
-    try:
-        body, status, _headers = _moonwell_proxy("/vocabulary/reading/settings", None, 10,
-                                                 "reading settings", method="GET")
-        if 200 <= status < 300:
-            data = json.loads(body)
-            # moon-well Result 包装: {"success": bool, "result": {...}}
-            if data.get("success") and data.get("result") is not None:
-                return data["result"], None
-            return None, (data.get("message") or "settings unavailable")
-        return None, "reading settings service unavailable (HTTP %d)" % status
-    except (ValueError, TypeError) as error:
-        log.warning("reading settings parse failed: %s", error)
-        return None, "reading settings service unavailable"
-
-
 def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=None):
     """已读状态变更后，向 moon-well 桥接同步（成就系统只认 moon-well 自家 book 域事件）。
 
@@ -1813,170 +1823,6 @@ def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=Non
             log.error_or_exception("moonwell book bridge unexpected error for book %s" % book_id)
 
     threading.Thread(target=_worker, name="moonwell-book-bridge", daemon=True).start()
-
-
-def _moonwell_multipart(path, file_bytes, filename, timeout, label):
-    """转发 multipart 录音到 moon-well（R155 语音输入专用）。
-
-    Why 独立小转发器而非扩展 _moonwell_proxy：后者契约是 JSON payload；
-    转写是「文件进、文本出」的一次性消费，独立实现保持原函数零风险。
-    鉴权同口径（会话 bearer + trace id，直连禁代理）；401 透传由前端提示重登，
-    不做静默刷新重试（重录成本低，不值得复杂化）。
-    """
-    base = _moonwell_base_url()
-    if not base:
-        return jsonify({"success": False, "message": "moon-well is not configured"}), 503
-    token = flask_session.get("moonwell_access_token")
-    if not token:
-        return jsonify({"success": False, "message": "moon-well 登录已失效，请重新登录"}), 401
-    headers = {
-        "X-Trace-Id": _moonwell_trace_id(),
-        "authorization": "Bearer " + token,
-    }
-    try:
-        response = requests.post(base + path,
-                                 files={"file": (filename, file_bytes)},
-                                 headers=headers, timeout=timeout,
-                                 proxies=_MOONWELL_NO_PROXY)
-    except requests.RequestException as exc:
-        logger.error("moon-well %s: multipart forward failed: %s", path, exc)
-        return jsonify({"success": False, "message": label + " 网络失败，请重试"}), 502
-    try:
-        body = response.json()
-    except ValueError:
-        return jsonify({"success": False, "message": label + " 上游响应异常"}), 502
-    return jsonify(body), (200 if body.get("success") else 502)
-
-
-@web.route("/ajax/learning/asr/transcribe", methods=["POST"])
-@user_login_required
-def learning_asr_transcribe():
-    """Proxy voice-input transcription（R155 语音输入：录音 multipart 直传转写）。
-
-    浏览器 WebAudio 采集端已编码 16k 单声道 wav（≈32KB/s，3 分钟 <6MB）；
-    上限 10MB 与 moon-well maxAudioBytes 对齐，超限本地 400 不打上游。
-    """
-    upload = request.files.get("file")
-    if upload is None or not upload.filename:
-        return jsonify({"success": False, "message": "file is required"}), 400
-    data = upload.read()
-    if not data:
-        return jsonify({"success": False, "message": "录音内容为空"}), 400
-    if len(data) > 10 * 1024 * 1024:
-        return jsonify({"success": False, "message": "录音超过大小上限（10MB）"}), 400
-    filename = upload.filename if "." in upload.filename else "recording.wav"
-    return _moonwell_multipart("/learning/asr/transcribe", data, filename, 60,
-                               "语音转写")
-
-
-def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
-                    system_identity=False, bearer_token=None):
-    """转发阅读相关请求到 moon-well（R145 全 token 化：只认凭证，不发身份头）。
-
-    鉴权方式：Authorization: Bearer 二选一——
-      - 用户身份：bearer_token 快照（后台线程）或 session 中的 moonwell_access_token
-        （请求线程），任务归属该用户；401 时自动刷新重试一次（仅请求线程调用方）。
-      - 系统身份：system_identity=True 时用 magicbook-system 服务账号的 mk- API key
-        （MOONWELL_SYSTEM_TOKEN，无用户会话的内部调用：启动恢复/连接器/桥接兜底）。
-    用户会话无 token：互信头机制已废（R145），不再降级，直接 401 提示重新登录——
-    token 是登录时 id_token 换来的，缺失只能重登补齐。
-    binary=True 时按原始字节透传响应体（音频），而非解码为文本。
-    method="GET" 时以 GET 转发且不带请求体（moon-well 的 known/unknown
-    标记接口是 path 参数式 GET，无 JSON body）。
-    bearer_token：请求线程定格的令牌快照，供整本翻译等 daemon 后台线程使用——
-    线程内没有 Flask 上下文，读 current_user / flask_session 会 RuntimeError；
-    传入快照后本函数不再触碰任何请求态，401 自动刷新也跳过（刷新依赖请求会话，
-    只有请求线程调用方才做）。
-    """
-    base = _moonwell_base_url()
-    if not base:
-        return jsonify({"success": False, "message": "moon-well is not configured"}), 503
-
-    from_request_session = False
-    if system_identity:
-        token = _moonwell_system_token()
-        if not token:
-            # Why 不用 jsonify：本分支供裸 daemon 线程调用（无 app/request 上下文），
-            # jsonify 会 RuntimeError（R78 生产事故同类）。手拼 JSON 字符串返回。
-            log.error("moon-well %s: MOONWELL_SYSTEM_TOKEN 未配置，系统身份调用不可用", path)
-            return (json.dumps({"success": False, "message": label + " service unavailable"}),
-                    503, {"Content-Type": "application/json"})
-    elif bearer_token is not None:
-        # 后台线程快照：调用线程同样没有 Flask 上下文，令牌只认显式传入值
-        token = bearer_token
-    else:
-        token = flask_session.get("moonwell_access_token")
-        from_request_session = True
-        if not token:
-            return jsonify({"success": False,
-                            "message": "moon-well 登录已失效，请重新登录"}), 401
-
-    headers = {
-        "X-Trace-Id": _moonwell_trace_id(),
-        "authorization": "Bearer " + token,
-    }
-
-    def _send():
-        if method == "GET":
-            return requests.get(base + path, headers=headers,
-                                timeout=timeout, proxies=_MOONWELL_NO_PROXY)
-        return requests.post(base + path, json=payload, headers=headers,
-                             timeout=timeout, proxies=_MOONWELL_NO_PROXY)
-
-    try:
-        response = _send()
-        # 会话令牌过期时自动刷新并重试一次（仅请求线程调用方：刷新要读请求会话，
-        # 系统身份/后台快照调用方没有上下文，也不该持有可刷新的用户令牌）
-        if response.status_code == 401 and from_request_session:
-            refreshed = _moonwell_refresh_session_token()
-            if refreshed:
-                headers["authorization"] = "Bearer " + refreshed
-                response = _send()
-        body = response.content if binary else response.text
-        # Why: moon-well 的全局异常处理器不落日志，业务异常（HTTP 500）在服务端
-        # 无任何痕迹；代理透传失败响应时必须在此留痕（状态码 + 响应体摘要），
-        # 否则线上偶发 500 只能靠猜。
-        if response.status_code >= 400:
-            log.warning("moon-well %s -> HTTP %s: %s",
-                        path, response.status_code, body[:300])
-        return (body, response.status_code,
-                {"Content-Type": response.headers.get("Content-Type", "application/json")})
-    except requests.RequestException as error:
-        log.warning("moon-well %s request failed: %s", path, error)
-        return jsonify({"success": False, "message": label + " service unavailable"}), 503
-
-
-def _moonwell_refresh_session_token():
-    """用 session 中的 refresh_token 换取新的 access_token，失败则清空。"""
-    refresh_token = flask_session.get("moonwell_refresh_token")
-    if not refresh_token:
-        return None
-    base = _moonwell_base_url()
-    if not base:
-        return None
-    try:
-        resp = requests.post(
-            base + "/auth/refreshToken",
-            headers={"X-Trace-Id": _moonwell_trace_id()},
-            json={"refreshToken": refresh_token},
-            timeout=8,
-            proxies=_MOONWELL_NO_PROXY,
-        )
-        if resp.ok:
-            data = resp.json()
-            result = data.get("result") or {}
-            new_access = result.get("accessToken") or result.get("access_token")
-            new_refresh = result.get("refreshToken") or result.get("refresh_token")
-            if new_access:
-                flask_session["moonwell_access_token"] = new_access
-                if new_refresh:
-                    flask_session["moonwell_refresh_token"] = new_refresh
-                return new_access
-    except Exception:
-        pass
-    flask_session.pop("moonwell_access_token", None)
-    flask_session.pop("moonwell_refresh_token", None)
-    return None
 
 
 '''

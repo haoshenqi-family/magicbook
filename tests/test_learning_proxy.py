@@ -18,6 +18,7 @@ import io
 import json
 
 import pytest
+from cps.moonwell.client import client as _mb_client
 
 
 @pytest.fixture
@@ -105,7 +106,7 @@ def test_get_proxies_forward_to_flat_paths(admin_client, moonwell_configured,
         "/learning/match/books": (_envelope(MATCHES), 200),
     }
     proxy = RecordingProxy(replies)
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for local, upstream in PATHS.values():
         admin_client.get(local)
         call = proxy.call_for(upstream)
@@ -117,7 +118,7 @@ def test_queue_limit_query_stays_in_query_string(admin_client, moonwell_configur
                                                  monkeypatch):
     """limit 是 GET query，代理不解析不转发（moon-well 自己读 query）。"""
     proxy = RecordingProxy({"/learning/srs/queue": (_envelope([]), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     admin_client.get("/ajax/learning/srs/queue?limit=5")
     # _moonwell_proxy 签名不带 query（Flask 在 request 里），透传即正确行为
     assert proxy.call_for("/learning/srs/queue")["payload"] is None
@@ -130,7 +131,7 @@ def test_answer_forwards_valid_payload(admin_client, moonwell_configured,
     proxy = RecordingProxy({"/learning/srs/answer": (
         _envelope({"scheduleId": "42", "word": "install", "state": "REVIEW",
                    "dueAt": "2026-10-11T10:00:00", "message": "3 天后再见"}), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/srs/answer",
                                  json={"scheduleId": "42", "grade": 3,
                                        "latencyMs": 2500})
@@ -146,7 +147,7 @@ def test_answer_forwards_question_type(admin_client, moonwell_configured,
     proxy = RecordingProxy({"/learning/srs/answer": (
         _envelope({"scheduleId": "42", "word": "hike", "state": "LEARNING",
                    "dueAt": "2026-10-14T10:00:00", "message": "10 分钟后再见"}), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/srs/answer",
                                  json={"scheduleId": "42", "grade": 3,
                                        "questionType": "discriminate"})
@@ -160,7 +161,7 @@ def test_answer_forwards_no_question_type_when_absent(admin_client, moonwell_con
                                                       monkeypatch):
     """老客户端不发该字段时 body 形状不得变化（上游按缺省回落重算）。"""
     proxy = RecordingProxy({"/learning/srs/answer": (_envelope({}), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     admin_client.post("/ajax/learning/srs/answer", json={"scheduleId": "42", "grade": 3})
     assert proxy.call_for("/learning/srs/answer")["payload"] == {"scheduleId": 42, "grade": 3}
 
@@ -168,7 +169,7 @@ def test_answer_forwards_no_question_type_when_absent(admin_client, moonwell_con
 def test_answer_rejects_bad_question_type_locally(admin_client, moonwell_configured,
                                                   monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for question_type in ("", "   ", 42, True, ["CHOOSE"]):
         response = admin_client.post("/ajax/learning/srs/answer",
                                      json={"scheduleId": "42", "grade": 3,
@@ -180,7 +181,7 @@ def test_answer_rejects_bad_question_type_locally(admin_client, moonwell_configu
 def test_answer_rejects_bad_grades_locally(admin_client, moonwell_configured,
                                            monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for grade in (0, 5, -1, True, False, "3", None, 2.5):
         response = admin_client.post("/ajax/learning/srs/answer",
                                      json={"scheduleId": "42", "grade": grade})
@@ -191,7 +192,7 @@ def test_answer_rejects_bad_grades_locally(admin_client, moonwell_configured,
 def test_answer_rejects_bad_schedule_ids_locally(admin_client, moonwell_configured,
                                                  monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for schedule_id in ("", "abc", "-1", "1.5", None, True):
         response = admin_client.post("/ajax/learning/srs/answer",
                                      json={"scheduleId": schedule_id, "grade": 3})
@@ -202,7 +203,7 @@ def test_answer_rejects_bad_schedule_ids_locally(admin_client, moonwell_configur
 def test_answer_rejects_bad_latency_locally(admin_client, moonwell_configured,
                                             monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/srs/answer",
                                  json={"scheduleId": "42", "grade": 3,
                                        "latencyMs": -5})
@@ -220,7 +221,7 @@ def _valid_settings():
 def test_plan_settings_forwards_valid_payload(admin_client, moonwell_configured,
                                               monkeypatch):
     proxy = RecordingProxy({"/learning/plan/settings": (_envelope(_valid_settings()), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/plan/settings",
                                  json=_valid_settings())
     assert response.status_code == 200
@@ -231,7 +232,7 @@ def test_plan_settings_rejects_out_of_range_locally(admin_client,
                                                     moonwell_configured,
                                                     monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     bad = _valid_settings()
     bad["strandFluencyPct"] = 101  # > 100
     assert admin_client.post("/ajax/learning/plan/settings", json=bad).status_code == 400
@@ -251,7 +252,7 @@ def test_plan_settings_strand_sum_left_to_upstream(admin_client,
     upstream_body = json.dumps({"success": False, "code": 50503,
                                 "message": "四股配比之和必须等于 100", "result": None})
     proxy = RecordingProxy({"/learning/plan/settings": (upstream_body, 500)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     payload = _valid_settings()
     payload["strandFluencyPct"] = 30  # 105
     response = admin_client.post("/ajax/learning/plan/settings", json=payload)
@@ -264,7 +265,7 @@ def test_plan_settings_strand_sum_left_to_upstream(admin_client,
 def test_match_book_forwards_numeric_id(admin_client, moonwell_configured,
                                         monkeypatch):
     proxy = RecordingProxy({"/learning/match/book": (_envelope(MATCHES[0]), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/match/book", json={"bookId": "100"})
     assert response.status_code == 200
     assert proxy.call_for("/learning/match/book")["payload"] == {"bookId": "100"}
@@ -273,7 +274,7 @@ def test_match_book_forwards_numeric_id(admin_client, moonwell_configured,
 def test_match_book_rejects_non_numeric_id(admin_client, moonwell_configured,
                                            monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for book_id in ("", "abc", "-1", None, True, 1.5):
         response = admin_client.post("/ajax/learning/match/book",
                                      json={"bookId": book_id})
@@ -319,7 +320,7 @@ def test_business_error_passes_through_with_code(admin_client, moonwell_configur
     upstream_body = json.dumps({"success": False, "code": 50501,
                                 "message": "复习计划不存在，请刷新队列", "result": None})
     proxy = RecordingProxy({"/learning/srs/answer": (upstream_body, 500)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/srs/answer",
                                  json={"scheduleId": "42", "grade": 3})
     assert response.status_code == 500
@@ -367,7 +368,7 @@ def test_nav_dropdown_contains_daily_learning(admin_client, moonwell_configured)
 def test_reading_heartbeat_forwards_valid_payload(admin_client, moonwell_configured,
                                                   monkeypatch):
     proxy = RecordingProxy({"/learning/strands/reading": (_envelope("ok"), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/strands/reading",
                                  json={"seconds": 300, "bookId": "97"})
     assert response.status_code == 200
@@ -379,7 +380,7 @@ def test_reading_heartbeat_without_book_id_omits_field(admin_client,
                                                        moonwell_configured,
                                                        monkeypatch):
     proxy = RecordingProxy({"/learning/strands/reading": (_envelope("ok"), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/strands/reading",
                                  json={"seconds": 300})
     assert response.status_code == 200
@@ -390,7 +391,7 @@ def test_reading_heartbeat_rejects_bad_seconds_locally(admin_client,
                                                        moonwell_configured,
                                                        monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for seconds in (29, 601, 0, -300, True, False, "300", None, 2.5):
         response = admin_client.post("/ajax/learning/strands/reading",
                                      json={"seconds": seconds})
@@ -402,7 +403,7 @@ def test_reading_heartbeat_rejects_bad_book_id_locally(admin_client,
                                                        moonwell_configured,
                                                        monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for book_id in ("", "abc", "-1", "1.5", True):
         response = admin_client.post("/ajax/learning/strands/reading",
                                      json={"seconds": 300, "bookId": book_id})
@@ -438,7 +439,7 @@ def test_b1_endpoints_require_login(app, moonwell_configured):
 def test_b1_submit_forwards_cleaned_payload(admin_client, moonwell_configured,
                                              monkeypatch):
     proxy = RecordingProxy({"/learning/writing/submit": (_envelope({}), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post(
         "/ajax/learning/writing/submit",
         json={"taskId": "T-1", "text": "Hello world.", "evil": "x"},
@@ -453,7 +454,7 @@ def test_b1_rejects_missing_required_fields_locally(admin_client,
                                                      moonwell_configured,
                                                      monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     cases = [
         ("/ajax/learning/writing/task/generate", {}),                      # 缺 mode
         ("/ajax/learning/writing/submit", {"taskId": "T-1"}),              # 缺 text
@@ -470,7 +471,7 @@ def test_b1_rejects_missing_required_fields_locally(admin_client,
 def test_b1_rejects_oversized_text_locally(admin_client, moonwell_configured,
                                             monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/writing/submit",
                                  json={"taskId": "T-1", "text": "x" * 20001})
     assert response.status_code == 400
@@ -480,7 +481,7 @@ def test_b1_rejects_oversized_text_locally(admin_client, moonwell_configured,
 def test_b1_retell_round_keeps_int_fields(admin_client, moonwell_configured,
                                            monkeypatch):
     proxy = RecordingProxy({"/learning/retell/submit-round": (_envelope({}), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post(
         "/ajax/learning/retell/submit-round",
         json={"retellId": "R-1", "round": 2, "durationMs": 153000,
@@ -497,7 +498,7 @@ def test_b1_rejects_bad_minutes_per_round_locally(admin_client,
                                                    moonwell_configured,
                                                    monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for minutes in (["x"], [], [0], [31], "4,3,2", [True]):
         response = admin_client.post("/ajax/learning/retell/start",
                                      json={"paragraphText": "Once upon a time.",
@@ -539,7 +540,7 @@ def test_p3_endpoints_require_login(app, moonwell_configured):
 def test_dictation_check_passes_bool_and_int(admin_client, moonwell_configured,
                                              monkeypatch):
     proxy = RecordingProxy({"/learning/listening/dictation/check": (_envelope({}), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/listening/dictation/check",
                                  json={"bookId": "97", "order": 3,
                                        "answer": "the quick brown fox",
@@ -554,7 +555,7 @@ def test_dictation_check_rejects_bad_types_locally(admin_client,
                                                     moonwell_configured,
                                                     monkeypatch):
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for body in ({"bookId": "97", "order": "3", "answer": "hi"},        # order 非整数
                  {"bookId": "97", "order": 3, "answer": "hi", "addUnknown": "yes"},  # 布尔非法
                  {"bookId": "97", "order": 3, "answer": "x" * 20001}):  # 超长
@@ -566,7 +567,7 @@ def test_dictation_check_rejects_bad_types_locally(admin_client,
 def test_rrr_record_keeps_int_fields(admin_client, moonwell_configured,
                                      monkeypatch):
     proxy = RecordingProxy({"/learning/rrr/record": (_envelope({}), 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.post("/ajax/learning/rrr/record",
                                  json={"bookId": "97", "order": 5, "round": 2,
                                        "durationMs": 92000, "mode": "ALOUD"})
@@ -612,7 +613,7 @@ def test_asr_transcribe_requires_login(app, moonwell_configured):
 def test_asr_transcribe_rejects_missing_file_locally(admin_client,
                                                      moonwell_configured,
                                                      monkeypatch):
-    monkeypatch.setattr("cps.web._moonwell_multipart",
+    monkeypatch.setattr(_mb_client, "multipart",
                         lambda *a, **k: (_envelope({}), 200, {}))
     assert admin_client.post("/ajax/learning/asr/transcribe").status_code == 400
 
@@ -620,7 +621,7 @@ def test_asr_transcribe_rejects_missing_file_locally(admin_client,
 def test_asr_transcribe_rejects_oversized_recording_locally(
         admin_client, moonwell_configured, monkeypatch):
     calls = []
-    monkeypatch.setattr("cps.web._moonwell_multipart",
+    monkeypatch.setattr(_mb_client, "multipart",
                         lambda *a, **k: calls.append(a) or (_envelope({}), 200, {}))
     big = b"x" * (10 * 1024 * 1024 + 1)
     response = admin_client.post("/ajax/learning/asr/transcribe",
@@ -637,7 +638,7 @@ def test_asr_transcribe_forwards_file_bytes(admin_client, moonwell_configured,
         seen.update(path=path, file_bytes=file_bytes, filename=filename)
         return _envelope({"text": "hello from mic"}), 200
 
-    monkeypatch.setattr("cps.web._moonwell_multipart", fake_forward)
+    monkeypatch.setattr(_mb_client, "multipart", fake_forward)
     # Why 不手写 content_type：multipart 边界必须由 werkzeug 生成，
     # 手动指定会把 boundary 弄丢、files 解析为空
     response = admin_client.post(
@@ -696,7 +697,7 @@ def test_writing_task_detail_forwards_numeric_id_as_get(admin_client,
                                     "review": {"overall": "ok"}}]})
     target = "/learning/writing/task?taskId=42"
     proxy = RecordingProxy({target: (detail, 200)})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.get("/ajax/learning/writing/task?taskId=42")
     assert response.status_code == 200
     call = proxy.call_for(target)
@@ -713,7 +714,7 @@ def test_writing_task_detail_rejects_non_numeric_task_id_locally(admin_client,
                                                                 monkeypatch):
     """taskId 只认数字：不合法就不进转发路径（防把任意串拼进上游 URL）。"""
     proxy = RecordingProxy({})
-    monkeypatch.setattr("cps.web._moonwell_proxy", proxy)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
     for bad in ("", "abc", "42x", "-1", "42/1", "42%2043", "1" * 65):
         response = admin_client.get("/ajax/learning/writing/task?taskId=%s" % bad)
         assert response.status_code == 400, bad

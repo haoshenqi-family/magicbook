@@ -70,13 +70,13 @@ def test_claim_with_csrf_token_proxies_code(admin_client, csrf_enabled,
 
     captured = {}
 
-    def fake_proxy(path, payload, timeout, label, binary=False, method="POST"):
+    def fake_proxy(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
         captured["path"] = path
         captured["payload"] = payload
         return (json.dumps({"success": True, "result": {"claimed": True}}), 200,
                 {"Content-Type": "application/json"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
 
     rv = admin_client.post("/ajax/achievements-claim", json={"code": "READ_1"},
                            headers={"X-CSRFToken": token,

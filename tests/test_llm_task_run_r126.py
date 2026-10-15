@@ -35,7 +35,7 @@ def captured_proxy(monkeypatch):
         return jsonify({"success": True, "message": "", "result": {"echo": path}})
 
     from cps import web
-    monkeypatch.setattr(web, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(web._moonwell_client, "proxy", fake_proxy)
     return calls
 
 
@@ -122,7 +122,7 @@ class TestAdminGating:
             raise AssertionError("不该被调用：" + path)
 
         from cps import web
-        monkeypatch.setattr(web, "_moonwell_proxy", spy)
+        monkeypatch.setattr(web._moonwell_client, "proxy", spy)
 
         assert _login_plain(app).post("/ajax/llm-task/run", json={"provider": "zhipu"}).status_code == 403
         assert not hits
@@ -159,7 +159,7 @@ class TestAdminGating:
             body = json.dumps({"success": False, "message": "无权限手动执行 LLM 任务", "result": None})
             return Response(body, status=403, content_type="application/json")
 
-        monkeypatch.setattr(web, "_moonwell_proxy", rejecting)
+        monkeypatch.setattr(web._moonwell_client, "proxy", rejecting)
 
         rv = admin_client.post("/ajax/llm-task/run", json={"provider": "zhipu"})
 

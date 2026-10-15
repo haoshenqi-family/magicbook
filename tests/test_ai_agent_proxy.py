@@ -14,6 +14,7 @@ from types import SimpleNamespace
 import pytest
 
 from cps.ai import proxy as ai_proxy
+from cps.moonwell.client import client as _mb_client
 
 
 class FakeUpstream:
@@ -128,7 +129,7 @@ def test_json_endpoints_reuse_moonwell_proxy(admin_client, monkeypatch):
         return json.dumps({"success": True, "result": [{"id": 1}]}), 200, {
             "Content-Type": "application/json"}
 
-    monkeypatch.setattr("cps.web._moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(_mb_client, "proxy", fake_proxy)
     rv = admin_client.get("/ai/agent/conversations?bookId=89")
     assert rv.status_code == 200
     assert captured["path"] == "/ai/agent/conversations"
@@ -153,7 +154,7 @@ def test_memory_save_relays_body(admin_client, monkeypatch):
         captured.update({"path": path, "payload": payload})
         return json.dumps({"success": True, "result": {"id": 9}}), 200, {}
 
-    monkeypatch.setattr("cps.web._moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(_mb_client, "proxy", fake_proxy)
     rv = admin_client.post("/ai/agent/memory/save",
                            json={"memory": "偏好简洁", "bookId": 89})
     assert rv.status_code == 200

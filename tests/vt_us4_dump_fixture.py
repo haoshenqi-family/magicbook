@@ -202,7 +202,7 @@ def test_dump_vt_fixture(admin_client, monkeypatch):
         body, status = _envelope(SETTINGS)
         return body, status, {"Content-Type": "application/json"}
 
-    monkeypatch.setattr(w, "_moonwell_proxy", proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", proxy)
     html = admin_client.get("/reading/settings").get_data(as_text=True)
     assert 'id="vt-root"' in html
     _dump(html, "vt_us4_fixture.html")

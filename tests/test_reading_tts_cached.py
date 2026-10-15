@@ -30,7 +30,7 @@ def stub_proxy(monkeypatch):
                       "label": label, "binary": binary, "method": method})
         return (b"FAKE-MP3-BYTES", 200, {"Content-Type": "audio/mpeg"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
     return calls
 
 
@@ -104,7 +104,7 @@ def test_miss_status_and_content_type_pass_through(admin_client, moonwell_config
                    system_identity=False, bearer_token=None):
         return (b"", 404, {"Content-Type": "application/json"})
 
-    monkeypatch.setattr(w, "_moonwell_proxy", fake_proxy)
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
 
     rv = admin_client.post("/ajax/reading-tts-cached", json={"text": PARA})
 
