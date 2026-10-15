@@ -16,6 +16,7 @@
   "cps/static/js/onboarding.js",
   "cps/static/js/reading/epub.js",
   "cps/static/js/reading/reader-core.js",
+  "cps/static/js/reading/reader-word-detail.js",
   "cps/static/js/vocab-test.js"
  ],
  "msgid_count": 289
