@@ -1,5 +1,7 @@
 # 伴读 Agent 化：magicbook 侧改造设计（前端 + 薄代理 + 数据迁出）
 
+> **L2 状态**（DF6/R186）：`companion` 模块尚无 `docs/companion/hld/hld.md`（**待升 L2**），本文件的薄代理端点表即该模块现行契约。
+
 **特性代号**：`ai-agent`
 **日期**：2026-09-29
 **状态**：已上线（R98 交付薄代理 + 抽屉前端 + 数据迁出，见文末实施记录与 magicbook `response.md`；状态行原写「待排期开发」已于 2026-10-14 R170 回填）。**R170 追加**：接上后端 `audio` SSE 事件的朗读播放（对应 moon-well R175 的 `synthesize_tts` 工具落地）。

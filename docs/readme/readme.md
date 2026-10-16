@@ -29,8 +29,22 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | 级别 | 位置 | 读者 | 内容 |
 | --- | --- | --- | --- |
 | **L1 用户文档** | `docs/readme/` | 使用者 | 系统与各模块功能介绍，不涉及实现 |
-| **L2 设计概要（HLD）** | `docs/<module>/hld/` | 模块调用者/集成者 | 代理端点映射与接口约定（首批：reading、vocabulary，其余模块契约暂以 L3 为准） |
+| **L2 设计概要（HLD）** | `docs/<module>/hld/hld.md` | 模块调用者/集成者 | 代理端点映射与接口约定；**7 个模块已建 2 份**，逐模块状态见下表 |
 | **L3 详细设计（LLD）** | `docs/feat/` | 开发/维护者 | 具体设计、验收、测试（18 个 feat） |
+
+### L2 覆盖现状（逐模块实测，2026-10-16 R186）
+
+| 模块 | L2 | 接口契约现在在哪 |
+| --- | --- | --- |
+| reading | ✅ 已建 | [docs/reading/hld/hld.md](../reading/hld/hld.md) |
+| vocabulary | ✅ 已建 | [docs/vocabulary/hld/hld.md](../vocabulary/hld/hld.md) |
+| library | ⬜ 待升 L2 | L3：[whole-book-translation](../feat/whole-book-translation/design/whole-book-translation-design.md)（端点已在 reading L2 §1 挂号）、[halo-book-connector](../feat/halo-book-connector/design/lld.md) |
+| learning | ⬜ 待升 L2 | L3：[learning-hub](../feat/learning-hub/design/us1-hub-banner-lld.md) |
+| companion | ⬜ 待升 L2 | L3：[ai-agent](../feat/ai-agent/design/magicbook-side-design.md)、[ai-reading-companion](../feat/ai-reading-companion/design/ai-reading-companion-implementation-plan.md) |
+| credit | ⬜ 待升 L2 | L3：[subscription-page](../feat/subscription-page/design/lld.md) |
+| admin | ⬜ 待升 L2 | L3：[llm-task-run/admin-monitor](../feat/llm-task-run/design/admin-monitor.md) |
+
+口径（与 AGENTS.md 文档规范节同源）：**未建 L2 的模块，其接口契约以标着「待升 L2」的那份 L3 design 为准**，新模块的 L2 随功能演进补齐、不要求一次性铺满；上表与 L3 里的标注由 R186 逐模块核对过，两边不符时以本表为准并回填标注。
 
 模块对应的 L3 详细设计在 `docs/feat/`，共 18 个（反向索引纪律：每个 L3 目录都要在此可见）：ai-agent、ai-reading-companion、arch-review-2026-10、halo-book-connector、language-i18n、learning-hub、llm-task-run、magicbook-fnos、nce-audio、onboarding-tour、sso-user-unification、subscription-page、ted-audio-companion、vocab-size-test、whole-book-listening、whole-book-translation、whole-book-tts、word-detail；后端契约的**唯一权威**是 moon-well 仓库的 L2（`moon-well/docs/<module>/hld/`）。
 

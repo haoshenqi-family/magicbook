@@ -1,5 +1,7 @@
 # AI Reading Companion Implementation Plan
 
+> **L2 状态**（DF6/R186）：本文是历史实施计划（只标注不重写）。`companion` 模块待升 L2，现行端点契约见 `docs/feat/ai-agent/design/magicbook-side-design.md`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add an AI-assisted reading companion to a calibre-web fork: a floating chat sidebar inside each reader (epub/pdf/txt) that sends book metadata + current page text + user question to a configurable LLM provider (default DeepSeek), with persistent per-book conversation history and cross-book user memory, plus Authentik OAuth login as a new provider — all with minimal intrusion into upstream calibre-web code.

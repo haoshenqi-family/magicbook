@@ -1,5 +1,7 @@
 # 订阅充值页面 — 详细设计（LLD）
 
+> **L2 状态**（DF6/R186）：`credit` 模块尚无 `docs/credit/hld/hld.md`（**待升 L2**），本文件的页面与端点契约即该模块现行契约。
+
 ## 1. 背景与目标
 
 - moon-well 已具备 SaaS 计费后端（套餐/订单/支付宝当面付/订阅开通，见 moon-well `docs/feat/saas/design/saas-alipay-lld.md`），但无任何前端入口。

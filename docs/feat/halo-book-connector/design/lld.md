@@ -1,5 +1,7 @@
 # Halo → magicbook 书籍连接器 LLD（方案 A：magicbook 内部导入 API）
 
+> **L2 状态**（DF6/R186）：`library` 模块尚无 `docs/library/hld/hld.md`（**待升 L2**），本文件的导入 API 契约即该模块现行契约。
+
 > **特性代号**：halo-book-connector ｜ **日期**：2026-09-30 ｜ **状态**：已定稿（R107 评审通过，Q1-Q4 已拍板）
 > **需求来源**：requests.md R106/R107 ｜ **关联设计**：`docs/feat/whole-book-translation/design/whole-book-translation-design.md`
 > **代码事实依据**：`cps/editbooks.py`（格式上传/落盘）、`cps/reading_translation/service.py`（整本翻译）、`cps/usermanagement.py`（信任头）、`cps/main.py`（blueprint 注册）
