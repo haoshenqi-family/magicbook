@@ -48,5 +48,7 @@ library/metadata.db
 .env
 
 # Temp docs (not tracked by git)
+# 上游 Calibre-Web 的 QUnit 残留目录（本仓测试全在 tests/，pytest testpaths 只认 tests/）
+/test/
 docs/temp/
 .openclaw/
