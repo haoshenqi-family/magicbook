@@ -1,6 +1,6 @@
 # magicbook 架构评审任务拆分（2026-10）
 
-> 状态：任务清单（2026-10-15 建档，全部待启动；本轮仅登记任务，未做任何开发）
+> 状态：进度快照（2026-10-16 按 `git log origin/develop..develop` 实测回填）——**B1/B2/B4/B5/B6/B7 与 DF1–DF6 已合入本地 develop**（B5→r177、B1→r178、B2→r181、B7→r182、B4 批次 1–7→r183、B6+DF6→r186 `17f68bee`、DF1–DF5→r185），**B3 / B8 / X2 本仓部分 / DF7–DF8 未启动**；B4 判据②③与 B6 判据③剩真机批次验收；develop 领先 origin 33 提交，未 push。
 > 来源：家族根 [`architecture-review-2026-10-14.md`](../../../../../docs/architecture-review-2026-10-14.md) §2.2（B1–B8）、§3.2（严重度标记）、§2.5（X1/X2 本仓部分）、§2.7（波次）；跨仓协同总账见家族根 [`arch-review-2026-10-tasks-crossrepo.md`](../../../../../docs/arch-review-2026-10-tasks-crossrepo.md)
 > 建档：2026-10-15（`requests.md` R174）。开工时逐任务按 `AGENTS.md` worktree 纪律单独立项（一任务一分支），本清单不整包启动。
 
