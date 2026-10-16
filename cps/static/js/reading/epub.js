@@ -12,10 +12,12 @@ var reader;
   var RD = window.ReaderWordDetail;
   // R183（B4 批次 3）：段落批注 / AI 伴读批注 / 本书批注面板实现见 reader-annotations.js
   var AN = window.ReaderAnnotations;
-  if (!RD || !AN) {
+  // R183（B4 批次 4）：划词簇实现见 reader-selection.js
+  var RS = window.ReaderSelection;
+  if (!RD || !AN || !RS) {
       // Why 显式报错而不是静默跳过：详解与批注面板会整块失效，静默降级在界面上的表现是
       // 「详按钮/批注按钮点了没反应」，用户报障永远指不到载入顺序这一步
-      console.error('[reader] reader 模块未载入（reader-word-detail.js / reader-annotations.js），详解与批注面板不可用');
+      console.error('[reader] reader 模块未载入（word-detail / annotations / selection），划词·详解·批注能力不可用');
   }
 
     EPUBJS.filePath = calibre.filePath;
@@ -295,441 +297,29 @@ var reader;
         }, 30000);
     }
 
-    // ===== MagicLens 接管探测（R141 静态下线 → R143 收窄边界 → R146 改运行时探测）=====
-    // 口径不变：只让位 magiclens 真正接管的部分，不重复、不打架；但不再写死——
-    // 「装了扩展」不等于「这条能力在此处通」。v0.8.5 之前 iframe 拖选根本不通，而写死
-    // 下线让装了扩展的用户在阅读器里划词凭空消失，就是这个写法的代价。
-    // 改为读扩展自己在 DOM 上留的接管标记（magiclens v0.8.6 / 其 R37）：
-    //   · data-magiclens-selection：由 selection-relay.js 写在**它所在的那个文档**上，
-    //     语义是「本帧的拖选划词确实在被扩展处理」，所以逐文档判定；
-    //   · data-magiclens-highlight：由 highlight.js 写在**顶层文档**上，语义是「高亮引擎
-    //     正在跑」（它跨文档标注本页所有 frame），会随 Alt+U / 域名禁用 / 登出被清除。
-    // 读不到标记就保留内置实现：未装扩展、扩展版本过旧（<0.8.6 没有标记）、该 frame
-    // 注入失败、用户关了高亮——这四种情况下功能都不因「让位」而缺失。标记的值就是扩展
-    // 版本号，出问题时在 DevTools 里看一眼 DOM 属性即可分辨是上面哪一种。
-    // 不在让位范围内的：段落「译」按钮、整页/整本翻译、朗读、批注、AI 伴读、右键快捷
-    // 菜单，以及 inspectVocabulary 的每页文本上送（喂 moon-well 阅读事件流与伴读生词）。
-
-    // 本帧的拖选划词是否已被扩展接管（contentDoc 即 epub.js 渲染正文的那个同源 iframe）
-    function lensOwnsSelection(contentDoc) {
-        return Boolean(contentDoc.documentElement.dataset.magiclensSelection);
-    }
-
-    // 生词高亮是否已被扩展接管（其引擎在顶层文档统一标注，故看顶层文档的标记）
-    function lensOwnsHighlight() {
-        return Boolean(document.documentElement.dataset.magiclensHighlight);
-    }
-
-    // 划词翻译：选中文本弹出翻译气泡（来自 master 分支功能）。
-    var translationRequest = 0;
-    var translationPopover;
-    var popoverHideTimer = null;
-    var popoverHideText = '';
-
-    function startWholeBookTranslation() {
-        if (!calibre.wholeBookTranslationUrl || !window.confirm(mbT('Start/resume whole-book translation?\n\nParagraphs that already have translations only hit the cache and are not billed again; only missing paragraphs are actually translated.'))) return;
-        var button = document.getElementById('whole-book-translate');
-        if (button) { button.classList.add('active'); button.textContent = mbT('Submitting…'); }
-        $.ajax({url: calibre.wholeBookTranslationUrl, method: 'POST', contentType: 'application/json',
-            headers: {'X-CSRFToken': readerCsrfToken()},
-            // R75 后续：恒带 force。历史批次可能停在 PUBLISHED 缺口（已发布但译文
-            // 未落缓存），retry 只重发 FAILED 段够不着；force 每次新建批次，已译段
-            // 经缓存命中回收（幂等不重复计费），只真正发布缺失段。
-            data: JSON.stringify({book_id: calibre.bookId, book_format: calibre.bookFormat, force: true})
-        }).done(function (result) {
-            // 译文不是同步返回：任务由 moon-well 后台逐段执行并写入缓存，
-            // 完成后本阅读器翻页时经 restoreCachedTranslations 自动回填。
-            try { localStorage.setItem('calibre.reader.translation.job.' + calibre.bookId, result.jobId); } catch (e) {}
-            alert(mbT('Whole-book translation submitted\nTotal paragraphs: {total}\nCached: {cached}\nNewly published: {published}\n\nTranslations are generated in the background paragraph by paragraph and appear automatically while reading.')
-                .replace('{total}', result.totalCount || 0)
-                .replace('{cached}', result.cachedCount || 0)
-                .replace('{published}', result.publishedCount || 0));
-            startWholeBookProgressPolling();
-        }).fail(function (xhr) {
-            if (reloadIfCsrfBlocked(xhr)) return;
-            alert((xhr.responseJSON && xhr.responseJSON.message) || mbT('Failed to submit whole-book translation'));
-        }).always(function () {
-            if (button) { button.classList.remove('active'); button.textContent = mbT('Whole-book'); }
-        });
-    }
-
-    function closeTranslationPopover() {
-        if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
-        popoverHideText = '';
-        // R125：详解面板与气泡生命周期解耦——收气泡不再收面板。
-        // 生成要 15~30s，翻页/新选区误关一次用户就白等一趟；面板仅由 ✕/Esc 关闭
-        if (translationPopover) {
-            translationPopover.remove();
-            translationPopover = null;
-        }
-    }
-
-    // 划词气泡的自动隐藏：时长按选中原文的词数折算（与段落译文共用
-    // 「每 100 词秒数」配置）；气泡内点击（发音/标记按钮）会重新调度，
-    // 避免操作中途被收走
-    function schedulePopoverHide(text) {
-        if (text !== undefined) popoverHideText = text;
-        // Why 挂起：详解面板存活期间气泡不自动隐藏（单词译文默认仅 5 秒，
-        // 而面板要承载 30s 级的现场生成与阅读）；面板关闭时由其负责重挂计时
-        if (RD.isOpen()) return; // R183：面板态归模块持有
-        // 气泡已被收走（如翻页联动）时无需再计时
-        if (!translationPopover) return;
-        // 译文结果未到达（loading 态点击）：没有可计时的内容
-        if (!popoverHideText) return;
-        if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
-        var seconds = translationDisplaySecondsFor(popoverHideText);
-        if (!seconds) return;
-        popoverHideTimer = setTimeout(function () {
-            popoverHideTimer = null;
-            closeTranslationPopover();
-        }, seconds * 1000);
-    }
-
-    function showTranslationPopover(text, rect, loading) {
-        closeTranslationPopover();
-        translationPopover = document.createElement('div');
-        translationPopover.className = 'reading-translation-popover' + (loading ? ' is-loading' : '');
-        translationPopover.textContent = loading ? mbT('Translating…') : text;
-        // 气泡内任何点击（朗读/生词标记等）都视为正在使用：重置自动隐藏计时。
-        // 用捕获阶段监听——按钮自身的 click 处理器会 stopPropagation，
-        // 冒泡阶段的监听收不到，捕获先于目标处理器执行不受影响。
-        translationPopover.addEventListener('click', function () { schedulePopoverHide(); }, true);
-        document.body.appendChild(translationPopover);
-        var top = rect.bottom + 8, left = rect.left;
-        var bounds = translationPopover.getBoundingClientRect();
-        if (top + bounds.height > window.innerHeight) top = Math.max(8, rect.top - bounds.height - 8);
-        left = Math.min(Math.max(8, left), window.innerWidth - bounds.width - 8);
-        translationPopover.style.top = top + 'px';
-        translationPopover.style.left = left + 'px';
-        return translationPopover;
-    }
-
-    function translateSelection(content) {
-        // 扩展正在接管本帧的拖选时不出内置气泡，避免同页双气泡、两套 Esc 互相抢占
-        if (lensOwnsSelection(content.document)) return;
-        if (!calibre.readingVocabularyEnabled || !calibre.readingTranslationUrl) return;
-        var selection = content.window.getSelection();
-        var text = selection && selection.toString().replace(/\s+/g, ' ').trim();
-        // 任何「不再弹出气泡」的路径都必须关掉旧气泡：单击正文清除选区后
-        // 旧实现直接 return，导致气泡常驻不消失（划词翻译不自动关闭的根因之一）
-        if (!text || text.length > 2000) { closeTranslationPopover(); return; }
-        var range = selection.getRangeAt(0), rect = range.getBoundingClientRect();
-        if (!rect.width && !rect.height) { closeTranslationPopover(); return; }
-        var frame = content.window.frameElement;
-        if (frame) {
-            var frameRect = frame.getBoundingClientRect();
-            rect = {top: rect.top + frameRect.top, bottom: rect.bottom + frameRect.top,
-                left: rect.left + frameRect.left, width: rect.width, height: rect.height};
-        }
-        var requestId = ++translationRequest;
-        var popover = showTranslationPopover('', rect, true);
-        var context = range.commonAncestorContainer.parentElement &&
-            range.commonAncestorContainer.parentElement.textContent || text;
-        $.ajax({
-            url: calibre.readingTranslationUrl, method: 'POST', contentType: 'application/json',
-            headers: {'X-CSRFToken': readerCsrfToken()},
-            data: JSON.stringify({text: text, context: context.slice(0, 2000)})
-        }).done(function (response) {
-            if (requestId !== translationRequest || !translationPopover) return;
-            var result = response.result || response.data || {};
-            popover.classList.remove('is-loading');
-            popover.textContent = result.translation || mbT('No translation yet');
-            if (result.source) {
-                var source = document.createElement('div');
-                source.className = 'translation-source';
-                source.textContent = result.source === 'dictionary' ? mbT('Dictionary') : mbT('AI translation');
-                popover.appendChild(source);
-            }
-            // 划词发音：单词走有道词库真人音频，短语/句子走浏览器合成（speakSelection）
-            if ((window.speechSynthesis && window.SpeechSynthesisUtterance) ||
-                SINGLE_WORD_RE.test(text)) {
-                var speakBtn = document.createElement('span');
-                speakBtn.className = 'translation-speak';
-                speakBtn.textContent = '🔊';
-                speakBtn.title = mbT('Read original aloud');
-                speakBtn.addEventListener('click', function (ev) {
-                    ev.stopPropagation();
-                    speakSelection(text);
-                });
-                popover.appendChild(speakBtn);
-            }
-            // 划词标记：仅对单个英文单词显示 ＋（不认识）/ －（已认识）
-            if (calibre.readingWordMarkUrl && SINGLE_WORD_RE.test(text)) {
-                appendWordMarkButtons(popover, text);
-            }
-            // 单词详解：与生词标记同口径，仅单个英文单词显示「详」
-            if (calibre.readingWordDetailUrl && SINGLE_WORD_RE.test(text)) {
-                appendWordDetailButton(popover, text);
-            }
-            // 译文渲染完成才开始计时（loading 中间态不占显示时长）；
-            // 词数以选中原文为基数
-            schedulePopoverHide(text);
-        }).fail(function (xhr) {
-            // CSRF 过期/会话重建：刷新页面拿新 token，避免"翻译失败"误导
-            if (reloadIfCsrfBlocked(xhr)) return;
-            if (requestId === translationRequest && translationPopover) {
-                popover.classList.remove('is-loading');
-                popover.textContent = mbT('Translation failed, please retry later');
-            }
-        });
-    }
-
-    // 单个英文单词：首尾必须是字母（与 markVocabulary 分词的 \b 边界
-    // 语义对齐——尾部带撇号/连字符的选区不会匹配任何页面词形）；
-    // 句子/短语不显示标记按钮
-    var SINGLE_WORD_RE = /^\s*[A-Za-z](?:[A-Za-z'\u2019-]*[A-Za-z])?\s*$/;
-
-    // 词形归一化：小写 + 弯撇号转直撇号，与 vocabularyRecords 的 key 保持一致
-    function normalizedWord(text) {
-        return text.trim().toLowerCase().replace(/[\u2019']/g, "'");
-    }
-
-    // ===== 划词发音 =====
-    // 单个英文单词用有道 dictvoice 词库音频（免费、无需 key、真人音色），
-    // 替代 speechSynthesis「取第一个匹配语言的系统音色」的机械声（金山词典
-    // 释义无音频字段，此前单词也只能用合成音）；短语/句子仍走浏览器合成。
-    // type=2 美式发音（1 为英式）
-    var YOUDAO_DICT_VOICE = 'https://dict.youdao.com/dictvoice?type=2&audio=';
-    // 正在播放的词库音频：再次发音前先停掉上一段，避免重叠
-    var selectionAudio = null;
-
-    function speakSelection(text) {
-        if (selectionAudio) {
-            selectionAudio.pause();
-            selectionAudio = null;
-        }
-        try { window.speechSynthesis.cancel(); } catch (e) {}
-        if (!SINGLE_WORD_RE.test(text)) {
-            try { window.speechSynthesis.speak(buildSpeechUtterance(text)); } catch (e) {}
-            return;
-        }
-        var audio = new Audio(YOUDAO_DICT_VOICE + encodeURIComponent(text.trim()));
-        selectionAudio = audio;
-        // 外链音频加载/播放失败（断网、词库无该词）回退浏览器合成，发音始终可用；
-        // onerror 与 play() 拒绝可能都触发，靠 selectionAudio 引用判重只回退一次
-        var fallback = function () {
-            if (selectionAudio !== audio) return;
-            selectionAudio = null;
-            try { window.speechSynthesis.speak(buildSpeechUtterance(text)); } catch (e) {}
-        };
-        audio.onerror = fallback;
-        audio.play().catch(fallback);
-    }
-
-    // 标记生效：更新会话内记录并同步页面标注
-    // （＋补波浪线；－移除该词全部波浪线 span，即时可见）
-    function applyWordUnknown(word, unknown) {
-        var record = vocabularyRecords[word];
-        if (record) {
-            record.unknown = unknown;
-        } else {
-            vocabularyRecords[word] = {word: word, unknown: unknown};
-        }
-        if (unknown) {
-            markVocabulary(Object.keys(vocabularyRecords)
-                .map(function (w) { return vocabularyRecords[w]; }));
-        } else {
-            unwrapWordSpans(word);
-        }
-    }
-
-    // 移除某词的全部生词标注 span（解包为纯文本，波浪线即时消失）
-    function unwrapWordSpans(word) {
-        reader.rendition.getContents().forEach(function (content) {
-            var doc = content.document;
-            if (!doc || !doc.body) return;
-            Array.prototype.slice.call(
-                doc.querySelectorAll('span.reading-vocabulary-unknown')
-            ).forEach(function (span) {
-                if ((span.dataset.word || '') !== word) return;
-                span.parentNode.replaceChild(doc.createTextNode(span.textContent), span);
-            });
-        });
-    }
-
-    // 构建划词气泡的 ＋/－ 标记按钮：互斥高亮当前状态，点击即调 moon-well
-    function appendWordMarkButtons(popover, text) {
-        var word = normalizedWord(text);
-        var plusBtn = document.createElement('span');
-        plusBtn.className = 'translation-mark translation-mark-plus';
-        plusBtn.textContent = '＋';
-        plusBtn.title = mbT('Mark as unknown');
-        var minusBtn = document.createElement('span');
-        minusBtn.className = 'translation-mark translation-mark-minus';
-        minusBtn.textContent = '－';
-        minusBtn.title = mbT('Mark as known');
-
-        function refreshState() {
-            var record = vocabularyRecords[word];
-            var unknown = !!(record && record.unknown);
-            plusBtn.classList.toggle('is-marked', unknown);
-            // 从未记录过的词两个按钮都保持常态（既非已知也非未知）
-            minusBtn.classList.toggle('is-marked', !!record && !unknown);
-        }
-
-        function mark(unknown, btn) {
-            if (btn.classList.contains('is-loading')) return;
-            btn.classList.add('is-loading');
-            $.ajax({
-                url: calibre.readingWordMarkUrl, method: 'POST', contentType: 'application/json',
-                headers: {'X-CSRFToken': readerCsrfToken()},
-                data: JSON.stringify({word: word, unknown: unknown})
-            }).done(function () {
-                applyWordUnknown(word, unknown);
-                refreshState();
-                // 插入的是用户选中的原文，用回调形式：String.replace 的第二参里 $&/$1 有特殊含义
-                readerToast(unknown ? mbT('Marked as unknown: {w}').replace('{w}', function () { return word; })
-                                    : mbT('Marked as known: {w}').replace('{w}', function () { return word; }));
-            }).fail(function (xhr) {
-                // CSRF 过期/会话重建：刷新页面拿新 token，避免「标记失败」误导
-                if (reloadIfCsrfBlocked(xhr)) return;
-                readerToast(mbT('Failed to mark, please retry later'));
-            }).always(function () {
-                btn.classList.remove('is-loading');
-            });
-        }
-
-        plusBtn.addEventListener('click', function (ev) {
-            ev.stopPropagation();
-            mark(true, plusBtn);
-        });
-        minusBtn.addEventListener('click', function (ev) {
-            ev.stopPropagation();
-            mark(false, minusBtn);
-        });
-        refreshState();
-        popover.appendChild(plusBtn);
-        popover.appendChild(minusBtn);
-    }
-
+    // ===== 划词簇（气泡 / 发音 / 生词标记 / 右键菜单）——实现已迁出 reader-selection.js（R183 B4 批次 4）=====
+    // 三份浮层状态（translationPopover / popoverHideTimer / selectionMenu）随之归模块，本文件
+    // 只在装配处以 RS.* 使用它，并把两张「只有装配层才有」的依赖注入回去：生词台账与
+    // 浏览器朗读的 utterance 组装（function 声明提升，此处引用在载入期即有效）。
+    RS.setHost({
+        markVocabulary: markVocabulary,
+        buildSpeechUtterance: buildSpeechUtterance
+    });
     // ===== 单词详解面板（R123）——实现已迁出 reader-word-detail.js（R183 B4 批次 2）=====
     // 面板 DOM/请求守卫/六板块渲染都在模块内；这里只留气泡调用点需要的薄委托与宿主回调。
     function appendWordDetailButton(popover, text) {
         RD.appendButton(popover, text);
     }
 
-    // Why 注入回调而不是让模块反向 import：词形归一（C 节 normalizedWord）与气泡自动
-    // 隐藏定时器（B 节 popoverHideTimer）都是 epub.js 的 IIFE 私有态，闭包注入让它们
-    // 仍由本文件独占可变状态，模块只负责在面板生命周期里请求「挂起 / 恢复」
+    // Why 注入回调而不是让模块反向 import：词形归一与气泡自动隐藏定时器归 reader-selection.js
+    // 持有（批次 4），详解面板只经这三个回调请求「取词口径 / 挂起 / 恢复倒计时」，
+    // 不碰气泡内部状态——R125「面板存活期间挂起气泡 5s 倒计时」的语义因此仍只有一份真相
     RD.setHost({
-        normalizedWord: normalizedWord,
-        schedulePopoverHide: schedulePopoverHide,
-        cancelAutoHide: function () {
-            if (popoverHideTimer) { clearTimeout(popoverHideTimer); popoverHideTimer = null; }
-        }
+        normalizedWord: RS.normalizedWord,
+        schedulePopoverHide: RS.scheduleHide,
+        cancelAutoHide: RS.cancelAutoHide
     });
-    // ===== 划词右键快捷菜单：引用选中内容到 AI 伴读输入框 =====
-    // 有选区时右键用自定义菜单替换原生菜单（原生菜单被拦截后「复制」入口
-    // 没了，作为第二个菜单项补回）；无选区时放行原生菜单。
-    var SELECTION_QUOTE_MAX = 2000;
-    var selectionMenu = null;
 
-    function closeSelectionMenu() {
-        if (selectionMenu) {
-            selectionMenu.remove();
-            selectionMenu = null;
-        }
-    }
-
-    function currentSelectionText(content) {
-        var selection = content.window.getSelection();
-        return selection ? String(selection.toString()).replace(/\s+/g, ' ').trim() : '';
-    }
-
-    function copySelectionText(content, text) {
-        var done = function () { readerToast(mbT('Copied')); };
-        var legacy = function () {
-            try { content.document.execCommand('copy'); done(); } catch (e) {}
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(text).then(done, legacy);
-        } else {
-            legacy();
-        }
-    }
-
-    // 引用到 AI 伴读：只填入输入框不发送，用户接着补提示词自己发；
-    // 超长选区截断，与段落翻译/批注的 2000 字符上限保持一致
-    function quoteSelectionToAi(text) {
-        var trimmed = text.length > SELECTION_QUOTE_MAX ? text.slice(0, SELECTION_QUOTE_MAX) + '…' : text;
-        if (window.AICompanion && typeof window.AICompanion.insertIntoInput === 'function' &&
-            window.AICompanion.insertIntoInput(trimmed)) {
-            readerToast(mbT('Quoted into the AI companion — add a prompt and send'));
-        }
-    }
-
-    function showSelectionMenu(content, event) {
-        closeSelectionMenu();
-        var text = currentSelectionText(content);
-        if (!text) return;
-        selectionMenu = document.createElement('div');
-        selectionMenu.className = 'reading-selection-menu';
-
-        function addItem(label, action) {
-            var item = document.createElement('div');
-            item.className = 'selection-menu-item';
-            item.textContent = label;
-            item.addEventListener('click', function (ev) {
-                ev.preventDefault();
-                ev.stopPropagation();
-                closeSelectionMenu();
-                action();
-            });
-            selectionMenu.appendChild(item);
-        }
-
-        if (window.AICompanion && typeof window.AICompanion.insertIntoInput === 'function') {
-            addItem(mbT('Quote to AI companion'), function () { quoteSelectionToAi(text); });
-        }
-        addItem(mbT('Copy'), function () { copySelectionText(content, text); });
-
-        document.body.appendChild(selectionMenu);
-
-        // contextmenu 坐标是 iframe 内坐标，换算到主视口（与划词气泡一致）
-        var x = event.clientX, y = event.clientY;
-        var frame = content.window.frameElement;
-        if (frame) {
-            var frameRect = frame.getBoundingClientRect();
-            x += frameRect.left;
-            y += frameRect.top;
-        }
-        var bounds = selectionMenu.getBoundingClientRect();
-        x = Math.min(Math.max(8, x), window.innerWidth - bounds.width - 8);
-        y = Math.min(Math.max(8, y), window.innerHeight - bounds.height - 8);
-        selectionMenu.style.left = x + 'px';
-        selectionMenu.style.top = y + 'px';
-    }
-
-    function bindSelectionTranslation(content) {
-        // iframe 内事件不冒泡到主文档：正文区的按下/ESC 必须在 iframe
-        // document 上处理，否则气泡无法自动消失（双击查词后点击正文
-        // 气泡常驻的根因）。气泡挂在主文档 body 上，iframe 内的任何
-        // mousedown 都意味着用户点击了正文 → 关闭。批注弹层同理。
-        content.document.addEventListener('mousedown', function () {
-            closeTranslationPopover();
-            AN.closePopover();
-            closeSelectionMenu();
-        });
-        content.document.addEventListener('mouseup', function () {
-            setTimeout(function () { translateSelection(content); }, 0);
-        });
-        content.document.addEventListener('touchend', function () {
-            setTimeout(function () { translateSelection(content); }, 80);
-        });
-        // iframe 内按 ESC 同样关闭划词气泡与右键菜单
-        content.document.addEventListener('keydown', function (event) {
-            if (event.key === 'Escape') {
-                closeTranslationPopover();
-                closeSelectionMenu();
-            }
-        });
-        // 有选区的右键替换为快捷菜单（引用到 AI 伴读/复制）；无选区放行原生菜单
-        content.document.addEventListener('contextmenu', function (event) {
-            if (!currentSelectionText(content)) return;
-            event.preventDefault();
-            showSelectionMenu(content, event);
-        });
-    }
 
     // ===== 段落朗读（TTS）+ 沉浸式翻译 =====
 
@@ -1983,7 +1573,7 @@ var reader;
                     scheduleTranslationHide(div, div.previousElementSibling);
                 });
         });
-        if (translationPopover) schedulePopoverHide();
+        if (RS.isPopoverOpen()) RS.scheduleHide();
     }
 
     function removeAllTranslations() {
@@ -2189,7 +1779,7 @@ var reader;
         if (translationEnabled()) setTimeout(restoreCachedTranslations, 200);
     }
     var wholeBookToggle = document.getElementById('whole-book-translate');
-    if (wholeBookToggle) wholeBookToggle.addEventListener('click', startWholeBookTranslation);
+    if (wholeBookToggle) wholeBookToggle.addEventListener('click', RS.startWholeBookTranslation);
 
     // R157 整本连播按钮：▶/❚❚ 起播暂停切换，■ 停止；依赖 moon-well TTS 代理，
     // 未配置（readingTtsUrl 缺失）时隐藏（单段朗读有浏览器兜底，连播没有）。
@@ -2218,7 +1808,7 @@ var reader;
     reader.rendition.on('rendered', function (section, view) {
         var content = view && view.contents;
         if (content && content.document) {
-            bindSelectionTranslation(content);
+            RS.bindFrame(content);
             injectParagraphTools(content);
             // R172 TED 原声伴听：段落点击切播（跳到该段原声位置）
             if (tedAudioPlayer && tedAudioPlayer.active) {
@@ -2236,14 +1826,14 @@ var reader;
     document.addEventListener('mousedown', function (event) {
         // 点击浮层外部一律关闭（划词气泡 / 右键菜单 / 段落批注弹层 / 书批注面板）；
         // 菜单项自身不能在 mousedown 被关掉，否则 click 到不了菜单项
-        if (selectionMenu && !selectionMenu.contains(event.target)) {
-            closeSelectionMenu();
+        if (RS.isMenuOpen() && !RS.menuContainsNode(event.target)) {
+            RS.closeMenu();
         }
-        if (translationPopover && !translationPopover.contains(event.target)
+        if (RS.isPopoverOpen() && !RS.popoverContainsNode(event.target)
             && !RD.containsNode(event.target)) {
             // 详解面板是气泡的兄弟节点：面板内点击不算「点气泡外」，
             // 否则会在面板里按鼠标时把气泡和面板一起收走（审查 P0）
-            closeTranslationPopover();
+            RS.closePopover();
         }
         if (AN.isPopoverOpen() && !AN.containsNode(event.target)) {
             AN.closePopover();
@@ -2261,8 +1851,8 @@ var reader;
         // 划词气泡，一次 Esc 只关一层并阻断后续监听（本 handler 先于
         // ai_chat.js 注册，stopImmediatePropagation 可阻断其 jQuery 委托监听），
         // 多层面板同开时逐层退出；全部关闭时不阻断，ai_chat.js 正常关抽屉。
-        if (selectionMenu) {
-            closeSelectionMenu();
+        if (RS.isMenuOpen()) {
+            RS.closeMenu();
             event.stopImmediatePropagation();
             return;
         }
@@ -2276,15 +1866,15 @@ var reader;
             event.stopImmediatePropagation();
             return;
         }
-        if (!translationPopover) return;
-        closeTranslationPopover();
+        if (!RS.isPopoverOpen()) return;
+        RS.closePopover();
         event.stopImmediatePropagation();
     });
 
     // 供 ai_chat.js 的 ESC 分层关闭：划词气泡打开时 ESC 只关气泡，
     // 不连带关闭 AI 抽屉（两个面板同时打开时逐层退出）
     window.ReaderTranslation = {
-        isOpen: function () { return !!translationPopover; }
+        isOpen: RS.isPopoverOpen
     };
 
     // 取当前渲染位置（含当前页 start/end CFI）。ePubReader 包装器上没有
@@ -2381,7 +1971,7 @@ var reader;
         // 就是一个词两条线）；引擎关了 / 未登录 / 站点被禁用时它会自己清掉标记，内置随即
         // 回来。这里只停 DOM 标注，不停 inspectVocabulary 的请求：那份上报同时是
         // moon-well 阅读事件流（学情、成就解锁）和 AI 伴读「当前页生词」上下文的数据来源。
-        if (lensOwnsHighlight()) return;
+        if (RS.lensOwnsHighlight()) return;
         var byWord = {};
         (records || []).forEach(function (record) {
             if (record && record.word) byWord[record.word] = record;
@@ -2488,9 +2078,9 @@ var reader;
     }
     reader.rendition.on('relocated', function () {
         // 翻页后旧气泡/批注弹层/右键菜单的坐标基于已换下的页面，必须关闭
-        closeTranslationPopover();
+        RS.closePopover();
         AN.closePopover();
-        closeSelectionMenu();
+        RS.closeMenu();
         setTimeout(inspectVocabulary, 120);
     });
 
