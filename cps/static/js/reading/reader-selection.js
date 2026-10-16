@@ -30,8 +30,15 @@
     var reloadIfCsrfBlocked = function (x) { return RC.reloadIfCsrfBlocked(x); };
     var translationDisplaySecondsFor = function (t) { return RC.translationDisplaySecondsFor(t); };
 
-    // 宿主回调：生词台账与 utterance 组装仍由 epub.js 持有
-    var host = { markVocabulary: function () { }, buildSpeechUtterance: function () { return null; } };
+    // 宿主回调：生词台账（vocabularyRecords）与 utterance 组装、整本翻译进度轮询
+    // 都在装配层/H/I 节，模块只经这三个口请求，不持有第二份台账
+    var host = {
+        markVocabulary: function () { },
+        buildSpeechUtterance: function () { return null; },
+        applyWordRecord: function () { return []; },
+        getWordRecord: function () { return null; },
+        startWholeBookProgressPolling: function () { }
+    };
     // ===== MagicLens 接管探测（R141 静态下线 → R143 收窄边界 → R146 改运行时探测）=====
     // 口径不变：只让位 magiclens 真正接管的部分，不重复、不打架；但不再写死——
     // 「装了扩展」不等于「这条能力在此处通」。v0.8.5 之前 iframe 拖选根本不通，而写死
@@ -81,7 +88,7 @@
                 .replace('{total}', result.totalCount || 0)
                 .replace('{cached}', result.cachedCount || 0)
                 .replace('{published}', result.publishedCount || 0));
-            startWholeBookProgressPolling();
+            host.startWholeBookProgressPolling();
         }).fail(function (xhr) {
             if (reloadIfCsrfBlocked(xhr)) return;
             alert((xhr.responseJSON && xhr.responseJSON.message) || mbT('Failed to submit whole-book translation'));
@@ -256,15 +263,11 @@
     // 标记生效：更新会话内记录并同步页面标注
     // （＋补波浪线；－移除该词全部波浪线 span，即时可见）
     function applyWordUnknown(word, unknown) {
-        var record = vocabularyRecords[word];
-        if (record) {
-            record.unknown = unknown;
-        } else {
-            vocabularyRecords[word] = {word: word, unknown: unknown};
-        }
+        // 台账更新走宿主（返回全量记录）：vocabularyRecords 归装配层独占，
+        // 翻回已读页与 inspectVocabulary 都读它，模块里留副本必然漂移
+        var records = host.applyWordRecord(word, unknown);
         if (unknown) {
-            host.markVocabulary(Object.keys(vocabularyRecords)
-                .map(function (w) { return vocabularyRecords[w]; }));
+            host.markVocabulary(records);
         } else {
             unwrapWordSpans(word);
         }
@@ -297,7 +300,8 @@
         minusBtn.title = mbT('Mark as known');
 
         function refreshState() {
-            var record = vocabularyRecords[word];
+            // ＋/－ 的当前态也读宿主台账：按钮态必须与波浪线依据同一份记录
+            var record = host.getWordRecord(word);
             var unknown = !!(record && record.unknown);
             plusBtn.classList.toggle('is-marked', unknown);
             // 从未记录过的词两个按钮都保持常态（既非已知也非未知）
