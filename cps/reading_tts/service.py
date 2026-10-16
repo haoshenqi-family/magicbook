@@ -7,15 +7,13 @@
 """
 
 import hashlib
-import os
 import re
-import threading
 import time
-from datetime import timedelta
 
-from .. import calibre_db, config, ub, logger
+from .. import ub, logger
 from ..cw_login import current_user
-from ..reading_translation.timeutil import as_utc, now_utc
+from ..reading_job.service_base import JobServiceBase
+from ..reading_translation.timeutil import now_utc
 from ..reading_translation.models import TranslationJob  # noqa: F401  (表注册顺序依赖)
 from .extractor import extract_epub_paragraphs
 from .models import ACTIVE_STATUSES, ReadingTtsJob, ReadingTtsJobItem
@@ -28,8 +26,6 @@ SOURCE_BOOK_TTS_BATCH = "book-tts-batch"
 BOOK_VOICE_SELECT_PATH = "/tts/book-voice/select"
 SPEAK_PATH = "/tts/speak"
 
-# 僵尸批次判定：updated_at 停滞超过该分钟数即视为丢失执行线程（翻译同款 30min）
-ZOMBIE_MINUTES = 30
 # daemon 段间隔（秒）：≈75 RPM < MiMo 100 RPM，留余量给阅读器即时朗读；命中段也 sleep
 #（daemon 不识别命中，简单且安全——R142 补跑参数）
 SYNTH_INTERVAL_SECONDS = 0.8
@@ -44,46 +40,29 @@ def text_hash(value):
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-class WholeBookTtsService:
-    """Create and reconcile durable whole-book TTS batches."""
+class WholeBookTtsService(JobServiceBase):
+    """Create and reconcile durable whole-book TTS batches.
+
+    台账原语与「花名册 + 原子 spawn」的自愈骨架在 `cps/reading_job/service_base.py`
+    （R169 事故的机制性答案已归一为一份实现）；本类只留整本朗读的差异部分：整本选角、
+    串行合成循环、done/failed 两段计数与 voice/style 留档。
+    """
+
+    job_model = ReadingTtsJob
+    item_model = ReadingTtsJobItem
+    # 刻意不含 PENDING：本链路的批次一建就是 RUNNING，PENDING 只属于 item 状态机
+    active_statuses = ACTIVE_STATUSES
+    # 本链路按 job_id 直取批次（不筛属主），三处 loader 共用同一句「查无批次」文案
+    missing_job_error = "job not found"
+    log_prefix = "whole-book tts:"
+    worker_name_prefix = "whole-book-tts"
+    job_log = log
 
     def __init__(self, moonwell_proxy):
+        super().__init__()
         # Why 注入代理而非直接 import：daemon 线程需要「请求线程定格的令牌快照」
         # （R51/R145 教训：线程内读 flask_session 会 RuntimeError），闭包由路由层构造
         self._proxy = moonwell_proxy
-        # 本进程内的合成线程花名册（job_id）。Why 需要它：`_synth_worker` 取 PENDING 段是
-        # 先查后写、没有 CAS，两条线程同跑会抢同一段 ⇒ 双合成、双扣字符；而「updated_at
-        # 是否停滞」只能证明至少 30 分钟没进展，救不了「台账已建、线程从未起成」这种当下就
-        # 坏的形态（R169 生产事故）。magicbook 单进程起服务（entrypoint.sh 末行
-        # `exec python /app/cps.py`），进程内字典因此是权威判据；跨进程重启后花名册清空，
-        # 「没有线程 + 还有 PENDING」正是该补线程的信号。判活与登记同锁原子化见
-        # `_spawn_synth_worker`。
-        self._live_workers = set()
-        self._workers_lock = threading.Lock()
-
-    def _ensure_tables(self):
-        bind = ub.session.get_bind()
-        ub.Base.metadata.create_all(bind, tables=[ReadingTtsJob.__table__, ReadingTtsJobItem.__table__])
-
-    def _book_file(self, book_id, book_format):
-        book = calibre_db.get_filtered_book(book_id)
-        if not book:
-            raise ValueError("book is unavailable")
-        normalized = (book_format or "").lower()
-        if normalized not in ("epub", "kepub"):
-            raise ValueError("only EPUB and KEPUB are supported")
-        data = calibre_db.get_book_format(book_id, normalized.upper())
-        if not data:
-            raise ValueError("book format is unavailable")
-        path = os.path.join(config.get_book_path(), book.path, data.name + "." + normalized)
-        if not os.path.isfile(path):
-            raise ValueError("book file is unavailable")
-        return book, path
-
-    @staticmethod
-    def _fingerprint(path):
-        stat = os.stat(path)
-        return hashlib.sha256(f"{path}:{stat.st_size}:{stat.st_mtime_ns}".encode()).hexdigest()
 
     # ---------- 选角 ----------
 
@@ -151,13 +130,8 @@ class WholeBookTtsService:
         user_id = int(current_user.id)
         book, path = self._book_file(book_id, book_format)
         fingerprint = self._fingerprint(path)
-        query = ub.session.query(ReadingTtsJob).filter(
-            ReadingTtsJob.user_id == user_id,
-            ReadingTtsJob.book_id == book_id,
-            ReadingTtsJob.book_fingerprint == fingerprint,
-            ReadingTtsJob.status.in_(ACTIVE_STATUSES))
-        existing = query.order_by(ReadingTtsJob.created_at.desc()).first()
-        if existing and not force_new_batch:
+        existing = None if force_new_batch else self._find_active_job(user_id, book_id, fingerprint)
+        if existing:
             if self._needs_worker(existing):
                 # 自愈主路：台账在、本进程却没有活线程（从未起成 / 容器重启 / 线程崩），
                 # 且还有 PENDING 段 ⇒ 原地补线程续跑。不另起新台账——批次表就是断点台账
@@ -170,14 +144,10 @@ class WholeBookTtsService:
                 self._proxy = proxy or self._proxy
                 self._spawn_synth_worker(existing.id)
                 return self.progress(existing)
-            if self._is_stalled(existing) and self._pending_count(existing.id) == 0:
+            if self._is_stale(existing) and self._pending_count(existing.id) == 0:
                 # 停滞且无待跑段＝线程在「完成最后一段」与「收尾定终态」之间没了
                 # （容器重启的典型落点）：按僵尸关闭，落回下面新建批次
-                log.warning("whole-book tts: stale job %s (book=%s updated_at=%s) closed as zombie "
-                            "(no pending left)", existing.id, book_id, existing.updated_at)
-                existing.status = "PARTIAL_FAILED"
-                existing.updated_at = now_utc()
-                ub.session.commit()
+                self._close_as_zombie(existing, book_id)
                 existing = None
             else:
                 # 复用是静默成功：无此日志无从区分「没收到请求」与「命中幂等」
@@ -235,46 +205,10 @@ class WholeBookTtsService:
     def _spawn_synth_worker(self, job_id):
         """为该批次起一条合成线程；已有活线程时静默跳过（返回 False）。
 
-        Why 判活与登记必须在同一把锁里：Tornado 把视图跑在真线程池里
-        （`cps/server.py:251` 的 `HTTPServer(MyWSGIContainer(...))`），两个「点整本朗读 /
-        点重试」的请求可能同时判定「没有活线程」，各自起一条 ⇒ 抢同一段、双合成双扣字符。
-        先查后登记的那个 TOCTOU 窗口只能靠把两步合成一个原子操作闭掉，调用方的预检
-        （`_needs_worker`）只用来决定要不要记日志。
+        「判活与登记必须在同一把锁里」的原子实现、崩溃兜底与花名册注销都归一到
+        `JobServiceBase._spawn_worker`，这里只把本链路的循环体交出去。
         """
-        with self._workers_lock:
-            if job_id in self._live_workers:
-                return False
-            # Why 先登记再 start：线程可能在 start() 返回的瞬间就跑完，后加会漏判活
-            self._live_workers.add(job_id)
-        worker = threading.Thread(
-            target=self._synth_worker_guarded,
-            args=(job_id,),
-            name=f"whole-book-tts-{job_id[:8]}", daemon=True)
-        try:
-            worker.start()
-        except Exception:
-            # 起线程失败（资源耗尽等）必须当场注销，否则该批次被花名册永久判定「有人在跑」
-            with self._workers_lock:
-                self._live_workers.discard(job_id)
-            raise
-        return True
-
-    def _synth_worker_guarded(self, job_id):
-        try:
-            self._synth_worker(job_id)
-        except Exception:
-            log.exception("whole-book tts: synth worker crashed (job=%s)", job_id)
-        finally:
-            with self._workers_lock:
-                self._live_workers.discard(job_id)
-
-    def _needs_worker(self, job):
-        """该批次现在该不该补一条合成线程：本进程无活线程 且 仍有 PENDING 段。"""
-        if job is None or job.status == "CANCELLED":
-            return False
-        with self._workers_lock:
-            live = job.id in self._live_workers
-        return not live and self._pending_count(job.id) > 0
+        return self._spawn_worker(job_id, self._synth_worker)
 
     def _synth_worker(self, job_id):
         # Why 自建查询而非闭包 session：scoped_session 绑定线程作用域，后台线程不能复用
@@ -334,28 +268,6 @@ class WholeBookTtsService:
             ub.session.commit()
             time.sleep(SYNTH_INTERVAL_SECONDS)
 
-    @staticmethod
-    def _is_stalled(job):
-        """停滞判定：``updated_at`` 超过 ZOMBIE_MINUTES 无进展。
-
-        Why 它不再是「补线程」的判据（那是 `_needs_worker` 的花名册）：停滞只能证明「至少
-        30 分钟没进展」，证明不了当下有没有线程。现在只留一个用途——判死「停滞且已无 PENDING」
-        的旧批次（线程崩在完成最后一段与收尾定终态之间），让它落回新建流程。
-        """
-        return now_utc() - as_utc(job.updated_at) > timedelta(minutes=ZOMBIE_MINUTES)
-
-    @staticmethod
-    def _pending_count(job_id):
-        return (ub.session.query(ReadingTtsJobItem)
-                .filter(ReadingTtsJobItem.job_id == job_id,
-                        ReadingTtsJobItem.status == "PENDING").count())
-
-    def _revive_running(self, job):
-        """把停滞批次拨回 RUNNING 并推进时钟——顺带挡住 30 分钟窗口内的重复补线程。"""
-        job.status = "RUNNING"
-        job.updated_at = now_utc()
-        ub.session.commit()
-
     def _refresh_counts(self, job):
         job.done_count = (ub.session.query(ReadingTtsJobItem)
                           .filter(ReadingTtsJobItem.job_id == job.id,
@@ -385,14 +297,14 @@ class WholeBookTtsService:
         self._ensure_tables()
         job = ub.session.query(ReadingTtsJob).get(job_id)
         if job is None:
-            raise ValueError("job not found")
+            raise ValueError(self.missing_job_error)
         return self.progress(job)
 
     def retry(self, job_id, proxy=None):
         self._ensure_tables()
         job = ub.session.query(ReadingTtsJob).get(job_id)
         if job is None:
-            raise ValueError("job not found")
+            raise ValueError(self.missing_job_error)
         if job.status == "CANCELLED":
             # Why 直接拒绝而不是回收 FAILED：cancel 是用户的显式停止意图，旧实现里
             # 「有 FAILED 就把 status 拨回 RUNNING」会让一个已取消的批次被重试悄悄复活
@@ -427,7 +339,7 @@ class WholeBookTtsService:
         self._ensure_tables()
         job = ub.session.query(ReadingTtsJob).get(job_id)
         if job is None:
-            raise ValueError("job not found")
+            raise ValueError(self.missing_job_error)
         job.status = "CANCELLED"
         job.updated_at = now_utc()
         ub.session.commit()

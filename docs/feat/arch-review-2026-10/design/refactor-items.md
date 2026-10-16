@@ -57,6 +57,13 @@
 
 ## B6 · JobServiceBase 模板方法（双胞胎去重）
 
+> 状态：**已合入本地 develop**（2026-10-16，R186 `refactor/r186-job-service-base`；交付记录见
+> [b6-job-service-base.md](b6-job-service-base.md)）。实测**不是双胞胎而是三胞胎**——`reading_word_detail/service.py`（R176）
+> 是同形制的第三份拷贝，本批一并归一。判据①②达成（全量 601 passed + 11 例结构守卫 + 反向变异），
+> **判据③「整本翻译/整本朗读各跑一轮真机批次」待用户线上验收**。两条如实登记的边界：
+> 进度字典与 item 状态机刻意不统一（会改前端契约）；花名册自愈只由朗读侧启用（给翻译/详解套上会
+> 把「连点两次」从「再起一条」改成「静默跳过」，属行为变更）。
+
 - **严重度 / 波次 / 前置**：🟠 ｜ 波 4 ｜ 无
 - **模式**：模板方法
 - **现状问题**：`reading_translation/service.py:82-519` ↔ `reading_tts/service.py:47-426` job/worker/progress/retry 结构逐一对称——同构双改风险（R169 整本朗读批次修复即双胞胎侧的事故形态）。
