@@ -37,7 +37,7 @@
 
 ## B4 · epub.js 按注释域拆 12 模块
 
-> 状态：进行中（2026-10-15 批次 1–3，分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`，已 merge 本地 develop `72b97ad5` / `d25ac150` / `2b1437c7` 待验收；**epub.js 3,279→2,545**，`js/reading/` 现 7 个文件。批次 1 横切原语 → `reader-core.js` + 静态锁改读 reader 模块全集；批次 2 详解面板 217 行 → `reader-word-detail.js`；批次 3 批注域 477 行 → `reader-annotations.js`（叶子判据：只反向依赖 `currentChapterTitle`，入口五处）。三轮全量各 585 passed，无头 Chrome 探针验到「宿主注入 chapter + core 归一化 paragraph」两处接缝。余 5 域：TTS 簇 820（非叶子，需先定装配层反向依赖接缝）/ TED 422 / 划词 420 / 沉浸式 307 / 装配层收尾；PingCode MAGICBOOK-2 `4X51sVcJ` In progress）
+> 状态：进行中（2026-10-15 批次 1–4，分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`，已 merge 本地 develop `72b97ad5` / `d25ac150` / `2b1437c7` / `cac5ed01` 待验收；**epub.js 3,279→2,135**，`js/reading/` 现 8 个文件：批次 1 横切原语 → `reader-core.js`（静态锁改读按 read.html 顺序拼接的 reader 模块全集），批次 2 详解面板 → `reader-word-detail.js`，批次 3 批注域 → `reader-annotations.js`，批次 4 划词簇（B+C+E 419 行，三份浮层状态合一）→ `reader-selection.js`，并新增 `tests/test_reader_module_surface.py` 把「跨模块调用面 ⊆ 导出面」做成机械守卫（反向变异已验）。全量 585→588 passed，无头 Chrome 三份探针实测详解/批注/划词接缝。余 4 域：TTS 簇 820（非叶子，需先定装配层反向依赖接缝）/ TED 422 / 沉浸式 307 / 装配层收尾；PingCode MAGICBOOK-2 `4X51sVcJ` In progress）
 
 - **严重度 / 波次 / 前置**：🟠 ｜ 波 3 ｜ 无
 - **模式**：门面拆模块

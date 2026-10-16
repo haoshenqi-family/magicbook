@@ -148,3 +148,15 @@
 - **真机证据**：无头 Chrome 八步探针 `docs/temp/an_probe.html`（`$.ajax` 桩同时支持 done/fail 与 then/catch——第一版只桩 done/fail 时模块的 `companion-roles` 路径直接抛 `$.ajax(...).then is not a function`，顺带证明该路径确实在跑）实测：工具栏点开面板→书内批注渲染 1 张卡片（摘录「I run every morning.」）→ 关面板 `toggle.active` 清除；段落弹层打开并渲染列表 2 个节点；**提交批注的请求体 `{"paragraph":"I run every morning.","content":"本机探针批注","bookName":"Probe Book","chapter":"Chapter 1"}`**——`chapter` 证明走宿主注入回调、`paragraph` 证明走 core 归一化，两处接缝都接对了。
 - **验证**：`node --check` 三个 JS；全量 **585 passed**（merge 后在 develop 新基线复跑同数）；i18n 清单生成脚本收录第 18 个文件。
 - **台账**：MAGICBOOK-2 描述已更新到批次 3；worktree `../magicbook-arch-b5` 分支 `refactor/r183-epub-modules` 继续驻留复用（批次 4：沉浸式翻译 307 行或划词簇 420 行；TTS 簇 820 行需先定装配层反向依赖接缝）。冲突记录：无；moon-well 侧 `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
+
+### R183 续三（批次 4：划词簇迁出 reader-selection.js，并补跨模块 API 表面守卫）
+
+- **交付**（commit `cac5ed01`，merge develop 未 push）：B 翻译气泡 + C 划词发音/生词标记 + E 右键菜单共 **419 行**合成 `reader-selection.js`；epub.js 2,545→**2,135**（累计 3,279→2,135，−35%）。
+- **为什么是三节合一**：它们是一次划词的三段（探测 MagicLens 接管 → 决定弹不弹气泡 → 气泡上挂 ＋/－、「详」、朗读），`translationPopover`/`popoverHideTimer`/`selectionMenu` 三份状态只在彼此之间流转；拆成三个模块只会把内部耦合升格成 API 表面。对宿主只反向依赖两张「只有装配层才有」的表：生词台账 `markVocabulary`（`vocabularyRecords`）与浏览器朗读 utterance 组装 `buildSpeechUtterance`，均经 `RS.setHost` 注入。批次 2 的 `RD.setHost` 随之改道（词形归一与倒计时挂起现归 selection 持有），本文件里那条过时注释一并更正。
+- **装配层十处入口**改走 `RS.*`（`bindFrame` / `closeMenu` / `closePopover` / `isMenuOpen` / `isPopoverOpen` / `menuContainsNode` / `popoverContainsNode` / `lensOwnsHighlight` / `startWholeBookTranslation` / `window.ReaderTranslation.isOpen` 桥接）。
+- **静态锁**：五处随状态归属改写调用形态（让位判定、relocated 收气泡、Esc 三段连续等），检查强度不变；`test_reader_lens_handoff.py` 与「popover 自动消失」用例原按单文件读源码，改读 reader 模块全集。
+- **新增守卫** `tests/test_reader_module_surface.py`（本批次真正的价值）：跨文件调用是纯运行时的，`node --check` 与文本断言都看不见「方法名拼错」——该用例把「调用面 ⊆ 导出面」做成机械检查 + 锁载入顺序 + 锁「气泡/菜单状态只有模块一份归属」。**反向变异已验**：把 `RS.isPopoverOpen` 改成 `RS.isPopoverOpenXX` 立刻报红，改回即绿。
+- **真机证据**：无头 Chrome 探针 `docs/temp/sel_probe.html` 实测让位探测随 `dataset.magiclensSelection`/`magiclensHighlight` 真假切换、`normalizedWord('  Don’t  ') === "don't"`（弯撇号归一，词族判定口径）、**以真实 RS 函数重放 `RD.setHost` 后点「详」仍渲染出 lemma 与板块**（跨模块注入路径可用）、空态下 `close*/schedule*/cancelAutoHide` 不炸。
+- **验证**：`node --check` 通过；全量 **588 passed**（新增 3 例表面守卫），merge 后在 develop 新基线复跑同数。
+- **未验（如实）**：装配层接线段（mousedown 外部关闭、Esc 逐层、relocated 联动）在真书页面的实际表现仍需整站真机验收——本机无 calibre 书库，epub.js 依赖 `reader`/`EPUBJS` 无法整体加载，本轮只做到「模块级真运行 + 调用面机械校验」；验收判据见 refactor-items B4②③。
+- **台账**：MAGICBOOK-2 已更新到批次 4；worktree `../magicbook-arch-b5` 继续复用（批次 5 候选：沉浸式翻译 307 / TED 原声 422；TTS 簇 820 非叶子需先定装配层反向依赖接缝）。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
