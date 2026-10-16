@@ -171,3 +171,15 @@
 - **真机证据**：无头 Chrome 探针 `docs/temp/imm_probe.html`——init **之前**点 #tts-book 计数 0（证明没绑成静默空函数）、setHost+init **之后**计数 1、`bookPlayerUpdateButtons` 与 `tedAudioEnsureLoaded` 各 1 次、`isTedBook=false` 时不刷原声按钮；逐段翻译走通（译文节点 `我每天早晨跑步。`）。注：探针第一版把桩响应写成对象显示「Translation failed」，查后端契约后确认 moon-well 的 `result` 是**数组**（`response.result[0]`），属我桩错、非代码缺陷——这条判据值得记住。
 - **验证**：`node --check`；全量 **589 passed**，merge 后在 develop 新基线复跑同数。**未验**：真书页面下 `#immersive-translate` 批量翻译与整本翻译仍需整站验收（本机无书库、依赖 `reader.getContents()`）。
 - **台账**：MAGICBOOK-2 已更新到批次 5。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
+
+### R183 续五（批次 6：TED 原声迁出 reader-ted-audio.js，新守卫当场逮到三处真缺陷）
+
+- **交付**（commit `1ed7c73e`，merge develop 未 push）：J 域 422 行 → 模块 475 行，epub.js 1,845→**1,449**（累计 3,279→1,449，**−56%**；批次 6 的 commit message 写 1,438 系笔误，此处以实测为准）。`js/reading/` 现 10 文件。宿主回调八个：与整本连播/逐段朗读的互斥（`bookPlayerStop`/`bookPlayerToggle`/`bookPlayerActive`/`stopTts`/`ttsButtonsRender`）+ 翻页与章标题口径（`followPageInSection`/`renditionLocation`/`findTocLabel`）。R172/R173「分流判据只能运行时探测」保住了：探测成功才置 `TED_BOOK`，无原声仍回落 `host.bookPlayerToggle()`。
+- **这批的主要产出不是搬代码，而是把一类看不见的缺陷变成必然报红**。给 `test_reader_module_surface.py` 加了「模块不得直接引用 epub.js 闭包内符号」的守卫（剥注释与字符串后取本模块可见集，命中即红），它当场逮到三处：
+  1. **批次 4 遗留**：`reader-selection.js` 调 `startWholeBookProgressPolling()`（整本翻译启动后的进度轮询）——运行时 ReferenceError；
+  2. **批次 4 遗留**：同文件直接读写 `vocabularyRecords`（生词台账归装配层独占，翻回已读页与 `inspectVocabulary` 都读它）——改走宿主 `applyWordRecord` / `getWordRecord`；
+  3. 本批：`reader-ted-audio.js` 两处 `bookPlayer && bookPlayer.active` 条件。
+ 　这三处 `node --check` 不报、文本断言不报、pytest 全绿，用户侧表现是「点了没反应」。反向变异已验：把宿主回调改回直接引用即报红。
+- **真机证据**：无头 Chrome 探针 `docs/temp/ted_probe.html`——`ensureLoaded()` 前 `isTedBook()=false`、后 `true`（探测驱动分流），`bindSeek(真实 document)` 与 `stop()` 在无播放态安全；顺带再验一次 R173 契约：**桩必须返回统一 Result 信封（`data.success`）**，给裸 payload 时前端按失败处理。
+- **验证**：`node --check`；全量 **590 passed**（新增 1 例守卫），merge 后在 develop 新基线复跑同数。**未验**：真书页面下的原声起播/时间轴高亮/点段切播仍需整站验收（本机无书库、依赖 `reader.book.navigation`）。
+- **台账**：MAGICBOOK-2 更新到批次 6；下一批只剩 TTS 簇（≈820 行，非叶子）与装配层收尾——TTS 簇建议连同「播放仲裁器」一起做（届时 immersive/ted-audio 两组共 16 个回调可收敛）。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。

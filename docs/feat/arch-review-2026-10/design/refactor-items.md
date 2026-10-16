@@ -37,7 +37,7 @@
 
 ## B4 · epub.js 按注释域拆 12 模块
 
-> 状态：进行中（2026-10-15 批次 1–5，分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`，已 merge 本地 develop `72b97ad5` / `d25ac150` / `2b1437c7` / `cac5ed01` / `f1f01b8b` 待验收；**epub.js 3,279→1,845（−44%）**，`js/reading/` 现 9 文件：批次 1 `reader-core.js`（横切原语 + 静态锁改读模块全集）、批次 2 `reader-word-detail.js`、批次 3 `reader-annotations.js`、批次 4 `reader-selection.js`（+ 新增 `tests/test_reader_module_surface.py` 锁「跨模块调用面 ⊆ 导出面」）、批次 5 `reader-immersive.js`（拆出时修掉两处真缺陷：`bookListenToggle` 引用未注入的 J 节私有函数＝ReferenceError；载入期副作用早于 setHost＝静默空操作，改由 init() 显式调用并加守卫）。全量 585→589 passed，四份无头 Chrome 探针。余 3 域：TTS 簇 ≈820（非叶子，需先定播放仲裁器接缝）/ TED 原声 422 / 装配层收尾；PingCode MAGICBOOK-2 `4X51sVcJ` In progress）
+> 状态：进行中（2026-10-15 批次 1–6，分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`，已 merge 本地 develop `72b97ad5` / `d25ac150` / `2b1437c7` / `cac5ed01` / `f1f01b8b` / `1ed7c73e` 待验收；**epub.js 3,279→1,449（−56%）**，`js/reading/` 10 文件。六个模块：core（横切原语 + 静态锁改读模块全集）/ word-detail / annotations / selection（三份浮层状态合一）/ immersive（+ init 时序守卫）/ ted-audio。**两道新守卫生了三次真缺陷**：`startWholeBookProgressPolling`、`vocabularyRecords` 直接读写、`bookPlayer` 条件——均为「模块引用 epub.js 闭包内符号」，运行时才 ReferenceError/静默失效，已改走宿主回调并把检查固化进 `test_reader_module_surface.py`（反向变异已验）。全量 585→590 passed，五份无头 Chrome 探针。余 TTS 簇（≈820，与 TED/连播/逐段互斥，需先定播放仲裁器接缝）与装配层收尾；注：批次 6 commit message 写 1,438 系笔误，实测 1,449。PingCode MAGICBOOK-2 `4X51sVcJ` In progress）
 
 - **严重度 / 波次 / 前置**：🟠 ｜ 波 3 ｜ 无
 - **模式**：门面拆模块
