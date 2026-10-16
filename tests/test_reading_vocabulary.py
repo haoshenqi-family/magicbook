@@ -490,7 +490,10 @@ def test_epub_js_popover_auto_close_and_mark_buttons():
     """
     import re
 
-    source = _reader_js_source("epub.js")
+    # R183（B4 批次 4）：气泡与标记按钮随划词簇迁至 reader-selection.js，改读模块全集
+    from tests.reader_js_modules import reader_blob
+
+    source = reader_blob()
 
     # bindSelectionTranslation 内绑定了 iframe 的 mousedown 与 keydown
     assert re.search(
@@ -502,7 +505,7 @@ def test_epub_js_popover_auto_close_and_mark_buttons():
     assert source.count("closeTranslationPopover(); return;") >= 2
     # 翻页关闭气泡
     assert re.search(r"'relocated', function \(\) \{\s*// 翻页后旧气泡"
-                     r"[\s\S]*?closeTranslationPopover\(\);", source)
+                     r"[\s\S]*?RS\.closePopover\(\);", source)
     # 标记按钮
     assert "appendWordMarkButtons" in source
     assert "readingWordMarkUrl" in source
@@ -514,8 +517,10 @@ def test_epub_js_popover_auto_close_and_mark_buttons():
     # ESC 逐层退出：关闭气泡时必须阻断后注册的 ESC 监听（ai_chat.js 的
     # jQuery 委托监听在本 handler 之后注册），否则同开场景一次 ESC 连关
     # 气泡与抽屉两个面板（分层设计失效）
-    assert re.search(r"if \(!translationPopover\) return;\s*"
-                     r"closeTranslationPopover\(\);\s*"
+    # R183（B4 批次 4）：气泡状态归 reader-selection.js，Esc 收气泡改经 RS.；锁的强度不变——
+    # 仍是「先判存在 → 关闭 → 阻断后续监听」三段连续（否则同开场景一次 Esc 连关气泡与抽屉）
+    assert re.search(r"if \(!RS\.isPopoverOpen\(\)\) return;\s*"
+                     r"RS\.closePopover\(\);\s*"
                      r"event\.stopImmediatePropagation\(\);", source), \
         "ESC handler must stopImmediatePropagation after closing the popover"
 

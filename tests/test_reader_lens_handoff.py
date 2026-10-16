@@ -16,8 +16,11 @@ EPUB_JS = os.path.join(_ROOT, "cps", "static", "js", "reading", "epub.js")
 
 
 def _source():
-    with open(EPUB_JS, encoding="utf-8") as fh:
-        return fh.read()
+    # R183（B4 批次 4）：让位探测随划词簇迁至 reader-selection.js，本文件的静态锁读
+    # 按 read.html 载入顺序拼接的 reader 模块全集——探测代码搬到哪个文件都锁得住
+    from tests.reader_js_modules import reader_blob
+
+    return reader_blob()
 
 
 def test_probes_read_the_handoff_markers():
@@ -46,7 +49,8 @@ def test_highlight_defers_page_level_but_page_report_still_runs():
     事件流（学情、成就）与 AI 伴读「当前页生词」的数据源，连带停掉会打断两块无关能力。"""
     source = _source()
     body = source.split("function markVocabulary(records) {", 1)[1].split("\n    }", 1)[0]
-    assert "if (lensOwnsHighlight()) return;" in body
+    # R183（B4 批次 4）：探测随划词簇归 reader-selection.js，让位判定改经 RS. 调用
+    assert "if (RS.lensOwnsHighlight()) return;" in body
 
     inspect = source.split("function inspectVocabulary() {", 1)[1].split("\n    }", 1)[0]
     assert "lensOwns" not in inspect
