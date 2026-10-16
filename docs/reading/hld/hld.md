@@ -20,7 +20,7 @@
 | `POST /ajax/reading-word-detail` | `GET /vocabulary/detail/{word}` | 120s | 单词详解（R124 对齐 magiclens v0.4.0；**R141 起内置「详」面板入口随气泡下线、本端点暂无调用方**） |
 | `POST`（朗读代理 `/ajax/reading-tts`） | `POST /tts/speak` | 65s | 段落朗读，音频二进制透传；请求携带 `text` + `bookName`/`chapter`（各 trim 后截 200 字）——书籍上下文决定 moon-well 侧缓存分级：有上下文=书籍段落永久保留，无上下文=AI 临时语音 7 天清理 |
 | `POST /ajax/reading-tts-cached` | `POST /tts/cached-audio` | 20s | 只读缓存取音频、miss 返回 404，**不触发合成**。R170 给伴读用：`synthesize_tts` 工具内已合成并扣过分，前端再走 `/tts/speak` 就是同一次朗读扣两遍 |
-| `POST /ajax/reading-tts-book*`（`/status` `/retry` `/cancel`） | `POST /tts/speak`（daemon 逐段串行，`source=book-tts-batch`） | 单段 200s | 整本朗读预生成：管理员发起（`@admin_required`）、受理即返批次快照、合成在后台线程；命中缓存 0 扣，retry/重跑对已完成段免费快返。契约细节见 [whole-book-tts L3 §端点](../feat/whole-book-tts/design/whole-book-tts-design.md) |
+| `POST /ajax/reading-tts-book*`（`/status` `/retry` `/cancel`） | `POST /tts/speak`（daemon 逐段串行，`source=book-tts-batch`） | 单段 200s | 整本朗读预生成：管理员发起（`@admin_required`）、受理即返批次快照、合成在后台线程；命中缓存 0 扣，retry/重跑对已完成段免费快返。契约细节见 [whole-book-tts L3 §端点](../../feat/whole-book-tts/design/whole-book-tts-design.md) |
 | 段落「✨」AI 批注 | moon-well reading 伴读批注接口 | — | 背景/典故讲解，缓存语义见 moon-well reading HLD §4 |
 
 - 鉴权：全部以**当前用户 JWT** 转发（`_moonwell_proxy`）；不走内网互信白名单——用户动作必须可归因。
