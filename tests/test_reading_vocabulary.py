@@ -757,7 +757,11 @@ def test_epub_js_annotation_wiring_contract():
     """
     import re
 
-    source = _reader_js_source("epub.js")
+    # R183（B4 批次 3）：批注实现迁至 reader-annotations.js，装配层只以 AN.* 调用它，
+    # 接线契约跨文件成立，故读按 read.html 载入顺序拼接的 reader 模块全集
+    from tests.reader_js_modules import reader_blob
+
+    source = reader_blob()
 
     # 段落归一化契约：弹层与创建均基于 paragraphSpeechText
     assert re.search(r"function openAnnotationPopover\(el, btn\) \{[\s\S]{0,200}"
@@ -768,16 +772,17 @@ def test_epub_js_annotation_wiring_contract():
     assert re.search(r"readingAnnotationListUrl[\s\S]{0,200}X-CSRFToken", source)
     assert re.search(r"readingAnnotationBookUrl[\s\S]{0,200}X-CSRFToken", source)
     # ESC 分层退出：面板 → 弹层 → 划词气泡，各层 stopImmediatePropagation
-    assert re.search(r"if \(annotationPanel\) \{\s*closeAnnotationPanel\(\);"
+    # R183：面板/弹层状态归模块持有，分层退出改走 AN.isPanelOpen()/AN.closePanel() 等价形态
+    assert re.search(r"if \(AN\.isPanelOpen\(\)\) \{\s*AN\.closePanel\(\);"
                      r"[\s\S]{0,80}stopImmediatePropagation", source)
-    assert re.search(r"if \(annotationPopover\) \{\s*closeAnnotationPopover\(\);"
+    assert re.search(r"if \(AN\.isPopoverOpen\(\)\) \{\s*AN\.closePopover\(\);"
                      r"[\s\S]{0,80}stopImmediatePropagation", source)
     # 翻页关闭批注弹层
     assert re.search(r"'relocated', function \(\) \{[\s\S]{0,200}"
-                     r"closeAnnotationPopover\(\);", source)
+                     r"AN\.closePopover\(\);", source)
     # iframe 内 mousedown 关闭批注弹层
     assert re.search(r"content\.document\.addEventListener\('mousedown',"
-                     r"[\s\S]{0,120}closeAnnotationPopover\(\);", source)
+                     r"[\s\S]{0,120}AN\.closePopover\(\);", source)
     # 段落按钮注入
     assert "reading-annotation-btn" in source
     assert "✎" in source
