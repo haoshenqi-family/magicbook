@@ -180,3 +180,15 @@
 - **验证**：悬空复查脚本（遍历 `docs/feat/*` 与 L1/L2 引用集合）为空集；两处状态行回读；无代码改动故不跑 pytest 闸门。
 - **过程失误（记下来）**：本条第一次写入时脚本的索引锚点按表格行去找、实际是列表行，`assert` 及时中止，但同一条命令里 `git add/commit` 是独立行、仍把**归档文件**先提交了（commit `cd9617c7`），造成「归档已生成、response.md 未搬移」的中间态；本提交完成搬移，两条都在本地未 push。教训：多步 shell 链里 assert 只保护它自己那一步，收尾动作要另起一条命令或前置 `&&`。
 - **台账**：commit `de80c8f3` + 本条；requests.md 占号 R185，并行会话未提交的 R184（家族迁入 PingCode）随本批原样入库、内容未改；冲突记录：无撞号。窗口：本条写入使 request 数达 11，按「写入即检查」把最旧一节（R174 及其节内的 R176、R177，共 31 行）原样搬至 `response-archive/response-R174-R177.md`，窗口回 10 个 request 内。
+
+
+### R186（magicbook DF6 + B6：L2 覆盖口径明示 + 整本批次三胞胎抽 JobServiceBase）
+
+- **范围**：用户指令「做 magicbook DF6 + B6」，两项合并一轮交付；代码活按 worktree 纪律在本会话既有 worktree `magicbook-arch-b5` 续作（分支 `refactor/r186-job-service-base`，复用同一 worktree 而非新开）。
+- **DF6（口径明示，不是补写七份 hld）**：L1 分级表把「首批：reading、vocabulary，其余暂以 L3 为准」这句含糊话改成**逐模块实测表**（`ls docs/*/hld/hld.md` 实测只有两份，其余五个模块连 `docs/<module>/` 目录都不存在）。配套把「待升 L2」标注从 1 份补到 6 份承载契约的 L3——AGENTS.md 一直声称这条纪律存在，此前只有 `llm-task-run/admin-monitor.md` 一份兑现，属名实不符。顺手修 reading L2 §1 的两条缺失现役端点行（`/ajax/reading-tts-cached`、`/ajax/reading-tts-book*`），它们只存在于 L3，是「L2 覆盖描述与实际一致」这条验收的直接反例。
+- **B6（实测是三胞胎，不是评审登记的双胞胎）**：`reading_word_detail/service.py`（R176）是第三条同形制链路。逐字比对后归一的部分只有被证明相同的那些：`_book_file`/`_fingerprint` 三份全同、`_ensure_tables` 三份只差表名、活跃批次复用查询三份同形、30 分钟僵尸判定 = 两处常量 + 四处内联表达式、`ACTIVE_STATUSES` 两份相同。新增 `cps/reading_job/service_base.py`（191 行，其中代码 87 / 说明 104），三个 service 代码行 371/305/256 → 337/244/222（总代码行 932 → 890，减去骨架 87 后单源化 129 行重复）。
+- **刻意没做的四条（写清楚，免得被当成「重构没做完」）**：①进度字典与 item 状态机不统一——三家返回字段各异，统一即改前端契约；②花名册只由朗读侧启用——翻译/详解的发布线程靠「幂等复用 + 新鲜度拦截」防重复且后端按缓存/在途跳过兜底，套上花名册会把「连点两次」从「再起一条」改成「静默跳过」，那是行为变更；③朗读 loader 不筛属主（`query(ReadingTtsJob).get(job_id)` vs 另两家 `filter_by(id, user_id)`）如实记为待决事实，鉴权不动；④`_commit_with_retry`/`_thread_db_session` 是单份实现被跨包引用，不是重复，不搬。
+- **观测性守则**（moon-well M6 的教训在 Python 侧重演过一次就够）：骨架日志走 `job_log` 逐类注入，logger 名仍是 `cps.reading_*`，不塌到基类；报错文案（`translation job is unavailable` / `word detail job is unavailable` / `job not found`）与线程名 `whole-book-tts-<id8>` 逐字保持，并由守卫测试钉住。**两处措辞归一**：僵尸关闭行丢掉「; creating fresh batch」与「(no pending left)」两句尾巴，朗读崩溃行 `synth worker crashed` → `worker crashed`；无测试按这些字样断言，ES 正文检索需注意。
+- **验证**：全量 `pytest tests/` **601 passed**（基线 590 + 新守卫 11 例），merge 后在主检出 develop 重跑同样 601。新增 `tests/test_job_service_base.py` 钉「骨架方法不得在子类里长回第二份 / 同一原语三家只有一份实现 / 类属性必须显式填 / 僵尸阈值单一事实源 / 文案逐字不变 / `_needs_worker` 三条边界」。**反向变异已做**：给 `WholeBookTtsService` 重新塞一个 `_fingerprint` ⇒ 守卫 2 例转红，从 `/tmp` 副本恢复后逐字节一致。测试桩随代码走：`calibre_db`/`config`/`threading.Thread` 三处 monkeypatch 的**打桩位置**移到骨架模块，断言一字未动。
+- **未验（如实）**：B6 判据③「整本翻译与整本朗读各跑一轮真机批次回归」——本机无 calibre 书库跑不了真实书籍页面，需用户在线上各点一轮；B4 的判据②③ 同样仍在等真机验收。
+- **台账与并发**：requests.md 占号 R186 于开工前单独 commit `895435ec`（先占后写，避免被整文件写回抹掉）；merge `2ff595bf` 本地 develop（`git rev-list --count origin/develop..develop` = **28**，**未 push**）。并发实况：主检出有另一会话未提交的 `cps/AGENTS.md` 改动，本批全程未触碰、未提交（所有 commit 用 `--only` 显式列文件）。冲突记录：无撞号（R184 属并行会话的家族迁入 PingCode 条目，原样保留）。PingCode 新增 **MAGICBOOK-201**（In progress）；R183 的 `MAGICBOOK-2` 与并行迁移生成的 `MAGICBOOK-198` 仍是同需求双条目，处置待用户定夺。response.md 窗口：本条写入后为 9 个 request（R175/R178–R183/R185/R186），未触发轮转。
