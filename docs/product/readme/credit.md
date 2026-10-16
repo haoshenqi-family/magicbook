@@ -15,6 +15,6 @@
 
 ## 深入阅读
 
-- L2 设计概要：暂无（本模块为 moon-well credit/saas/achievement 的薄代理层）
-- L3：[订阅与充值页](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/subscription-page/design/)
+- L2 接口说明：暂无（本模块为 moon-well credit/saas/achievement 的薄代理层）
+- 历史设计（`docs/project/_legacy/feat/`）：[订阅与充值页](../../project/_legacy/feat/subscription-page/design/lld.md)
 - 后端契约权威：moon-well `docs/credit/hld/hld.md`、`docs/saas/hld/hld.md`、`docs/achievement/hld/hld.md`

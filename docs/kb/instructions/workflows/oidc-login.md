@@ -93,7 +93,7 @@ redirect_uri = os.getenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI") or url_for("oidc.ca
 
 - 有意行为：`callback()` 仅按 `issuer + subject` 匹配，不会静默合并
   同 username/email 的本地账号（避免错绑）。跨应用身份映射见
-  `docs/feat/sso-user-unification/design/sso-user-unification-design.md`。
+  `docs/project/_legacy/feat/sso-user-unification/design/sso-user-unification-design.md`（历史归档）。
 
 ## 5. 重启服务使 .env 生效
 

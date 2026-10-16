@@ -16,5 +16,5 @@
 
 ## 深入阅读
 
-- L2 设计概要：[../reading/hld/hld.md](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/reading/hld/hld.md)（代理端点映射；后端契约权威在 moon-well）
-- L3：[词汇测试前端与代理](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/vocab-size-test/design/) · [引导导览](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/onboarding-tour/design/) · [课级音频](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/nce-audio/design/) · [语言切换](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/language-i18n/design/) · [整本连播](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/whole-book-listening/design/whole-book-listening-design.md)
+- L2 接口说明：[reading/interface.md](../reading/interface.md)（代理端点映射；后端契约权威在 moon-well）
+- 历史设计（`docs/project/_legacy/feat/`）：[词汇测试前端与代理](../../project/_legacy/feat/vocab-size-test/design/vocab-size-test-lld.md) · [引导导览](../../project/_legacy/feat/onboarding-tour/design/onboarding-tour.md) · [课级音频](../../project/_legacy/feat/nce-audio/design/lld.md) · [语言切换](../../project/_legacy/feat/language-i18n/design/language-i18n.md) · [整本连播](../../project/_legacy/feat/whole-book-listening/design/whole-book-listening-design.md)

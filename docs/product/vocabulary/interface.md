@@ -1,6 +1,6 @@
-# vocabulary · HLD（设计概要）
+# vocabulary · L2 接口说明
 
-> 读者：模块调用者/集成者。magicbook 侧为薄代理 + 前端交互；判定/测试的**后端语义唯一权威在 moon-well** `docs/vocabulary/hld/hld.md`，本文件只维护代理映射与前端约定。
+> 读者：调用者 / 集成者。magicbook 侧为薄代理 + 前端交互；判定/测试的**后端语义唯一权威在 moon-well** `docs/vocabulary/hld/hld.md`，本文件只维护代理映射与前端约定。
 
 ## 能力边界
 
@@ -16,7 +16,7 @@
 
 ### 2. 划词翻译与详解
 
-- 翻译映射见 [reading HLD](../reading/hld/hld.md) §1（`/ajax/reading-translate*`）。**内置划词气泡已下线（R141），`/ajax/reading-translate` 端点保留**，magiclens 直连 moon-well、不经本站代理。
+- 翻译映射见 [reading L2 接口说明](../reading/interface.md) §1（`/ajax/reading-translate*`）。**内置划词气泡已下线（R141），`/ajax/reading-translate` 端点保留**，magiclens 直连 moon-well、不经本站代理。
 - 详解：`POST /ajax/reading-word-detail` → `GET /vocabulary/detail/{word}`；六板块结构化 JSON。**内置「详」面板入口随气泡下线（R141），端点保留**；面板的前端交互契约（变体角标、仅 ✕/Esc 关闭、未完成保持「AI 生成中」）现由 magiclens 的详解面板承接（同构实现）。
 
 ### 3. 词汇量测试（`/reading/settings` 入口，全屏浮层）
@@ -52,8 +52,7 @@
 - 鉴权：同 reading 模块——当前用户 JWT 代理，不走内网互信。
 - 权威指针：判定矩阵与词族口径、测试状态机与错误码、详解缓存语义 → moon-well `docs/vocabulary/hld/hld.md`。
 
-## L3 索引
+## L3 与历史设计
 
-- [词汇量测试 LLD（含 magicbook 侧 US4 代理与设置 UI）](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/vocab-size-test/design/vocab-size-test-lld.md)
-- [全文单词详解：台账与页面（R176）](../feat/word-detail/design/book-batch-panel.md) · 对端 [moon-well R188](/Users/haoshenqi/codelib/haoshenqi-family/moon-well/docs/feat/word-detail/design/book-batch-warm-by-words.md)
-- [阅读单词学习规格](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/reading-vocabulary.md)
+- [阅读单词学习规格](../reading-vocabulary.md)（跨 reading / vocabulary 的静态实现说明，L3 性质）
+- 历史设计（`docs/project/_legacy/feat/`）：[词汇量测试 LLD（含 magicbook 侧 US4 代理与设置 UI）](../../project/_legacy/feat/vocab-size-test/design/vocab-size-test-lld.md) · [全文单词详解：台账与页面（R176）](../../project/_legacy/feat/word-detail/design/book-batch-panel.md)（对端 moon-well `docs/feat/word-detail/design/book-batch-warm-by-words.md`，R188）

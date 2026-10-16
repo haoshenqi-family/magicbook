@@ -9,10 +9,10 @@
 
 1. **任务分类**：判断当前任务属于下方 `## 📋 任务分类与执行策略` 中的哪一类。
 2. **状态同步**：向用户回复 `🔍 正在执行 [任务类型] 类任务`。
-3. **前置阅读**：除非任务明确与项目无关，否则**必须优先阅读** `docs/readme/readme.md`（L1 模块索引，R129 起）与 `docs/REQUIREMENTS.md`；产品需求全册与模块功能以它们为入口（`docs/kb/project-describe/` 仍为空壳，填实或删除属待决策项）。
+3. **前置阅读**：除非任务明确与项目无关，否则**必须优先阅读** `docs/product/readme/readme.md`（L1 模块索引，R129 起）与 `docs/product/REQUIREMENTS.md`；产品需求全册与模块功能以它们为入口。
 4. **执行对应流程**：严格按分类指南逐步操作，并在关键节点输出确认信息。
 
-> 💡 提示：在实际执行中，请将路径中的 `<FEATURE>` 和 `<USER_STORY>` 替换为当前任务的实际名称/编号。
+> 💡 提示：在实际执行中，请将路径中的 `<ITER>`（迭代）、`<工作项>`、`<FEATURE>` 和 `<USER_STORY>` 替换为当前任务的实际名称/编号。文档物理布局（product 静态 / project 动态）见下方「项目文档规范」与家族仓 `../ops/docs-architecture.md`。
 
 ---
 
@@ -49,7 +49,7 @@
 ## 📋 任务分类与执行策略
 
 ### 📦 1. 需求理解 & 系统设计
-- **目标路径**：`docs/feat/<FEATURE>/hls/md/*.md`
+- **目标路径**：`docs/project/iterations/<ITER>/<工作项>/hls/md/*.md`（原始需求与标准化 md）；本次实现设计落同目录 `lld.md`（LLD）
 - **执行要求**：
 	- HLS 文档极度精炼，**逐句解析**，严禁跳过任何背景、目标或限制条件。
 	- 遇到不确定的概念/术语，**立即查阅资料或向用户提问**，禁止主观猜测或假装理解。
@@ -57,7 +57,7 @@
 
 ### 💻 2. 编码实现
 - **必读文档**： `docs/kb/instructions/coding/*.md`
-- **目标路径**：`docs/feat/<FEATURE>/design/<USER_STORY>.md`
+- **目标路径**：LLD `docs/project/iterations/<ITER>/<工作项>/lld.md`
 - **执行要求**：
 	- **单线程开发**：每次仅处理 1 个 User Story，完成并验证后再进入下一个。
 	- **注释规范**：先写注释阐明 `Why`（业务意图/约束条件），再写 `How`（实现逻辑）。
@@ -68,7 +68,7 @@
 	- **Code Review**：完成后主动切换模型/Agent 视角进行交叉审查，确认无误后再提交。
 
 ### 🔍 3. 验收 (AC 对齐)
-- **目标路径**：`docs/feat/<FEATURE>/ac/<USER_STORY>-ac.md`（若存在）
+- **目标路径**：`docs/project/iterations/<ITER>/<工作项>/ac/<USER_STORY>-ac.md`（若存在）
 - **执行要求**：
     - 所有验证点必须全部验证，不可以跳过。条件不足则请求用户提供更多信息。
     - 逐条核对 AC，**重点关注后端实现逻辑**，严禁遗漏任何一条。
@@ -83,7 +83,7 @@
   - 更新AC并验证通过
 
 ### 🛠 5. 细节修改 & 知识沉淀
-- **执行要求**：按需查阅 `docs/feat/<FEATURE>/kb/` 及设计文档。修改完成后，同步更新相关 KB 或决策记录。
+- **执行要求**：按需查阅对应迭代工作项目录（`docs/project/iterations/<ITER>/<工作项>/`）、产品侧文档（L1/L2/L3）与 `docs/kb/`。修改完成后，同步更新相关 KB 或决策记录。
 
 ### 🌐 6. 项目无关任务
 - **适用范围**：简单问答、百科查询、Skill 创建、工具配置等。
@@ -91,45 +91,47 @@
 
 ---
 
-## 📁 项目文档规范 (Docs Structure · 三级体系)
+## 📁 项目文档规范 (Docs Structure · v2 静态 product / 动态 project 二分)
 
-文档分三级，写哪级取决于「给谁看」，新增/变更功能时**三级联动维护**。L3 已成型（12 个 feat）；L1/L2 骨架已于 2026-10-08 R129 建立首批（L1 索引 + library/reading/vocabulary/companion/credit/admin 六份模块 README；L2 首批 reading/vocabulary 两份 hld）——**新建文档一律按下表落位**，其余模块的 L1/L2 随功能演进补齐：
+> 权威约定见家族仓 [`../ops/docs-architecture.md`](../ops/docs-architecture.md)（v2 二分体系与迁移映射）。本节只定本仓落位；与家族册冲突时，先改家族册、再同步本节。
+
+文档按 **静态（product：产品现在长什么样）/ 动态（project：这次、最近改了什么）** 二分。**L1–L3 仅指产品侧静态文档**；原 L2/L3 里的 HLD/**LLD 已拆出去**——「功能 / 接口是什么」留在产品侧，「**这一次怎么实现**」= LLD，归 project 迭代。新建文档一律按下表落位：
 
 | 级别 | 位置 | 读者 | 内容 | 维护时机 |
 |------|------|------|------|----------|
-| **L1 用户文档** | `docs/readme/` | 使用者 | 系统 README + 每模块一个 README：**只讲功能**，不涉及代码与实现（✅ 已建：readme 索引 + 6 模块） | 新模块上线 / 对用户可见的能力变化 |
-| **L2 设计概要 (HLD)** | `docs/<module>/hld/hld.md` | 模块调用者/集成者 | 每模块一份：子功能概要、接口约定、依赖关系（✅ 首批 reading/vocabulary；其余模块契约先落 L3 design 并标注「待升 L2」） | 新增子功能 / 接口契约变化 |
-| **L3 详细设计 (LLD)** | `docs/feat/<FEATURE>/` | 开发/维护者 | 具体设计：架构、表结构、时序、异常、测试与验收 | 每次功能开发（按下方 feat 结构） |
+| **L1 用户文档** | `docs/product/readme/` | 使用者 | 系统 README + 每模块一份：**只讲功能**，不涉及代码与实现（✅ 索引 + 7 模块） | 新模块上线 / 用户可见能力变化 |
+| **L2 接口说明** | `docs/product/<module>/interface.md` | 调用者 / 集成者 | **功能定义 + 功能说明 + 调用方法**（代理端点映射；✅ 首批 reading/vocabulary，其余模块随演进补齐、未建时以 L3 为准） | 新增子功能 / 接口契约变化 |
+| **L3 实现说明** | `docs/product/<module>/features/<FEATURE>.md` | 修改者 | **实现方式 + 边界条件**（仅改本功能时需要读；尚未新建，历史实现说明在 `docs/project/_legacy/feat/`） | 每次功能开发 |
 
-| 路径                          | 用途与操作规则                                                   |
-|-----------------------------|-----------------------------------------------------------|
-| `docs/`                     | 所有项目文档根目录                                                 |
-| `docs/feat/`                | 功能特性文档目录，每个子目录对应一个独立的功能特性                          |
-| `docs/feat/<FEATURE>/hls/raw/`   | 原始 HLS（**只读**，禁止修改）                                       |
-| `docs/feat/<FEATURE>/hls/md/`    | 标准化 Markdown 版 HLS。若缺失，使用 `docx2md` 转换后放入，并向用户确认          |
-| `docs/feat/<FEATURE>/design/`    | 设计文档（LLD、PRD 等）                                             |
-| `docs/feat/<FEATURE>/ac/`        | 验收标准与测试用例                                                 |
-| `docs/feat/<FEATURE>/test-case/` | 测试用例                                                         |
-| `docs/feat/<FEATURE>/raw/`       | 原始资料文件（如 Excel、图片等，非 HLS 文档）                              |
-| `docs/feat/<FEATURE>/sql/`       | 数据库脚本                                                     |
-| `docs/tasks/`               | 全局任务看板。完成后标记 `Done`（**严禁删除**）。需指派任务时明确分配给对应 Agent，完成后必须复核并反馈 |
-| `docs/kb/`                  | 全局知识库：项目信息、通用指南、实体文档、编码规范、工作流指导等                        |
-| `docs/kb/entity/`           | 实体说明文档                                                    |
-| `docs/kb/instructions/`     | 指导文档目录                                                    |
-| `docs/kb/instructions/coding/`   | 编码规范文档                                                    |
-| `docs/kb/instructions/workflows/` | 工作流指导文档                                                  |
-| `docs/kb/project-describe/` | 项目描述文档（**当前空壳**，仅 .gitkeep——填实或删除属待决策项，见家族方案 §四） |
-| `docs/kb/sql/`              | SQL 相关文档                                                    |
-| `docs/temp/`               | 临时文件目录（脚本、临时文档等），**不跟踪 Git**                        |
-| `docs/temp/scripts/`               | 临时脚本 **不跟踪 Git**                        |
-| `requests.md` (根目录)     | 对话需求记录，接到任务立即占号追加（只追加；已完成且过时条目按区间归档至 `requests-archive/`，编号永不回改） |
-| `response.md` (根目录)     | 对话回应记录，任务完成后写入；仅保留最近 10 个 request 的回应，更早归档至 `response-archive/` |
-| `response-archive/` (根目录) | `response.md` 历史归档，按 request 区间分文件（如 `response-R01-R10.md`），只读不改 |
-| `requests-archive/` (根目录) | `requests.md` 历史归档（2026-10-08 起），已完成条目按编号区间原样搬移（如 `requests-R01-R129.md`），只读不改 |
+| 路径 | 用途与操作规则 |
+|------|------|
+| `docs/` | 所有项目文档根目录 |
+| `docs/product/` | ▶ **静态 · 产品**文档根：描述产品现在长什么样 |
+| `docs/product/readme/` | L1：索引 `readme.md` + `<module>.md`（每模块一份） |
+| `docs/product/<module>/interface.md` | L2 接口说明 |
+| `docs/product/<module>/features/<FEATURE>.md` | L3 实现说明（从新功能开始建） |
+| `docs/product/REQUIREMENTS.md` | 产品需求全册（产品级静态文档，非模块级） |
+| `docs/product/reading-vocabulary.md` | 跨 reading / vocabulary 的静态实现说明（L3 性质） |
+| `docs/project/` | ▶ **动态 · 项目 / 迭代**文档根：记录这次、最近改了什么 |
+| `docs/project/requests/` | 需求台账：`requests.md` / `response.md` + `requests-archive/` / `response-archive/` |
+| `docs/project/tasks/` | 任务看板（原 `docs/tasks/` 并入）。完成后标记 `Done`（**严禁删除**）；指派任务须明确到 Agent 并复核反馈 |
+| `docs/project/iterations/<ITER>/plan.md` | 本次迭代计划（对应 PingCode 迭代 / 版本） |
+| `docs/project/iterations/<ITER>/<工作项>/lld.md` | **LLD：这次怎么实现**（头部必须有 `状态` 行：设计 / 开发中 / 已上线） |
+| `docs/project/iterations/<ITER>/<工作项>/hls/raw/` | 原始 HLS（**只读**，禁止修改） |
+| `docs/project/iterations/<ITER>/<工作项>/hls/md/` | 标准化 Markdown 版 HLS；缺失时用 `docx2md` 转换后放入并向用户确认 |
+| `docs/project/iterations/<ITER>/<工作项>/{ac/,test-case/,raw/,sql/}` | 本次交付的过程产物（验收标准 / 测试用例 / 原始资料 / 数据库脚本） |
+| `docs/project/_legacy/feat/` | **冻结归档**：老 `docs/feat/`（18 个）整体搬入，**不回溯迭代归属、不逐功能拆分** |
+| `docs/kb/` | ▶ **共享知识**：项目信息、实体、编码规范、工作流等（跨产品长期存在） |
+| `docs/kb/entity/` | 实体说明文档 |
+| `docs/kb/instructions/coding/` | 编码规范文档 |
+| `docs/kb/instructions/workflows/` | 工作流指导文档 |
+| `docs/kb/sql/` | SQL 相关文档 |
+| `docs/superpowers/` | 保留原位（历史设计草稿） |
+| `docs/temp/` `docs/temp/scripts/` | 临时文件 / 脚本，**不跟踪 Git** |
 
-**三级联动纪律（2026-10-07 R128 增补）**：功能交付前三问——用户可见能力变了吗 → 写 L1（`docs/readme/<module>.md`）；对外行为/接口变了吗 → 写 L2 或先落 L3 design 并标注「待升 L2」；**L3 design 头部必须有 `状态` 行**（设计 / 开发中 / 已上线），里程碑时回填，禁止长期滞留失实状态（先例：R127 一次修出 4 份「尚未开发」实已上线的文档）。
+**三级联动纪律（v2 重述：2026-10-07 R128 原始，2026-10-16 R188 改口径）**：功能交付前四问——① 用户可见能力变了吗 → 写 L1（`docs/product/readme/<module>.md`）；② 对外行为 / 接口变了吗 → 写 L2 `interface.md`；③ 实现方式 / 边界条件变了吗 → 写 L3 `features/<FEATURE>.md`；④ **这次怎么实现** → LLD 落 `docs/project/iterations/<ITER>/<工作项>/lld.md`，**LLD 头部必须有 `状态` 行**（设计 / 开发中 / 已上线），里程碑时回填，禁止长期滞留失实状态（先例：R127 一次修出 4 份「尚未开发」实已上线的文档）。
 **数值同源**：端口、时效、模型名等口径以生产实况（fnOS compose、`.env`）与 moon-well 现行契约为准，禁止沿用裸机时代或旧架构快照。
-**历史文档只标注不重写**：被取代的设计加「已被取代」横幅指向新文档（先例：ai-reading-companion 实现计划）；「临时调整」若转为常态，改写为正式决策并注明日期。
+**历史文档只标注不重写**：被取代的设计加「已被取代」横幅指向新文档（先例：ai-reading-companion 实现计划）；「临时调整」若转为常态，改写为正式决策并注明日期；`docs/project/_legacy/feat/` 内的历史文档一律**只读不改**。
 **一致性纪律**：模块/功能清单以 `cps/` 实际代码与阅读器路由为准；文档状态行 ↔ git 历史 ↔ 实际部署三者对齐，发现漂移随手修正。
 
 ---
@@ -170,8 +172,9 @@
 ---
 
 
-## 📝 对话记录 (requests.md / response.md)
+## 📝 对话记录 (docs/project/requests/ · requests.md / response.md)
 
+- **位置（2026-10-16 R188）**：需求台账已从仓库根迁入 `docs/project/requests/`（`requests.md` / `response.md` + `requests-archive/` / `response-archive/`）；本节下文凡称 `requests.md` / `response.md` / 归档目录，均指该目录下对应文件。
 - **`requests.md`**：仅记录每一次对话用户的需求，除此之外不做任何事情。**接到任务后立即追加编号占位**：读文件取当前最大编号 +1，随即写入需求原文；编号在任务开始即锁定，避免并行会话争用同一编号。
 - **`response.md`**：任务**完成后**再写入回应（编号对应 requests.md 开始时占用的条目），包括：
   - 对每个 request 的回应；

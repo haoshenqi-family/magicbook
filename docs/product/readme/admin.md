@@ -13,5 +13,6 @@
 
 ## 深入阅读
 
-- L3：[LLM 任务手动执行面板](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/llm-task-run/design/admin-panel.md) · [OIDC 登录工作流](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/kb/instructions/workflows/oidc-login.md)
+- 历史设计（`docs/project/_legacy/feat/`）：[LLM 任务手动执行面板](../../project/_legacy/feat/llm-task-run/design/admin-panel.md)
+- 工作流知识：[OIDC 登录工作流](../../kb/instructions/workflows/oidc-login.md)
 - 后端契约权威：moon-well `docs/feat/llm/design/llm-task-manual-run.md`（R110）

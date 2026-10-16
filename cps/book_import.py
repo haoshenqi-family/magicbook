@@ -6,7 +6,7 @@
 #  供内网连接器服务以共享密钥替换指定书目的 EPUB/封面，并可选触发整本翻译。
 #  Why: 指南类图书以 Halo Markdown 为事实源，发布即出书；浏览器 session 鉴权
 #  不适用于服务间调用，fork 内亦无现成入站密钥机制，故新建最小共享密钥通道。
-#  设计文档：docs/feat/halo-book-connector/design/lld.md
+#  设计文档：docs/project/_legacy/feat/halo-book-connector/design/lld.md
 
 import hmac
 import os

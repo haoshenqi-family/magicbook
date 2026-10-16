@@ -1,10 +1,10 @@
-# reading · HLD（设计概要）
+# reading · L2 接口说明
 
-> 读者：模块调用者/集成者。magicbook 是阅读前端，本模块对 moon-well 是**薄代理层**：请求带当前用户的 moon-well JWT 转发，**token 不下发浏览器**。后端契约的唯一权威是 moon-well 对应 L2，本文件只维护「magicbook 端点 → moon-well 端点」的映射与超时口径。
+> 读者：调用者 / 集成者。magicbook 是阅读前端，本模块对 moon-well 是**薄代理层**：请求带当前用户的 moon-well JWT 转发，**token 不下发浏览器**。后端契约的唯一权威是 moon-well 对应 L2，本文件只维护「magicbook 端点 → moon-well 端点」的映射与超时口径。
 
 ## 能力边界
 
-阅读器页（EPUB/PDF/TXT）与阅读相关代理、NCE 音频播放。词汇判定/详解/测试的后端语义不在本模块（见 vocabulary HLD 与 moon-well）。
+阅读器页（EPUB/PDF/TXT）与阅读相关代理、NCE 音频播放。词汇判定/详解/测试的后端语义不在本模块（见 vocabulary L2 接口说明与 moon-well）。
 
 ## 子功能概要
 
@@ -20,7 +20,7 @@
 | `POST /ajax/reading-word-detail` | `GET /vocabulary/detail/{word}` | 120s | 单词详解（R124 对齐 magiclens v0.4.0；**R141 起内置「详」面板入口随气泡下线、本端点暂无调用方**） |
 | `POST`（朗读代理 `/ajax/reading-tts`） | `POST /tts/speak` | 65s | 段落朗读，音频二进制透传；请求携带 `text` + `bookName`/`chapter`（各 trim 后截 200 字）——书籍上下文决定 moon-well 侧缓存分级：有上下文=书籍段落永久保留，无上下文=AI 临时语音 7 天清理 |
 | `POST /ajax/reading-tts-cached` | `POST /tts/cached-audio` | 20s | 只读缓存取音频、miss 返回 404，**不触发合成**。R170 给伴读用：`synthesize_tts` 工具内已合成并扣过分，前端再走 `/tts/speak` 就是同一次朗读扣两遍 |
-| `POST /ajax/reading-tts-book*`（`/status` `/retry` `/cancel`） | `POST /tts/speak`（daemon 逐段串行，`source=book-tts-batch`） | 单段 200s | 整本朗读预生成：管理员发起（`@admin_required`）、受理即返批次快照、合成在后台线程；命中缓存 0 扣，retry/重跑对已完成段免费快返。契约细节见 [whole-book-tts L3 §端点](../../feat/whole-book-tts/design/whole-book-tts-design.md) |
+| `POST /ajax/reading-tts-book*`（`/status` `/retry` `/cancel`） | `POST /tts/speak`（daemon 逐段串行，`source=book-tts-batch`） | 单段 200s | 整本朗读预生成：管理员发起（`@admin_required`）、受理即返批次快照、合成在后台线程；命中缓存 0 扣，retry/重跑对已完成段免费快返。契约细节见 [whole-book-tts L3 §端点](../../project/_legacy/feat/whole-book-tts/design/whole-book-tts-design.md)（历史归档） |
 | 段落「✨」AI 批注 | moon-well reading 伴读批注接口 | — | 背景/典故讲解，缓存语义见 moon-well reading HLD §4 |
 
 - 鉴权：全部以**当前用户 JWT** 转发（`_moonwell_proxy`）；不走内网互信白名单——用户动作必须可归因。
@@ -42,8 +42,7 @@
 - 依赖：moon-well（vocabulary/system/tts/reading/book）；失败语义沿用各后端契约（业务错误 HTTP 500 + `Result.code`）。
 - magicbook 内部：epub.js 渲染层与代理层解耦；i18n 经 `mbT()` 通道（language-i18n）。
 
-## L3 索引
+## L3 与历史设计
 
-- [整本翻译设计](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/whole-book-translation/design/whole-book-translation-design.md)
-- [阅读单词学习规格](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/reading-vocabulary.md)
-- [课级音频 LLD](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/nce-audio/design/lld.md)
+- [阅读单词学习规格](../reading-vocabulary.md)（跨 reading / vocabulary 的静态实现说明，L3 性质）
+- 历史设计（`docs/project/_legacy/feat/`）：[整本翻译设计](../../project/_legacy/feat/whole-book-translation/design/whole-book-translation-design.md) · [课级音频 LLD](../../project/_legacy/feat/nce-audio/design/lld.md)

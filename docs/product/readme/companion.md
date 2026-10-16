@@ -13,5 +13,5 @@
 
 ## 深入阅读
 
-- L3：[伴读 Agent 化 magicbook 侧设计](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/ai-agent/design/magicbook-side-design.md)
+- 历史设计（`docs/project/_legacy/feat/`）：[伴读 Agent 化 magicbook 侧设计](../../project/_legacy/feat/ai-agent/design/magicbook-side-design.md)
 - 后端契约权威：moon-well 伴读 Agent（`/ai/agent/*`，见 moon-well `docs/system/hld/hld.md` 伴读 Agent 节）

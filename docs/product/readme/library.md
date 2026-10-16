@@ -14,5 +14,5 @@
 
 ## 深入阅读
 
-- L2 设计概要：暂无（书库主体沿用 Calibre-Web 能力；整本翻译设计见 L3）
-- L3：[整本翻译设计](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/whole-book-translation/design/whole-book-translation-design.md) · [Halo 连接器](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/halo-book-connector/design/) · [fnOS 部署](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/magicbook-fnos/DEPLOY-FNOS.md)
+- L2 接口说明：暂无（书库主体沿用 Calibre-Web 能力；整本翻译设计见历史归档）
+- 历史设计（`docs/project/_legacy/feat/`）：[整本翻译设计](../../project/_legacy/feat/whole-book-translation/design/whole-book-translation-design.md) · [Halo 连接器](../../project/_legacy/feat/halo-book-connector/design/lld.md) · [fnOS 部署](../../project/_legacy/feat/magicbook-fnos/DEPLOY-FNOS.md)

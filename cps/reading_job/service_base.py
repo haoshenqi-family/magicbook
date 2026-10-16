@@ -7,7 +7,7 @@
 `ACTIVE_STATUSES` 两份相同（整本朗读按设计只认 RUNNING/PARTIAL_FAILED）。
 同构双改的风险不是推测——R169 的整本朗读批次事故就是「双胞胎侧改一处漏一处」的形态。
 
-边界（与 L3 `docs/feat/arch-review-2026-10/design/refactor-items.md` B6 同源）：
+边界（与 L3 `docs/project/_legacy/feat/arch-review-2026-10/design/refactor-items.md` B6 同源）：
 - **只搬证明相同的**：进度字典口径、item 状态机、worker 循环内容三家各异，留在各自 service。
 - **花名册自愈（R169 的「无活线程 + 还有待跑项 ⇒ 补线程」）在此实现一份**，
   由整本朗读使用；整本翻译/详解的发布线程靠「幂等复用通道 + 新鲜度拦截」防重复，

@@ -16,6 +16,6 @@
 
 ## 深入阅读
 
-- L2 设计概要：[../vocabulary/hld/hld.md](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/vocabulary/hld/hld.md)
-- L3：[词汇量测试（含前端与代理 US4）](/Users/haoshenqi/codelib/haoshenqi-family/magicbook/docs/feat/vocab-size-test/design/vocab-size-test-lld.md)
+- L2 接口说明：[vocabulary/interface.md](../vocabulary/interface.md)
+- 历史设计（`docs/project/_legacy/feat/`）：[词汇量测试（含前端与代理 US4）](../../project/_legacy/feat/vocab-size-test/design/vocab-size-test-lld.md)
 - 后端契约权威：moon-well `docs/vocabulary/hld/hld.md`
