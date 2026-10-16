@@ -183,3 +183,15 @@
 - **真机证据**：无头 Chrome 探针 `docs/temp/ted_probe.html`——`ensureLoaded()` 前 `isTedBook()=false`、后 `true`（探测驱动分流），`bindSeek(真实 document)` 与 `stop()` 在无播放态安全；顺带再验一次 R173 契约：**桩必须返回统一 Result 信封（`data.success`）**，给裸 payload 时前端按失败处理。
 - **验证**：`node --check`；全量 **590 passed**（新增 1 例守卫），merge 后在 develop 新基线复跑同数。**未验**：真书页面下的原声起播/时间轴高亮/点段切播仍需整站验收（本机无书库、依赖 `reader.book.navigation`）。
 - **台账**：MAGICBOOK-2 更新到批次 6；下一批只剩 TTS 簇（≈820 行，非叶子）与装配层收尾——TTS 簇建议连同「播放仲裁器」一起做（届时 immersive/ted-audio 两组共 16 个回调可收敛）。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
+
+
+### R183 续六（批次 7：朗读与连播迁出 reader-tts.js，B4 判据①达成）
+
+- **交付**（commit `d2a00fff`，merge develop 未 push）：F/G/H/I 共 724 行迁出，**epub.js 3,279→734 行（−77%）**——「每文件 <1,000 行」达成，epub.js 至此只剩装配层（初始化 / 位置恢复 / 生词台账 / 书签 / 主题字体 + 七张 `setHost` 注入单）。
+- **一处设计反转（针对我自己上轮的建议）**：原计划把 TTS 簇连同「播放仲裁器」一起做，实施前否掉了——仲裁器要靠 `call('ted','ensureLoaded')` 这类动态派发，而本会话刚建的守卫靠的是**静态**调用面比对；为了收敛 16 个回调去毁掉一道真逮到过 bug 的守卫不划算。实测该簇对 TED 零调用（播放器互斥在前几批已单向化），根本不需要仲裁器。
+- **顺带还掉一笔过渡债**：批次 1 留在 epub.js 的四个薄委托（`readerToast` / `readerCsrfToken` / `reloadIfCsrfBlocked` / `translationDisplay*`）随本批退役，装配层仅存 5 处调用改直连 `RC.*`；薄委托只保留在模块内部（那里的价值是让正文与既有静态锁逐字一致）。
+- **守卫自己也漏过一次**：`test_reader_module_surface.py` 的别名清单是手写的，漏了 `RT`/`RTTS` → 对新模块形同不设防。已改为从 `ALIASES` 单一来源生成正则（教训写进注释：手写清单本身会漂移），跨闭包白名单同步补 `RTTS`/`RTed`。反向变异已验：`RTTS.stopTtsXX` 立刻报红。
+- **真机证据**：无头 Chrome 探针 `docs/temp/tts_probe.html`——API 齐全；冷路径 `stopTts()` / `bookPlayerStop(false)` / `bookPlayerUpdateButtons()` / `ttsButtonsRender(null)` 全不炸（状态机拆出来最怕冷路径抛异常）；`getTtsEngine()` 无配置回落 `browser`；`injectParagraphTools` 对两段注入 8 个按钮（含 2 个朗读键）。
+- **验证**：`node --check`；全量 **590 passed**（merge 后在 develop 新基线复跑同数）。
+- **B4 剩余**：判据②「阅读器全功能真机回归」与③「R172/R173 不回退」需线上整站验收；A/P 段（位置恢复 / 生词台账 / 书签）还可再拆 `reader-location` / `reader-vocabulary`，但 <1,000 已满足——是否继续由用户定夺，故台账标「判据①达成」而非「B4 完成」。
+- **台账**：MAGICBOOK-2 已更新；worktree `../magicbook-arch-b5` 分支 `refactor/r183-epub-modules` 驻留待验收。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
