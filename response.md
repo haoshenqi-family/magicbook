@@ -24,41 +24,11 @@
 - `response-archive/response-R144-R153.md`：R144、R145、R147（含嵌套 R146）、R151、R152、R153（2026-10-10 ～ 2026-10-11；2026-10-12 R161 写入触发轮转搬移，清并行欠账）
 - `response-archive/response-R154.md`：R154（2026-10-11；2026-10-12 R162 写入触发轮转搬移）
 - `response-archive/response-R165-R173.md`：R165、R166、R167、R168、R169、R170、R172、R173（2026-10-12 ～ 2026-10-14；2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起）
+- `response-archive/response-R174-R177.md`：R174、R176、R177（2026-10-15；2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起）
 
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起）
-
-## 2026-10-15（R174 架构评审任务拆分建档，只写文档）
-
-### R174（家族根架构评审任务拆分建档：B1–B8 + DF1–DF8 落档，未做开发）
-
-- **范围**：阅读家族根 `../docs/architecture-review-2026-10-14.md`，将其中本仓相关结论（§2.2 B1–B8、§3.2 严重度标记、§2.5 X1/X2 本仓部分、§5 冲突清单）拆分为待办任务落档。**零代码改动**（cps/ 与前端未触碰；纯文档任务不建 worktree）。
-- **建档**：新建 `docs/feat/arch-review-2026-10/design/` 三份——
-  - overview.md：任务总表（B5 波 1【X1】/ B1 波 2 / B2、B4 波 3 / B6、B7 波 4 / B3、B8 未排 + DF1–DF8）+ 跨仓协同表 + 执行纪律（web.py/epub.js 拆分以「上游 merge 冲突面下降」为第一判据）；
-  - refactor-items.md：每项含现状问题、任务内容、验收判据；B1 消灭 `_moonwell_proxy` 二元组/三元组隐式契约；B4 验收含 R172/R173 已修缺陷不回退；
-  - doc-fixes.md：DF1/DF2 S1/S2 状态滞留（product-review 自称已修但未落地的正面反面样本，回填前须核实 git 实况）、DF3 N2 端口 8085→8083、DF4 K1 旧域取代注记、DF5 悬空 feat + L1 计数 12→16 失实、DF6 L2 覆盖 2/7 口径明示、DF7 project-describe 空壳待用户决策、DF8 仓库卫生（删除前须用户确认）。
-- **索引登记**：L1 `docs/readme/readme.md` 末尾加「开发者入口（非用户能力）」导航行指向新 overview。
-- **跨仓**：四仓同源建档（moon-well R180 / magiclens R45 / app-manager R42）；X1（B5 与 moon-well M4 / magiclens L1 同窗口）与 X2（三组镜像向量）协同口径见家族根 `../docs/arch-review-2026-10-tasks-crossrepo.md`。
-- **总结**：requests.md 占号 R174；response.md 本条（窗口 9 个 request，未触发轮转）；冲突记录：无。
-
-### R176（发布固化：release/2026-10-15 分支 + ACR 镜像固定 tag；同源 moon-well R182）
-
-- **分支**：`release/2026-10-15` 从 origin/develop 最新点 `9fe8fd20`（阅读页 CSP 放行 MinIO 外网源，R175）切出，已 push 远端。基线对应：当日 11:28 `build END OK (9fe8fd20)` —— 分支基线 = 线上运行代码，零漂移。
-- **镜像固定 tag（ssh fnOS 执行）**：`magichouse/magicbook:release-2026-10-15` ← `:latest` 快照，经 `docker tag` + `docker push` 重打，**与 latest 字节级同 manifest digest `sha256:634de7e9...`**（同源 moon-well 侧为 image ID 一致、外层格式 schema2，见其 R182 记录）。部署引用未动（compose 仍 `:latest`），零上线风险。
-- **回滚姿势（已写入 ops/apps/app-magicbook.md 部署表回滚点行）**：从 registry 拉 release tag 覆盖本地 latest 后 `up -d`；固定 tag 约定同 moon-well：大版本补打 `release-YYYY-MM-DD`，平时发版 `:latest` 原地更新，旧 release tag 永不被覆盖。
-- **总结**：requests.md 占号 R176；response.md 本条；冲突记录：无（R175 为远端并行提交已占，按全史最大 +1 顺延）；fnOS 操作经 Tailscale SSH（方案经用户在线确认）。
-
-### R177（架构评审波 1 · B5：统一 API 公共层 common/api.js，X1 本仓部分）
-
-- **交付（commit `e750a739`，分支 `refactor/r177-unified-api-client`，已 merge 本地 develop）**：
-  - 新增 `cps/static/js/common/api.js`（window.MBApi）：csrfToken 三形态链式探测、httpJson/getJson/postJson 基元、**unwrapResult 容错解包**（success===false 抛 message；success===true 含 result 字段解出；非信封 HTML/网关错误/裸数组原样返回不误判——与 moon-well M4 兑底后形态兼容）+ **unwrapStrict**（learning/credits 原口径保持）；
-  - 四份副本收编：learning-common 四件套委托（MBLearning 导出名不变，九页零改动）、ai_chat（getCsrfToken/unwrap 委托）、credits（CSRF 快照改运行时探测、unwrap 迁 strict）、vocab-test（csrf 委托；wrap/codeOf/loadHistory 静默降级为页面状态机 **AC-C1 依据注释自证，保留不解包**）；
-  - 模板：layout.html 全局 + read.html / reading_settings.html（独立骨架）各自引入，C4 契约锁载入顺序。
-- **验证**：新增 `tests/test_common_api_contract.py` 6 例静态锁（C1 导出齐全 / C2 三形态 CSRF / C3+3b 迁移单点 / C4 模板顺序 / C5 失败必须可见）全绿；i18n 契约 JS_FILES 登记 api.js（兑底文案走 mbT）；**全量 545 passed 零回归**；node --check 五文件通过。
-- **台账**：worktree `../magicbook-arch-b5`（分支 `refactor/r177-unified-api-client`，merge commit `e750a739`）驻留待验收，验收通过后 remove + branch -d。未 push（push 即上线，待用户指令）；真机验收点：阅读页 AI 抽屉会话/记忆面板、词汇量测试、积分页余额/套餐、每日学习各页。
-- **X1 合围进度**：moon-well M4（兑底）+ magicbook B5（统一解包）已落地待验收，magiclens L1（rpc 门面）后补即三端合围验收。
-- **总结**：requests.md 占号 R177；冲突记录：无。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起）
 
 ## 2026-10-15（R175：修复 TED 音频仍无声——阅读页 CSP 拦下 MinIO 外网直链）
 
@@ -195,3 +165,18 @@
 - **验证**：`node --check`；全量 **590 passed**（merge 后在 develop 新基线复跑同数）。
 - **B4 剩余**：判据②「阅读器全功能真机回归」与③「R172/R173 不回退」需线上整站验收；A/P 段（位置恢复 / 生词台账 / 书签）还可再拆 `reader-location` / `reader-vocabulary`，但 <1,000 已满足——是否继续由用户定夺，故台账标「判据①达成」而非「B4 完成」。
 - **台账**：MAGICBOOK-2 已更新；worktree `../magicbook-arch-b5` 分支 `refactor/r183-epub-modules` 驻留待验收。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
+
+
+## 2026-10-16（R185 架构评审文档修正批：DF1–DF5）
+
+### R185（magicbook DF1–DF5：把「修正声明无闭环」的实证项就地修掉）
+
+- **范围**：家族根评审 §5 的 C-状态滞留 / C-数值冲突 / C-索引完整性中属本仓的五项。**纯文档批，零代码改动**（按 doc-fixes 清单口径「纯文档活主检出可直接做，无需 worktree」）。
+- **DF1 / DF2（状态行回填，日期与 commit 全部取自 git，不凭报告改写）**：`whole-book-translation` 的 L3 状态停在「设计已确认，尚未开发」而 L1 与 hld 端点表早已上线多轮 → 已上线（2026-09-05 `04c591a3`；2026-09-17 `817f4381` 补容器重启断点续作）；`sso-user-unification` 停在「设计草案（待评审）」→ 已上线（2026-09-07 `457067c5` Authentik 唯一登录）。这两条正是 product-review(10-07) §5.2 自称已修、一周后依旧失实的原件；正文按「历史文档只标注不重写」保留原貌。
+- **DF3（端口口径）**：`oidc-login.md` 三处 8085 → 生产 **8083**（fnOS），并写明 8085 系 UBT 旧部署、已停用待清理——不留「旧值加个注」的二义。家族根端口表那行属 X5/RF2，责任在家族根，未顺手改。
+- **DF4（旧域）**：`docs/REQUIREMENTS.md` 两处 `hyh.haoshenqi.top` 加「已被 `magicbook.haoyuhang.top` 取代」注记。
+- **DF5（索引完整性）**：L1 分级表 feat 计数由失实的 12 改为实测 **18** 并列出全量目录名；此前五个悬空 feat（ai-reading-companion / learning-hub / sso-user-unification / ted-audio-companion / whole-book-tts）现全部有入口，**遍历复查差集为空**。
+- **未做（如实）**：DF6（L2 覆盖口径明示）、DF7（`docs/kb/project-describe/` 空壳填实或删除——需用户定夺）、DF8（仓库卫生：`docs/temp/` epub/mp3 入库、`test/` 与 `tests/` 并存、根目录 `None` 空文件——涉删跟踪文件，须先出清单再动）。
+- **验证**：悬空复查脚本（遍历 `docs/feat/*` 与 L1/L2 引用集合）为空集；两处状态行回读；无代码改动故不跑 pytest 闸门。
+- **过程失误（记下来）**：本条第一次写入时脚本的索引锚点按表格行去找、实际是列表行，`assert` 及时中止，但同一条命令里 `git add/commit` 是独立行、仍把**归档文件**先提交了（commit `cd9617c7`），造成「归档已生成、response.md 未搬移」的中间态；本提交完成搬移，两条都在本地未 push。教训：多步 shell 链里 assert 只保护它自己那一步，收尾动作要另起一条命令或前置 `&&`。
+- **台账**：commit `de80c8f3` + 本条；requests.md 占号 R185，并行会话未提交的 R184（家族迁入 PingCode）随本批原样入库、内容未改；冲突记录：无撞号。窗口：本条写入使 request 数达 11，按「写入即检查」把最旧一节（R174 及其节内的 R176、R177，共 31 行）原样搬至 `response-archive/response-R174-R177.md`，窗口回 10 个 request 内。
