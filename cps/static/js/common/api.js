@@ -58,6 +58,13 @@
   // Why 容错而非严格：strict 口径（success !== true 即抛）会把登录页 HTML、
   // 网关 502 等非信封响应当「业务失败」，吞掉真实故障形态；容错版把非信封
   // 响应的判读留给调用方各自的 response.ok / codeOf 逻辑。
+  // ⚠️ 契约（2026-10-16 X1 两端彩排实测）：parse 失败的 null **不抛**、原样返回，所以调用方
+  // 必须自己判 `response.ok`，否则 `unwrapResult(...) || []` 会把网关故障渲染成「没有数据」。
+  // 现网三条消费链路都不经这个分支（ai_chat 用 $.getJSON、learning/credits 用 unwrapStrict），
+  // 因此今天不可达；新增「httpJson + 容错解包」的页面必须显式判 ok。
+  // 硬依赖：两个解包的抛错路径用 window.mbT 取兜底文案——本文件被 layout / read /
+  // reading_settings 三类骨架页共用，引入本文件却没注入 i18n 种子的页面，失败时会抛
+  // `TypeError: window.mbT is not a function` 而不是可读文案（当前三个模板都带种子）。
   function unwrapResult(data) {
     if (data && typeof data === 'object' && data.success === false) {
       throw new Error(data.message || window.mbT('Something went wrong'));

@@ -40,6 +40,12 @@
 ## 调用方契约
 
 - 依赖：moon-well（vocabulary/system/tts/reading/book）；失败语义沿用各后端契约（业务错误 HTTP 500 + `Result.code`）。
+- **统一信封（X1 两端彩排实测，2026-10-16，详见 `docs/project/iterations/2026-10-arch-review/x1-contract-pair-rehearsal/lld.md`）**：
+  后端 M4 起由框架兜底回 `{success, message, code, result, timestamp}`，本仓代理**原样透传 body 与状态码**——
+  正常 200、凭证失效 401、上游业务失败 500、上游不可达由本仓自造 503 `{"success": false, "message": "… service unavailable"}`；
+  若上游不是 moon-well（网关 HTML 等）则 404 + 非 JSON body 一并透传，**代理不把它包装成「无数据」**。
+  消费侧口径：`common/api.js` 的 `unwrapStrict`（learning/credits）遇非信封即抛、`unwrapResult`（ai_chat）遇
+  `success:false` 抛上游文案，但 **parse 失败返回 null 不抛**——用容错解包的页面必须自己判 `response.ok`。
 - magicbook 内部：epub.js 渲染层与代理层解耦；i18n 经 `mbT()` 通道（language-i18n）。
 
 ## L3 与历史设计
