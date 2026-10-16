@@ -19,6 +19,7 @@ ALIASES = {
     "AN": "ReaderAnnotations",
     "RAn": "ReaderAnnotations",
     "RS": "ReaderSelection",
+    "RI": "ReaderImmersive",
 }
 _ALIAS_RE = re.compile(r"\b(RC|RD|AN|RAn|RS)\.([A-Za-z_]\w*)")
 _EXPORT_RE = {alias: re.compile(r"window\.%s\s*=\s*\{(.*?)\n    \};" % re.escape(obj), re.S)
@@ -34,7 +35,7 @@ def test_每个跨模块调用都在导出面上():
         exported[alias] = set(re.findall(r"([A-Za-z_]\w*)\s*:", m.group(1)))
 
     missing = []
-    for alias, member in set(_ALIAS_RE.findall(blob)):
+    for alias, member in set(re.findall(r"\b(RC|RD|AN|RAn|RS|RI)\.([A-Za-z_]\w*)", blob)):
         if member not in exported[alias]:
             missing.append("%s.%s" % (alias, member))
     assert not missing, "调用了模块未导出的成员：%s" % ", ".join(sorted(missing))
@@ -48,8 +49,30 @@ def test_模块载入顺序保证导出先于使用():
     assert order.index("reader-core.js") < order.index("reader-selection.js")
     assert order.index("reader-word-detail.js") < order.index("reader-selection.js")
     assert order.index("reader-annotations.js") < order.index("reader-selection.js")
-    assert order.index("reader-selection.js") < order.index("epub.js"), \
-        "epub.js 顶层就读 window.ReaderSelection，模块必须排在它之前"
+    assert order.index("reader-selection.js") < order.index("reader-immersive.js")
+    assert order.index("reader-immersive.js") < order.index("epub.js"), \
+        "epub.js 顶层就读 window.Reader* 别名，模块必须排在它之前"
+
+
+def test_声明_init_的模块必须被显式调用():
+    """带宿主回调的模块不能在 IIFE 里跑载入期副作用——那一刻 setHost 还没执行，
+    静默空操作在界面上的表现只是「第一次有点慢」，没人会当成 bug 报上来（批次 5 实例）。
+    因此这类模块一律把副作用收进 init()，由 epub.js 在 setHost 之后显式调用。"""
+    blob = reader_blob()
+    declared = set()
+    for m in re.finditer(r"window\.(Reader\w+)\s*=\s*\{(.*?)\n    \};", blob, re.S):
+        if re.search(r"^\s*init: init,$", m.group(2), re.M):
+            declared.add(m.group(1))
+    assert declared == {"ReaderImmersive"}, \
+        "带 init 的模块集合变了（%s）——本用例与 setHost 时序约定要一起复核" % sorted(declared)
+    alias_of = {}
+    for alias, obj in ALIASES.items():
+        alias_of.setdefault(obj, []).append(alias)
+    for obj in declared:
+        names = sorted(set([obj] + alias_of.get(obj, [])))
+        pattern = r"\b(?:%s)\.init\(\);" % "|".join(re.escape(n) for n in names)
+        assert re.search(pattern, blob), \
+            "%s 声明了 init 却没有调用点（模块内不能自跑：那一刻 setHost 还没执行）" % obj
 
 
 def test_气泡状态只有模块一份归属():
