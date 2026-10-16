@@ -30,9 +30,9 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | --- | --- | --- | --- |
 | **L1 用户文档** | `docs/readme/` | 使用者 | 系统与各模块功能介绍，不涉及实现 |
 | **L2 设计概要（HLD）** | `docs/<module>/hld/` | 模块调用者/集成者 | 代理端点映射与接口约定（首批：reading、vocabulary，其余模块契约暂以 L3 为准） |
-| **L3 详细设计（LLD）** | `docs/feat/` | 开发/维护者 | 具体设计、验收、测试（12 个 feat） |
+| **L3 详细设计（LLD）** | `docs/feat/` | 开发/维护者 | 具体设计、验收、测试（18 个 feat） |
 
-模块对应的 L3 详细设计在 `docs/feat/`（如 `whole-book-translation`、`vocab-size-test`、`llm-task-run` 等）；后端契约的**唯一权威**是 moon-well 仓库的 L2（`moon-well/docs/<module>/hld/`）。
+模块对应的 L3 详细设计在 `docs/feat/`，共 18 个（反向索引纪律：每个 L3 目录都要在此可见）：ai-agent、ai-reading-companion、arch-review-2026-10、halo-book-connector、language-i18n、learning-hub、llm-task-run、magicbook-fnos、nce-audio、onboarding-tour、sso-user-unification、subscription-page、ted-audio-companion、vocab-size-test、whole-book-listening、whole-book-translation、whole-book-tts、word-detail；后端契约的**唯一权威**是 moon-well 仓库的 L2（`moon-well/docs/<module>/hld/`）。
 
 ## 开发者入口（非用户能力）
 

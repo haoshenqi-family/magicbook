@@ -2,7 +2,7 @@
 
 > 功能路径：`/oidc/login` → Authentik 授权 → `/oidc/callback`
 > 相关代码：`cps/oidc.py`
-> 适用版本：magicbook（Calibre-Web fork，Python/Flask + Gevent，默认端口 8085）
+> 适用版本：magicbook（Calibre-Web fork，Python/Flask + Gevent，生产端口 **8083**（fnOS）；8085 系 Ubuntu 开发机 UBT 旧部署，已停用待清理）
 
 ## 1. 功能概述
 
@@ -103,7 +103,7 @@ redirect_uri = os.getenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI") or url_for("oidc.ca
 ./restart.sh
 ```
 
-- 脚本逻辑：根据 8085 端口找到旧 PID → kill → 重新 `nohup python3 cps.py`。
+- 脚本逻辑：按端口找到旧 PID → kill → 重新 `nohup python3 cps.py`（本机默认 8083；UBT 旧部署用 8085）。
 - **注意**：`restart.sh` 会 `source .env` 到当前 shell 再启动进程，
   因此无需重建容器；但若走 docker-compose 部署（`env_file`），
   需 `docker compose up -d` 重建容器。
@@ -111,7 +111,7 @@ redirect_uri = os.getenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI") or url_for("oidc.ca
 
 ```bash
 ps aux | grep "[c]ps.py"            # 确认新 PID
-curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8085/login   # 期望 200/302
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8083/login   # 期望 200/302（端口按实际部署替换）
 ```
 
 ## 6. 测试

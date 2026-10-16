@@ -1,7 +1,7 @@
 # SSO 与用户身份映射：magicbook ↔ moon-well 用户体系打通
 
 > 功能特性：`sso-user-unification`
-> 状态：设计草案（待评审）
+> 状态：已上线（2026-09-07，commit `457067c5`：Authentik 唯一登录 + 整书翻译改单向查询 moon-well；OIDC 接线见 `docs/kb/instructions/workflows/oidc-login.md`）。正文按「历史文档只标注不重写」保留原貌
 > 日期：2026-08-14
 
 ## 1. 背景与目标

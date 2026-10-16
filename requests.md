@@ -138,3 +138,7 @@
 176. 「全文单词详解」功能（跨项目 moon-well R185）：给定一本书，抽正文词表→比对详解缓存→按批把缺失词入队生成，与整本翻译、整本朗读并列为详情页第三个整本按钮。含 job/item 台账与进度页。
 
 183. 架构评审波 3 继续——B4：`cps/static/js/reading/epub.js`（3,279 行单 IIFE、12+ 功能域混居、全仓最热文件）按文件内注释分域拆模块，epub.js 收缩为装配层（评审报告 §2.2 B4 / §3.2 🟠）。复用台账登记的该任务驻留 worktree `magicbook-arch-b5`（不新建树），基线拉到 develop（含 r176 全文详解、r181 web.py 分域、r182 i18n 生成化）。（编号说明：接本文件全史最大 182；主检出另有并行会话未提交的 R174/R175/R176 条目，本条不与既有记录重排）
+
+184. 家族迁入 PingCode（跨仓同源：magicbook R184 / magiclens R49 / ops R131；用户指令：学习使用 PingCode，把项目搬上去）：①知识管理——本仓 `docs/` 与根 README 全量镜像至 PingCode DEV 空间（目录结构同源；顶级页与空间主页平级，主页是空间系统页、API 不能挂子页；仓库 docs/ 仍是权威源，wiki 只读镜像）；②产品管理——本仓全史 requests 197 条（R01–R183 含归档）建为 MAGICBOOK 产品需求池条目，标题 R 编号开头、描述带原文与来源脚注，状态按已完成/未完成分类（Completed/Pending/In progress/Closed）；③工作流——此后新需求先记本台账占号，再 `../ops/tools/pingcode.py idea-create magicbook "R<编号> 标题" --desc "详情"` 发布，agent 按看板领取建 worktree 开发并流转状态，产品进度以看板为准（手册 `../ops/pingcode.md` §10，家族根 AGENTS.md「需求管理」节同源）。
+
+185. 架构评审文档修正批（magicbook DF1–DF5）：修「修正声明无闭环」的实证项——whole-book-translation 与 sso-user-unification 两份 L3 状态行按 git 里程碑回填（`04c591a3` 2026-09-05 / `817f4381` 2026-09-17；`457067c5` 2026-09-07，不凭评审报告改写）；oidc-login.md 本仓端口旧值 8085 → 生产 8083 并交代 8085 来历；REQUIREMENTS.md 旧域 hyh.haoshenqi.top 加取代注记；L1 索引 feat 计数由失实的 12 改为实测 18 并补齐 5 个悬空 feat 的入口。（编号说明：并行会话 R184 条目随本批一并入库，不重排他人记录）

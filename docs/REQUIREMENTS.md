@@ -4,7 +4,7 @@
 >
 > - 项目性质：calibre-web 的 fork，进行二次开发。
 > - 项目目标：在 calibre-web 基础上增加「AI 帮助阅读」能力。
-> - 在线站点（参考）：`https://hyh.haoshenqi.top/ai/admin`（~~报错~~ 已修复，见 §8 变更记录 2026-07-31）。
+> - 在线站点（参考）：`https://hyh.haoshenqi.top/ai/admin`（~~报错~~ 已修复，见 §8 变更记录 2026-07-31。**该旧域已被取代**：magicbook 现用 `https://magicbook.haoyuhang.top`）
 
 ---
 
@@ -78,7 +78,7 @@
 - 已注入到阅读器模板（`read.html` / `readpdf.html` / `readtxt.html`）。
 - 后台配置页 `cps/templates/ai_admin.html`，支持 Provider/模型配置与 Authentik client_secret。
 - AI 表自动创建：`cps/ai/__init__.py` 在导入时调用 `ensure_ai_tables()`（显式 `Base.metadata.create_all` AI 相关表）与 `seed_default_config()`（写入默认 `AiConfig` + deepseek `AiProvider`）。这是因为 calibre-web 的 `ub.init_db()` 在 `create_app()` 内执行 `create_all` 时，`cps.ai.models` 尚未导入注册到 `Base.metadata`，AI 表不会被自动创建。
-- 已知问题：~~`https://hyh.haoshenqi.top/ai/admin` 报错~~ **已修复**（见 2026-07-31 变更记录）。
+- 已知问题：~~`https://hyh.haoshenqi.top/ai/admin` 报错~~ **已修复**（见 2026-07-31 变更记录；该旧域现已被 `magicbook.haoyuhang.top` 取代）。
 
 ## 7. 待办与待澄清
 
