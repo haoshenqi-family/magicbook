@@ -24,14 +24,14 @@
 
 ## 2. 抽取边界（收了什么，没收什么）
 
-新增 `cps/reading_job/service_base.py`（191 行，其中代码 87 / 说明 104）：
+新增 `cps/reading_job/service_base.py`（219 行，其中代码 88 / 说明 131——说明写得多是因为三条链路的 Why 都在这儿只留一份）：
 
 | 骨架成员 | 来源 | 三个调用方 |
 | --- | --- | --- |
 | `_ensure_tables`（按 `job_model`/`item_model` 建表） | 三份合一 | 全部 |
 | `_book_file` / `_fingerprint` | 三份合一 | 全部 |
 | `_find_active_job` | 三份合一 | 全部 |
-| `_is_stale`（阈值 `ZOMBIE_MINUTES` 单一事实源） | 翻译内联 ×2 + 详解内联 ×1 + 朗读 `_is_stalled` | 全部 |
+| `_is_stale` / `_is_fresh`（阈值 `ZOMBIE_MINUTES` 单一事实源；**两个谓词并存**，见 §5 修正 #2） | 翻译内联 ×2 + 详解内联 ×1 + 朗读 `_is_stalled` | 全部 |
 | `_close_as_zombie` | 三份合一 | 全部 |
 | `_own_job` + `missing_job_error` | 翻译 ×3 处 + 详解 `_own_job` | 翻译、详解（朗读不筛属主，见 §4） |
 | `_pending_count` / `_needs_worker` / `_revive_running` / `_spawn_worker` / `_worker_guarded` | R169 自愈机制（原在朗读） | 朗读 |
@@ -50,23 +50,38 @@
 
 ## 3. 验收
 
-- **判据①（既有测试全绿，含 R169 批次自愈用例）**：全量 `pytest tests/` **601 passed**
-  （基线 590 + 本批新增 11 例守卫），`test_reading_tts_service.py` 的
+- **判据①（既有测试全绿，含 R169 批次自愈用例）**：全量 `pytest tests/` **603 passed**
+  （基线 590 + 本批新增 13 例守卫），`test_reading_tts_service.py` 的
   `test_spawn_worker_is_atomic_and_never_double_spawns`、
   `test_retry_spawns_when_no_live_worker_and_pending`、
   `test_retry_does_not_double_spawn_while_worker_is_live`、
   `test_start_still_spawns_worker_when_preselect_crashes` 全部原样通过。
 - **判据②（重复骨架归一）**：三个 service 的代码行由 371/305/256 降到 337/244/222，
-  归一出的 87 行骨架只有一份实现。新增 `tests/test_job_service_base.py`（11 例）钉住：
+  归一出的骨架只有一份实现。新增 `tests/test_job_service_base.py`（13 例）钉住：
   骨架方法不得在子类里长回第二份、同一原语三家只有一份实现、类属性必须显式填、
   僵尸阈值单一事实源、三家「查无批次」文案逐字不变、`_needs_worker` 的三条边界。
-  **反向变异已验**：给 `WholeBookTtsService` 重新塞一个 `_fingerprint` 后守卫 2 例转红，
-  恢复后逐字节一致。
+  **反向变异两处已验**：① 给 `WholeBookTtsService` 重新塞一个 `_fingerprint` ⇒ 守卫 2 例转红；
+  ② 把 `_own_job` 的 `user_id` 过滤删掉 ⇒ 属主边界用例转红。两次恢复后文件逐字节一致。
 - **判据③（整本翻译与整本朗读各跑一轮真机批次回归）**：**未验**——本机无 calibre 书库
   （`/`、`/book/<id>`、`/read/...` 一律 500），需要用户在线上各点一轮「整本译」与「整本朗读」。
 
 测试桩的跟着代码走的改动（不是放水）：`calibre_db` / `config` / `threading.Thread` 三处
 monkeypatch 的**打桩位置**随 `_book_file` 与线程创建移到骨架模块，断言一字未动。
+
+## 5. 交叉评审后修正的三处（初版确实改掉了行为，逐条落回）
+
+独立 review（通读三家 loader 与调用点）揪出三处「以为是等价改写、其实改了判据」的问题，
+都已修正并补测试；这三条正是「去重重构最容易藏在形状相似里的东西」：
+
+| # | 缺陷 | 后果（若留下） | 处置 |
+| --- | --- | --- | --- |
+| 1 | `_needs_worker` 的否决条件从「`status == CANCELLED`」被我改成「`status not in active_statuses`」 | `retry` 是按 id 直取批次、终态行也会进来：「台账 COMPLETED 却仍有 PENDING 段」这种矛盾批次，旧实现会补线程拉回正轨，改后**点重试静默 no-op** | 判据落回原样，取消态提为类属性 `cancelled_status`（朗读 `CANCELLED`，翻译/详解是 `CANCELED`，注释里写明分叉与「另两家若启用须覆写」）；守卫用例把 `RUNNING/PARTIAL_FAILED/COMPLETED ⇒ True`、`已取消 ⇒ False` 钉住 |
+| 2 | 一键译全库的「在跑就跳过」写成 `not _is_stale(active)` | 两个谓词在 30 分整那条记录上**不是互补的**：旧行为是「开新批次」，取反后变「算在跑」 | 新增 `_is_fresh` 原样保留旧的严格大于式；`test_边界值上新鲜与停滞不是取反关系` 钉住时间冻结后的边界（两条都 False） |
+| 3 | `_own_job` 用的 `current_user` 搬进骨架后，测试桩仍打在原子类模块上 | 翻译/详解的 `get_progress/retry/cancel` **一条都没被跑到**（属主过滤这条鉴权边界失去可测性）；三处 fixture 里那行 `monkeypatch.setattr(svc, "config", …)` 同型——已随第 3 点一起把 `current_user` 双模块都桩上 | fixture 补齐 + 新增 `test_own_job_只认当前用户名下的批次`（别人的批次取不到、不存在的取不到、文案逐字），并用变异验证它会咬 |
+
+顺带把 `_pending_count` 的口径写进 docstring：它数的是 **`status == "PENDING"`**（没人认领的活儿），
+不是「未完成」——翻译/详解的「未完成」含 PUBLISHED（已发给 moon-well 队列，正在消费），
+把两者混为一谈会让自愈对着在途批次再起一条线程。
 
 ## 4. 本轮实测到的待决事实（未在本批处置）
 

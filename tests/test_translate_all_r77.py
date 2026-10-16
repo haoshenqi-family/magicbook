@@ -166,6 +166,8 @@ def _patch_common(monkeypatch, tmp_path, books):
     monkeypatch.setattr(svc, "calibre_db", _CalibreDB)
     monkeypatch.setattr(base_svc, "config", _Config)  # B6：_book_file 已归一到骨架
     monkeypatch.setattr(svc, "current_user", _User, raising=False)
+    # B6：`_own_job` 在骨架里取 current_user，两处都要桩（get_progress/retry/cancel 走骨架）
+    monkeypatch.setattr(base_svc, "current_user", _User, raising=False)
     monkeypatch.setattr(svc.ub, "session", store, raising=False)
     return store, calibre_books
 

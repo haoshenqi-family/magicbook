@@ -85,6 +85,8 @@ def test_publish_payload_carries_prompt_template_and_progress_reports_pending(tm
         id = 1
 
     monkeypatch.setattr(svc, "current_user", _User, raising=False)
+    # B6：`_own_job` 在骨架里取 current_user，两处都要桩（get_progress/retry/cancel 走骨架）
+    monkeypatch.setattr(base_svc, "current_user", _User, raising=False)
 
     # 直接为 book 补齐 .path，_book_file 真正解析文件路径（已存在的 epub）
     real_book = _Book()
@@ -417,6 +419,8 @@ def test_publish_survives_single_segment_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(base_svc, "calibre_db", _CalibreDB)
     monkeypatch.setattr(base_svc, "config", _Config)
     monkeypatch.setattr(svc, "current_user", _User, raising=False)
+    # B6：`_own_job` 在骨架里取 current_user，两处都要桩（get_progress/retry/cancel 走骨架）
+    monkeypatch.setattr(base_svc, "current_user", _User, raising=False)
     monkeypatch.setattr(svc.threading, "Thread", _SyncThread)
     inner = _Session()
     monkeypatch.setattr(svc.ub, "session", _ScopedSession(inner), raising=False)
@@ -696,6 +700,8 @@ def test_stale_active_job_is_recycled(tmp_path, monkeypatch):
     monkeypatch.setattr(base_svc, "calibre_db", _CalibreDB)
     monkeypatch.setattr(base_svc, "config", _Config)
     monkeypatch.setattr(svc, "current_user", _User, raising=False)
+    # B6：`_own_job` 在骨架里取 current_user，两处都要桩（get_progress/retry/cancel 走骨架）
+    monkeypatch.setattr(base_svc, "current_user", _User, raising=False)
     session_state = _Session()
     session_state.add(stale)  # 预置僵尸批次
     monkeypatch.setattr(svc.ub, "session", session_state, raising=False)

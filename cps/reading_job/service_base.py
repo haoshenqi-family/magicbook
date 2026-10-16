@@ -47,6 +47,9 @@ class JobServiceBase:
     active_statuses = ACTIVE_STATUSES
     # 查无批次时的报错文案（三家不同且已上线，逐字保留）
     missing_job_error = "job is unavailable"
+    # 「用户显式取消」的状态值：朗读写 CANCELLED，整本翻译与详解写 CANCELED——
+    # 这个拼写分叉是历史造成的，现只有朗读侧启用花名册自愈；另两家若要启用必须覆写本值
+    cancelled_status = "CANCELLED"
     # 骨架内部日志的前缀与线程名：整本朗读用 "whole-book tts:" / "whole-book-tts"
     log_prefix = "reading job:"
     worker_name_prefix = "reading-job"
@@ -116,6 +119,17 @@ class JobServiceBase:
         """
         return now_utc() - as_utc(job.updated_at) > timedelta(minutes=minutes)
 
+    @staticmethod
+    def _is_fresh(job, minutes=ZOMBIE_MINUTES):
+        """「还活着」判据：``updated_at`` 严格晚于 ``now - minutes``。
+
+        Why 与 `_is_stale` 并存而不是写成取反：原实现的两处比较就不是互补的——僵尸判定用
+        ``now - updated_at > 30min``，一键译全库的「在跑就跳过」用 ``updated_at > now - 30min``
+        （严格大于）。恰好停在 30 分整那条记录，旧行为是「判僵尸、开新批次」，取反后会变成
+        「算在跑」。边界值不可测（时钟精度），但重构不许顺手改判据，两个谓词原样保留。
+        """
+        return as_utc(job.updated_at) > now_utc() - timedelta(minutes=minutes)
+
     def _close_as_zombie(self, job, book_id):
         """把停滞且无待跑项的旧批次按僵尸关闭，让本次点击落回新建流程。"""
         self.job_log.warning("%s stale job %s (book=%s updated_at=%s) closed as zombie",
@@ -135,13 +149,27 @@ class JobServiceBase:
     # ---------- 后台线程骨架（R169 自愈机制的单一实现） ----------
 
     def _pending_count(self, job_id):
+        """台账里「还没开始跑」的项数（item.status == 'PENDING'）。
+
+        Why 只认 PENDING 而不写成「未完成」：三条链路的 item 状态机不同——整本翻译与详解
+        的「未完成」口径是 ``~in_(COMPLETED, FAILED, SKIPPED)``，其中 PUBLISHED 段
+        **已经发出去了**，把它算进「该补线程的理由」会让自愈对着一条正在被 moon-well 消费的
+        批次再起一线。补线程判据要的是「一段活儿没人认领」。
+        """
         return (ub.session.query(self.item_model)
                 .filter(self.item_model.job_id == job_id,
                         self.item_model.status == "PENDING").count())
 
     def _needs_worker(self, job):
-        """该批次现在该不该补一条后台线程：本进程无活线程 且 仍有待跑项。"""
-        if job is None or job.status not in self.active_statuses:
+        """该批次现在该不该补一条后台线程：未被用户显式取消 且 本进程无活线程 且 仍有待跑项。
+
+        Why 只排除「已取消」而**不收紧成「必须在 active_statuses 里」**（评审后修正）：调用方
+        `retry` 是按 id 直取批次的，终态行也会走到这里；旧实现（R169 落地版）对「已 COMPLETED
+        却还留着 PENDING 段」的矛盾台账是**照补线程**的——那是当时唯一能把这种台账拉回正轨的路。
+        用状态集合当闸门会把这条静默成 no-op。「已取消不复活」的判据归 `retry` 自己管
+        （朗读侧 `retry` 对 CANCELLED 早退并写日志）。
+        """
+        if job is None or job.status == self.cancelled_status:
             return False
         with self._workers_lock:
             live = job.id in self._live_workers
