@@ -17,6 +17,7 @@
   "cps/static/js/reading/epub.js",
   "cps/static/js/reading/reader-annotations.js",
   "cps/static/js/reading/reader-core.js",
+  "cps/static/js/reading/reader-immersive.js",
   "cps/static/js/reading/reader-selection.js",
   "cps/static/js/reading/reader-word-detail.js",
   "cps/static/js/vocab-test.js"

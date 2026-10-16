@@ -14,10 +14,12 @@ var reader;
   var AN = window.ReaderAnnotations;
   // R183（B4 批次 4）：划词簇实现见 reader-selection.js
   var RS = window.ReaderSelection;
-  if (!RD || !AN || !RS) {
+  // R183（B4 批次 5）：沉浸式翻译实现见 reader-immersive.js
+  var RI = window.ReaderImmersive;
+  if (!RD || !AN || !RS || !RI) {
       // Why 显式报错而不是静默跳过：详解与批注面板会整块失效，静默降级在界面上的表现是
       // 「详按钮/批注按钮点了没反应」，用户报障永远指不到载入顺序这一步
-      console.error('[reader] reader 模块未载入（word-detail / annotations / selection），划词·详解·批注能力不可用');
+      console.error('[reader] reader 模块未载入（word-detail / annotations / selection / immersive），划词·详解·批注·整本译文能力不可用');
   }
 
     EPUBJS.filePath = calibre.filePath;
@@ -323,9 +325,7 @@ var reader;
 
     // ===== 段落朗读（TTS）+ 沉浸式翻译 =====
 
-    var TRANSLATE_ENABLED_KEY = "calibre.reader.immersiveTranslate";
     var TTS_ENGINE_KEY = "calibre.reader.ttsEngine";
-    var TRANSLATION_CACHE_MAX = 500;
 
     // 翻译内容自动隐藏时长：按原文词数动态折算——配置值是「每 100 词显示的
     // 秒数」，段落/选区越长显示越久，供「看一眼译文继续读原文」的使用方式；
@@ -397,7 +397,7 @@ var reader;
                 trBtn.addEventListener('click', function (ev) {
                     ev.preventDefault();
                     ev.stopPropagation();
-                    translateParagraph(el, trBtn);
+                    RI.translateParagraph(el, trBtn);
                 });
                 el.appendChild(trBtn);
             }
@@ -1490,316 +1490,26 @@ var reader;
             if (isNaN(value) || value < 0) value = TRANSLATION_DISPLAY_DEFAULT;
             translationDisplayInput.value = String(value);
             try { localStorage.setItem(TRANSLATION_DISPLAY_KEY, String(value)); } catch (e) {}
-            rescheduleVisibleTranslations();
+            RI.rescheduleVisibleTranslations();
         });
     }
 
-    // --- 沉浸式翻译 ---
-    var translationInFlight = false;
-    var translationRetryPending = false;
-
-    function translationEnabled() {
-        try { return localStorage.getItem(TRANSLATE_ENABLED_KEY) === 'true'; } catch (e) { return false; }
-    }
-
-    function translationCacheKey() {
-        return 'calibre.reader.translation.' + reader.book.key();
-    }
-
-    function loadTranslationCache() {
-        try {
-            return JSON.parse(localStorage.getItem(translationCacheKey()) || '{}') || {};
-        } catch (e) { return {}; }
-    }
-
-    function saveTranslationCache(cache) {
-        try {
-            var keys = Object.keys(cache);
-            // 超限时淘汰最早写入的条目（对象键序即插入序）
-            for (var i = 0; i < keys.length - TRANSLATION_CACHE_MAX; i++) delete cache[keys[i]];
-            localStorage.setItem(translationCacheKey(), JSON.stringify(cache));
-        } catch (e) {}
-    }
-
-    function paragraphHash(text) {
-        var hash = 5381;
-        for (var i = 0; i < text.length; i++) {
-            hash = ((hash << 5) + hash + text.charCodeAt(i)) & 0x7fffffff;
-        }
-        return hash.toString(36);
-    }
-
-    function translationSibling(el) {
-        var next = el.nextElementSibling;
-        return (next && next.classList && next.classList.contains('reading-translation')) ? next : null;
-    }
-
-    function insertTranslation(el, text, extraClass) {
-        var existing = translationSibling(el);
-        if (existing) existing.remove();
-        var doc = el.ownerDocument;
-        var div = doc.createElement('div');
-        div.className = 'reading-translation' + (extraClass ? ' ' + extraClass : '');
-        div.textContent = text;
-        el.parentNode.insertBefore(div, el.nextSibling);
-        // 仅对最终译文计时自动隐藏；loading/error 中间态会被替换或需点击重试，不计时
-        if (extraClass !== 'is-loading' && extraClass !== 'is-error') scheduleTranslationHide(div, el);
-        return div;
-    }
-
-    // 译文块自动消失：显示时长按所在段落原文的词数折算，到点移除并复位段落
-    // 「译」按钮（可再点重出，命中缓存即时显示）。定时器挂在块自身，配置修改
-    // 时可清除重排；块已被动删除（手动取消/被替换）时触发为 no-op。
-    function scheduleTranslationHide(div, el) {
-        if (div._hideTimer) { clearTimeout(div._hideTimer); div._hideTimer = null; }
-        var seconds = el ? translationDisplaySecondsFor(paragraphSpeechText(el)) : 0;
-        if (!seconds) return;
-        div._hideTimer = setTimeout(function () {
-            div._hideTimer = null;
-            if (!div.isConnected) return;
-            div.remove();
-            if (el) setParagraphTranslated(el, false);
-        }, seconds * 1000);
-    }
-
-    // 配置修改后：已显示的译文（含划词气泡）立即按新时长重新计时
-    function rescheduleVisibleTranslations() {
-        reader.rendition.getContents().forEach(function (content) {
-            var doc = content.document;
-            if (!doc || !doc.body) return;
-            Array.prototype.slice.call(doc.querySelectorAll('.reading-translation'))
-                .forEach(function (div) {
-                    if (div.classList.contains('is-loading') || div.classList.contains('is-error')) return;
-                    scheduleTranslationHide(div, div.previousElementSibling);
-                });
-        });
-        if (RS.isPopoverOpen()) RS.scheduleHide();
-    }
-
-    function removeAllTranslations() {
-        reader.rendition.getContents().forEach(function (content) {
-            var doc = content.document;
-            if (!doc || !doc.body) return;
-            Array.prototype.slice.call(doc.querySelectorAll('.reading-translation'))
-                .forEach(function (el) { el.remove(); });
-            Array.prototype.slice.call(doc.querySelectorAll('.reading-translate-btn.is-done'))
-                .forEach(function (el) { el.classList.remove('is-done'); });
-        });
-    }
-
-    function setParagraphTranslated(el, on) {
-        var btn = el.querySelector(':scope > .reading-translate-btn');
-        if (btn) btn.classList.toggle('is-done', !!on);
-    }
-
-    // iframe 内容是 CSS 分栏：与 iframe 视口相交的段落即当前可见页
-    function isElementVisible(el, win) {
-        try {
-            var rect = el.getBoundingClientRect();
-            return rect.bottom > 0 && rect.top < win.innerHeight &&
-                   rect.right > 0 && rect.left < win.innerWidth;
-        } catch (e) { return false; }
-    }
-
-    function showTranslationError(el, text) {
-        setParagraphTranslated(el, false);
-        var div = insertTranslation(el, mbT('Translation failed, click to retry'), 'is-error');
-        div.addEventListener('click', function () {
-            div.remove();
-            translateSingleParagraph(el, text);
-        });
-    }
-
-    function translateSingleParagraph(el, text) {
-        var btn = el.querySelector(':scope > .reading-translate-btn');
-        if (btn) btn.classList.add('is-loading');
-        insertTranslation(el, mbT('Translating…'), 'is-loading');
-        $.ajax({
-            url: calibre.readingTranslateBatchUrl,
-            method: 'POST', contentType: 'application/json',
-            headers: {'X-CSRFToken': readerCsrfToken()},
-            data: JSON.stringify({paragraphs: [text], bookName: calibre.bookName || '',
-                chapter: currentChapterTitle()})
-        }).done(function (response) {
-            var translation = ((response.result || response.data || [])[0] || '').trim();
-            if (translation) {
-                insertTranslation(el, translation);
-                setParagraphTranslated(el, true);
-                var cache = loadTranslationCache();
-                cache[paragraphHash(text)] = translation;
-                saveTranslationCache(cache);
-            } else {
-                showTranslationError(el, text);
-            }
-}).fail(function (xhr) {
-            if (reloadIfCsrfBlocked(xhr)) return;
-            showTranslationError(el, text);
-        }).always(function () {
-            if (btn) btn.classList.remove('is-loading');
-        });
-    }
-
-    // 段落级「译」按钮：单击翻译本段（优先命中缓存），已有译文时再点一次取消
-    function translateParagraph(el, btn) {
-        if (btn.classList.contains('is-loading')) return;
-        var sibling = translationSibling(el);
-        if (sibling && !sibling.classList.contains('is-loading')) {
-            sibling.remove();
-            setParagraphTranslated(el, false);
-            return;
-        }
-        if (sibling) return;
-        var text = paragraphSpeechText(el);
-        if (!text) return;
-        var cached = loadTranslationCache()[paragraphHash(text)];
-        if (typeof cached === 'string' && cached) {
-            insertTranslation(el, cached);
-            setParagraphTranslated(el, true);
-            return;
-        }
-        translateSingleParagraph(el, text);
-    }
-
-    // 翻页/新章节渲染后仅回填已缓存的译文（不发 LLM 请求）；
-    // 翻译由段落按钮或工具栏「译」手动触发，避免整页批量请求卡顿
-    function restoreCachedTranslations() {
-        var cache = loadTranslationCache();
-        reader.rendition.getContents().forEach(function (content) {
-            var doc = content.document;
-            if (!doc || !doc.body) return;
-            collectParagraphElements(doc).forEach(function (el) {
-                if (translationSibling(el)) return;
-                var text = paragraphSpeechText(el);
-                if (!text) return;
-                var cached = cache[paragraphHash(text)];
-                if (typeof cached === 'string' && cached) {
-                    insertTranslation(el, cached);
-                    setParagraphTranslated(el, true);
-                }
-            });
-        });
-    }
-
-    // 并发池：同一时刻最多 limit 个任务飞行，每个任务完成后立即启动下一个
-    function runConcurrent(items, limit, worker) {
-        var index = 0;
-        function launch() {
-            if (index >= items.length) return;
-            var item = items[index++];
-            worker(item, launch);
-        }
-        for (var i = 0; i < Math.min(limit, items.length); i++) launch();
-    }
-
-    // 整页翻译的单段任务（复用批量接口，段落数为 1）：带书籍上下文，
-    // 响应到达即渲染并写缓存，失败仅影响该段
-    function translateParagraphJob(job, cache, chapter, onDone) {
-        $.ajax({
-            url: calibre.readingTranslateBatchUrl,
-            method: 'POST', contentType: 'application/json',
-            headers: {'X-CSRFToken': readerCsrfToken()},
-            data: JSON.stringify({paragraphs: [job.text], bookName: calibre.bookName || '',
-                chapter: chapter})
-        }).done(function (response) {
-            var translation = ((response.result || response.data || [])[0] || '').trim();
-            if (translation) {
-                cache[job.hash] = translation;
-                saveTranslationCache(cache);
-                insertTranslation(job.el, translation);
-                setParagraphTranslated(job.el, true);
-            } else {
-                showTranslationError(job.el, job.text);
-            }
-        }).fail(function (xhr) {
-            if (!reloadIfCsrfBlocked(xhr)) showTranslationError(job.el, job.text);
-        }).always(onDone);
-    }
-
-    function applyImmersiveTranslation() {
-        if (!translationEnabled() || !calibre.readingTranslateBatchUrl) return;
-        if (translationInFlight) { translationRetryPending = true; return; }
-        var cache = loadTranslationCache();
-        var jobs = [];
-        reader.rendition.getContents().forEach(function (content) {
-            var doc = content.document;
-            if (!doc || !doc.body) return;
-            var win = content.window || doc.defaultView;
-            collectParagraphElements(doc).forEach(function (el) {
-                if (translationSibling(el)) return;
-                var text = paragraphSpeechText(el);
-                if (!text) return;
-                var cached = cache[paragraphHash(text)];
-                if (typeof cached === 'string' && cached) {
-                    insertTranslation(el, cached);
-                    setParagraphTranslated(el, true);
-                    return;
-                }
-                if (isElementVisible(el, win) && jobs.length < 20) {
-                    jobs.push({el: el, text: text, hash: paragraphHash(text)});
-                }
-            });
-        });
-        if (!jobs.length) return;
-
-        translationInFlight = true;
-        var chapter = currentChapterTitle();
-        var remaining = jobs.length;
-        jobs.forEach(function (job) { insertTranslation(job.el, mbT('Translating…'), 'is-loading'); });
-        // 逐段并发（限 4）：每段一个请求，翻译到达即显示，避免整页单请求的长时间卡顿
-        runConcurrent(jobs, 4, function (job, done) {
-            translateParagraphJob(job, cache, chapter, function () {
-                done();
-                remaining--;
-                if (remaining) return;
-                translationInFlight = false;
-                if (translationRetryPending) {
-                    translationRetryPending = false;
-                    setTimeout(applyImmersiveTranslation, 50);
-                }
-            });
-        });
-    }
-
-    // 工具栏「译」：开启 = 批量翻译当前可见页（全部翻译），关闭 = 移除所有译文。
-    // 不再随翻页自动触发，避免整页 LLM 请求卡顿。
-    var translateToggle = document.getElementById('immersive-translate');
-    function updateTranslateToggle() {
-        if (translateToggle) translateToggle.classList.toggle('active', translationEnabled());
-    }
-    if (translateToggle) {
-        translateToggle.addEventListener('click', function () {
-            var enabled = !translationEnabled();
-            try { localStorage.setItem(TRANSLATE_ENABLED_KEY, String(enabled)); } catch (e) {}
-            updateTranslateToggle();
-            if (enabled) applyImmersiveTranslation();
-            else removeAllTranslations();
-        });
-        updateTranslateToggle();
-        // 打开阅读器时若开关已开启：只回填已缓存的译文
-        if (translationEnabled()) setTimeout(restoreCachedTranslations, 200);
-    }
-    var wholeBookToggle = document.getElementById('whole-book-translate');
-    if (wholeBookToggle) wholeBookToggle.addEventListener('click', RS.startWholeBookTranslation);
-
-    // R157 整本连播按钮：▶/❚❚ 起播暂停切换，■ 停止；依赖 moon-well TTS 代理，
-    // 未配置（readingTtsUrl 缺失）时隐藏（单段朗读有浏览器兜底，连播没有）。
-    // R172：同一个按钮在「探测到整段原声」的书上改接原声伴听（TED/博客类），不再走 TTS
-    // 逐段合成——TED 是整段真人原声，逐段合成会把原声换成机器音。分流判据只能运行时探测
-    // （calibre.bookFormat 是 Calibre 文件格式，见 TED_BOOK 定义处），故点击统一走 bookListenToggle。
-    var ttsBookBtn = document.getElementById('tts-book');
-    var ttsBookStopBtn = document.getElementById('tts-book-stop');
-    if (ttsBookBtn) ttsBookBtn.addEventListener('click', bookListenToggle);
-    if (ttsBookStopBtn) {
-        ttsBookStopBtn.addEventListener('click', function () {
-            if (tedAudioPlayer && tedAudioPlayer.active) tedAudioStop();
-            else bookPlayerStop(false);
-        });
-    }
-    // 进阅读页即探测原声（元数据 + 段落清单）：起播零等待；结果决定按钮语义与可用性。
-    bookPlayerUpdateButtons();
-    tedAudioEnsureLoaded().then(function () {
-        if (TED_BOOK) tedAudioUpdateButtons();
-    }).catch(function () {});
+    // ===== 沉浸式翻译——实现已迁出 reader-immersive.js（R183 B4 批次 5）=====
+    // 译文插入/缓存/显隐/重试都在模块内；它要与两种整段播放器互斥并取章标题做译文缓存键，
+    // 这些状态只有本文件（I/J 节与装配层）持有，故注入回调 + 显式 init（模块载入期不能跑，
+    // 那一刻宿主还没注入，跑起来是静默空操作）。I/J 拆出去后这六个回调应收敛成一个播放仲裁器。
+    RI.setHost({
+        bookPlayerStop: bookPlayerStop,
+        bookPlayerUpdateButtons: bookPlayerUpdateButtons,
+        tedAudioStop: tedAudioStop,
+        tedAudioUpdateButtons: tedAudioUpdateButtons,
+        tedAudioEnsureLoaded: tedAudioEnsureLoaded,
+        tedAudioActive: function () { return !!(tedAudioPlayer && tedAudioPlayer.active); },
+        bookListenToggle: bookListenToggle,
+        isTedBook: function () { return !!TED_BOOK; },
+        currentChapterTitle: currentChapterTitle
+    });
+    RI.init();
 
     // ===== 段落批注 / AI 伴读批注 / 本书批注面板 ——实现已迁出 reader-annotations.js（R183 B4 批次 3）=====
     // 弹层/面板/角色 chips/请求序号守卫都在模块内；本文件只在五个入口处以 AN.* 调用它，
@@ -1816,7 +1526,7 @@ var reader;
             }
         }
         // 新章节渲染后仅回填缓存译文，翻译由段落按钮/工具栏手动触发
-        if (translationEnabled()) setTimeout(restoreCachedTranslations, 60);
+        if (RI.enabled()) setTimeout(RI.restoreCachedTranslations, 60);
         // R157 整本连播：翻章/重渲染时重建播放队列（播放器自身翻章走 internalNav 分支）
         if (bookPlayer && bookPlayer.active) bookPlayerOnRendered(section, view);
         // R172 TED 原声伴听：翻章/重渲染后重建段落↔时间轴对齐并续高亮

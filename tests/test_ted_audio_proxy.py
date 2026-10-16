@@ -141,8 +141,11 @@ def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured
 # ---------- 静态锁（防前端口径 / 接线漂移） ----------
 
 def _js():
-    with open(EPUB_JS, encoding="utf-8") as fh:
-        return fh.read()
+    # R183（B4 批次 5）：#tts-book 绑定随沉浸式域迁至 reader-immersive.js，
+    # 本文件的分流判据锁改读按 read.html 载入顺序拼接的 reader 模块全集
+    from tests.reader_js_modules import reader_blob
+
+    return reader_blob()
 
 
 def test_shunt_is_runtime_probe_not_file_format():
@@ -164,7 +167,7 @@ def test_shunt_is_runtime_probe_not_file_format():
 def test_tts_book_button_routed_through_probe():
     """#tts-book 必须统一走 bookListenToggle（探测完成后才决定原声伴听 / 整本 TTS）。"""
     src = _js()
-    assert re.search(r"ttsBookBtn\.addEventListener\('click',\s*bookListenToggle\)", src), \
+    assert re.search(r"ttsBookBtn\.addEventListener\('click',\s*host\.bookListenToggle\)", src), \
         "#tts-book 未接 bookListenToggle（探测未完成时不得静态定分流）"
     assert re.search(r"function bookListenToggle\(\)", src), "缺少 bookListenToggle 定义"
     assert re.search(r"if \(data && data\.audioUrl\) \{ TED_BOOK = true", src), \
