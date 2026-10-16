@@ -21,7 +21,7 @@
 | B5 | 统一 API client：httpJson/unwrapResult/csrfToken 提升为公共层（X1 本仓部分） | 编码 | 🟠 | **波 1（X1 三端合围）** | 无 | 开发中（r177，待验收） |
 | B1 | 抽 `cps/moonwell/` 防腐层包（MoonWellClient 收编代理基建） | 编码 | 🔴 | 波 2 | 无 | 已完成（r178，待验收） |
 | B2 | web.py 蓝图分域拆分（routes/reading\|learning\|credit\|vocab） | 编码 | 🟠 | 波 3 | B1（防腐层先迁出 web.py）；**前置已清（R180）** | **已完成**（r181：94 路由分四批迁出，endpoint 无丢失，全量 549 passed，merge 3211f600 待验收） |
-| B4 | epub.js 按注释域拆 12 模块，缩为装配层 | 编码 | 🟠 | 波 3 | 无 | 进行中（r183 批次 1+2：`reader-core.js` + `reader-word-detail.js`，epub.js 3,279→3,018，两轮全量 585 passed，merge `72b97ad5`/`d25ac150` 待验收；余 6 域待批，PingCode MAGICBOOK-2） |
+| B4 | epub.js 按注释域拆 12 模块，缩为装配层 | 编码 | 🟠 | 波 3 | 无 | 进行中（r183 批次 1+2+3：`reader-core.js` / `reader-word-detail.js` / `reader-annotations.js`，epub.js 3,279→**2,545**，三轮全量 585 passed + 无头 Chrome 探针，merge `72b97ad5`/`d25ac150`/本批 待验收；余 5 域待批，PingCode MAGICBOOK-2） |
 | B6 | reading_translation / reading_tts 双胞胎抽 JobServiceBase | 编码 | 🟠 | 波 4 | 无 | 待启动 |
 | B7 | i18n 五步链生成化（脚本扫描 `mbT()` 自动生成种子字典与 JS_FILES） | 编码 | 🟡 | 波 4 | 无 | **已完成**（r182：脚本 + 生成清单入库 + 契约测试适配，549 passed，merge 8f4197c3 待验收） |
 | B3 | 声明式校验：`_b1_payload` 白名单推广为 payload schema | 编码 | 🟡 | 未排（原波次表未覆盖） | 建议 B1 后（schema 落位 cps/moonwell/） | 待启动 |

@@ -37,7 +37,7 @@
 
 ## B4 · epub.js 按注释域拆 12 模块
 
-> 状态：进行中（2026-10-15 批次 1+2，分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`，已 merge 本地 develop `72b97ad5` / `d25ac150` 待验收；批次 1 横切原语 → `reader-core.js` + 静态锁改读 reader 模块全集，批次 2 单词详解面板 217 行 → `reader-word-detail.js`（宿主回调注入 normalizedWord / schedulePopoverHide / cancelAutoHide），epub.js 3,279→3,018，两轮全量 585 passed，无头 Chrome 五步快照实测面板生命周期与零非空 innerHTML；余 6 域待批，TTS 簇拆前需先定装配层反向依赖接缝；PingCode MAGICBOOK-2 `4X51sVcJ` In progress）
+> 状态：进行中（2026-10-15 批次 1–3，分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`，已 merge 本地 develop `72b97ad5` / `d25ac150` / `2b1437c7` 待验收；**epub.js 3,279→2,545**，`js/reading/` 现 7 个文件。批次 1 横切原语 → `reader-core.js` + 静态锁改读 reader 模块全集；批次 2 详解面板 217 行 → `reader-word-detail.js`；批次 3 批注域 477 行 → `reader-annotations.js`（叶子判据：只反向依赖 `currentChapterTitle`，入口五处）。三轮全量各 585 passed，无头 Chrome 探针验到「宿主注入 chapter + core 归一化 paragraph」两处接缝。余 5 域：TTS 簇 820（非叶子，需先定装配层反向依赖接缝）/ TED 422 / 划词 420 / 沉浸式 307 / 装配层收尾；PingCode MAGICBOOK-2 `4X51sVcJ` In progress）
 
 - **严重度 / 波次 / 前置**：🟠 ｜ 波 3 ｜ 无
 - **模式**：门面拆模块

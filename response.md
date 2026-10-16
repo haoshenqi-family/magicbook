@@ -139,3 +139,12 @@
 - **验证**：`node --check` 三个 JS 通过；merge 后在 develop 新基线复跑 **585 passed**（与批次 1 同数）。
 - **台账**：分支 `refactor/r183-epub-modules` @ worktree `../magicbook-arch-b5`（批次 3 起继续复用，不新建树）；按家族新增的 PingCode 闭环补登 **MAGICBOOK-2 `4X51sVcJ`（In progress，等验收）**。
 - **冲突记录（PingCode 侧重复风险）**：并行会话正在做「全史 requests 迁入 MAGICBOOK 需求池」（本仓 R184，其 requests 行仍在工作区未提交），其范围含 R01–**R183**；我这条 R183 已先行建为 MAGICBOOK-2。**批量迁移若按 requests.md 逐条建条目会产出一条重复的 R183**，去重归迁移会话处置（保留带进度正文的 MAGICBOOK-2 或改由迁移条目承载均可）。本轮不代改他人未提交的 requests.md。
+
+### R183 续二（批次 3：批注域整体迁出 reader-annotations.js，八步探针验到宿主接缝）
+
+- **交付**（commit `2b1437c7`，merge 本地 develop 未 push）：段落批注 + AI 伴读批注 + 本书批注面板共 **477 行**迁出，epub.js 2,545 行（累计 3,279→**2,545**，−734）。
+- **为什么这一批先做**：摸底的「叶子」判据——本域对外只依赖装配层一处 `currentChapterTitle`（只有它持有 rendition/toc），其余全是 core 原语；反向入口只有五处（G 节两个段落按钮、E 节右键关闭、装配层 mousedown/Esc/relocated）。TTS 簇横切 `bookPlayer`/`tedAudioPlayer`/`translationPopover` 三态，不是叶子，故批次排在它前面先把模块形制与宿主回调范式立稳。
+- **形制**：模块内**保留原函数与状态名**（`openAnnotationPopover` / `closeAnnotationPanel` / `annotationRequestSeq`…），正文与 epub.js 时代逐字一致，仅两处 host 依赖改走 `AN.setHost({currentChapterTitle})`，core 原语用同名别名——于是归一化契约、三条 `X-CSRFToken` 断言、iframe mousedown 关闭路径都无需改写。等价改写的四条是**状态归属变了**的那些：`if (annotationPanel)`→`if (AN.isPanelOpen())`、`if (annotationPopover)`→`AN.isPopoverOpen()`、relocated 与右键菜单里的 `closeAnnotationPopover()`→`AN.closePopover()`；工具栏「批」的联动（active 类、点按钮不被 mousedown 抢先关掉）由 `AN.panelContainsNode` / `AN.isToggleClick` 表达，与原 `clickedAnnotationToggle` 语义一致，检查强度（顺序 + `stopImmediatePropagation` 阻断）不降。
+- **真机证据**：无头 Chrome 八步探针 `docs/temp/an_probe.html`（`$.ajax` 桩同时支持 done/fail 与 then/catch——第一版只桩 done/fail 时模块的 `companion-roles` 路径直接抛 `$.ajax(...).then is not a function`，顺带证明该路径确实在跑）实测：工具栏点开面板→书内批注渲染 1 张卡片（摘录「I run every morning.」）→ 关面板 `toggle.active` 清除；段落弹层打开并渲染列表 2 个节点；**提交批注的请求体 `{"paragraph":"I run every morning.","content":"本机探针批注","bookName":"Probe Book","chapter":"Chapter 1"}`**——`chapter` 证明走宿主注入回调、`paragraph` 证明走 core 归一化，两处接缝都接对了。
+- **验证**：`node --check` 三个 JS；全量 **585 passed**（merge 后在 develop 新基线复跑同数）；i18n 清单生成脚本收录第 18 个文件。
+- **台账**：MAGICBOOK-2 描述已更新到批次 3；worktree `../magicbook-arch-b5` 分支 `refactor/r183-epub-modules` 继续驻留复用（批次 4：沉浸式翻译 307 行或划词簇 420 行；TTS 簇 820 行需先定装配层反向依赖接缝）。冲突记录：无；moon-well 侧 `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
