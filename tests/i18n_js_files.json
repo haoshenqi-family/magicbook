@@ -20,6 +20,7 @@
   "cps/static/js/reading/reader-immersive.js",
   "cps/static/js/reading/reader-selection.js",
   "cps/static/js/reading/reader-ted-audio.js",
+  "cps/static/js/reading/reader-tts.js",
   "cps/static/js/reading/reader-word-detail.js",
   "cps/static/js/vocab-test.js"
  ],
