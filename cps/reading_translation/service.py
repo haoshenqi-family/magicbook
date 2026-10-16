@@ -427,7 +427,7 @@ class WholeBookTranslationService(JobServiceBase):
                           .filter(TranslationJob.book_id == book.id,
                                   TranslationJob.status.in_(ACTIVE_STATUSES))
                           .order_by(TranslationJob.created_at.desc()).first())
-                if active and not self._is_stale(active):
+                if active and self._is_fresh(active):
                     running += 1
                     continue
                 progress = self.start(book.id, fmt, True, publish, lookup)

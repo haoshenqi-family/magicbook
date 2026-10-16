@@ -22,7 +22,7 @@
 | B1 | 抽 `cps/moonwell/` 防腐层包（MoonWellClient 收编代理基建） | 编码 | 🔴 | 波 2 | 无 | 已完成（r178，待验收） |
 | B2 | web.py 蓝图分域拆分（routes/reading\|learning\|credit\|vocab） | 编码 | 🟠 | 波 3 | B1（防腐层先迁出 web.py）；**前置已清（R180）** | **已完成**（r181：94 路由分四批迁出，endpoint 无丢失，全量 549 passed，merge 3211f600 待验收） |
 | B4 | epub.js 按注释域拆模块，缩为装配层 | 编码 | 🟠 | 波 3 | 无 | **判据①达成**（r183 批次 1–7：七个 reader-* 模块，epub.js 3,279→**734**（−77%）已是纯装配层；全量 590 passed + 七域无头 Chrome 探针；剩 ②③ 真机验收，PingCode MAGICBOOK-2） |
-| B6 | 整本批次三胞胎（translation / tts / word_detail）抽 `JobServiceBase` | 编码 | 🟠 | 波 4 | 无 | **判据①②达成**（r186：骨架 `cps/reading_job/service_base.py` 191 行=代码 87，三个 service 代码行 371/305/256→337/244/222，全量 601 passed + 11 例结构守卫 + 反向变异；实测为**三胞胎**而非双胞胎；判据③真机批次回归待线上验收，见 [b6-job-service-base.md](b6-job-service-base.md)） |
+| B6 | 整本批次三胞胎（translation / tts / word_detail）抽 `JobServiceBase` | 编码 | 🟠 | 波 4 | 无 | **判据①②达成**（r186：骨架 `cps/reading_job/service_base.py` 219 行=代码 88，三个 service 代码行 371/305/256→337/244/222，全量 603 passed + 13 例结构守卫 + 两处反向变异；交叉评审揪出三处「形状相似但判据被改」已落回；实测为**三胞胎**而非双胞胎；判据③真机批次回归待线上验收，见 [b6-job-service-base.md](b6-job-service-base.md)） |
 | B7 | i18n 五步链生成化（脚本扫描 `mbT()` 自动生成种子字典与 JS_FILES） | 编码 | 🟡 | 波 4 | 无 | **已完成**（r182：脚本 + 生成清单入库 + 契约测试适配，549 passed，merge 8f4197c3 待验收） |
 | B3 | 声明式校验：`_b1_payload` 白名单推广为 payload schema | 编码 | 🟡 | 未排（原波次表未覆盖） | 建议 B1 后（schema 落位 cps/moonwell/） | 待启动 |
 | B8 | MoonWellConfig 配置收口 + `.env.example` 契约测试 | 编码 | 🟡 | 未排（原波次表未覆盖） | 无 | 待启动 |
