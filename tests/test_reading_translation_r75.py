@@ -20,6 +20,7 @@ if _WORKSPACE not in sys.path:
     sys.path.insert(0, _WORKSPACE)
 
 from cps.reading_translation import service as svc  # noqa: E402
+from cps.reading_job import service_base as base_svc
 from cps.reading_translation.models import TranslationJob, TranslationJobItem  # noqa: E402
 
 
@@ -86,7 +87,8 @@ def _patch_common(monkeypatch, tmp_path, book_title):
         id = 1
 
     monkeypatch.setattr(svc, "calibre_db", _CalibreDB)
-    monkeypatch.setattr(svc, "config", _Config)
+    monkeypatch.setattr(base_svc, "calibre_db", _CalibreDB)
+    monkeypatch.setattr(base_svc, "config", _Config)  # B6：_book_file 已归一到骨架
     monkeypatch.setattr(svc, "current_user", _User, raising=False)
 
     spawned = []

@@ -10,24 +10,20 @@ moon-well 发布内核 `WordDetailWarmService.publishItems` 一处。magicbook �
 「还缺 N 个」与实际入队数就对不上——那正是 R171/R173 反复踩过的双份口径。
 """
 
-import hashlib
 import json
-import os
 import re
 import threading
 import uuid
-from datetime import timedelta
 
-from .. import calibre_db, config, logger, ub
+from .. import logger, ub
 from ..cw_login import current_user
+from ..reading_job.service_base import JobServiceBase
 from ..reading_translation.parser import extract_epub_paragraphs
 from ..reading_translation.service import _commit_with_retry, _thread_db_session
-from ..reading_translation.timeutil import as_utc, now_utc
+from ..reading_translation.timeutil import now_utc
 from .models import WordDetailJob, WordDetailJobItem
 
 log = logger.create()
-
-ACTIVE_STATUSES = ("PENDING", "RUNNING", "PARTIAL_FAILED")
 
 # 与 moon-well ReadingVocabularyService.extractWords 逐字同口径（\b[A-Za-z][A-Za-z'’-]*\b）。
 # Why 复制而不是「更聪明」地排除缩略形：缩略形照抽，交由 moon-well 内核统一过滤并计数，
@@ -43,32 +39,18 @@ PROBE_CHUNK = 2000
 ESTIMATED_TOKENS_PER_WORD = 4000
 
 
-class WordDetailBatchService:
-    """按书补缺单词详解：预览（只读）→ 入队（建台账 + 后台发布）→ 覆盖率进度。"""
+class WordDetailBatchService(JobServiceBase):
+    """按书补缺单词详解：预览（只读）→ 入队（建台账 + 后台发布）→ 覆盖率进度。
 
-    def _ensure_tables(self):
-        bind = ub.session.get_bind()
-        ub.Base.metadata.create_all(bind, tables=[WordDetailJob.__table__, WordDetailJobItem.__table__])
+    台账原语（建表、正文定位、指纹、幂等复用、停滞判定与僵尸关闭、按属主取批次）在
+    `cps/reading_job/service_base.py`；本类只留详解链路特有的抽词口径、覆盖率进度与分批发布。
+    """
 
-    def _book_file(self, book_id, book_format):
-        book = calibre_db.get_filtered_book(book_id)
-        if not book:
-            raise ValueError("book is unavailable")
-        normalized = (book_format or "").lower()
-        if normalized not in ("epub", "kepub"):
-            raise ValueError("only EPUB and KEPUB are supported")
-        data = calibre_db.get_book_format(book_id, normalized.upper())
-        if not data:
-            raise ValueError("book format is unavailable")
-        path = os.path.join(config.get_book_path(), book.path, data.name + "." + normalized)
-        if not os.path.isfile(path):
-            raise ValueError("book file is unavailable")
-        return book, path
-
-    @staticmethod
-    def _fingerprint(path):
-        stat = os.stat(path)
-        return hashlib.sha256(f"{path}:{stat.st_size}:{stat.st_mtime_ns}".encode()).hexdigest()
+    job_model = WordDetailJob
+    item_model = WordDetailJobItem
+    missing_job_error = "word detail job is unavailable"
+    log_prefix = "word-detail batch:"
+    job_log = log
 
     @staticmethod
     def distinct_words(paragraphs):
@@ -162,23 +144,14 @@ class WordDetailBatchService:
 
         # 复用/僵尸判定放在抽词之前：重复点击不该白付一次 EPUB 解析 + 一轮索引扫描
         # （缓存探针服务端是 search_after 全索引翻页，一本书上万词时这是本链路最贵的一步）。
-        query = ub.session.query(WordDetailJob).filter(
-            WordDetailJob.user_id == user_id,
-            WordDetailJob.book_id == int(book_id),
-            WordDetailJob.book_fingerprint == fingerprint,
-            WordDetailJob.status.in_(ACTIVE_STATUSES))
         if not force:
-            existing = query.order_by(WordDetailJob.created_at.desc()).first()
+            existing = self._find_active_job(user_id, book_id, fingerprint)
             # 僵尸自愈（与整本翻译同形）：容器重启杀掉发布线程会让批次永远停在
             # RUNNING 且霸占复用通道；updated_at 停滞 30 分钟即判僵尸关闭，
             # 本次点击正常建新批次。真在跑的长尾最多损失一次重复入队——
             # moon-well 侧在途跳过兜底，不会二次计费。
-            if existing and now_utc() - as_utc(existing.updated_at) > timedelta(minutes=30):
-                log.warning("word-detail batch: stale job %s (book=%s updated_at=%s) closed as zombie",
-                            existing.id, book_id, existing.updated_at)
-                existing.status = "PARTIAL_FAILED"
-                existing.updated_at = now_utc()
-                ub.session.commit()
+            if existing and self._is_stale(existing):
+                self._close_as_zombie(existing, book_id)
                 existing = None
             if existing:
                 log.info("word-detail batch: reuse active job %s (book=%s status=%s)",
@@ -387,10 +360,3 @@ class WordDetailBatchService:
                 .filter(WordDetailJob.user_id == int(current_user.id),
                         WordDetailJob.book_id == int(book_id))
                 .order_by(WordDetailJob.created_at.desc()).first())
-
-    def _own_job(self, job_id):
-        job = ub.session.query(WordDetailJob).filter_by(id=str(job_id),
-                                                        user_id=int(current_user.id)).one_or_none()
-        if not job:
-            raise ValueError("word detail job is unavailable")
-        return job

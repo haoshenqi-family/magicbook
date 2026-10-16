@@ -1,22 +1,18 @@
-import hashlib
 import os
 import threading
 import time
 import uuid
 import zipfile
 from contextlib import contextmanager
-from datetime import timedelta
 
-from .. import calibre_db, config, logger, ub
+from .. import calibre_db, logger, ub
 from ..cw_login import current_user
+from ..reading_job.service_base import ACTIVE_STATUSES, JobServiceBase
 from .models import TranslationJob, TranslationJobItem
 from .parser import extract_epub_paragraphs, text_hash
-from .timeutil import as_utc, now_utc
+from .timeutil import now_utc
 
 log = logger.create()
-
-
-ACTIVE_STATUSES = ("PENDING", "RUNNING", "PARTIAL_FAILED")
 
 # R78：全局发布并发收敛。09-26 一键 44 本书同时拉起 44 个发布线程，
 # 每段一 commit 同一个 SQLite 文件，锁冲突爆发（30 次 'database is locked'
@@ -56,9 +52,8 @@ def build_paragraph_prompt(paragraph: str) -> str:
     return TRANSLATE_PROMPT.format(paragraph=paragraph)
 
 
-# R75: 时间口径统一到 timeutil——now_utc() 是唯一「当前时间」来源；
-# DB 读回的 updated_at 可能是 naive（DATETIME 列丢弃 tzinfo），必须经
-# as_utc() 归一后才能相减，否则抛 offset-naive/offset-aware TypeError。
+# R75: 时间口径统一到 timeutil——now_utc() 是唯一「当前时间」来源；从 DB 读回的
+# updated_at 可能是 naive，归一后才能参与运算（停滞判定见 JobServiceBase._is_stale）。
 
 
 @contextmanager
@@ -79,32 +74,19 @@ def _thread_db_session():
         factory.remove()
 
 
-class WholeBookTranslationService:
-    """Create and reconcile durable whole-book translation batches."""
+class WholeBookTranslationService(JobServiceBase):
+    """Create and reconcile durable whole-book translation batches.
 
-    def _ensure_tables(self):
-        bind = ub.session.get_bind()
-        ub.Base.metadata.create_all(bind, tables=[TranslationJob.__table__, TranslationJobItem.__table__])
+    台账原语（建表、正文定位、指纹、幂等复用、停滞判定与僵尸关闭、按属主取批次）在
+    `cps/reading_job/service_base.py`；本类只留整本翻译的差异部分：item 状态机
+    （PENDING/PUBLISHED/COMPLETED/FAILED/SKIPPED）、发布载荷与缓存懒回收。
+    """
 
-    def _book_file(self, book_id, book_format):
-        book = calibre_db.get_filtered_book(book_id)
-        if not book:
-            raise ValueError("book is unavailable")
-        normalized = (book_format or "").lower()
-        if normalized not in ("epub", "kepub"):
-            raise ValueError("only EPUB and KEPUB are supported")
-        data = calibre_db.get_book_format(book_id, normalized.upper())
-        if not data:
-            raise ValueError("book format is unavailable")
-        path = os.path.join(config.get_book_path(), book.path, data.name + "." + normalized)
-        if not os.path.isfile(path):
-            raise ValueError("book file is unavailable")
-        return book, path
-
-    @staticmethod
-    def _fingerprint(path):
-        stat = os.stat(path)
-        return hashlib.sha256(f"{path}:{stat.st_size}:{stat.st_mtime_ns}".encode()).hexdigest()
+    job_model = TranslationJob
+    item_model = TranslationJobItem
+    missing_job_error = "translation job is unavailable"
+    log_prefix = "whole-book translation:"
+    job_log = log
 
     def start(self, book_id, book_format, force, publish, lookup=None):
         """创建批次后立即返回，发布任务交给后台线程。
@@ -118,25 +100,15 @@ class WholeBookTranslationService:
         user_id = int(current_user.id)
         book, path = self._book_file(book_id, book_format)
         fingerprint = self._fingerprint(path)
-        query = ub.session.query(TranslationJob).filter(
-            TranslationJob.user_id == user_id,
-            TranslationJob.book_id == book_id,
-            TranslationJob.book_fingerprint == fingerprint,
-            TranslationJob.status.in_(ACTIVE_STATUSES))
         if not force:
-            existing = query.order_by(TranslationJob.created_at.desc()).first()
+            existing = self._find_active_job(user_id, book_id, fingerprint)
             # 僵尸批次自愈:任务记录清表、容器重启丢线程等历史事故会让旧批次永远停在
             # RUNNING/PARTIAL_FAILED 且无任何进展(线上实锤:book 44 卡 128 段的 9/15
             # 死批次霸占复用通道两天)。判定:updated_at 停滞超过 30 分钟即视为僵尸,
             # 标记 PARTIAL_FAILED 关闭之,让本次点击正常创建新批次;发布线程若其实还在
             # 跑(真长尾),它下次 commit 会把状态刷回,最多损失一次重复发布(幂等,缓存命中不重复计费)。
-            if existing and now_utc() - as_utc(existing.updated_at) > timedelta(minutes=30):
-                log.warning("whole-book translation: stale job %s (book=%s updated_at=%s) "
-                            "closed as zombie; creating fresh batch",
-                            existing.id, book_id, existing.updated_at)
-                existing.status = "PARTIAL_FAILED"
-                existing.updated_at = now_utc()
-                ub.session.commit()
+            if existing and self._is_stale(existing):
+                self._close_as_zombie(existing, book_id)
                 existing = None
             if existing:
                 # 复用是静默成功：无此日志时线上无从区分「没收到请求」与「命中幂等」
@@ -305,9 +277,7 @@ class WholeBookTranslationService:
 
     def get_progress(self, job_id, lookup=None):
         self._ensure_tables()
-        job = ub.session.query(TranslationJob).filter_by(id=job_id, user_id=int(current_user.id)).one_or_none()
-        if not job:
-            raise ValueError("translation job is unavailable")
+        job = self._own_job(job_id)
         # 去回调化后，本地未完成项仅由缓存命中回收：查询进度时懒刷新，避免引入常驻轮询进程。
         # moon-well 完成任务自行写入翻译缓存，magicbook 在此单向查缓存即可标记完成。
         if lookup:
@@ -342,9 +312,7 @@ class WholeBookTranslationService:
         改为后台线程重发布，HTTP 响应立即返回当前进度，进度继续走 status 轮询。
         """
         self._ensure_tables()
-        job = ub.session.query(TranslationJob).filter_by(id=str(job_id), user_id=int(current_user.id)).one_or_none()
-        if not job:
-            raise ValueError("translation job is unavailable")
+        job = self._own_job(job_id)
         items = ub.session.query(TranslationJobItem).filter_by(job_id=job.id, status="FAILED").all()
         if not items:
             return self.progress(job)
@@ -395,9 +363,7 @@ class WholeBookTranslationService:
 
     def cancel(self, job_id):
         self._ensure_tables()
-        job = ub.session.query(TranslationJob).filter_by(id=str(job_id), user_id=int(current_user.id)).one_or_none()
-        if not job:
-            raise ValueError("translation job is unavailable")
+        job = self._own_job(job_id)
         job.status = "CANCELED"
         ub.session.query(TranslationJobItem).filter(
             TranslationJobItem.job_id == job.id,
@@ -461,7 +427,7 @@ class WholeBookTranslationService:
                           .filter(TranslationJob.book_id == book.id,
                                   TranslationJob.status.in_(ACTIVE_STATUSES))
                           .order_by(TranslationJob.created_at.desc()).first())
-                if active and as_utc(active.updated_at) > now_utc() - timedelta(minutes=30):
+                if active and not self._is_stale(active):
                     running += 1
                     continue
                 progress = self.start(book.id, fmt, True, publish, lookup)

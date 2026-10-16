@@ -45,6 +45,7 @@ def test_publish_payload_carries_prompt_template_and_progress_reports_pending(tm
     import sys
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from cps.reading_translation import service as svc
+    from cps.reading_job import service_base as base_svc
     from cps.reading_translation.models import TranslationJob, TranslationJobItem
 
     path = tmp_path / "book.epub"
@@ -76,8 +77,9 @@ def test_publish_payload_carries_prompt_template_and_progress_reports_pending(tm
     class _BookPath(__import__("types").SimpleNamespace):
         pass
 
-    monkeypatch.setattr(svc, "calibre_db", _CalibreDB)
-    monkeypatch.setattr(svc, "config", _Config)
+    # B6 之后 `_book_file`/`_fingerprint` 归一到 JobServiceBase：桩打在骨架模块的符号上
+    monkeypatch.setattr(base_svc, "calibre_db", _CalibreDB)
+    monkeypatch.setattr(base_svc, "config", _Config)
 
     class _User:
         id = 1
@@ -299,6 +301,7 @@ def test_publish_survives_single_segment_failure(tmp_path, monkeypatch):
     import sys, os
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from cps.reading_translation import service as svc
+    from cps.reading_job import service_base as base_svc
     from cps.reading_translation.models import TranslationJob, TranslationJobItem
 
     path = tmp_path / "book.epub"
@@ -410,8 +413,9 @@ def test_publish_survives_single_segment_failure(tmp_path, monkeypatch):
         def remove(self):
             pass
 
-    monkeypatch.setattr(svc, "calibre_db", _CalibreDB)
-    monkeypatch.setattr(svc, "config", _Config)
+    # B6 之后 `_book_file`/`_fingerprint` 归一到 JobServiceBase：桩打在骨架模块的符号上
+    monkeypatch.setattr(base_svc, "calibre_db", _CalibreDB)
+    monkeypatch.setattr(base_svc, "config", _Config)
     monkeypatch.setattr(svc, "current_user", _User, raising=False)
     monkeypatch.setattr(svc.threading, "Thread", _SyncThread)
     inner = _Session()
@@ -586,6 +590,7 @@ def test_stale_active_job_is_recycled(tmp_path, monkeypatch):
     from datetime import datetime, timedelta, timezone
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from cps.reading_translation import service as svc
+    from cps.reading_job import service_base as base_svc
     from cps.reading_translation.models import TranslationJob, TranslationJobItem
 
     path = tmp_path / "book.epub"
@@ -687,8 +692,9 @@ def test_stale_active_job_is_recycled(tmp_path, monkeypatch):
         spawned.append(job_id)
 
     monkeypatch.setattr(svc.WholeBookTranslationService, "_spawn_publish_worker", _fake_spawn)
-    monkeypatch.setattr(svc, "calibre_db", _CalibreDB)
-    monkeypatch.setattr(svc, "config", _Config)
+    # B6 之后 `_book_file`/`_fingerprint` 归一到 JobServiceBase：桩打在骨架模块的符号上
+    monkeypatch.setattr(base_svc, "calibre_db", _CalibreDB)
+    monkeypatch.setattr(base_svc, "config", _Config)
     monkeypatch.setattr(svc, "current_user", _User, raising=False)
     session_state = _Session()
     session_state.add(stale)  # 预置僵尸批次

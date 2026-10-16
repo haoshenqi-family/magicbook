@@ -1,5 +1,7 @@
 # 一键翻译整本书设计方案
 
+> **L2 状态**（DF6/R186）：`library` 模块尚无 `docs/library/hld/hld.md`（**待升 L2**）。本链路的端点映射已在 `docs/reading/hld/hld.md` §1 挂号，批次台账与进度口径以本文为准，模块 L2 覆盖逐模块状态见 `docs/readme/readme.md` 分级表。
+
 **特性代号**：`whole-book-translation`  
 **日期**：2026-09-05  
 **状态**：已上线（2026-09-05，commit `04c591a3` 落地整本翻译批次；2026-09-17 `817f4381` 补容器重启断点续作与系统身份内部调用）。正文按「历史文档只标注不重写」保留原貌，实现现状以 `cps/reading_translation/` 与 L1 `docs/readme/library.md` 为准

@@ -4,11 +4,13 @@
 线程——daemon 用同步线程桩单进程驱动，验证批次生命周期、去重、幂等与计费通道标记。
 """
 
+import threading
 import zipfile
 
 import pytest
 
 from cps import ub
+from cps.reading_job import service_base as base_svc
 from cps.reading_tts import service as svc
 from cps.reading_tts.models import ReadingTtsJob, ReadingTtsJobItem
 
@@ -80,8 +82,9 @@ def env(app, tmp_path, monkeypatch):
     class _User:
         id = 7
 
-    monkeypatch.setattr(svc, "calibre_db", _CalibreDB)
-    monkeypatch.setattr(svc, "config", _Config)
+    # B6 之后 `_book_file` 归一到 JobServiceBase：桩要打在骨架模块的符号上
+    monkeypatch.setattr(base_svc, "calibre_db", _CalibreDB)
+    monkeypatch.setattr(base_svc, "config", _Config)
     monkeypatch.setattr(svc, "current_user", _User)
     monkeypatch.setattr(svc.time, "sleep", lambda s: None)
 
@@ -258,7 +261,8 @@ def test_spawn_worker_is_atomic_and_never_double_spawns(env, monkeypatch):
         def start(self):
             started.append(self.kwargs["args"][0])
 
-    monkeypatch.setattr(svc.threading, "Thread", _FakeThread)
+    # B6 之后线程在骨架里创建：直接桩 stdlib 的 Thread（模块单例，两处调用同一份）
+    monkeypatch.setattr(threading, "Thread", _FakeThread)
 
     first = service._spawn_synth_worker("job-1")
     second = service._spawn_synth_worker("job-1")
