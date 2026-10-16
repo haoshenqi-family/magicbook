@@ -172,7 +172,8 @@ def test_tts_book_button_routed_through_probe():
     assert re.search(r"function bookListenToggle\(\)", src), "缺少 bookListenToggle 定义"
     assert re.search(r"if \(data && data\.audioUrl\) \{ TED_BOOK = true", src), \
         "bookListenToggle 未按探测结果切到原声伴听"
-    assert re.search(r"if \(calibre\.readingTtsUrl\) bookPlayerToggle\(\)", src), \
+    # R183（B4 批次 6）：bookPlayerToggle 归 I 节，TED 模块经宿主回调回落整本连播
+    assert re.search(r"if \(calibre\.readingTtsUrl\) host\.bookPlayerToggle\(\)", src), \
         "无原声时未回落 R157 整本连播"
     assert not re.search(r"ttsBookBtn\.addEventListener\('click',\s*tedAudioToggle\)", src), \
         "不应再静态直连 tedAudioToggle（分流判据只能来自运行时探测）"
