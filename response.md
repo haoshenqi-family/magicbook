@@ -160,3 +160,14 @@
 - **验证**：`node --check` 通过；全量 **588 passed**（新增 3 例表面守卫），merge 后在 develop 新基线复跑同数。
 - **未验（如实）**：装配层接线段（mousedown 外部关闭、Esc 逐层、relocated 联动）在真书页面的实际表现仍需整站真机验收——本机无 calibre 书库，epub.js 依赖 `reader`/`EPUBJS` 无法整体加载，本轮只做到「模块级真运行 + 调用面机械校验」；验收判据见 refactor-items B4②③。
 - **台账**：MAGICBOOK-2 已更新到批次 4；worktree `../magicbook-arch-b5` 继续复用（批次 5 候选：沉浸式翻译 307 / TED 原声 422；TTS 簇 820 非叶子需先定装配层反向依赖接缝）。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
+
+### R183 续四（批次 5：沉浸式翻译迁出 reader-immersive.js，拆出两个真缺陷）
+
+- **交付**（commit `f1f01b8b`，merge develop 未 push）：L 域 307 行迁出，epub.js 2,135→**1,845**（累计 3,279→1,845，**−44%**），`js/reading/` 现 9 文件。本域与两种整段播放器互斥、并取章标题做译文缓存键，故经 `setHost` 注入八个回调（I/J 拆出后应收敛成播放仲裁器，已记在模块头）。
+- **拆的过程本身就是收益——两个缺陷不拆就发现不了，发现不了就是线上事故**：
+  1. `ttsBookBtn.addEventListener('click', bookListenToggle)` 里的 `bookListenToggle` 是 J 节私有函数，照原样搬进模块即 **ReferenceError**——整本播放按钮直接失灵。改走宿主注入，R172/R173 的「分流判据只能运行时探测」仍在。
+  2. 原 L 域末尾的载入期副作用（探测 TED 原声 + 刷新两种播放器按钮语义）和 #tts-book 绑定，都发生在模块 IIFE 执行期，那一刻宿主还是默认空函数——表现不是报错，而是**静默空操作**（「点了没反应」「第一次播有点慢」），正是家族根纪律⑦要防的那类病。现收进 `init()`，由 epub.js 注入完回调再显式调用。
+- **守卫同步**：`test_reader_module_surface.py` 扩 `RI` 别名并新增「声明 init 的模块必须有调用点」（删掉 `RI.init();` 即报红）；`test_ted_audio_proxy.py` 的 #tts-book 分流锁改读模块全集、断言形态随之改为 `host.bookListenToggle`。`TRANSLATE_ENABLED_KEY` / `TRANSLATION_CACHE_MAX` 两个只被本域使用的常量归模块，F 节头部不再留副本。
+- **真机证据**：无头 Chrome 探针 `docs/temp/imm_probe.html`——init **之前**点 #tts-book 计数 0（证明没绑成静默空函数）、setHost+init **之后**计数 1、`bookPlayerUpdateButtons` 与 `tedAudioEnsureLoaded` 各 1 次、`isTedBook=false` 时不刷原声按钮；逐段翻译走通（译文节点 `我每天早晨跑步。`）。注：探针第一版把桩响应写成对象显示「Translation failed」，查后端契约后确认 moon-well 的 `result` 是**数组**（`response.result[0]`），属我桩错、非代码缺陷——这条判据值得记住。
+- **验证**：`node --check`；全量 **589 passed**，merge 后在 develop 新基线复跑同数。**未验**：真书页面下 `#immersive-translate` 批量翻译与整本翻译仍需整站验收（本机无书库、依赖 `reader.getContents()`）。
+- **台账**：MAGICBOOK-2 已更新到批次 5。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
