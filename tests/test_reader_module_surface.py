@@ -20,8 +20,12 @@ ALIASES = {
     "RAn": "ReaderAnnotations",
     "RS": "ReaderSelection",
     "RI": "ReaderImmersive",
+    "RT": "ReaderTedAudio",
+    "RTTS": "ReaderTts",
 }
-_ALIAS_RE = re.compile(r"\b(RC|RD|AN|RAn|RS)\.([A-Za-z_]\w*)")
+# Why 由 ALIASES 生成：手写别名清单自己就会漏——批次 7 实测漏掉 RT/RTTS 两个，
+# 于是「调用面 ⊆ 导出面」对这两个模块形同不设防
+_ALIAS_RE = re.compile(r"\b(%s)\.([A-Za-z_]\w*)" % "|".join(sorted(ALIASES, key=len, reverse=True)))
 _EXPORT_RE = {alias: re.compile(r"window\.%s\s*=\s*\{(.*?)\n    \};" % re.escape(obj), re.S)
               for alias, obj in ALIASES.items()}
 
@@ -35,7 +39,7 @@ def test_每个跨模块调用都在导出面上():
         exported[alias] = set(re.findall(r"([A-Za-z_]\w*)\s*:", m.group(1)))
 
     missing = []
-    for alias, member in set(re.findall(r"\b(RC|RD|AN|RAn|RS|RI)\.([A-Za-z_]\w*)", blob)):
+    for alias, member in set(_ALIAS_RE.findall(blob)):
         if member not in exported[alias]:
             missing.append("%s.%s" % (alias, member))
     assert not missing, "调用了模块未导出的成员：%s" % ", ".join(sorted(missing))
@@ -105,7 +109,7 @@ _GLOBALS = {
     "window", "document", "localStorage", "sessionStorage", "Promise", "Math", "JSON",
     "String", "Number", "Array", "Object", "Date", "setTimeout", "clearTimeout",
     "setInterval", "console", "$", "calibre", "mbT", "host", "reader", "navigator",
-    "undefined", "RC", "RD", "AN", "RS", "RI", "RT",
+    "undefined", "RC", "RD", "AN", "RS", "RI", "RT", "RTTS", "RTed",
 }
 
 
