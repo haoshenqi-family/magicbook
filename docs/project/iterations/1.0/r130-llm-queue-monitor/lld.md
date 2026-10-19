@@ -1,6 +1,6 @@
 # LLD — R130 LLM 队列监控面板
 
-> 状态：已实现（2026-10-19 merge 回 develop 待验收；未 push 未上线——push 即触发 fnOS 构建链，由用户拍板）
+> 状态：已上线并验收（2026-10-19 用户验收通过；实现 `37392cdd` + UI 改版两轮 `db1590d4`/`e53125c7`，最终上线 `2fe16c8a`）
 > 上层设计：[hld.md](./hld.md)。前稿（行号漂移）：`_legacy/feat/llm-task-run/design/admin-monitor.md`。
 
 ## 1. 代理端点（magicbook 侧新增 6 路径）
