@@ -5658,3 +5658,11 @@ msgstr "未知占比"
 
 msgid "User id"
 msgstr "用户 ID"
+
+# R130 UI 改版
+
+msgid "Created from"
+msgstr "创建时间从"
+
+msgid "Created to"
+msgstr "创建时间至"

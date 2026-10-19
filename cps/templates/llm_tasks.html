@@ -11,10 +11,18 @@
   .lr-field .lr-meta { margin-top: 2px; }
   .lr-stats { margin-bottom: 8px; }
   #lr-alert { display: none; }
-  /* R130 队列监控 */
+  /* R130 队列监控：Tab 化布局（一次一个区块），区块内栅格分栏 */
   #lr-mon-alert { display: none; }
-  .lr-mon-bars { display: flex; align-items: flex-end; gap: 2px; height: 40px; max-width: 660px; }
-  .lr-mon-bars .bar { width: 8px; display: flex; flex-direction: column-reverse; }
+  #lr-mon-tabs { margin-bottom: 14px; }
+  .lr-mon-stat { text-align: center; padding: 10px 0 4px; margin-bottom: 14px; }
+  .lr-mon-stat .num { display: block; font-size: 26px; font-weight: 600; line-height: 1.1; }
+  .lr-mon-stat .lbl { font-size: 12px; color: #777; }
+  .lr-mon-form .form-group label { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+  .lr-mon-pane { padding-top: 14px; }
+  .lr-mon-pane table { margin-bottom: 10px; }
+  .lr-mon-form-actions { margin: 4px 0 12px; }
+  .lr-mon-bars { display: flex; align-items: flex-end; gap: 2px; height: 56px; }
+  .lr-mon-bars .bar { width: 10px; display: flex; flex-direction: column-reverse; }
   .lr-mon-bars .bar div { width: 100%; }
   .lr-mon-bars .b-ok { background: #3c763d; }
   .lr-mon-bars .b-bad { background: #a94442; }
@@ -94,24 +102,41 @@
     </p>
     <div id="lr-mon-alert" class="alert"></div>
 
-    <section id="lr-mon-overview">
-      <h3>{{_('Queue Overview')}}</h3>
-      <div class="lr-meta" id="lr-mon-ov-global"></div>
-      <table class="table table-condensed table-striped" style="max-width:640px">
-        <thead><tr>
-          <th>{{_('Caller')}}</th><th>{{_('Pending')}}</th><th>{{_('Accepted')}}</th>
-          <th>{{_('Running')}}</th><th>{{_('Completed')}}</th><th>{{_('Failed')}}</th>
-        </tr></thead>
-        <tbody id="lr-mon-ov-callers"><tr><td colspan="6" class="text-muted">{{_('Loading')}}</td></tr></tbody>
-      </table>
-      <div class="lr-meta">{{_('Hourly throughput (completed / failed, last 24h)')}}</div>
-      <div id="lr-mon-ov-bars" class="lr-mon-bars"></div>
-      <div class="lr-meta" id="lr-mon-ov-extra"></div>
-    </section>
+    {# 四区块 Tab 化（Bootstrap 3 nav-tabs）：一次只看一个区块，消除纵向堆叠 #}
+    <ul class="nav nav-tabs" id="lr-mon-tabs" role="tablist">
+      <li class="active"><a href="#lr-mon-overview" data-toggle="tab">{{_('Queue Overview')}}</a></li>
+      <li><a href="#lr-mon-failures" data-toggle="tab">{{_('Failure Categories')}}</a></li>
+      <li><a href="#lr-mon-tasks" data-toggle="tab">{{_('Task Search')}}</a></li>
+      <li><a href="#lr-mon-recovery" data-toggle="tab">{{_('Recovery')}}</a></li>
+    </ul>
+    <div class="tab-content">
 
-    <section id="lr-mon-failures" style="margin-top:24px">
-      <h3>{{_('Failure Categories')}}</h3>
-      <div class="form-inline" style="margin-bottom:8px">
+    <div class="tab-pane active lr-mon-pane" id="lr-mon-overview">
+      <div class="row">
+        <div class="col-sm-4"><div class="lr-mon-stat"><span class="num" id="lr-mon-st-pending">—</span><span class="lbl">{{_('Pending')}}</span></div></div>
+        <div class="col-sm-4"><div class="lr-mon-stat"><span class="num" id="lr-mon-st-accepted">—</span><span class="lbl">{{_('Accepted')}}</span></div></div>
+        <div class="col-sm-4"><div class="lr-mon-stat"><span class="num" id="lr-mon-st-running">—</span><span class="lbl">{{_('Running')}}</span></div></div>
+      </div>
+      <div class="row">
+        <div class="col-md-7">
+          <table class="table table-condensed table-striped">
+            <thead><tr>
+              <th>{{_('Caller')}}</th><th>{{_('Pending')}}</th><th>{{_('Accepted')}}
+              <th>{{_('Running')}}</th><th>{{_('Completed')}}</th><th>{{_('Failed')}}</th>
+            </tr></thead>
+            <tbody id="lr-mon-ov-callers"><tr><td colspan="6" class="text-muted">{{_('Loading')}}</td></tr></tbody>
+          </table>
+        </div>
+        <div class="col-md-5">
+          <div class="lr-meta">{{_('Hourly throughput (completed / failed, last 24h)')}}</div>
+          <div id="lr-mon-ov-bars" class="lr-mon-bars" style="margin-top:6px"></div>
+          <div class="lr-meta" id="lr-mon-ov-extra" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-pane lr-mon-pane" id="lr-mon-failures">
+      <div class="form-inline" style="margin-bottom:10px">
         <select class="form-control" id="lr-mon-f-caller"></select>
         <select class="form-control" id="lr-mon-f-window">
           <option value="24">24h</option>
@@ -120,7 +145,7 @@
         </select>
         <button class="btn btn-default" id="lr-mon-f-load">{{_('Refresh')}}</button>
       </div>
-      <div class="lr-meta" id="lr-mon-f-summary"></div>
+      <div class="lr-meta" id="lr-mon-f-summary" style="margin-bottom:6px"></div>
       <table class="table table-condensed table-striped">
         <thead><tr>
           <th>{{_('Category')}}</th><th>{{_('Recovery')}}</th><th>{{_('Count')}}</th>
@@ -129,62 +154,78 @@
         </tr></thead>
         <tbody id="lr-mon-f-body"><tr><td colspan="7" class="text-muted">{{_('No failure data loaded yet.')}}</td></tr></tbody>
       </table>
-    </section>
+    </div>
 
-    <section id="lr-mon-tasks" style="margin-top:24px">
-      <h3>{{_('Task Search')}}</h3>
-      <div class="form-inline" style="margin-bottom:8px">
-        <select class="form-control" id="lr-mon-t-caller"></select>
-        <select class="form-control" id="lr-mon-t-status">
-          <option value="">{{_('Any status')}}</option>
-          <option>PENDING</option><option>ACCEPTED</option><option>RUNNING</option>
-          <option>SUCCESS</option><option>COMPLETED</option><option>FAILED</option>
-          <option>TIMEOUT</option><option>CANCELED</option>
-        </select>
-        <input class="form-control" id="lr-mon-t-error" placeholder="{{_('Error code')}}">
-        <input class="form-control" type="number" id="lr-mon-t-user" placeholder="{{_('User id')}}">
-        <input class="form-control" id="lr-mon-t-type" placeholder="{{_('Task type')}}">
-        <input class="form-control" id="lr-mon-t-keyword" placeholder="{{_('Keyword')}}">
-        <input class="form-control" type="date" id="lr-mon-t-from"> –
-        <input class="form-control" type="date" id="lr-mon-t-to">
-        <button class="btn btn-primary" id="lr-mon-t-query">{{_('Search')}}</button>
+    <div class="tab-pane lr-mon-pane" id="lr-mon-tasks">
+      <div class="row lr-mon-form">
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-caller">{{_('Caller')}}</label>
+          <select class="form-control" id="lr-mon-t-caller"></select></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-status">{{_('Status')}}</label>
+          <select class="form-control" id="lr-mon-t-status">
+            <option value="">{{_('Any status')}}</option>
+            <option>PENDING</option><option>ACCEPTED</option><option>RUNNING</option>
+            <option>SUCCESS</option><option>COMPLETED</option><option>FAILED</option>
+            <option>TIMEOUT</option><option>CANCELED</option>
+          </select></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-error">{{_('Error code')}}</label>
+          <input class="form-control" id="lr-mon-t-error"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-user">{{_('User id')}}</label>
+          <input class="form-control" type="number" id="lr-mon-t-user"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-type">{{_('Task type')}}</label>
+          <input class="form-control" id="lr-mon-t-type"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-keyword">{{_('Keyword')}}</label>
+          <input class="form-control" id="lr-mon-t-keyword"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-from">{{_('Created from')}}</label>
+          <input class="form-control" type="date" id="lr-mon-t-from"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-to">{{_('Created to')}}</label>
+          <input class="form-control" type="date" id="lr-mon-t-to"></div>
       </div>
-      <div class="lr-meta" id="lr-mon-t-hint">{{_('Keyword search needs a companion filter: caller, status, error code or user id.')}}</div>
-      <div class="lr-meta" id="lr-mon-t-summary"></div>
+      <div class="lr-mon-form-actions">
+        <button class="btn btn-primary" id="lr-mon-t-query">{{_('Search')}}</button>
+        <span class="lr-meta" id="lr-mon-t-hint" style="margin-left:10px">{{_('Keyword search needs a companion filter: caller, status, error code or user id.')}}</span>
+      </div>
+      <div class="lr-meta" id="lr-mon-t-summary" style="margin-bottom:6px"></div>
       <table class="table table-condensed table-striped">
         <thead><tr>
-          <th>ID</th><th>{{_('Caller')}}</th><th>{{_('Status')}}</th><th>{{_('Type')}}</th>
-          <th>{{_('Provider / Model')}}</th><th>{{_('Error code')}}</th><th>{{_('Latency')}}</th>
+          <th>ID</th><th>{{_('Caller')}}</th><th>{{_('Status')}}</th><th>{{_('Type')}}
+          <th>{{_('Provider / Model')}}</th><th>{{_('Error code')}}</th><th>{{_('Latency')}}
           <th>{{_('Tokens')}}</th><th>{{_('Created')}}</th>
         </tr></thead>
         <tbody id="lr-mon-t-body"><tr><td colspan="9" class="text-muted">{{_('Run a search to list tasks.')}}</td></tr></tbody>
       </table>
       <div class="form-inline">
         <button class="btn btn-default" id="lr-mon-t-prev">‹</button>
-        <span class="lr-meta" id="lr-mon-t-page"></span>
+        <span class="lr-meta" id="lr-mon-t-page" style="margin:0 8px"></span>
         <button class="btn btn-default" id="lr-mon-t-next">›</button>
       </div>
-    </section>
+    </div>
 
-    <section id="lr-mon-recovery" style="margin-top:24px">
-      <h3>{{_('Recovery')}}</h3>
-      <div class="form-inline" style="margin-bottom:8px">
-        <select class="form-control" id="lr-mon-r-caller"></select>
-        <select class="form-control" id="lr-mon-r-category">
-          <option value="">{{_('Any category')}}</option>
-          <option>STALE_CLAIM</option><option>STALE_EXHAUSTED</option><option>ZOMBIE_RUNNING</option>
-          <option>NETWORK</option><option>TIMEOUT</option><option>RATE_LIMIT</option>
-          <option>CONTENT_FILTER</option><option>AUTH</option><option>OUTPUT_INVALID</option>
-          <option>UNKNOWN</option>
-        </select>
-        <input class="form-control" id="lr-mon-r-error" placeholder="{{_('Error code')}}">
-        <input class="form-control" type="number" id="lr-mon-r-limit" min="1" value="100">
-        <button class="btn btn-primary" id="lr-mon-r-plan">{{_('Generate Recovery Plan')}}</button>
+    <div class="tab-pane lr-mon-pane" id="lr-mon-recovery">
+      <div class="row lr-mon-form">
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-r-caller">{{_('Caller')}}</label>
+          <select class="form-control" id="lr-mon-r-caller"></select></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-r-category">{{_('Category')}}</label>
+          <select class="form-control" id="lr-mon-r-category">
+            <option value="">{{_('Any category')}}</option>
+            <option>STALE_CLAIM</option><option>STALE_EXHAUSTED</option><option>ZOMBIE_RUNNING</option>
+            <option>NETWORK</option><option>TIMEOUT</option><option>RATE_LIMIT</option>
+            <option>CONTENT_FILTER</option><option>AUTH</option><option>OUTPUT_INVALID</option>
+            <option>UNKNOWN</option>
+          </select></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-r-error">{{_('Error code')}}</label>
+          <input class="form-control" id="lr-mon-r-error"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-r-limit">{{_('Plan limit')}}</label>
+          <input class="form-control" type="number" id="lr-mon-r-limit" min="1" value="100"></div>
       </div>
-      <div class="lr-meta">{{_('The plan is read-only. Republishing failed tasks consumes real model quota and cannot be undone.')}}</div>
-      <div id="lr-mon-r-result" style="margin-top:8px"></div>
+      <div class="lr-mon-form-actions">
+        <button class="btn btn-primary" id="lr-mon-r-plan">{{_('Generate Recovery Plan')}}</button>
+        <span class="lr-meta" style="margin-left:10px">{{_('The plan is read-only. Republishing failed tasks consumes real model quota and cannot be undone.')}}</span>
+      </div>
+      <div id="lr-mon-r-result"></div>
       <button class="btn btn-danger" id="lr-mon-r-confirm" style="display:none;margin-top:8px"></button>
-    </section>
+    </div>
+
+    </div>{# /tab-content #}
 
     {# 任务详情模态框（Bootstrap 3 组件，任务行点击打开）#}
     <div class="modal fade" id="lr-mon-detail" tabindex="-1" role="dialog">
@@ -450,12 +491,6 @@
     var CSRF = document.getElementById('lr-csrf').value;
     var T = {
         requestFailed: '{{_('Request failed')}}',
-        loading: '{{_('Loading')}}',
-        pending: '{{_('Pending')}}',
-        accepted: '{{_('Accepted')}}',
-        running: '{{_('Running')}}',
-        completed: '{{_('Completed')}}',
-        failed: '{{_('Failed')}}',
         oldestPending: '{{_('Oldest pending')}}',
         lastFinished: '{{_('Last finished')}}',
         rate: '{{_('Rate per hour')}}',
@@ -571,9 +606,11 @@
     }
 
     function renderOverview(data) {
-        document.getElementById('lr-mon-ov-global').textContent =
-            T.pending + ': ' + data.pendingCount + '   ·   ' + T.accepted + ': ' + data.acceptedCount
-            + '   ·   ' + T.running + ': ' + data.runningCount;
+        // 三个大数字 stat 块（textContent：值恒为服务端数字）
+        var stats = {pending: data.pendingCount, accepted: data.acceptedCount, running: data.runningCount};
+        Object.keys(stats).forEach(function (key) {
+            document.getElementById('lr-mon-st-' + key).textContent = stats[key];
+        });
         var callers = data.callers || [];
         refreshCallerOptions(document.getElementById('lr-mon-f-caller'), callers, T.allCallers);
         refreshCallerOptions(document.getElementById('lr-mon-t-caller'), callers, T.allCallers);
@@ -655,6 +692,9 @@
         var caller = document.getElementById('lr-mon-f-caller').value;
         if (caller) { document.getElementById('lr-mon-r-caller').value = caller; }
         document.getElementById('lr-mon-r-category').value = button.getAttribute('data-mon-recover');
+        // Tab 化后跳转 = 切到恢复 Tab（data-toggle 由 bootstrap.js 监听 click），再滚到区块顶
+        var tab = document.querySelector('a[href="#lr-mon-recovery"]');
+        if (tab) { tab.click(); }
         document.getElementById('lr-mon-recovery').scrollIntoView();
     });
 
