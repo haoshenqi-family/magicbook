@@ -782,6 +782,15 @@ _LLM_TASK_PATHS = {
     "run": "/llm/task/run",
     "status": "/llm/task/run/status",
     "stop": "/llm/task/run/stop",
+    # R130（队列监控，对齐 moon-well R118）：读路径为主；republish 是唯一写路径，
+    # 两步走（plan 不带 confirm 零写库 → 用户二次确认后才带 confirm）由前端驱动、
+    # 服务端兜底——代理层不做字段改写，保持与 run 同款的「两侧 DTO 直接对齐」决策。
+    "overview": "/llm/task/admin/overview",
+    "failures": "/llm/task/admin/failures",
+    "admin_page": "/llm/task/admin/page",
+    "task_detail": "/llm/task/detail",
+    "recovery_plan": "/llm/task/admin/recovery-plan",
+    "republish": "/llm/task/admin/republish-failed",
 }
 
 

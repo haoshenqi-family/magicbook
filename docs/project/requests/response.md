@@ -27,18 +27,11 @@
 - `response-archive/response-R174-R177.md`：R174、R176、R177（2026-10-15；2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起）
 - `response-archive/response-R175.md`：R175（2026-10-15；2026-10-16 R188 写入触发轮转搬移，窗口转入 R178 起）
 - `response-archive/response-R178.md`：R178 moon-well 防腐层迁出 web.py（B1，架构评审波 2）（2026-10-15；2026-10-16 R189 写入触发轮转搬移）
+- `response-archive/response-R179.md`：R179 架构评审 B2 尝试（撤销回基线，留存重做清单）（2026-10-15；2026-10-19 R130 写入触发轮转搬移）
 
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-### R179（架构评审波 3 · B2 尝试：web.py 蓝图分域——本轮未完成，已撤销回基线）
-
-- **做了什么**：盘点 139 路由（core 原版 42 留守 + 定制 97：reading 31/learning 38/credit 19/vocab 9，read/show_book 两条原版阅读入口留在 web.py 不迁）；脚本化迁移 94 段（AST 分析各域依赖生成显式 import）；中途修复段切割的装饰器链 bug（`node.lineno` 不含装饰器行，需用 min(decorator_list.lineno)）与相对导入层级（routes 子包内 web.py 的一级相对导入需升两级 `from ..X`）。
-- **为什么撤销**：迁移后暴露四类连锁问题，剩余上下文不足以安全收尾——① **gdriveutils.py:179 模块级 `os.path.exists(cli_param.gd_path)` 依赖 config 就绪**，routes 的 import 时序使其在部分初始化路径下 TypeError；② 游离 ''' 死字符串块（B1 遗留待确认项）在行删除后**语义扩大**——get_sort_function 与大段原版路由被吞进字符串（863-2303 行），basic.py:32 反向 import 连锁失败；③ 63 处测试桩点全打在 cps.web，routes 迁移后需再迁移；④ 直接 create_app 出现挂起（未定位）。已 `git checkout` 恢复 web.py 并删除 cps/routes/，**全量 549 passed 回到基线绿**。
-- **留存成果（下轮小步重做的完整清单）**：① 域分类清单与 94 段行号映射（本条上方盘点，可重跑盘点脚本再生成）；② 迁移模式定案：延迟注册（web.py 末尾 register_domain_routes(web)）+ endpoint 名不变 + routes 子包内相对导入升两级 + AST 生成显式 import；③ **前置修复清单**：gdriveutils:179 的模块级 config 依赖改为函数内守卫（U 级小修）、getcomic 死块的处置（用户确认）、游离 ''' 清理；④ 分步纪律：**每迁一域跑一次全量**（reading→credit→vocab→learning 顺序，learning 最大殿后）；⑤ 桩点迁移预案（同 L46 模式：迁至 client 实例属性或新桩面）。
-- **台账**：worktree `../magicbook-arch-b5` 无新增 commit（B2 改动已撤销，r177/r178 两个 commit 保留）；web.py 3304 行（HEAD 状态）。未 push。
-- **总结**：requests.md 占号 R179；冲突记录：无；**B2 状态回填 overview：尝试未完成，方案与坑清单已留存**。
 
 ### R180（B2 前置小修两项：getcomic 死块清除激活 + gdriveutils 守卫化）
 
@@ -212,3 +205,14 @@
 - **验证**：全量 `pytest tests/` **603 passed**（无行为变更，唯一代码改动是 api.js 的注释块）；`node --check cps/static/js/common/api.js` 通过。
 - **收尾**：merge 本地 `develop` `2984facb`（分支 `fix/r189-x1-unwrap`，worktree `../magicbook-arch-b5` 驻留待验收）；**未 push**——这批只有文档与注释，是否再触发一次 fnOS 构建由用户定。彩排件已清：moon-well JVM 停、`/tmp/mw-x1` worktree 摘除、`vt-x1-mysql`/`vt-x1-redis` **stopped 但保留**（内含那行 `mk-` 身份，重跑只需 `docker start`）、我起的 8099/18111 静态服务已停。Docker Desktop 是本轮为彩排启动的，仍开着。
 - **冲突记录与自我更正**：并行会话的 v2 迁移（`6e4cb243` + 两条补记，188 号）在我上一条报告之后合入了 develop——**我那句「v2 声明无仓库产物支撑」已过时**，迁移现在是真的（`docs/product/` + `docs/project/` 有物）；我 R187 留下的 DF7 尾巴（`AGENTS.md` 指向已删除的 `docs/kb/project-describe/`）也由他们的迁移顺带清掉，**DF7 至此闭环**。编号无冲突（187=我、188=他们、189=我）。窗口：本条写入使 request 数达 11，按「写入即检查」把最早一节 R178 原样搬至 `response-archive/response-R178.md` 并登记索引。
+
+## 2026-10-19（R130 LLM 队列监控面板：四区块实现）
+
+### R130（LLM 队列监控面板——承接 moon-well R118 已交付契约，扩展 R126 /llm-tasks）
+
+- **范围与实现**：按迭代设计（`docs/project/iterations/1.0/r130-llm-queue-monitor/`）落地四区块——总览（caller 分组计数 + 近 24h 吞吐柱 + stale/reclaim 预警；15s 轮询、页面不可见暂停）、失败分类（十类桶 + 恢复徽标，AUTO_REQUEUE/FORBIDDEN 只读无按钮、REPLAY/REPUBLISH 出「去恢复此类」跳转预填）、任务查询与详情（keyword 必须搭配伴生过滤的前端闸门、行点开模态框、输入/输出 2KB 截断可展开）、恢复（plan 恒不带 confirm 只读预案 → 二次确认弹窗 → republish）。六个薄代理端点（overview 10s / failures 15s / page 10s / detail 10s / recovery-plan 20s / republish 30s）：`cps/web.py` `_LLM_TASK_PATHS` 扩六键 + `cps/routes/vocab.py` 六处理器，`_llm_task_admin_gate()` JSON 403 门禁与 R126 同款、先于任何上游调用。
+- **坑（本轮新踩）**：msgid 里不能带 `%`——Jinja i18n 扩展对译文做 `%`-格式化，`Confirm Republish of %N tasks` 渲染即 `ValueError: unsupported format character`；占位符改 `{N}/{C}`，JS `.replace('{N}', …)` 语义不变（已写进 LLD §9）。
+- **测试**：新增 `tests/test_llm_task_admin_monitor_r130.py` 30 条——转发形制与超时钉 LLD 值、非 admin JSON 403 且门禁先于上游、模板守卫（四区块 id、keyword 闸门、只读桶规则、confirm 两步语义、轮询暂停、无裸 `_()`、相邻重复行）、跨仓契约（前端读取字段 ⊆ moon-well DTO、分类下拉 == 失败枚举、状态下拉 ⊆ 状态枚举、PageVO records/total）、zh 真渲染（.mo 未编译即红）。回归：R126 26 条 + i18n 种子契约 7 条 + 受影响面（llm-task/代理相关 10 个测试文件）合计 **213 passed**。
+- **文档四问**：L1 `readme/admin.md` 加「LLM 队列监控」条目；L2 **新建 `docs/product/admin/interface.md`**（admin 模块首个 L2，10 端点全量收录——设计原落 vocabulary/interface.md 是基于错误调查结论，已更正并记入 LLD §8）；L3 沿用「随演进补齐」未建；LLD 状态行改「已实现待验收」。
+- **收尾**：worktree `../magicbook-r130-monitor` 分支 `feat/r130-llm-monitor`（按 R188 基线教训先核 `rev-list` 双向计数：本地 ahead 1（设计 docs）/behind 0，故从本地 develop 顶端切出）；merge 回 develop 后 worktree 原样保留待验收；**未 push**（push 即触发 fnOS 自动构建，由用户定）。PingCode：idea i7iJ3gwo → In progress、工作项 MAGICBOOK-4 → 进行中。
+- **窗口轮转**：本条写入使窗口达 11，R179（B2 尝试撤销节）原样搬至 `response-archive/response-R179.md`。

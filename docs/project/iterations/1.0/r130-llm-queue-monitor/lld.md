@@ -1,6 +1,6 @@
 # LLD — R130 LLM 队列监控面板
 
-> 状态：设计（草案 v1，2026-10-18；开工时改「开发中」，上线后回填「已上线」）
+> 状态：已实现（2026-10-19 merge 回 develop 待验收；未 push 未上线——push 即触发 fnOS 构建链，由用户拍板）
 > 上层设计：[hld.md](./hld.md)。前稿（行号漂移）：`_legacy/feat/llm-task-run/design/admin-monitor.md`。
 
 ## 1. 代理端点（magicbook 侧新增 6 路径）
@@ -61,9 +61,17 @@
 - moon-well 已上线，无顺序依赖；magicbook 单仓 push develop → fnOS webhook 自动构建。
 - 回滚 = revert 本仓 commit（纯增量，无 schema/契约变更）。
 
-## 8. 文档四问预答（交付时回填）
+## 8. 文档四问（2026-10-19 已回填）
 
-- L1（能力）：`docs/product/readme/admin.md` 或 admin 模块页补「LLM 队列监控」条目。
-- L2（契约）：`docs/product/vocabulary/interface.md`（llm-tasks 代理表所在）追加 6 端点映射行。
-- L3（实现）：`docs/product/<module>/features/` 视 admin 模块页现状落位。
-- LLD：本文件状态行。
+- L1（能力）：`docs/product/readme/admin.md` 已加「LLM 队列监控」条目。
+- L2（契约）：**落位更正**——设计原写 vocabulary/interface.md（基于错误调查结论，该文件并无 llm-tasks 代理表）；admin 模块此前无 L2，按「随演进补齐」**新建 `docs/product/admin/interface.md`**，10 个端点全量收录（R126 四条 + R130 六条）。
+- L3（实现）：admin 模块 L3 未建（仓规「随演进补齐」），本 LLD 即实现记录。
+- LLD：本文件状态行（已改「已实现待验收」）。
+
+## 9. 实现纪要（as-run，与设计的偏差与坑）
+
+- **msgid 禁 `%`**：Jinja i18n 扩展对译文做 `%`-格式化，含 `%N` 的 msgid 渲染即 `ValueError: unsupported format character`；占位符改 `{N}/{C}`，JS `.replace('{N}', …)` 语义不变。
+- **i18n 通道**：模板内联 `{{_('…')}}` + script 内 T 表（Jinja 渲染）——不走 i18n_seed/mbT 链（那是静态 JS 文件的通道）；po 手工补 60 条 + `pybabel compile`。
+- **分页响应** = `PageVO{records, total}`；状态下拉取 `LlmTaskStatusEnum` 八值、恢复分类下拉取 `LlmTaskFailureCategory` 十值——均由跨仓契约测试钉住（漂移即红）。
+- **详情全文展开**：长文存 JS 内存 `detailCache`，HTML 属性只放键名——避免把数千字符转义塞属性。
+- **轮询暂停**：`setInterval` 内查 `document.hidden` 跳轮 + `visibilitychange` 切回立即刷一轮。
