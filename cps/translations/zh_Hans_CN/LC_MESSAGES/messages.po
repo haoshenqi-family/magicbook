@@ -5476,3 +5476,185 @@ msgstr "停止本批次？已经入队的任务仍会由队列消费者生成完
 
 msgid "Batch stopped: remaining batches will not be queued."
 msgstr "批次已停止：剩余批次不再入队。"
+
+# R130 队列监控四区块
+
+msgid "Accepted"
+msgstr "已受理"
+
+msgid "All callers"
+msgstr "全部调用方"
+
+msgid "Any category"
+msgstr "任意分类"
+
+msgid "Any status"
+msgstr "任意状态"
+
+msgid "Auto reclaimed / exhausted"
+msgstr "自动回收 / 已耗尽"
+
+msgid "Auto requeue by server"
+msgstr "服务端自动回收"
+
+msgid "Blocked by the server"
+msgstr "服务端已阻止"
+
+msgid "Caller"
+msgstr "调用方"
+
+msgid "Category"
+msgstr "分类"
+
+msgid "Completed"
+msgstr "已完成"
+
+msgid "Confirm Republish of {N} tasks"
+msgstr "确认重发 {N} 条任务"
+
+msgid "Count"
+msgstr "数量"
+
+msgid "Created"
+msgstr "创建时间"
+
+msgid "Error code"
+msgstr "错误码"
+
+msgid "Failed in window"
+msgstr "窗口内失败"
+
+msgid "Failed items"
+msgstr "失败明细"
+
+msgid "Failure Categories"
+msgstr "失败分类"
+
+msgid "First failure"
+msgstr "首次失败"
+
+msgid "Generate Recovery Plan"
+msgstr "生成恢复预案"
+
+msgid "Generate the recovery plan first."
+msgstr "请先生成恢复预案。"
+
+msgid "Hourly throughput (completed / failed, last 24h)"
+msgstr "每小时吞吐（完成 / 失败，近 24 小时）"
+
+msgid "Input"
+msgstr "输入"
+
+msgid "Keyword search needs a companion filter: caller, status, error code or user id."
+msgstr "关键词查询必须搭配调用方、状态、错误码或用户 ID 之一。"
+
+msgid "Last failure"
+msgstr "最近失败"
+
+msgid "Last finished"
+msgstr "最近完成"
+
+msgid "Latency"
+msgstr "延迟"
+
+msgid "Needs manual handling"
+msgstr "需人工处理"
+
+msgid "No data."
+msgstr "暂无数据。"
+
+msgid "No failure data loaded yet."
+msgstr "尚未加载失败数据。"
+
+msgid "Oldest pending"
+msgstr "最老待处理"
+
+msgid "Output"
+msgstr "输出"
+
+msgid "Parameters"
+msgstr "参数"
+
+msgid "Pending"
+msgstr "待处理"
+
+msgid "Pick a caller first."
+msgstr "请先选择调用方。"
+
+msgid "Plan limit"
+msgstr "计划上限"
+
+msgid "Provider / Model"
+msgstr "供应商 / 模型"
+
+msgid "Queue Monitor"
+msgstr "队列监控"
+
+msgid "Queue Overview"
+msgstr "队列总览"
+
+msgid "Rate per hour"
+msgstr "每小时速率"
+
+msgid "Read-only view over the moon-well LLM task queue. Only the recovery block writes, and only after an explicit confirmation."
+msgstr "队列视图只读；只有恢复区块会写库，且必须经过显式确认。"
+
+msgid "Recover these"
+msgstr "去恢复此类"
+
+msgid "Recovery"
+msgstr "恢复"
+
+msgid "Recovery plan (read-only)"
+msgstr "恢复预案（只读）"
+
+msgid "Replay eligible"
+msgstr "可重放"
+
+msgid "Republish {N} failed tasks of {C} now? This consumes real model quota and cannot be undone."
+msgstr "现在重发调用方 {C} 的 {N} 条失败任务？这会真实消耗模型配额且不可撤销。"
+
+msgid "Republish eligible"
+msgstr "可重发"
+
+msgid "Republish forbidden"
+msgstr "禁止重发"
+
+msgid "Republished"
+msgstr "已重发"
+
+msgid "Run a search to list tasks."
+msgstr "执行查询以列出任务。"
+
+msgid "Sample message"
+msgstr "样本消息"
+
+msgid "Show all"
+msgstr "显示全文"
+
+msgid "Skipped duplicates"
+msgstr "重复跳过"
+
+msgid "Skipped forbidden categories"
+msgstr "禁止类跳过"
+
+msgid "Stale ACCEPTED tasks detected"
+msgstr "检测到滞留的受理任务"
+
+msgid "Task Search"
+msgstr "任务查询"
+
+msgid "Task type"
+msgstr "任务类型"
+
+msgid "The plan is read-only. Republishing failed tasks consumes real model quota and cannot be undone."
+msgstr "预案只读。重发失败任务会真实消耗模型配额且不可撤销。"
+
+msgid "Tokens"
+msgstr "Token 数"
+
+msgid "Unknown share"
+msgstr "未知占比"
+
+msgid "User id"
+msgstr "用户 ID"
