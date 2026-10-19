@@ -153,6 +153,13 @@ class TestTemplateContract:
                        "lr-mon-recovery", "lr-mon-detail", "lr-mon-ov-bars"):
             assert 'id="{0}"'.format(anchor) in page, "监控区块缺失: " + anchor
 
+    def test_top_level_tabs_run_and_monitor(self, page):
+        # UI 改版二轮：页面顶层两大 Tab（任务执行 / 队列监控），R126 与 R130 各居其一
+        assert 'id="lr-top-tabs"' in page
+        for anchor_id in ("lr-pane-run", "lr-pane-monitor"):
+            assert 'id="{0}"'.format(anchor_id) in page
+        assert 'href="#lr-pane-run"' in page and 'href="#lr-pane-monitor"' in page
+
     def test_keyword_gate_is_enforced_client_side(self, page):
         # moon-well 强制 keyword 搭配伴生过滤；前端提前拦下（禁用按钮 + 变色提示）
         assert "var blocked = !!f.keyword && !f.companion" in page

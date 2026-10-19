@@ -13,7 +13,8 @@
   #lr-alert { display: none; }
   /* R130 队列监控：Tab 化布局（一次一个区块），区块内栅格分栏 */
   #lr-mon-alert { display: none; }
-  #lr-mon-tabs { margin-bottom: 14px; }
+  #lr-top-tabs { margin-bottom: 14px; }
+  #lr-mon-tabs { margin: 6px 0 14px; }
   .lr-mon-stat { text-align: center; padding: 10px 0 4px; margin-bottom: 14px; }
   .lr-mon-stat .num { display: block; font-size: 26px; font-weight: 600; line-height: 1.1; }
   .lr-mon-stat .lbl { font-size: 12px; color: #777; }
@@ -40,7 +41,15 @@
 <div class="discover">
   <h1>{{_('LLM Task Runner')}}</h1>
   <div class="col-md-12">
-    <p class="text-muted">
+    {# 顶层两大 Tab（R130 UI 改版二轮：任务执行 / 队列监控，队列监控内再分四个子 Tab）#}
+    <ul class="nav nav-tabs" id="lr-top-tabs" role="tablist">
+      <li class="active"><a href="#lr-pane-run" data-toggle="tab">{{_('Task Runner')}}</a></li>
+      <li><a href="#lr-pane-monitor" data-toggle="tab">{{_('Queue Monitor')}}</a></li>
+    </ul>
+    <div class="tab-content">
+
+    <div class="tab-pane active" id="lr-pane-run">
+    <p class="text-muted" style="margin-top:12px">
       {{_('Manually consume the moon-well LLM task queue: pick a provider, a model, the concurrency and the per-batch limit, then start. The batch runs inside moon-well and stops itself when the limit is reached.')}}
     </p>
     <div id="lr-alert" class="alert"></div>
@@ -94,10 +103,11 @@
       </table>
     </div>
 
-    {# ================= R130 队列监控四区块（对齐 moon-well R118）================= #}
-    <hr style="margin:28px 0 16px">
-    <h2>{{_('Queue Monitor')}}</h2>
-    <p class="text-muted">
+    </div>{# /#lr-pane-run #}
+
+    <div class="tab-pane" id="lr-pane-monitor">
+    {# ================= R130 队列监控（对齐 moon-well R118）================= #}
+    <p class="text-muted" style="margin-top:12px">
       {{_('Read-only view over the moon-well LLM task queue. Only the recovery block writes, and only after an explicit confirmation.')}}
     </p>
     <div id="lr-mon-alert" class="alert"></div>
@@ -225,7 +235,9 @@
       <button class="btn btn-danger" id="lr-mon-r-confirm" style="display:none;margin-top:8px"></button>
     </div>
 
-    </div>{# /tab-content #}
+    </div>{# /tab-content（监控子 Tab）#}
+    </div>{# /#lr-pane-monitor #}
+    </div>{# /顶层 tab-content #}
 
     {# 任务详情模态框（Bootstrap 3 组件，任务行点击打开）#}
     <div class="modal fade" id="lr-mon-detail" tabindex="-1" role="dialog">
