@@ -75,3 +75,4 @@
 - **分页响应** = `PageVO{records, total}`；状态下拉取 `LlmTaskStatusEnum` 八值、恢复分类下拉取 `LlmTaskFailureCategory` 十值——均由跨仓契约测试钉住（漂移即红）。
 - **详情全文展开**：长文存 JS 内存 `detailCache`，HTML 属性只放键名——避免把数千字符转义塞属性。
 - **轮询暂停**：`setInterval` 内查 `document.hidden` 跳轮 + `visibilitychange` 切回立即刷一轮。
+- **UI 改版（2026-10-19 验收反馈「元素堆叠太拥挤」）**：四区块纵向全宽堆叠改为 **Bootstrap 3 nav-tabs**（一次一个区块，layout 已载完整版 bootstrap.min.js 含 Tab 组件）；总览改「三个大数字 stat 块 + caller 表(7 栏)/吞吐柱+预警(5 栏) 双栏」；任务查询与恢复的 form-inline（8/4 个无标签控件挤一行）改 **label+控件栅格**（col-sm-6/col-md-3，两行四列）；「去恢复此类」跳转从滚动改为切 Tab。新增 msgid 仅 `Created from/Created to` 两条（其余全部复用），po+mo 已同步。所有区块 id / data- 属性 / JS 契约保持不变，测试零改动全绿。
