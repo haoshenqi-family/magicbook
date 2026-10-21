@@ -221,3 +221,5 @@
 - **验证**：YAML 解析通过、`bash -n` 通过、桩响应端到端 5 例符合预期（纯文档 true，其余 false）。
 - **适用性提醒**：本仓 **GitHub Actions 主链已手动停用、现役是 fnOS webhook-builder 链**（`../ops/runbook.md` §1），因此本次改动属**预案**——恢复 GHA 或切回主链即生效；fnOS 链的同一判据待单独处置（脚本在 fnOS，本轮无 SSH 凭据）。
 - **驻留**：worktree `../magicbook-doc-skip-deploy`，分支 `chore/r190-doc-skip-deploy`，合并 commit `a8c2af35`（本地 `develop`，未 push）。
+- **补记（2026-10-21 15:55，覆盖面缺口已关闭）**：R153 记的「fnOS 链未加判据，纯文档 push 仍会构建部署」当轮补齐——fnOS `pipeline_lib.sh` 新增 `docs_only_diff` + 基线 marker（`logs/.magicbook.deployed-sha`），`build-magicbook.sh` 在 checkout 后插入 `scope-check`：纯文档时打印 `build SKIPPED (docs-only) (<sha>)` 并 `exit 0`，不构建镜像、不触发 project-update 部署、不发 Bark；`drift-check-build.sh` 已把 SKIPPED 视同 `END OK`。实测 4 例 + 端到端纯文档跳过全符合预期。详见 `../ops/runbook.md` §1 与 ops R154。
+
