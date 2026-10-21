@@ -105,6 +105,23 @@ def test_no_page_references_the_deleted_scripts():
                 "%s 仍引用已删除的 %s（404 且功能静默失效）" % (name, dead)
 
 
+def test_writing_uses_sse_and_keeps_json_fallback():
+    """R192：批改主路径必须是 fetch+ReadableStream 的 SSE；旧 JSON 端点只作回退。
+
+    反向锁：退回 EventSource（不能带 CSRF/POST body）或删掉回退分支都应报红。
+    """
+    src = _js("learning-writing.js")
+    assert "function postSse(" in src
+    assert "getReader()" in src
+    assert "streamEndpoint()" in src
+    assert "streamStarted" in src
+    assert "new EventSource(" not in src
+    assert "writingSubmitStream" in src and "writingReviseStream" in src
+    tpl = _tpl("learning_writing.html")
+    assert "writingSubmitStream" in tpl
+    assert "writingReviseStream" in tpl
+
+
 def test_writing_workshop_never_caps_draft_submissions():
     """R190：两稿上限取消——提交按钮不得再按稿数置灰，也不能再有「两稿已完成」终态。
 

@@ -157,6 +157,8 @@
 
 191. 写作批改仍报 503（承接 R190 / moon-well R193）：用户复测「近期没有部署，revise 还是 503」。moon-well 日志证据：revise 实际 200、耗时 104494ms，而 magicbook 代理 `timeout=90` 先超时 → 统一返回 `service unavailable`；另两次在 magpie 150s 预算处超时。修复：把 writing submit/revise 代理超时提到 210s（显式常量 + 注释说明后端 150s 预算），并在 moon-well 侧对相同正文的修订稿做幂等复用（跨仓 R193），避免超时重试再生成一稿。跨仓同源：moon-well R193。
 
+192. 写作批改改为 SSE 进度流（承接 R190/R191 / moon-well R194）：批改实测 70–150s，前端全程只转圈；任何中间层或部署超过预算仍可能掐断连接，用户只看到 503。改为：moon-well 新增 `submit/stream`、`revise/stream`，事件 `status/ping/result/error`；magicbook 新增 SSE 代理与 `fetch + ReadableStream` 解析，状态行显示已等待秒数；保留 JSON 端点回退，断线不取消批改，结果继续落库；同 `taskId + 正文 + submit/revise` 的并发请求共享一次批改。非目标：模型 token 级流式、异步 job、blue-green drain。跨仓同源：moon-well R194。
+
 192. 部署链加「纯文档提交不触发部署」判据（跨仓同源：app-manager R51 / moon-well R194 / magiclens R51；用户指令「修改一下部署脚本，如果只有文档更新，则不触发部署」，四仓同源 + 「触发但跳过构建/部署」两口径拍板）：`.github/workflows/build-and-push.yml` 增 `changes` 判定 job——compare API 取本次 push 改动文件，全部是文档（`docs/`、`*.md`、`LICENSE`、`.gitignore`/`.gitattributes`）时 `docs_only=true`，构建与 app-manager 更新通知整体跳过；混合改动 / 手动触发 / 判定失败走完整构建。**注意本仓 GitHub Actions 主链已手动停用、现役为 fnOS webhook-builder 链**，本次改动属预案（恢复 GHA 或切回主链即生效），fnOS 链的同一判据待单独处置。worktree 开发，push 闸门留用户。
 
 193. 部署链收敛 fnOS 单链 + 部署前按代码指纹判等（承 R192；跨仓同源 app-manager R52 / moon-well R195；用户拍板「只留 fnOS 链，部署之前检查 docker 镜像，如果当前镜像并没有真的改变则不触发重新部署」）：①**单链**——GHA workflow 只留 `workflow_dispatch`，`push` 不再触发，删掉 `changes` job（GitHub 侧已 `disabled_manually`）；②**指纹**——构建时打 `house.code-digest`（非文档文件树摘要）+ `house.build-sha` label；③**判等**——新增 `deploy/fnos/deploy.sh`（`/app/magicbook/deploy.sh` 的版本化副本，此前只存在于 fnOS 项目目录、未入库），`pull` 后比新镜像与在跑容器的指纹，一致则打印「镜像代码指纹未变 -> 跳过重启」并退出，不停容器、不 `up -d`。worktree 开发，push 闸门留用户。
