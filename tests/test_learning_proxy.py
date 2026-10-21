@@ -450,6 +450,29 @@ def test_b1_submit_forwards_cleaned_payload(admin_client, moonwell_configured,
     assert call["payload"] == {"taskId": "T-1", "text": "Hello world."}
 
 
+def test_writing_review_timeout_covers_backend_llm_budget(
+        admin_client, moonwell_configured, monkeypatch):
+    """R191：代理预算必须大于 moon-well 的 150s LLM 预算。
+
+    Why 用 210s 而不是继续 90s：实测 revise 在后端 104s 成功返回，90s 代理先超时
+    只给前端一个 503，用户重试还会再生成一稿。这里锁住 submit/revise 两个入口，
+    避免以后有人按「普通接口」把超时改回去。
+    """
+    proxy = RecordingProxy({
+        "/learning/writing/submit": (_envelope({}), 200),
+        "/learning/writing/revise": (_envelope({}), 200),
+    })
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+
+    admin_client.post("/ajax/learning/writing/submit",
+                      json={"taskId": "1", "text": "x" * 120})
+    admin_client.post("/ajax/learning/writing/revise",
+                      json={"taskId": "1", "text": "x" * 120})
+
+    assert proxy.call_for("/learning/writing/submit")["timeout"] == 210
+    assert proxy.call_for("/learning/writing/revise")["timeout"] == 210
+
+
 def test_b1_rejects_missing_required_fields_locally(admin_client,
                                                      moonwell_configured,
                                                      monkeypatch):

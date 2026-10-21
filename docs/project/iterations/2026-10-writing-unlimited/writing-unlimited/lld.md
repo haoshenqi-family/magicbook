@@ -44,3 +44,29 @@
 - 开发态闸门：`pytest tests/test_learning_proxy.py tests/test_learning_pages_static.py tests/test_i18n_seed_contract.py`。
 - 真机验收：恢复一个已交 2 稿的历史任务 → 按钮为「提交修订稿」且可点 → 改正文提交
   → 返回第 3 稿批改与进步确认；历史行状态变「已交 3 稿 · 可继续修订」。
+
+## 5. R191 补丁：写作批改代理预算与幂等重试
+
+**现象**：R190 上线后用户复测 revise 仍收到 `learning b1: /learning/writing/revise
+service unavailable`，且没有部署发生。moon-well 访问日志显示该请求实际 `200`、
+耗时 **104494ms**；magicbook 代理 `timeout=90` 先超时，统一返回 503。另有两次在
+后端 magpie 150s 预算处超时。
+
+**根因**：客户端代理预算（90s）< moon-well LLM 预算（150s，Nacos
+`moon-well-ai.yaml` 的 `magpie.timeout-ms`）。长文批改 80–150s 时，后端成功与
+后端超时都会被前端折叠成同一个 503；用户重试还会再生成一稿。
+
+**改动**：
+- `cps/routes/learning.py` 新增 `_WRITING_LLM_TIMEOUT = 210`（后端 150s + 落库/网络余量），
+  `/ajax/learning/writing/submit` 与 `/revise` 使用该常量；`task/generate` 仍 90s。
+- 前端不加自动重试：revise 的幂等由 moon-well R193 保证（正文与上一稿相同则复用上一稿批改），
+  前端重试是安全的，但自动重试会放大供应商压力。
+- 上游 Traefik（Server 2）与 Caddy（fnOS）未配置响应超时，210s 不会被中间层先掐断；
+  浏览器 `fetch` 也无默认超时。
+
+**契约**：响应形态不变；只是把「后端仍在跑、前端先 503」的窗口从 90s 推到 210s。
+后端 150s 仍超时的情况会返回 500「写作批改失败，请稍后重试」，不再是假 503。
+
+**测试**：`tests/test_learning_proxy.py` 新增
+`test_writing_review_timeout_covers_backend_llm_budget`，锁住 submit/revise 两个入口
+的转发超时为 210s；该文件 **52 passed**。
