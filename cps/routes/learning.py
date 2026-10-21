@@ -1,8 +1,11 @@
 # cps/routes/learning.py — learning 域定制路由（R181，架构评审 B2 自 cps.web 迁出）。
 # 装饰注册沿用原 web blueprint（endpoint 名不变）；依赖的辅助符号显式列于 import。
 
+from cps.moonwell.client import NO_PROXY
+from cps.moonwell.client import client as moonwell_client
 from cps.web import (
     _PROXY_LIMITS,
+    _b1_payload,
     _b1_proxy,
     _moonwell_multipart,
     _moonwell_proxy,
@@ -11,18 +14,30 @@ from cps.web import (
 )
 from ..render_template import render_title_template
 from ..usermanagement import user_login_required
+from flask import Response
 from flask import jsonify
 from flask import redirect
 from flask import request
+from flask import stream_with_context
 from flask import url_for
+from flask import session as flask_session
 from flask_babel import gettext as _
+import logging
 import re
+import requests
+
+log = logging.getLogger(__name__)
 
 # 写作批改是同步 LLM（moon-well magpie 单次预算 150s，见 Nacos moon-well-ai.yaml）。
 # R191：原先 90s 会在后端仍成功时先超时——实测 revise 104s 返回 200，前端却只拿到
 # 503 service unavailable，用户重试还会再生成一稿。210s = 后端 150s + 落库/网络余量；
 # 调大前先确认上游反代（Traefik/Caddy）与浏览器都不会先掐断。
 _WRITING_LLM_TIMEOUT = 210
+
+# SSE 建连 10s；单 chunk idle 300s。后端每 5s 发 ping，300s 只是兜底——比「整段
+# 请求 210s」更耐用：心跳期间即使批改超过 150s，代理也不会先掐断连接。
+_WRITING_SSE_CONNECT_TIMEOUT = 10
+_WRITING_SSE_IDLE_TIMEOUT = 300
 
 
 @web.route("/learning", methods=["GET"])
@@ -120,6 +135,100 @@ def learning_writing_revise():
     """Proxy writing revision（同 submit 契约，多进步确认）。"""
     return _b1_proxy("/learning/writing/revise", ("taskId", "text"),
                      required=("taskId", "text"), timeout=_WRITING_LLM_TIMEOUT)
+
+
+@web.route("/ajax/learning/writing/submit/stream", methods=["POST"])
+@user_login_required
+def learning_writing_submit_stream():
+    """SSE 透传初稿批改（R192）：status/ping/result/error 分型事件。"""
+    return _writing_sse_proxy("/learning/writing/submit/stream", "learning writing submit stream")
+
+
+@web.route("/ajax/learning/writing/revise/stream", methods=["POST"])
+@user_login_required
+def learning_writing_revise_stream():
+    """SSE 透传修订稿批改（R192），契约同 submit/stream。"""
+    return _writing_sse_proxy("/learning/writing/revise/stream", "learning writing revise stream")
+
+
+def _writing_sse_proxy(path, label):
+    """写作批改 SSE 的薄代理：只补 trace/Bearer，不改写事件体。
+
+    Why 不复用 _b1_proxy：后者按 ``response.text`` 整段读取，会把 SSE 缓冲到批改
+    结束才返回，等于没流式。这里 ``stream=True`` 逐 chunk yield，并在建连阶段完成
+    401 刷新（流开始后无法回滚已发事件，不能重放）。
+
+    断线语义：客户端关闭时 Flask 生成器退出，finally 关闭上游 requests 连接；
+    moon-well 侧的批改线程不取消，结果继续落库，用户刷新历史可取回。
+    """
+    payload = _b1_payload(("taskId", "text"), ("taskId", "text"))
+    if payload is None:
+        return jsonify({"success": False, "message": "invalid request body"}), 400
+
+    base = moonwell_client.base_url()
+    if not base:
+        return jsonify({"success": False, "message": "moon-well is not configured"}), 503
+
+    token = flask_session.get("moonwell_access_token")
+    if not token:
+        # R145 全 token 化：无 token 直接 401，不降级成匿名请求
+        return jsonify({"success": False,
+                        "message": "moon-well 登录已失效，请重新登录"}), 401
+
+    def _connect(bearer):
+        headers = {
+            "X-Trace-Id": moonwell_client.trace_id(),
+            "authorization": "Bearer " + bearer,
+            "Accept": "text/event-stream",
+        }
+        return requests.post(
+            base + path, json=payload, headers=headers, stream=True,
+            timeout=(_WRITING_SSE_CONNECT_TIMEOUT, _WRITING_SSE_IDLE_TIMEOUT),
+            proxies=NO_PROXY,
+        )
+
+    try:
+        upstream = _connect(token)
+    except requests.RequestException as error:
+        log.warning("moon-well %s SSE connect failed: %s", path, error)
+        return jsonify({"success": False, "message": label + " service unavailable"}), 503
+
+    if upstream.status_code == 401:
+        refreshed = moonwell_client.refresh_session_token()
+        if refreshed:
+            upstream.close()
+            try:
+                upstream = _connect(refreshed)
+            except requests.RequestException as error:
+                log.warning("moon-well %s SSE reconnect failed: %s", path, error)
+                return jsonify({"success": False,
+                                "message": label + " service unavailable"}), 503
+
+    if upstream.status_code != 200:
+        status_code = upstream.status_code
+        body = upstream.text
+        content_type = upstream.headers.get("Content-Type", "application/json")
+        upstream.close()
+        return Response(body, status=status_code, content_type=content_type)
+
+    def _generate():
+        try:
+            for chunk in upstream.iter_content(chunk_size=None):
+                if chunk:
+                    yield chunk
+        except requests.RequestException as error:
+            # 连接中断后不再补发 JSON（流已开始，状态码已发出）；前端按「结果可能已保存」
+            # 处理，避免把它误判成一次新的批改请求。
+            log.warning("moon-well %s SSE stream interrupted: %s", path, error)
+        finally:
+            upstream.close()
+
+    response = Response(stream_with_context(_generate()), status=200,
+                        content_type="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Connection"] = "keep-alive"
+    return response
 
 
 @web.route("/ajax/learning/writing/history", methods=["GET"])
