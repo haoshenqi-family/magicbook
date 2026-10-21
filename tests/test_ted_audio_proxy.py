@@ -22,6 +22,7 @@
 import json
 import os
 import re
+import types
 
 import pytest
 
@@ -36,6 +37,26 @@ def moonwell_configured(monkeypatch):
     monkeypatch.setattr(constants, "MOON_WELL_READING_URL",
                         "https://moon-well.example.com/")
     return constants
+
+
+@pytest.fixture
+def calibre_stub(monkeypatch):
+    """桩掉 Calibre 库：book 143 = "Talk A" / "Speaker"。
+
+    R200：代理改按书名+作者转发（moon-well 的 bookId 是它自己 book 表的 id，
+    与 Calibre 书号是两套序列），故这里必须提供真实书对象。
+    """
+    # _ted_book_identity 定义在 cps.web，函数体读的是 cps.web 模块全局的 calibre_db
+    # （reading.py 只 import 了函数名，本身没有 calibre_db 名字）。
+    import cps.web as web_module
+
+    book = types.SimpleNamespace(
+        id=143, title="Talk A",
+        authors=[types.SimpleNamespace(name="Speaker")])
+    stub = types.SimpleNamespace(
+        get_book=lambda bid: book if bid == 143 else None)
+    monkeypatch.setattr(web_module, "calibre_db", stub)
+    return book
 
 
 def _fake_response(status_code, body):
@@ -71,7 +92,7 @@ def test_requires_login(app, path):
     assert client.post(path, json={"bookId": "143"}).status_code == 302
 
 
-def test_ted_audio_forwards_to_book_ted_audio(admin_client, moonwell_configured,
+def test_ted_audio_forwards_to_book_ted_audio(admin_client, calibre_stub, moonwell_configured,
                                               monkeypatch):
     captured = _capture_post(monkeypatch, _fake_response(
         200, {"success": True, "code": 200,
@@ -82,13 +103,15 @@ def test_ted_audio_forwards_to_book_ted_audio(admin_client, moonwell_configured,
     assert rv.get_json()["result"]["audioUrl"].endswith("talk.aac")
 
     assert captured["url"].endswith("/book/ted-audio")
-    assert captured["json"] == {"bookId": "143"}
+    # R200 契约：按书名+作者查，绝不透传 Calibre 书号（两套 ID 序列只巧合对齐）
+    assert captured["json"] == {"bookName": "Talk A", "author": "Speaker"}
+    assert "bookId" not in captured["json"]
     assert captured["headers"].get("authorization") == "Bearer test-access-token"
     assert captured["proxies"] == {"http": None, "https": None}
     assert captured["timeout"] == 15
 
 
-def test_ted_audio_paragraphs_forwards_to_paragraph_list(admin_client,
+def test_ted_audio_paragraphs_forwards_to_paragraph_list(admin_client, calibre_stub,
                                                          moonwell_configured,
                                                          monkeypatch):
     captured = _capture_post(monkeypatch, _fake_response(
@@ -98,12 +121,12 @@ def test_ted_audio_paragraphs_forwards_to_paragraph_list(admin_client,
     rv = admin_client.post("/ajax/ted-audio-paragraphs", json={"bookId": "143"})
     assert rv.status_code == 200
     assert captured["url"].endswith("/book/paragraph/list")
-    assert captured["json"] == {"bookId": "143"}
+    assert captured["json"] == {"bookName": "Talk A", "author": "Speaker"}
     assert captured["timeout"] == 15
 
 
 @pytest.mark.parametrize("bad", ["abc", "143;DROP", "", None, 143.5])
-def test_rejects_non_numeric_book_id(admin_client, moonwell_configured,
+def test_rejects_non_numeric_book_id(admin_client, calibre_stub, moonwell_configured,
                                      monkeypatch, bad):
     """bookId 直接进上游 Long.valueOf：脏串在代理层挡成 400，不透传成上游 500。"""
     import requests
@@ -117,7 +140,8 @@ def test_rejects_non_numeric_book_id(admin_client, moonwell_configured,
     assert rv.get_json()["success"] is False
 
 
-def test_passes_moonwell_error_through(admin_client, moonwell_configured, monkeypatch):
+def test_passes_moonwell_error_through(admin_client, calibre_stub, moonwell_configured,
+                                       monkeypatch):
     _capture_post(monkeypatch, _fake_response(
         500, {"code": 500, "msg": "ted audio unavailable"}))
     rv = admin_client.post("/ajax/ted-audio", json={"bookId": "143"})
@@ -125,7 +149,7 @@ def test_passes_moonwell_error_through(admin_client, moonwell_configured, monkey
     assert "unavailable" in rv.get_json()["msg"]
 
 
-def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured,
+def test_returns_503_when_upstream_unavailable(admin_client, calibre_stub, moonwell_configured,
                                                monkeypatch):
     import requests
 
@@ -194,3 +218,27 @@ def test_read_html_injects_ted_endpoints():
     assert "web.reading_ted_audio" in html, "read.html 未注入 /ajax/ted-audio 路由"
     assert "web.reading_ted_audio_paragraphs" in html, \
         "read.html 未注入 /ajax/ted-audio-paragraphs 路由"
+
+
+def test_unknown_calibre_book_returns_404_without_upstream(admin_client, calibre_stub,
+                                                           moonwell_configured, monkeypatch):
+    """书不存在时给确定 404，不把空书名送去上游当「未缓存」处理。"""
+    import requests
+
+    def boom(*args, **kwargs):
+        raise AssertionError("upstream must not be called for a missing book")
+
+    monkeypatch.setattr(requests, "post", boom)
+    rv = admin_client.post("/ajax/ted-audio", json={"bookId": "999"})
+    assert rv.status_code == 404
+    assert rv.get_json()["success"] is False
+
+
+def test_proxy_never_sends_calibre_book_id_as_moonwell_bookid():
+    """负向锁：代理代码里不得再把 Calibre 书号当 moon-well bookId 透传。"""
+    path = os.path.join(ROOT, "cps", "routes", "reading.py")
+    with open(path, encoding="utf-8") as fh:
+        src = fh.read()
+    assert "\"bookId\": book_id" not in src and '"bookId": book_id' not in src, \
+        "TED 代理不得再透传 Calibre 书号（R200）"
+    assert "bookName" in src and "author" in src

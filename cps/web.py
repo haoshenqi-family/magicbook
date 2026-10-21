@@ -261,17 +261,26 @@ def update_view():
 
 # ---------- R172 TED 原声伴听代理（TED/博客类书：整段原声，非逐段 TTS） ----------
 
-def _ted_audio_book_id():
-    """取并校验 TED 音频查询的 bookId（Calibre 书号，纯数字）。
+def _ted_book_identity():
+    """把前端传来的 Calibre 书号解析成 moon-well 认的「书名 + 作者」身份。
 
-    Why 单独校验：bookId 直接进 moon-well 的 Long.valueOf，脏串会变成上游 500，
-    在代理层挡掉可给出确定的 400，而不是把错误透传成「服务不可用」。
+    Why（R200）：moon-well `/book/ted-audio` 的 bookId 是它自己 book 表的 id，
+    与 Calibre 书号是两套自增序列（learning R139/R149 同款坑）——只有巧合对齐
+    才命中；错位时上游返回 null，前端静默回落 TTS 机器音，用户只听到合成音。
+    段落注册表本身按 title+author 索引，按书名查可彻底绕开 ID 空间不一致。
+
+    How: 返回 (bookName, author, error)，error 为 None 表示成功；非数字 bookId
+    仍在代理层挡成 400（脏串不往上游送），书不存在给 404。
     """
     payload = request.get_json(silent=True) or {}
-    book_id = str(payload.get("bookId", "")).strip()
-    if not book_id.isdigit():
-        return None
-    return book_id
+    raw = str(payload.get("bookId", "")).strip()
+    if not raw.isdigit():
+        return None, None, ("bad_request", "bookId must be a number")
+    book = calibre_db.get_book(int(raw))
+    if not book:
+        return None, None, ("not_found", "book not found")
+    author = " & ".join(a.name for a in book.authors) if book.authors else ""
+    return book.title or "", author, None
 
 
 

@@ -29,6 +29,19 @@
 
 标题栏「▶/❚❚/■」驱动 epub.js 播放队列，顺序逐段调用上面的朗读代理（同 `POST /tts/speak` 契约，**无新端点、无新契约**）：本章段耗尽自动 `rendition.next()` 翻章重建队列（空文字章节自动跳过、≤10 章），spine 尽头自动停；段内暂停/继续保留进度；当前块开播后才预取下一块（全程 ≤1 个在途合成——NAS 本地 TTS 是 CPU 瓶颈、MiMo 100 RPM）；>2000 字符长段切块连读（块的 moon-well 缓存键=切块原文，天然去重）；手动翻章/主题字号重渲染跟随重建（同章续听原块、换章从页首起播）；与单段朗读互斥让位。moon-well 与 web.py 零改动。
 
+### 1.2 TED 原声伴听代理（R172，R200 改口径）
+
+TED/博客类书的内容是**一段连续原声**（`ted-audio/<slug>.aac`），文本段落只是这段录音上的时间轴切片。故朗读必须分流：有原声走伴听，小说才走逐段 TTS。分流判据只能来自**运行时探测**（`/ajax/ted-audio` 是否返回 `audioUrl`），不能用 `calibre.bookFormat === 'TED'`——那是 Calibre 文件格式（epub/pdf），与 moon-well `BookFormatEnum.TED` 同名不同义，TED 书在 Calibre 里同样是 epub，该判断恒 false。
+
+| magicbook 端点 | moon-well 端点 | 超时 | 说明 |
+| --- | --- | --- | --- |
+| `POST /ajax/ted-audio` | `POST /book/ted-audio` | 15s | 取整段原声 `audioUrl` + 元信息（探测与播放起点） |
+| `POST /ajax/ted-audio-paragraphs` | `POST /book/paragraph/list` | 15s | 段落时间轴 + 段落注册表（驱动 `.reading-tts-speaking` 高亮） |
+
+- **入参口径（R200）**：浏览器只传 Calibre `bookId`；代理在本地库里解析出 `title`/`authors`，转发时改发 `{"bookName", "author"}`，**绝不再把 Calibre 书号当 moon-well 的 `bookId`**。两套自增序列只有巧合对齐才命中，错位时上游返 null、前端静默回落机器音（线上表现为「TED 仍播 TTS」）。
+- **错误语义**：`bookId` 非数字 → 400（脏串不进上游）；本地库无此书 → 404（不把空书名送去上游当「未缓存」）；上游不可达 → 503。均带 `success:false`。
+- 多作者以 `" & "` 连接，与 moon-well 导入时写入的 author 一致。
+
 ### 2. NCE 课级音频（`/nce/<book_id>`）
 
 新概念英语课级播放页：音频存 MinIO（`magicbook/nce-audio/`），Range 流式播放 + manifest 缓存；方案 A 浏览器直连 MinIO。
