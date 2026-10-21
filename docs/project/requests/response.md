@@ -28,18 +28,11 @@
 - `response-archive/response-R175.md`：R175（2026-10-15；2026-10-16 R188 写入触发轮转搬移，窗口转入 R178 起）
 - `response-archive/response-R178.md`：R178 moon-well 防腐层迁出 web.py（B1，架构评审波 2）（2026-10-15；2026-10-16 R189 写入触发轮转搬移）
 - `response-archive/response-R179.md`：R179 架构评审 B2 尝试（撤销回基线，留存重做清单）（2026-10-15；2026-10-19 R130 写入触发轮转搬移）
+- `response-archive/response-R180.md`：R180 B2 前置小修两项（2026-10-21 R190 写入触发轮转搬移）
 
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-### R180（B2 前置小修两项：getcomic 死块清除激活 + gdriveutils 守卫化）
-
-- **getcomic 死块清除**：删除 web.py 1828/1874 两个游离 ''' 行——getcomic 路由从死代码（R178 发现、评审遗留待确认项）变为注册可用；**激活语义如实说明**：若你实际有意下线漫画功能，告诉我可改为删除该路由段（而非激活）。真机验证点：`/ajax/getcomic/<id>/<fmt>/<page>` 漫画页（需书库内有 CBR/CBZ 格式书）。
-- **gdriveutils.py 守卫化**：① 148 行 engine 创建——gd_path 为 None（测试环境/未初始化）时用内存 sqlite 兑底（顺带修掉原实现的潜在 bug：`create_engine('sqlite:///None')` 会在进程工作目录建出名为 None 的库文件）；② 179 行 create_all 加 gd_path 判空跳过（消除 os.path.exists(None) TypeError，即 B2 迁移暴露的 import 时序炸点）。配置就绪时行为逐字不变；gdrive 功能侧经既有 is_gdrive_ready() 自然降级，永不触达内存引擎。
-- **验证**：全量 **549 passed 零回归**；pytest 环境内核验 getcomic 路由已在 app.url_map 注册 ✓；语法双文件 OK。
-- **台账**：worktree `../magicbook-arch-b5` 新增 commit（r179 分支上第三 commit），merge 前驻留待验收；未 push。
-- **总结**：requests.md 占号 R180；B2 两大前置已清，小步重做可启动（方案与坑清单见 R179）；冲突记录：无。
 
 ### R181（架构评审波 3 · B2 小步重做完成：web.py 蓝图分域拆分）
 
@@ -219,3 +212,12 @@
 - **验收反馈修复（UI 改版，2026-10-19 深夜）**：用户真机反馈「四区块元素堆叠太拥挤」——纵向全宽堆叠改 **Tab 化**（Bootstrap 3 nav-tabs，总览/失败分类/任务查询/恢复一次一个区块）；总览改三个大数字 stat 块 + caller 表与吞吐柱双栏；任务查询与恢复的 form-inline（8/4 个无标签控件挤一行）改 label+控件栅格（两行四列）；「去恢复此类」从滚动跳转改 Tab 切换。新增 msgid 仅 2 条（Created from/to），全部区块 id/data- 属性/JS 契约不变 → 测试零改动 63 绿（R130 30 + R126 26 + i18n 契约 7）。bootstrap.min.js 为完整版含 Tab 组件（39KB）已核实。同 commit 仍在 `feat/r130-llm-monitor`，merge 后随验收循环 push 上线。
 - **UI 改版二轮（用户再反馈）**：「任务执行」（R126）与「队列监控」（R130）也 Tab 化——页面顶层两大 Tab（`Task Runner`/`Queue Monitor`，两者 msgid 均复用现有译文零新增 po），R126 手动执行面板进「任务执行」pane，队列监控（含其四个子 Tab）整体进「队列监控」pane；分隔 hr 与冗余 h2 删除（Tab 即分组）。新增测试断言顶层 Tab 结构，64 绿。
 - **验收闭环（2026-10-19）**：两轮 UI 改版后用户拍板「验收完成」——idea MAGICBOOK-143 → Completed、工作项 MAGICBOOK-4 → 已完成；worktree `../magicbook-r130-monitor` 与分支 `feat/r130-llm-monitor` 按闸门删除（merge 态确认无未提交残留）。R130 全程：设计草案 → 实现上线 → 验收反馈两轮 Tab 化改版 → 验收通过，同日闭环。
+
+### R190（部署链纯文档跳过构建/部署）
+
+- **范围**：用户指令「修改一下部署脚本，如果只有文档更新，则不触发部署」；四仓同源 + 「触发但跳过构建/部署」两口径拍板。
+- **改动**：`.github/workflows/build-and-push.yml` 新增 `changes` job（compare API 取改动文件 + 文档口径正则），`build` job 加 `needs` / `if` 门禁；纯文档 push 时镜像构建、ACR 推送、`project-update` 部署通知整体跳过，step summary 留痕。
+- **文档口径**：`docs/`、`doc/` 下任意文件、`*.md`、`LICENSE`、`.gitignore`、`.gitattributes`。安全侧兜底同上（首次推送 / 手动触发 / API 失败 / ≥300 文件一律走完整构建）。
+- **验证**：YAML 解析通过、`bash -n` 通过、桩响应端到端 5 例符合预期（纯文档 true，其余 false）。
+- **适用性提醒**：本仓 **GitHub Actions 主链已手动停用、现役是 fnOS webhook-builder 链**（`../ops/runbook.md` §1），因此本次改动属**预案**——恢复 GHA 或切回主链即生效；fnOS 链的同一判据待单独处置（脚本在 fnOS，本轮无 SSH 凭据）。
+- **驻留**：worktree `../magicbook-doc-skip-deploy`，分支 `chore/r190-doc-skip-deploy`，合并 commit `a8c2af35`（本地 `develop`，未 push）。
