@@ -1,6 +1,6 @@
 # TED 原声伴听链路修正（magicbook R200 / R202）· LLD
 
-**状态**：本地 develop 已合、worktree 驻留待验收（未 push）；MAGICBOOK-211 未流转 Completed
+**状态**：已 push 上线（magicbook `8a09af81` / moon-well `8a64094`，2026-10-21），worktree 驻留待用户验收；MAGICBOOK-211 未流转 Completed
 
 ## 1. 现象与根因
 

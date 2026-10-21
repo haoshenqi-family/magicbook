@@ -1,6 +1,6 @@
 # 博客导入链（Halo → magicbook）补强（magicbook R195–R199）· LLD
 
-**状态**：本地 develop 已合、worktree 驻留待验收（未 push）；MAGICBOOK-206/207/208/209 未流转 Completed
+**状态**：已 push 上线（magicbook `8a09af81` / moon-well `8a64094`，2026-10-21），worktree 驻留待用户验收；MAGICBOOK-206/207/208/209 未流转 Completed
 
 ## 1. 承接与诊断口径
 
