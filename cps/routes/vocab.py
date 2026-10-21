@@ -144,3 +144,77 @@ def llm_task_stop():
         return denied
     payload = request.get_json(silent=True) or {}
     return _moonwell_proxy(_LLM_TASK_PATHS["stop"], payload, 15, "llm task stop")
+
+
+# --------------------------------------------------------------------
+# R130（队列监控四区块，对齐 moon-well R118）：以下六个端点与上面四个同款薄代理。
+# 请求体原样透传不做字段映射（caller/sinceHours/pageNo/confirm 等直接对齐 moon-well
+# DTO 命名）；keyword 必须搭配 caller/status/errorCode/userId 之一的防全表扫约束在
+# moon-well 服务端强制，前端只做提前提示。真正的白名单二检仍在 moon-well 侧。
+# --------------------------------------------------------------------
+
+
+@web.route("/ajax/llm-task/admin-overview", methods=["POST"])
+@user_login_required
+def llm_task_overview():
+    """队列总览：全局计数、caller 分组、近 24h 吞吐、stale/reclaim 预警（无入参）。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    return _moonwell_proxy(_LLM_TASK_PATHS["overview"], {}, 10, "llm task overview")
+
+
+@web.route("/ajax/llm-task/admin-failures", methods=["POST"])
+@user_login_required
+def llm_task_failures():
+    """失败原因分类：{caller?, sinceHours?}，sinceHours 默认 24、上限 168 由服务端夹取。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy(_LLM_TASK_PATHS["failures"], payload, 15, "llm task failures")
+
+
+@web.route("/ajax/llm-task/admin-page", methods=["POST"])
+@user_login_required
+def llm_task_admin_page():
+    """任务分页查询（瘦行）：过滤字段与分页参数透传，pageSize 由服务端夹 1-50。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy(_LLM_TASK_PATHS["admin_page"], payload, 10, "llm task admin page")
+
+
+@web.route("/ajax/llm-task/detail", methods=["POST"])
+@user_login_required
+def llm_task_detail():
+    """任务详情全文：{taskId}。归属校验在 moon-well 对管理员放行（R118），代理侧仍限 admin。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy(_LLM_TASK_PATHS["task_detail"], payload, 10, "llm task detail")
+
+
+@web.route("/ajax/llm-task/admin-recovery-plan", methods=["POST"])
+@user_login_required
+def llm_task_recovery_plan():
+    """恢复预案（只读）：{caller, errorCode?, category?, limit}——confirm 恒由前端不发，
+    带不带都由 moon-well 兜底（非 true 只回 PLAN 零写库）。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy(_LLM_TASK_PATHS["recovery_plan"], payload, 20, "llm task recovery plan")
+
+
+@web.route("/ajax/llm-task/admin-republish-failed", methods=["POST"])
+@user_login_required
+def llm_task_republish():
+    """执行重发失败（唯一写路径，不可逆消耗模型配额）：前端二次确认后才带 confirm:true。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy(_LLM_TASK_PATHS["republish"], payload, 30, "llm task republish failed")

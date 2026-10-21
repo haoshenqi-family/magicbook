@@ -11,6 +11,24 @@
   .lr-field .lr-meta { margin-top: 2px; }
   .lr-stats { margin-bottom: 8px; }
   #lr-alert { display: none; }
+  /* R130 队列监控：Tab 化布局（一次一个区块），区块内栅格分栏 */
+  #lr-mon-alert { display: none; }
+  #lr-top-tabs { margin-bottom: 14px; }
+  #lr-mon-tabs { margin: 6px 0 14px; }
+  .lr-mon-stat { text-align: center; padding: 10px 0 4px; margin-bottom: 14px; }
+  .lr-mon-stat .num { display: block; font-size: 26px; font-weight: 600; line-height: 1.1; }
+  .lr-mon-stat .lbl { font-size: 12px; color: #777; }
+  .lr-mon-form .form-group label { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+  .lr-mon-pane { padding-top: 14px; }
+  .lr-mon-pane table { margin-bottom: 10px; }
+  .lr-mon-form-actions { margin: 4px 0 12px; }
+  .lr-mon-bars { display: flex; align-items: flex-end; gap: 2px; height: 56px; }
+  .lr-mon-bars .bar { width: 10px; display: flex; flex-direction: column-reverse; }
+  .lr-mon-bars .bar div { width: 100%; }
+  .lr-mon-bars .b-ok { background: #3c763d; }
+  .lr-mon-bars .b-bad { background: #a94442; }
+  .lr-mon-sel { cursor: pointer; }
+  .lr-mon-pre { max-height: 260px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
 </style>
 {% endblock %}
 {% block body %}
@@ -23,7 +41,15 @@
 <div class="discover">
   <h1>{{_('LLM Task Runner')}}</h1>
   <div class="col-md-12">
-    <p class="text-muted">
+    {# 顶层两大 Tab（R130 UI 改版二轮：任务执行 / 队列监控，队列监控内再分四个子 Tab）#}
+    <ul class="nav nav-tabs" id="lr-top-tabs" role="tablist">
+      <li class="active"><a href="#lr-pane-run" data-toggle="tab">{{_('Task Runner')}}</a></li>
+      <li><a href="#lr-pane-monitor" data-toggle="tab">{{_('Queue Monitor')}}</a></li>
+    </ul>
+    <div class="tab-content">
+
+    <div class="tab-pane active" id="lr-pane-run">
+    <p class="text-muted" style="margin-top:12px">
       {{_('Manually consume the moon-well LLM task queue: pick a provider, a model, the concurrency and the per-batch limit, then start. The batch runs inside moon-well and stops itself when the limit is reached.')}}
     </p>
     <div id="lr-alert" class="alert"></div>
@@ -75,6 +101,155 @@
         </tr></thead>
         <tbody id="lr-body"><tr><td colspan="6" class="text-muted">{{_('No batch started yet.')}}</td></tr></tbody>
       </table>
+    </div>
+
+    </div>{# /#lr-pane-run #}
+
+    <div class="tab-pane" id="lr-pane-monitor">
+    {# ================= R130 队列监控（对齐 moon-well R118）================= #}
+    <p class="text-muted" style="margin-top:12px">
+      {{_('Read-only view over the moon-well LLM task queue. Only the recovery block writes, and only after an explicit confirmation.')}}
+    </p>
+    <div id="lr-mon-alert" class="alert"></div>
+
+    {# 四区块 Tab 化（Bootstrap 3 nav-tabs）：一次只看一个区块，消除纵向堆叠 #}
+    <ul class="nav nav-tabs" id="lr-mon-tabs" role="tablist">
+      <li class="active"><a href="#lr-mon-overview" data-toggle="tab">{{_('Queue Overview')}}</a></li>
+      <li><a href="#lr-mon-failures" data-toggle="tab">{{_('Failure Categories')}}</a></li>
+      <li><a href="#lr-mon-tasks" data-toggle="tab">{{_('Task Search')}}</a></li>
+      <li><a href="#lr-mon-recovery" data-toggle="tab">{{_('Recovery')}}</a></li>
+    </ul>
+    <div class="tab-content">
+
+    <div class="tab-pane active lr-mon-pane" id="lr-mon-overview">
+      <div class="row">
+        <div class="col-sm-4"><div class="lr-mon-stat"><span class="num" id="lr-mon-st-pending">—</span><span class="lbl">{{_('Pending')}}</span></div></div>
+        <div class="col-sm-4"><div class="lr-mon-stat"><span class="num" id="lr-mon-st-accepted">—</span><span class="lbl">{{_('Accepted')}}</span></div></div>
+        <div class="col-sm-4"><div class="lr-mon-stat"><span class="num" id="lr-mon-st-running">—</span><span class="lbl">{{_('Running')}}</span></div></div>
+      </div>
+      <div class="row">
+        <div class="col-md-7">
+          <table class="table table-condensed table-striped">
+            <thead><tr>
+              <th>{{_('Caller')}}</th><th>{{_('Pending')}}</th><th>{{_('Accepted')}}
+              <th>{{_('Running')}}</th><th>{{_('Completed')}}</th><th>{{_('Failed')}}</th>
+            </tr></thead>
+            <tbody id="lr-mon-ov-callers"><tr><td colspan="6" class="text-muted">{{_('Loading')}}</td></tr></tbody>
+          </table>
+        </div>
+        <div class="col-md-5">
+          <div class="lr-meta">{{_('Hourly throughput (completed / failed, last 24h)')}}</div>
+          <div id="lr-mon-ov-bars" class="lr-mon-bars" style="margin-top:6px"></div>
+          <div class="lr-meta" id="lr-mon-ov-extra" style="margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-pane lr-mon-pane" id="lr-mon-failures">
+      <div class="form-inline" style="margin-bottom:10px">
+        <select class="form-control" id="lr-mon-f-caller"></select>
+        <select class="form-control" id="lr-mon-f-window">
+          <option value="24">24h</option>
+          <option value="72">72h</option>
+          <option value="168">168h</option>
+        </select>
+        <button class="btn btn-default" id="lr-mon-f-load">{{_('Refresh')}}</button>
+      </div>
+      <div class="lr-meta" id="lr-mon-f-summary" style="margin-bottom:6px"></div>
+      <table class="table table-condensed table-striped">
+        <thead><tr>
+          <th>{{_('Category')}}</th><th>{{_('Recovery')}}</th><th>{{_('Count')}}</th>
+          <th>{{_('First failure')}}</th><th>{{_('Last failure')}}</th><th>{{_('Sample message')}}</th>
+          <th>{{_('Error code')}}</th>
+        </tr></thead>
+        <tbody id="lr-mon-f-body"><tr><td colspan="7" class="text-muted">{{_('No failure data loaded yet.')}}</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="tab-pane lr-mon-pane" id="lr-mon-tasks">
+      <div class="row lr-mon-form">
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-caller">{{_('Caller')}}</label>
+          <select class="form-control" id="lr-mon-t-caller"></select></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-status">{{_('Status')}}</label>
+          <select class="form-control" id="lr-mon-t-status">
+            <option value="">{{_('Any status')}}</option>
+            <option>PENDING</option><option>ACCEPTED</option><option>RUNNING</option>
+            <option>SUCCESS</option><option>COMPLETED</option><option>FAILED</option>
+            <option>TIMEOUT</option><option>CANCELED</option>
+          </select></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-error">{{_('Error code')}}</label>
+          <input class="form-control" id="lr-mon-t-error"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-user">{{_('User id')}}</label>
+          <input class="form-control" type="number" id="lr-mon-t-user"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-type">{{_('Task type')}}</label>
+          <input class="form-control" id="lr-mon-t-type"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-keyword">{{_('Keyword')}}</label>
+          <input class="form-control" id="lr-mon-t-keyword"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-from">{{_('Created from')}}</label>
+          <input class="form-control" type="date" id="lr-mon-t-from"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-t-to">{{_('Created to')}}</label>
+          <input class="form-control" type="date" id="lr-mon-t-to"></div>
+      </div>
+      <div class="lr-mon-form-actions">
+        <button class="btn btn-primary" id="lr-mon-t-query">{{_('Search')}}</button>
+        <span class="lr-meta" id="lr-mon-t-hint" style="margin-left:10px">{{_('Keyword search needs a companion filter: caller, status, error code or user id.')}}</span>
+      </div>
+      <div class="lr-meta" id="lr-mon-t-summary" style="margin-bottom:6px"></div>
+      <table class="table table-condensed table-striped">
+        <thead><tr>
+          <th>ID</th><th>{{_('Caller')}}</th><th>{{_('Status')}}</th><th>{{_('Type')}}
+          <th>{{_('Provider / Model')}}</th><th>{{_('Error code')}}</th><th>{{_('Latency')}}
+          <th>{{_('Tokens')}}</th><th>{{_('Created')}}</th>
+        </tr></thead>
+        <tbody id="lr-mon-t-body"><tr><td colspan="9" class="text-muted">{{_('Run a search to list tasks.')}}</td></tr></tbody>
+      </table>
+      <div class="form-inline">
+        <button class="btn btn-default" id="lr-mon-t-prev">‹</button>
+        <span class="lr-meta" id="lr-mon-t-page" style="margin:0 8px"></span>
+        <button class="btn btn-default" id="lr-mon-t-next">›</button>
+      </div>
+    </div>
+
+    <div class="tab-pane lr-mon-pane" id="lr-mon-recovery">
+      <div class="row lr-mon-form">
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-r-caller">{{_('Caller')}}</label>
+          <select class="form-control" id="lr-mon-r-caller"></select></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-r-category">{{_('Category')}}</label>
+          <select class="form-control" id="lr-mon-r-category">
+            <option value="">{{_('Any category')}}</option>
+            <option>STALE_CLAIM</option><option>STALE_EXHAUSTED</option><option>ZOMBIE_RUNNING</option>
+            <option>NETWORK</option><option>TIMEOUT</option><option>RATE_LIMIT</option>
+            <option>CONTENT_FILTER</option><option>AUTH</option><option>OUTPUT_INVALID</option>
+            <option>UNKNOWN</option>
+          </select></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-r-error">{{_('Error code')}}</label>
+          <input class="form-control" id="lr-mon-r-error"></div>
+        <div class="form-group col-sm-6 col-md-3"><label for="lr-mon-r-limit">{{_('Plan limit')}}</label>
+          <input class="form-control" type="number" id="lr-mon-r-limit" min="1" value="100"></div>
+      </div>
+      <div class="lr-mon-form-actions">
+        <button class="btn btn-primary" id="lr-mon-r-plan">{{_('Generate Recovery Plan')}}</button>
+        <span class="lr-meta" style="margin-left:10px">{{_('The plan is read-only. Republishing failed tasks consumes real model quota and cannot be undone.')}}</span>
+      </div>
+      <div id="lr-mon-r-result"></div>
+      <button class="btn btn-danger" id="lr-mon-r-confirm" style="display:none;margin-top:8px"></button>
+    </div>
+
+    </div>{# /tab-content（监控子 Tab）#}
+    </div>{# /#lr-pane-monitor #}
+    </div>{# /顶层 tab-content #}
+
+    {# 任务详情模态框（Bootstrap 3 组件，任务行点击打开）#}
+    <div class="modal fade" id="lr-mon-detail" tabindex="-1" role="dialog">
+      <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">&times;</button>
+            <h4 class="modal-title" id="lr-mon-d-title"></h4>
+          </div>
+          <div class="modal-body" id="lr-mon-d-body"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -319,6 +494,442 @@
     });
 
     loadOptions();
+})();
+</script>
+<script>
+{# R130 队列监控脚本：独立 IIFE，与上方 R126 脚本不共享作用域（各自独立加载、互不影响）。
+   同款约束：字符串必须经 Jinja 的翻译调用渲染、译文不含撇号（autoescape 会把它塞成 &#39;）。 #}
+(function () {
+    var CSRF = document.getElementById('lr-csrf').value;
+    var T = {
+        requestFailed: '{{_('Request failed')}}',
+        oldestPending: '{{_('Oldest pending')}}',
+        lastFinished: '{{_('Last finished')}}',
+        rate: '{{_('Rate per hour')}}',
+        staleWarn: '{{_('Stale ACCEPTED tasks detected')}}',
+        reclaimed: '{{_('Auto reclaimed / exhausted')}}',
+        allCallers: '{{_('All callers')}}',
+        category: '{{_('Category')}}',
+        recovery: '{{_('Recovery')}}',
+        count: '{{_('Count')}}',
+        autoRequeue: '{{_('Auto requeue by server')}}',
+        forbidden: '{{_('Republish forbidden')}}',
+        manual: '{{_('Needs manual handling')}}',
+        recoverThese: '{{_('Recover these')}}',
+        totalFailed: '{{_('Failed in window')}}',
+        unknownShare: '{{_('Unknown share')}}',
+        emptyRow: '{{_('No data.')}}',
+        planTitle: '{{_('Recovery plan (read-only)')}}',
+        replayEligible: '{{_('Replay eligible')}}',
+        eligible: '{{_('Republish eligible')}}',
+        planLimit: '{{_('Plan limit')}}',
+        republished: '{{_('Republished')}}',
+        skippedDuplicate: '{{_('Skipped duplicates')}}',
+        skippedForbidden: '{{_('Skipped forbidden categories')}}',
+        failedItems: '{{_('Failed items')}}',
+        blockedTitle: '{{_('Blocked by the server')}}',
+        pickCaller: '{{_('Pick a caller first.')}}',
+        loadPlanFirst: '{{_('Generate the recovery plan first.')}}',
+        confirmBtn: '{{_('Confirm Republish of {N} tasks')}}',
+        confirmRepublish: '{{_('Republish {N} failed tasks of {C} now? This consumes real model quota and cannot be undone.')}}',
+        showAll: '{{_('Show all')}}',
+        parameters: '{{_('Parameters')}}',
+        inputText: '{{_('Input')}}',
+        outputText: '{{_('Output')}}'
+    };
+
+    function note(kind, message) {
+        var box = document.getElementById('lr-mon-alert');
+        box.className = 'alert alert-' + kind;
+        box.textContent = message || '';
+        box.style.display = message ? 'block' : 'none';
+    }
+
+    function reportError(error) {
+        note('danger', (error && error.message) || String(error));
+    }
+
+    function ajax(url, payload) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF},
+            body: JSON.stringify(payload || {})
+        }).then(function (resp) {
+            return resp.json().catch(function () { return {message: 'HTTP ' + resp.status}; });
+        }).then(function (response) {
+            if (!response || response.success !== true) {
+                var error = new Error((response && response.message) || T.requestFailed);
+                return Promise.reject(error);
+            }
+            return response.result;
+        });
+    }
+
+    function esc(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function fmtTime(value) {
+        if (!value) { return '—'; }
+        if (Array.isArray(value)) {
+            return value.slice(0, 3).join('-') + ' ' + value.slice(3, 6).join(':');
+        }
+        return String(value).slice(0, 19).replace('T', ' ');
+    }
+
+    function refreshCallerOptions(select, callers, blankLabel) {
+        var previous = select.value;
+        select.innerHTML = '';
+        if (blankLabel) {
+            var blank = document.createElement('option');
+            blank.value = '';
+            blank.textContent = blankLabel;
+            select.appendChild(blank);
+        }
+        callers.forEach(function (row) {
+            var option = document.createElement('option');
+            option.value = row.caller;
+            option.textContent = row.caller;
+            select.appendChild(option);
+        });
+        if (previous && callers.some(function (row) { return row.caller === previous; })) {
+            select.value = previous;
+        }
+    }
+
+    // ---------- 区块一：总览（15s 轮询，页面不可见时跳过本轮） ----------
+    function renderThroughput(rows) {
+        var host = document.getElementById('lr-mon-ov-bars');
+        if (!rows.length) { host.innerHTML = ''; return; }
+        var peak = 1;
+        rows.forEach(function (row) {
+            var total = (row.completed || 0) + (row.failed || 0);
+            if (total > peak) { peak = total; }
+        });
+        host.innerHTML = rows.map(function (row) {
+            var ok = Math.round(36 * (row.completed || 0) / peak);
+            var bad = Math.round(36 * (row.failed || 0) / peak);
+            return '<div class="bar" title="' + esc(fmtTime(row.hour)) + ' ok ' + (row.completed || 0)
+                + ' / failed ' + (row.failed || 0) + '"><div class="b-ok" style="height:' + ok
+                + 'px"></div><div class="b-bad" style="height:' + bad + 'px"></div></div>';
+        }).join('');
+    }
+
+    function renderOverview(data) {
+        // 三个大数字 stat 块（textContent：值恒为服务端数字）
+        var stats = {pending: data.pendingCount, accepted: data.acceptedCount, running: data.runningCount};
+        Object.keys(stats).forEach(function (key) {
+            document.getElementById('lr-mon-st-' + key).textContent = stats[key];
+        });
+        var callers = data.callers || [];
+        refreshCallerOptions(document.getElementById('lr-mon-f-caller'), callers, T.allCallers);
+        refreshCallerOptions(document.getElementById('lr-mon-t-caller'), callers, T.allCallers);
+        refreshCallerOptions(document.getElementById('lr-mon-r-caller'), callers, null);
+        document.getElementById('lr-mon-ov-callers').innerHTML = callers.length
+            ? callers.map(function (row) {
+                return '<tr><td>' + esc(row.caller) + '</td><td>' + row.pending + '</td><td>'
+                    + row.accepted + '</td><td>' + row.running + '</td><td class="lr-ok">'
+                    + row.completed + '</td><td class="' + (row.failed > 0 ? 'lr-bad' : '') + '">'
+                    + row.failed + '</td></tr>';
+            }).join('')
+            : '<tr><td colspan="6" class="text-muted">' + T.emptyRow + '</td></tr>';
+        renderThroughput(data.throughput || []);
+        var extra = [];
+        if (data.oldestPendingCreatedAt) { extra.push(T.oldestPending + ': ' + fmtTime(data.oldestPendingCreatedAt)); }
+        if (data.lastFinishedAt) { extra.push(T.lastFinished + ': ' + fmtTime(data.lastFinishedAt)); }
+        if (typeof data.ratePerHour === 'number') { extra.push(T.rate + ': ' + data.ratePerHour.toFixed(1)); }
+        var stale = data.stale || {};
+        if (stale.acceptedOverThreshold) {
+            extra.push('<span class="lr-warn">' + T.staleWarn + ': ' + stale.acceptedOverThreshold + '</span>');
+        }
+        var reclaim = data.reclaim || {};
+        if (reclaim.requeued || reclaim.exhausted) {
+            extra.push(T.reclaimed + ': ' + reclaim.requeued + ' / ' + reclaim.exhausted);
+        }
+        document.getElementById('lr-mon-ov-extra').innerHTML = extra.join('   ·   ');
+    }
+
+    function loadOverview() {
+        ajax('{{ url_for("web.llm_task_overview") }}', {}).then(renderOverview, reportError);
+    }
+
+    loadOverview();
+    setInterval(function () { if (!document.hidden) { loadOverview(); } }, 15000);
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) { loadOverview(); }
+    });
+
+    // ---------- 区块二：失败分类 ----------
+    function recoveryCell(bucket) {
+        // R130 口径：AUTO_REQUEUE / FORBIDDEN 桶只读（服务端自动回收 / 禁止重发），
+        // 不渲染动作按钮——重发入口只走区块四，且按 recovery 白名单放行
+        var readOnly = bucket.recovery === 'AUTO_REQUEUE' || bucket.recovery === 'FORBIDDEN';
+        var label = bucket.recovery === 'AUTO_REQUEUE' ? T.autoRequeue
+            : bucket.recovery === 'FORBIDDEN' ? T.forbidden
+            : bucket.recovery === 'MANUAL' ? T.manual : esc(bucket.recovery);
+        var badge = '<span class="label label-default">' + label + '</span>';
+        if (readOnly || bucket.recovery === 'MANUAL') { return badge; }
+        return badge + ' <button class="btn btn-xs btn-default" data-mon-recover="'
+            + esc(bucket.category) + '">' + T.recoverThese + '</button>';
+    }
+
+    function loadFailures() {
+        var payload = {sinceHours: parseInt(document.getElementById('lr-mon-f-window').value, 10) || 24};
+        var caller = document.getElementById('lr-mon-f-caller').value;
+        if (caller) { payload.caller = caller; }
+        ajax('{{ url_for("web.llm_task_failures") }}', payload).then(function (data) {
+            var summary = T.totalFailed + ': ' + data.totalFailed;
+            if (typeof data.unknownRatio === 'number') {
+                summary += '   ·   ' + T.unknownShare + ': ' + Math.round(data.unknownRatio * 100) + '%';
+            }
+            document.getElementById('lr-mon-f-summary').textContent = summary;
+            var buckets = data.buckets || [];
+            document.getElementById('lr-mon-f-body').innerHTML = buckets.length ? buckets.map(function (b) {
+                return '<tr><td>' + esc(b.category) + '</td><td>' + recoveryCell(b) + '</td><td>'
+                    + b.count + '</td><td>' + fmtTime(b.firstAt) + '</td><td>' + fmtTime(b.lastAt)
+                    + '</td><td class="lr-meta">' + esc(b.sampleMessage || '') + '</td><td class="lr-meta">'
+                    + esc(b.matchedErrorCode || '') + '</td></tr>';
+            }).join('') : '<tr><td colspan="7" class="text-muted">' + T.emptyRow + '</td></tr>';
+        }, reportError);
+    }
+
+    document.getElementById('lr-mon-f-load').addEventListener('click', loadFailures);
+
+    // 「去恢复此类」按钮：预填区块四的 caller + category（ delegation：表格行是重建的）
+    document.getElementById('lr-mon-f-body').addEventListener('click', function (event) {
+        var button = event.target.closest ? event.target.closest('[data-mon-recover]') : null;
+        if (!button) { return; }
+        var caller = document.getElementById('lr-mon-f-caller').value;
+        if (caller) { document.getElementById('lr-mon-r-caller').value = caller; }
+        document.getElementById('lr-mon-r-category').value = button.getAttribute('data-mon-recover');
+        // Tab 化后跳转 = 切到恢复 Tab（data-toggle 由 bootstrap.js 监听 click），再滚到区块顶
+        var tab = document.querySelector('a[href="#lr-mon-recovery"]');
+        if (tab) { tab.click(); }
+        document.getElementById('lr-mon-recovery').scrollIntoView();
+    });
+
+    // ---------- 区块三：任务查询与详情 ----------
+    var taskPage = {no: 1, total: 0, pageSize: 50};
+
+    function collectTaskFilters() {
+        var keyword = document.getElementById('lr-mon-t-keyword').value.trim();
+        var caller = document.getElementById('lr-mon-t-caller').value;
+        var status = document.getElementById('lr-mon-t-status').value;
+        var errorCode = document.getElementById('lr-mon-t-error').value.trim();
+        var userRaw = document.getElementById('lr-mon-t-user').value.trim();
+        var taskType = document.getElementById('lr-mon-t-type').value.trim();
+        var from = document.getElementById('lr-mon-t-from').value;
+        var to = document.getElementById('lr-mon-t-to').value;
+        var body = {pageNo: taskPage.no, pageSize: taskPage.pageSize};
+        if (caller) { body.caller = caller; }
+        if (status) { body.status = status; }
+        if (errorCode) { body.errorCode = errorCode; }
+        if (userRaw) { body.userId = parseInt(userRaw, 10); }
+        if (taskType) { body.taskType = taskType; }
+        if (keyword) { body.keyword = keyword; }
+        if (from) { body.createdFrom = from + 'T00:00:00'; }
+        if (to) { body.createdTo = to + 'T23:59:59'; }
+        return {body: body, keyword: keyword,
+                companion: !!(caller || status || errorCode || userRaw)};
+    }
+
+    function keywordGate() {
+        // moon-well 强制 keyword 必须搭配 caller/status/errorCode/userId 之一（防 LOB
+        // 全表扫）；前端提前拦下并提示，不给服务端留 4xx 的机会
+        var f = collectTaskFilters();
+        var blocked = !!f.keyword && !f.companion;
+        document.getElementById('lr-mon-t-hint').style.color = blocked ? '#a94442' : '#777';
+        document.getElementById('lr-mon-t-query').disabled = blocked;
+        return !blocked;
+    }
+
+    function statusClass(status) {
+        if (status === 'COMPLETED' || status === 'SUCCESS') { return 'lr-ok'; }
+        if (status === 'FAILED' || status === 'TIMEOUT') { return 'lr-bad'; }
+        if (status === 'RUNNING' || status === 'ACCEPTED') { return 'lr-warn'; }
+        return '';
+    }
+
+    function queryTasks(resetPage) {
+        if (!keywordGate()) { return; }
+        if (resetPage) { taskPage.no = 1; }
+        var f = collectTaskFilters();
+        ajax('{{ url_for("web.llm_task_admin_page") }}', f.body).then(function (data) {
+            var records = data.records || [];
+            taskPage.total = data.total || 0;
+            var pages = Math.max(1, Math.ceil(taskPage.total / taskPage.pageSize));
+            document.getElementById('lr-mon-t-summary').textContent = records.length + ' / ' + taskPage.total;
+            document.getElementById('lr-mon-t-body').innerHTML = records.length ? records.map(function (row) {
+                return '<tr class="lr-mon-sel" data-mon-task="' + row.taskId + '"><td>' + row.taskId
+                    + '</td><td>' + esc(row.caller) + '</td><td class="' + statusClass(row.status) + '">'
+                    + esc(row.status) + '</td><td>' + esc(row.taskType) + '</td><td class="lr-meta">'
+                    + esc(row.provider || '') + (row.model ? ' / ' + esc(row.model) : '')
+                    + '</td><td class="lr-meta">' + esc(row.errorCode || '') + '</td><td>'
+                    + (row.latencyMs == null ? '—' : row.latencyMs) + '</td><td>'
+                    + (row.totalTokens == null ? '—' : row.totalTokens) + '</td><td class="lr-meta">'
+                    + fmtTime(row.createdAt) + '</td></tr>';
+            }).join('') : '<tr><td colspan="9" class="text-muted">' + T.emptyRow + '</td></tr>';
+            document.getElementById('lr-mon-t-page').textContent = taskPage.no + ' / ' + pages;
+            document.getElementById('lr-mon-t-prev').disabled = taskPage.no <= 1;
+            document.getElementById('lr-mon-t-next').disabled = taskPage.no >= pages;
+        }, reportError);
+    }
+
+    ['lr-mon-t-keyword', 'lr-mon-t-caller', 'lr-mon-t-status', 'lr-mon-t-error', 'lr-mon-t-user']
+        .forEach(function (id) {
+            document.getElementById(id).addEventListener('input', keywordGate);
+            document.getElementById(id).addEventListener('change', keywordGate);
+        });
+    document.getElementById('lr-mon-t-query').addEventListener('click', function () { queryTasks(true); });
+    document.getElementById('lr-mon-t-prev').addEventListener('click', function () {
+        if (taskPage.no > 1) { taskPage.no -= 1; queryTasks(false); }
+    });
+    document.getElementById('lr-mon-t-next').addEventListener('click', function () {
+        taskPage.no += 1; queryTasks(false);
+    });
+
+    var detailCache = {};
+
+    function clipBlock(value, key) {
+        var text = String(value == null ? '' : value);
+        var limit = 2000;
+        if (!text) { return '<pre class="lr-mon-pre">—</pre>'; }
+        if (text.length <= limit) { return '<pre class="lr-mon-pre">' + esc(text) + '</pre>'; }
+        return '<pre class="lr-mon-pre" data-mon-clipped="' + key + '">' + esc(text.slice(0, limit))
+            + '…</pre><button class="btn btn-xs btn-default" data-mon-expand="' + key + '">'
+            + T.showAll + ' (' + text.length + ')</button>';
+    }
+
+    function openDetail(taskId) {
+        ajax('{{ url_for("web.llm_task_detail") }}', {taskId: taskId}).then(function (d) {
+            detailCache = {input: d.input || '', output: d.output || ''};
+            document.getElementById('lr-mon-d-title').textContent =
+                '#' + d.taskId + ' · ' + (d.caller || '') + ' · ' + (d.status || '');
+            var rows = [
+                ['requestId', d.requestId], ['userId', d.userId], ['mode', d.mode],
+                ['taskType', d.taskType], ['priority', d.priority], ['provider', d.provider],
+                ['model', d.model], ['acceptedBy', d.acceptedBy], ['acceptedAt', fmtTime(d.acceptedAt)],
+                ['latencyMs', d.latencyMs], ['errorCode', d.errorCode], ['errorMessage', esc(d.errorMessage)]
+            ];
+            var html = '<dl class="dl-horizontal">' + rows.map(function (pair) {
+                var value = (pair[1] === null || pair[1] === undefined || pair[1] === '') ? '—' : pair[1];
+                return '<dt>' + pair[0] + '</dt><dd>' + value + '</dd>';
+            }).join('') + '</dl>';
+            html += '<h5>' + T.parameters + '</h5><pre class="lr-mon-pre">'
+                + esc(JSON.stringify(d.parameters || {}, null, 2)) + '</pre>';
+            html += '<h5>' + T.inputText + '</h5>' + clipBlock(d.input, 'input');
+            html += '<h5>' + T.outputText + '</h5>' + clipBlock(d.output, 'output');
+            document.getElementById('lr-mon-d-body').innerHTML = html;
+            var modal = document.getElementById('lr-mon-detail');
+            if (window.jQuery) { window.jQuery(modal).modal('show'); }
+            else { modal.classList.add('in'); modal.style.display = 'block'; }
+        }, reportError);
+    }
+
+    document.getElementById('lr-mon-t-body').addEventListener('click', function (event) {
+        var tr = event.target.closest ? event.target.closest('tr[data-mon-task]') : null;
+        if (!tr) { return; }
+        openDetail(parseInt(tr.getAttribute('data-mon-task'), 10));
+    });
+
+    document.getElementById('lr-mon-d-body').addEventListener('click', function (event) {
+        var button = event.target.closest ? event.target.closest('[data-mon-expand]') : null;
+        if (!button) { return; }
+        event.preventDefault();
+        var key = button.getAttribute('data-mon-expand');
+        var pre = document.querySelector('#lr-mon-d-body pre[data-mon-clipped="' + key + '"]');
+        if (pre) { pre.textContent = detailCache[key] || ''; }
+        button.parentNode.removeChild(button);
+    });
+
+    // ---------- 区块四：恢复（plan 只读 → 二次确认 → republish） ----------
+    var recoveryBody = null;
+    var lastPlan = null;
+
+    function buildRecoveryBody(withConfirm) {
+        var body = {
+            caller: document.getElementById('lr-mon-r-caller').value,
+            limit: parseInt(document.getElementById('lr-mon-r-limit').value, 10) || 0
+        };
+        var category = document.getElementById('lr-mon-r-category').value;
+        var errorCode = document.getElementById('lr-mon-r-error').value.trim();
+        if (category) { body.category = category; }
+        if (errorCode) { body.errorCode = errorCode; }
+        // 预案请求恒不带 confirm：moon-well 对非 true 只回 PLAN 零写库，但代理层
+        // 不替用户拼这个字段——两步语义（先看后发）在前端显式表达
+        if (withConfirm) { body.confirm = true; }
+        return body;
+    }
+
+    function planTable(data) {
+        var rows = (data.byCategory || []).map(function (item) {
+            return '<tr><td>' + esc(item.category) + '</td><td>' + esc(item.recovery) + '</td><td>'
+                + item.count + '</td><td class="lr-meta">#'
+                + (item.sampleTaskId == null ? '—' : item.sampleTaskId) + '</td></tr>';
+        }).join('');
+        if (!rows) { return ''; }
+        return '<table class="table table-condensed table-striped"><thead><tr><th>' + T.category
+            + '</th><th>' + T.recovery + '</th><th>' + T.count + '</th><th>ID</th></tr></thead><tbody>'
+            + rows + '</tbody></table>';
+    }
+
+    function executedSummary(data) {
+        var parts = [T.republished + ': ' + (data.republished == null ? '—' : data.republished),
+                     T.skippedDuplicate + ': ' + (data.skippedDuplicate == null ? '—' : data.skippedDuplicate),
+                     T.skippedForbidden + ': ' + (data.skippedForbiddenCategory == null ? '—' : data.skippedForbiddenCategory)];
+        var html = '<div class="lr-meta lr-ok">' + parts.join('   ·   ') + '</div>';
+        if (data.failed && data.failed.length) {
+            html += '<div class="lr-meta lr-bad">' + T.failedItems + ':</div><ul>'
+                + data.failed.map(function (item) {
+                    return '<li>#' + item.taskId + ' — ' + esc(item.reason) + '</li>';
+                }).join('') + '</ul>';
+        }
+        return html;
+    }
+
+    function renderRecovery(data) {
+        lastPlan = data;
+        var host = document.getElementById('lr-mon-r-result');
+        var confirmBtn = document.getElementById('lr-mon-r-confirm');
+        if (data.blocked) {
+            host.innerHTML = '<div class="lr-meta lr-bad">' + T.blockedTitle + ': '
+                + esc(data.blockReason || '') + '</div>';
+            confirmBtn.style.display = 'none';
+            return;
+        }
+        var summary = T.planTitle + ': ' + T.totalFailed + ' ' + data.totalFailed
+            + ' · ' + T.replayEligible + ' ' + data.replayEligible
+            + ' · ' + T.eligible + ' ' + data.republishEligible
+            + ' · ' + T.planLimit + ' ' + data.plannedLimit;
+        host.innerHTML = '<div class="lr-meta">' + summary + '</div>' + planTable(data)
+            + (data.mode === 'EXECUTED' ? executedSummary(data) : '');
+        if (data.mode === 'PLAN' && data.republishEligible > 0) {
+            confirmBtn.textContent = T.confirmBtn.replace('{N}', data.plannedLimit);
+            confirmBtn.style.display = 'inline-block';
+        } else {
+            confirmBtn.style.display = 'none';
+        }
+    }
+
+    document.getElementById('lr-mon-r-plan').addEventListener('click', function () {
+        var body = buildRecoveryBody(false);
+        if (!body.caller) { note('danger', T.pickCaller); return; }
+        recoveryBody = body;
+        ajax('{{ url_for("web.llm_task_recovery_plan") }}', body).then(renderRecovery, reportError);
+    });
+
+    document.getElementById('lr-mon-r-confirm').addEventListener('click', function () {
+        if (!recoveryBody || !lastPlan) { note('danger', T.loadPlanFirst); return; }
+        var body = Object.assign({}, recoveryBody, {confirm: true});
+        var text = T.confirmRepublish.replace('{N}', lastPlan.plannedLimit)
+            .replace('{C}', recoveryBody.caller);
+        if (!window.confirm(text)) { return; }
+        ajax('{{ url_for("web.llm_task_republish") }}', body).then(renderRecovery, reportError);
+    });
+
+    loadFailures();
 })();
 </script>
 {% endblock %}
