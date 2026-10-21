@@ -27,18 +27,12 @@
 - `response-archive/response-R174-R177.md`：R174、R176、R177（2026-10-15；2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起）
 - `response-archive/response-R175.md`：R175（2026-10-15；2026-10-16 R188 写入触发轮转搬移，窗口转入 R178 起）
 - `response-archive/response-R178.md`：R178 moon-well 防腐层迁出 web.py（B1，架构评审波 2）（2026-10-15；2026-10-16 R189 写入触发轮转搬移）
+- `response-archive/response-R179.md`：R179 架构评审波 3 · B2 尝试未完成并撤销（2026-10-15；2026-10-21 R190 写入触发轮转搬移，窗口转入 R180 起）
 
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
 
-### R179（架构评审波 3 · B2 尝试：web.py 蓝图分域——本轮未完成，已撤销回基线）
-
-- **做了什么**：盘点 139 路由（core 原版 42 留守 + 定制 97：reading 31/learning 38/credit 19/vocab 9，read/show_book 两条原版阅读入口留在 web.py 不迁）；脚本化迁移 94 段（AST 分析各域依赖生成显式 import）；中途修复段切割的装饰器链 bug（`node.lineno` 不含装饰器行，需用 min(decorator_list.lineno)）与相对导入层级（routes 子包内 web.py 的一级相对导入需升两级 `from ..X`）。
-- **为什么撤销**：迁移后暴露四类连锁问题，剩余上下文不足以安全收尾——① **gdriveutils.py:179 模块级 `os.path.exists(cli_param.gd_path)` 依赖 config 就绪**，routes 的 import 时序使其在部分初始化路径下 TypeError；② 游离 ''' 死字符串块（B1 遗留待确认项）在行删除后**语义扩大**——get_sort_function 与大段原版路由被吞进字符串（863-2303 行），basic.py:32 反向 import 连锁失败；③ 63 处测试桩点全打在 cps.web，routes 迁移后需再迁移；④ 直接 create_app 出现挂起（未定位）。已 `git checkout` 恢复 web.py 并删除 cps/routes/，**全量 549 passed 回到基线绿**。
-- **留存成果（下轮小步重做的完整清单）**：① 域分类清单与 94 段行号映射（本条上方盘点，可重跑盘点脚本再生成）；② 迁移模式定案：延迟注册（web.py 末尾 register_domain_routes(web)）+ endpoint 名不变 + routes 子包内相对导入升两级 + AST 生成显式 import；③ **前置修复清单**：gdriveutils:179 的模块级 config 依赖改为函数内守卫（U 级小修）、getcomic 死块的处置（用户确认）、游离 ''' 清理；④ 分步纪律：**每迁一域跑一次全量**（reading→credit→vocab→learning 顺序，learning 最大殿后）；⑤ 桩点迁移预案（同 L46 模式：迁至 client 实例属性或新桩面）。
-- **台账**：worktree `../magicbook-arch-b5` 无新增 commit（B2 改动已撤销，r177/r178 两个 commit 保留）；web.py 3304 行（HEAD 状态）。未 push。
-- **总结**：requests.md 占号 R179；冲突记录：无；**B2 状态回填 overview：尝试未完成，方案与坑清单已留存**。
 
 ### R180（B2 前置小修两项：getcomic 死块清除激活 + gdriveutils 守卫化）
 
@@ -212,3 +206,15 @@
 - **验证**：全量 `pytest tests/` **603 passed**（无行为变更，唯一代码改动是 api.js 的注释块）；`node --check cps/static/js/common/api.js` 通过。
 - **收尾**：merge 本地 `develop` `2984facb`（分支 `fix/r189-x1-unwrap`，worktree `../magicbook-arch-b5` 驻留待验收）；**未 push**——这批只有文档与注释，是否再触发一次 fnOS 构建由用户定。彩排件已清：moon-well JVM 停、`/tmp/mw-x1` worktree 摘除、`vt-x1-mysql`/`vt-x1-redis` **stopped 但保留**（内含那行 `mk-` 身份，重跑只需 `docker start`）、我起的 8099/18111 静态服务已停。Docker Desktop 是本轮为彩排启动的，仍开着。
 - **冲突记录与自我更正**：并行会话的 v2 迁移（`6e4cb243` + 两条补记，188 号）在我上一条报告之后合入了 develop——**我那句「v2 声明无仓库产物支撑」已过时**，迁移现在是真的（`docs/product/` + `docs/project/` 有物）；我 R187 留下的 DF7 尾巴（`AGENTS.md` 指向已删除的 `docs/kb/project-describe/`）也由他们的迁移顺带清掉，**DF7 至此闭环**。编号无冲突（187=我、188=他们、189=我）。窗口：本条写入使 request 数达 11，按「写入即检查」把最早一节 R178 原样搬至 `response-archive/response-R178.md` 并登记索引。
+
+## 2026-10-21（R190：写作工坊取消两稿上限——恢复历史任务后仍可提交批改）
+
+### R190（用户：恢复历史写作任务、改完文稿后没有可点的「提交 AI」按钮，按钮显示「两稿已完成」）
+
+- **根因（不是渲染缺陷）**：R168 的设计规则是「每任务初稿 + 修订稿两稿封顶」——moon-well 第三稿返回 `50513`，前端 `refreshSubmitButton` 在 `lastDraftNo >= 2` 时主动 `disabled`。用户恢复的正是已完成两稿的历史任务，所以编辑框能改、按钮不能点。用户拍板**放开两稿上限**（不是改成只读回看）。
+- **前端改动**：`learning-writing.js` 删除 `done` 分支与 disable，交过稿后统一「提交修订稿」且始终可点（在途锁仍由 `busy()` 管）；提交后状态行统一为「第 N 稿已批改，可在上面改完再提交」；历史状态改为「已交第 N 稿 · 可继续修订」；一键续写固定指向最近一次写作并带稿状态（不再挑「<2 稿」）。模板按钮改「继续上次的写作」，批改面板提示补「修订次数不限」。
+- **i18n**：`scripts/generate_i18n_seed.py` 追加 `Draft {{n}} reviewed · can keep revising`；`messages.po` 新增 3 条译文并 `pybabel compile` 重编 `.mo`。旧「两稿已完成」词条保留为未引用项（运行时不取）。
+- **测试**：`pytest tests/test_learning_proxy.py tests/test_learning_pages_static.py tests/test_i18n_seed_contract.py` → **90 passed**；新增静态守卫 `test_writing_workshop_never_caps_draft_submissions`（禁止 `btn.disabled = done` / `lastDraftNo >= 2` / 「两稿已完成」回流）。
+- **文档**：L1 `docs/product/readme/learning.md` 改为「修订次数不限」；LLD 落 `docs/project/iterations/2026-10-writing-unlimited/writing-unlimited/lld.md`（状态：开发中）。
+- **收尾**：分支 `fix/r190-writing-unlimited`，merge 本地 `develop` **`67e8409e`**，worktree `../magicbook-r190-writing-unlimited` 驻留待验收；**未 push**。跨仓依赖 moon-well R192（`revise` 稿号顺延）——两仓需一起上线，否则前端放开后第三稿会撞旧 50513。
+- **总结**：requests.md 占号 R190；窗口写入后达 11，按「写入即检查」把最早一节 R179 原样搬至 `response-archive/response-R179.md` 并登记索引；冲突记录：无撞号。
