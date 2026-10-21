@@ -13,6 +13,23 @@
     "use strict";
 
     var RC = window.ReaderCore;
+    // R203：这几个跨模块别名同样是拆分时漏带的——原先是 epub.js 的**函数作用域**变量，
+    // 搬进本文件后没有重新声明，运行时 `ReferenceError`，界面表现全是「点了没反应」：
+    //   RI.translateParagraph → 段落「译」按钮；AN.openPopover → 批注 / AI 批注按钮；
+    //   RT.isActive/stop → 单段朗读与整本连播的「TED 原声让位」（线上报障即此处：
+    //   `ReferenceError: RT is not defined at bookPlayerStart`）。
+    // 静态锁此前两把都漏：拼接 blob 上下文里 epub.js 的 `var RT` 能对上号；「闭包符号」
+    // 那把只扫小写开头 ≥5 字符的标识符。新锁见 tests/test_reader_module_surface.py
+    // 的 test_跨模块别名必须在所属文件内声明（按单文件粒度查）。
+    var RI = window.ReaderImmersive;
+    var AN = window.ReaderAnnotations;
+    // RT 用空实现兜底、RI/AN 不兜底，是刻意的区分：RT 只做「另一路播放器让位」，
+    // 模块缺失时空转比让朗读整条链崩掉更好；而翻译/批注是用户动作，空转就是本类
+    // 事故本身（点了没反应且无任何提示），宁可让 epub.js 的模块缺失检查把话说明白。
+    var RT = window.ReaderTedAudio || {
+        isActive: function () { return false; },
+        stop: function () { }
+    };
     var mbT = window.mbT || function (id) { return id; };
 
     var TTS_ENGINE_KEY = "calibre.reader.ttsEngine";
@@ -22,8 +39,6 @@
         renditionLocation: function () { return null; }
     };
     // ===== 段落朗读（TTS）+ 沉浸式翻译 =====
-
-    var TTS_ENGINE_KEY = "calibre.reader.ttsEngine";
 
     // 翻译内容自动隐藏时长：按原文词数动态折算——配置值是「每 100 词显示的
     // 秒数」，段落/选区越长显示越久，供「看一眼译文继续读原文」的使用方式；
@@ -654,7 +669,7 @@
     function bookPlayerStart() {
         if (!calibre.readingTtsUrl) return;
         stopTts(); // 单段朗读让位
-        if (RT.isActive()) RT.stop();  // TED 原声让位（状态归 reader-ted-audio.js） // TED 原声让位
+        if (RT.isActive()) RT.stop();  // TED 原声让位（状态归 reader-ted-audio.js）
         var content = null;
         try {
             var contents = reader.rendition.getContents();
