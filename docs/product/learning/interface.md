@@ -6,7 +6,7 @@
 
 每日学习中枢与七个子页面（复习队列、听写、口语陪练、复述训练、计时重读、写作工坊、选书难度匹配）的代理与前端接线。词汇、阅读、TTS 等相邻模块不在本文件范围。
 
-本文件当前先补齐 **写作批改 SSE（R192）** 子集；其余学习子功能仍以 `docs/product/readme/learning.md` 与 moon-well L2 为准，后续随演进补齐。
+本文件当前先补齐 **写作批改 SSE（R194）** 子集；其余学习子功能仍以 `docs/product/readme/learning.md` 与 moon-well L2 为准，后续随演进补齐。
 
 ## 写作工坊（writing）
 
@@ -20,7 +20,7 @@
 | `GET /ajax/learning/writing/task` | `GET /learning/writing/task` | 30s | 任务详情 + 各稿正文/批改（续写） |
 | `GET /ajax/learning/writing/history` | `GET /learning/writing/history` | 30s | 写作历史（带 `lastDraftNo`） |
 
-### 2. SSE 进度流（R192，主路径）
+### 2. SSE 进度流（R194，主路径）
 
 | magicbook 端点 | moon-well 端点 | 超时 | 说明 |
 | --- | --- | --- | --- |
@@ -38,7 +38,7 @@
 
 - `cps/static/js/learning-writing.js` 用 `fetch` + `response.body.getReader()` 解析 SSE（不用 `EventSource`：需要 POST body 与 `X-CSRFToken`）。
 - 收到 `status`/`ping` 时状态行显示「批改中… Ns」；收到 `result` 后走既有 `renderReview`，并刷新历史。
-- 回退：仅当 SSE **建连失败或尚未收到任何事件**时，自动改用一次 JSON 端点；已收到 `status`/`ping` 后断网不重试，避免重复批改。后端 R194 的同文并发去重保证回退也不会重复调 LLM。
+- 回退：仅当 SSE **建连失败或尚未收到任何事件**时，自动改用一次 JSON 端点；已收到 `status`/`ping` 后断网不重试，避免重复批改。后端 R196 的同文并发去重保证回退也不会重复调 LLM。
 - LLM 预算：moon-well magpie 单次 150s；代理 210s 覆盖后端 + 落库余量；SSE 心跳让连接不受「整段 210s」限制。
 
 ## 调用方契约

@@ -140,14 +140,14 @@ def learning_writing_revise():
 @web.route("/ajax/learning/writing/submit/stream", methods=["POST"])
 @user_login_required
 def learning_writing_submit_stream():
-    """SSE 透传初稿批改（R192）：status/ping/result/error 分型事件。"""
+    """SSE 透传初稿批改（R194）：status/ping/result/error 分型事件。"""
     return _writing_sse_proxy("/learning/writing/submit/stream", "learning writing submit stream")
 
 
 @web.route("/ajax/learning/writing/revise/stream", methods=["POST"])
 @user_login_required
 def learning_writing_revise_stream():
-    """SSE 透传修订稿批改（R192），契约同 submit/stream。"""
+    """SSE 透传修订稿批改（R194），契约同 submit/stream。"""
     return _writing_sse_proxy("/learning/writing/revise/stream", "learning writing revise stream")
 
 

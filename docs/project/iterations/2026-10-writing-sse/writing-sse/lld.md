@@ -1,7 +1,7 @@
-# 写作批改 SSE 进度流（magicbook R192）· LLD
+# 写作批改 SSE 进度流（magicbook R194）· LLD
 
-**状态**：开发完成，待合并 / 真机验收（2026-10-21）
-**同源**：moon-well R194（后端 SSE + 在途去重）；承接 magicbook R190/R191、moon-well R192/R193
+**状态**：已上线（2026-10-21，merge `4cded68c`，fnOS build END OK + 部署 SUCCESS，容器 healthy；线上 JS 已含 `postSse`）
+**同源**：moon-well R196（后端 SSE + 在途去重）；承接 magicbook R190/R191、moon-well R192/R193
 
 ## 1. 问题与目标
 
@@ -38,7 +38,7 @@
 - `status` → 状态行「Reviewing…」；`ping` → 「Reviewing… Ns」，`elapsedMs` 由后端给，前端不自己猜。
 - `result` → `resultOf({data: payload})` 解统一信封 → 既有 `renderReview`，更新 `writing.lastDraftNo`，刷新历史。
 - `error` → 用 `Result.message` 直接展示；标记 `streamStarted=true`，不触发 JSON 回退。
-- 回退：仅当 SSE 建连失败、HTTP 非 200、或**尚未收到任何事件**就断网时，自动走一次 JSON 端点；已收到 `status`/`ping` 后断网不重试。后端 R194 同文在途去重保证回退不会重复调 LLM。
+- 回退：仅当 SSE 建连失败、HTTP 非 200、或**尚未收到任何事件**就断网时，自动走一次 JSON 端点；已收到 `status`/`ping` 后断网不重试。后端 R196 同文在途去重保证回退不会重复调 LLM。
 - `finally`：释放 `busy()` 锁并按当前稿态刷新按钮文案；不引入自动重试。
 
 模板 `learning_writing.html` 注入 `writingSubmitStream` / `writingReviseStream` 两个 URL。
@@ -71,6 +71,7 @@ data: {"success":false,"code":50515,"message":"正文太短"}
 - `tests/test_i18n_seed_contract.py`：新增 `Connection error` 种子词条与 po/mo 中文译文一致。
 - 开发态合并闸门：`test_learning_proxy.py` + 上述三文件 **98 passed**（Python 3.8，2026-10-21）。
 - 全量基线：`pytest -q` → **630 passed / 13 failed**；13 个失败全是既有 Python 3.8 / 缺书籍 fixture 基线（TTS、metadata outbound 等），本轮新增测试全部通过。
+- 生产验收（2026-10-21 17:15，fnOS build END OK `4cded68c`）：magicbook 容器 `Up (healthy)`；线上 `learning-writing.js` 已含 `streamEndpoint` / `postSse` / `getReader`，模板已注入 `writingSubmitStream` / `writingReviseStream` 两个 URL。后端 SSE 直连实测见 moon-well R196 LLD：首条 ping 5.01s、result 前每 5s 一条、87.61s 返回 result；代理层 `X-Accel-Buffering: no` 与 401 刷新由 `test_learning_writing_sse.py` 的 6 条契约测试锁定。
 - `node --check cps/static/js/learning-writing.js` 通过；`python3 -m py_compile cps/routes/learning.py` 通过。
 - 真机验收：长文批改期间每 5s 看到等待秒数；完成后正常渲染；断网/刷新后历史仍能看到已保存结果；同文重试不多稿。
 

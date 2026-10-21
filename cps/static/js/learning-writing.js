@@ -56,7 +56,7 @@
     return writing.lastDraftNo && writing.lastDraftNo >= 1 ? urls.writingRevise : urls.writingSubmit;
   }
 
-  /** R192：SSE 端点与 JSON 端点同源；旧模板没注入 URL 时返回 null，调用方回退 JSON。 */
+  /** R194：SSE 端点与 JSON 端点同源；旧模板没注入 URL 时返回 null，调用方回退 JSON。 */
   function streamEndpoint() {
     return writing.lastDraftNo && writing.lastDraftNo >= 1
       ? (urls.writingReviseStream || null)
@@ -225,7 +225,7 @@
   }
 
   /**
-   * POST + SSE 读取（R192）：与 /ai/agent/chat 一样用 fetch + ReadableStream，
+   * POST + SSE 读取（R194）：与 /ai/agent/chat 一样用 fetch + ReadableStream，
    * 而不是 EventSource——需要 POST body 和 X-CSRFToken。
    *
    * 成功 resolve 为 Review；业务 error 事件 reject 一个带 streamStarted=true 的
