@@ -153,19 +153,10 @@ def _do_import(book, book_id, ebook, cover):
     filepath = os.path.normpath(os.path.join(config.get_book_path(), book.path))
     saved_filename = os.path.join(filepath, file_name + ".epub")
 
-    # 封面先落盘：失败即 415 返回，EPUB 不受影响（save_cover 原子写 cover.jpg）
-    if cover is not None and cover.filename != "":
-        try:
-            ret, message = helper.save_cover(cover, book.path)
-        except Exception as e:  # noqa: BLE001
-            ret, message = False, str(e)
-        if not ret:
-            log.warning("book-import: cover rejected for book=%s: %s", book_id, message)
-            return jsonify({"error": "cover rejected: " + str(message)}), 415
-        helper.replace_cover_thumbnail_cache(book_id)
-
-    # EPUB 写临时文件 + 精确校验 + os.replace 原子换入：
-    # Why: 直接覆盖后再删会把新旧文件一并毁掉（评审实锤），任何失败必须保住上一版。
+    # R198：正文先落定、封面后换。
+    # Why: 旧顺序是先 save_cover 再写 EPUB —— EPUB 超限/写盘失败时书库封面
+    # 已经换成新版、正文仍是旧版，内容与封面版本错配且用户看不出异常。
+    # MIME 仍在入口处校验（415 fail-fast），这里只处理落盘级失败。
     if not os.path.exists(filepath):
         try:
             os.makedirs(filepath)
@@ -185,6 +176,19 @@ def _do_import(book, book_id, ebook, cover):
     finally:
         if os.path.exists(tmp_filename):
             os.remove(tmp_filename)
+
+    # 正文已原子生效；封面失败降级为告警 + coverError，不回滚、不阻断导入
+    cover_error = None
+    if cover is not None and cover.filename != "":
+        try:
+            ret, message = helper.save_cover(cover, book.path)
+        except Exception as e:  # noqa: BLE001
+            ret, message = False, str(e)
+        if ret:
+            helper.replace_cover_thumbnail_cache(book_id)
+        else:
+            cover_error = str(message)
+            log.warning("book-import: cover rejected for book=%s: %s", book_id, message)
 
     try:
         if not calibre_db.get_book_format(book_id, "EPUB"):
@@ -210,14 +214,18 @@ def _do_import(book, book_id, ebook, cover):
     if trigger:
         job_id, translation_error = _trigger_translation(book_id)
 
+    payload = {"bookId": book_id, "format": "EPUB", "size": file_size,
+               "fingerprint": fingerprint, "translationJobId": job_id}
+    if cover_error:
+        payload["coverError"] = cover_error
+
     if translation_error and job_id is None:
         # 文件已生效，翻译可独立补触发：502 让连接器按 §7 告警/重试
-        return jsonify({"bookId": book_id, "format": "EPUB", "size": file_size,
-                        "fingerprint": fingerprint, "translationJobId": None,
-                        "translationError": translation_error}), 502
+        payload["translationJobId"] = None
+        payload["translationError"] = translation_error
+        return jsonify(payload), 502
 
-    return jsonify({"bookId": book_id, "format": "EPUB", "size": file_size,
-                    "fingerprint": fingerprint, "translationJobId": job_id})
+    return jsonify(payload)
 
 
 def _trigger_translation(book_id):

@@ -162,3 +162,19 @@
 193. 部署链收敛 fnOS 单链 + 部署前按代码指纹判等（承 R192；跨仓同源 app-manager R52 / moon-well R195；用户拍板「只留 fnOS 链，部署之前检查 docker 镜像，如果当前镜像并没有真的改变则不触发重新部署」）：①**单链**——GHA workflow 只留 `workflow_dispatch`，`push` 不再触发，删掉 `changes` job（GitHub 侧已 `disabled_manually`）；②**指纹**——构建时打 `house.code-digest`（非文档文件树摘要）+ `house.build-sha` label；③**判等**——新增 `deploy/fnos/deploy.sh`（`/app/magicbook/deploy.sh` 的版本化副本，此前只存在于 fnOS 项目目录、未入库），`pull` 后比新镜像与在跑容器的指纹，一致则打印「镜像代码指纹未变 -> 跳过重启」并退出，不停容器、不 `up -d`。worktree 开发，push 闸门留用户。
 
 194. 写作批改改为 SSE 进度流（承接 R190/R191 / moon-well R196）：批改实测 70–150s，前端全程只转圈；任何中间层或部署超过预算仍可能掐断连接，用户只看到 503。改为：moon-well 新增 `submit/stream`、`revise/stream`，事件 `status/ping/result/error`；magicbook 新增 SSE 代理与 `fetch + ReadableStream` 解析，状态行显示已等待秒数；保留 JSON 端点回退，断线不取消批改，结果继续落库；同 `taskId + 正文 + submit/revise` 的并发请求共享一次批改。非目标：模型 token 级流式、异步 job、blue-green drain。跨仓同源：moon-well R196。
+
+195. 博客导入链（Halo→magicbook）不足盘点与修复 ①（PingCode MAGICBOOK-206）：连接器 `state.json` 跨书并发读写竞态。用户指令「检查 magicbook 的博客导入和 ted 导入的功能还有哪些不足」→「这些问题拆分记录进 pingcode，然后开始修复」。根因：`tools/connector/server.py` 的 `_load_state()/_save_state()` 是整份读-改-写，只有 per-slug 锁（`_slug_lock`），而 `Dockerfile` 用 `gunicorn --threads 4` ⇒ 两本书同时发布时互相覆盖，丢掉对方的 `last_sha`；下次该书发布时该 sha 被当作「新版本」重新导入并重建整本翻译（文件 mtime 变 ⇒ fingerprint 变），白烧积分。修法：新增模块级 `_state_lock`，把「读 → 改 → 写」整体包进临界区（per-slug 锁保留，防同书重入）。worktree 开发，push 闸门留用户。
+
+196. 博客导入链不足修复 ②（MAGICBOOK-207）：Halo 事件只认 `NEW_POST`，文章修订/重新发布可能不触发重导。现状 `server.py` 对 `payload.eventType != "NEW_POST"` 直接返回 ignored；而本链路的事实源语义是「Halo 最新发布版为准」，修订版同样需要进书。修法：事件白名单配置化（`CONNECTOR_EVENTS`，默认 `NEW_POST,UPDATE_POST`），命中即处理；未配置也不放宽到 DELETE 类事件。Halo 2.26.1 实际事件枚举待真机抓一次 webhook 日志核实。worktree 开发，push 闸门留用户。
+
+197. 博客导入链不足修复 ③（MAGICBOOK-208）：无手动补账/对账入口，webhook 丢失后书静默过期。现状连接器只有 `/hooks/halo` 与 `/healthz`，连接器停机期间 Halo 的发布事件丢掉就只能去 Halo 手动重发布。修法：新增 `POST /resync`（沿用 `X-Hook-Token` 鉴权，body 可带 `{slugs:[...]}`，缺省=映射表全量），逐条走 `_process_slug`（sha 不变自动 no-op），返回每条结果；单条失败不中断整批，末尾汇总。worktree 开发，push 闸门留用户。
+
+198. 博客导入链不足修复 ④（MAGICBOOK-209）：封面先于 EPUB 落盘，EPUB 失败时封面已被替换（内容/封面版本不一致）。`cps/book_import.py` 的 `_do_import` 先 `helper.save_cover` + 刷缩略图，再写 EPUB；EPUB 校验失败或超限时封面已生效。修法：调整顺序为「EPUB 临时文件 → 校验 → 原子换入 → 再换封面」，封面失败降级为告警（EPUB 已生效，不回滚），响应体新增 `coverError` 字段（仅降级时出现，正常路径与旧契约一致）。worktree 开发，push 闸门留用户。
+
+199. 博客导入 EPUB 构建的体验缺口（MAGICBOOK-210，本轮仅记录、不修）：① H2 不进 TOC（LLD §3.2 写「H2 进 TOC」，`builder.py` 的 nav/ncx 只列 H1 章节）；② H1 只识别单空格 ATX（`_H1_RE`），setext 标题与 `#标题`（无空格）不进章节；③ 图片只重写双引号 `src`（`_IMG_SRC_RE`），`srcset`/单引号/无引号 src 漏下载，正文仍指向外站（离线不可读）。待真机验收后按需排期。
+
+200. TED 原声伴听链路不足修复 ①（MAGICBOOK-211，关键）：bookId 跨服务语义错位。magicbook 前端 `reader-ted-audio.js` 传 `calibre.bookId`（Calibre 书号），`cps/web.py` `_ted_audio_book_id` 亦明示「Calibre 书号」；而 moon-well `/book/ted-audio` → `TedAudioService.findByBookId` 用 `bookRepository.findById` 查 **moon-well 自有 book 表**（其 ted LLD 注释 `bookId: 20 // moon-well book id`）。两套 ID 序列只有巧合对齐才命中，错位时 `findMeta` 拿错书名 → 注册表查不到 → `audioUrl=null` → 前端静默回落 TTS 机器音（与 R172/R173 事故同症状）。learning 模块 R139/R149 已踩过同款坑。修法：magicbook 两个代理改传 **bookName + author**（从 Calibre 库取），moon-well `/book/ted-audio` 增加 `bookName+author` 入参（`findMeta` 本就按 title/author 查 ES），`bookId` 保留兼容。跨仓同源：moon-well R197。worktree 开发，push 闸门留用户。
+
+201. TED 导入链路不足修复 ②（MAGICBOOK-212）：音频缓存/Calibre 同步失败无自愈。`TedImportService.importTalkBySlug` 在 `(userId, canonicalUrl)` 去重命中时直接 return，不再触发 `cacheTalkAudioAsync`，与 `TedAudioService` 注释「重导自愈（幂等覆盖）」矛盾——首次导入时音频下载/HLS 缺失/切分失败留下的空洞，没有任何补拉入口。修法：timings 提取提前、去重命中路径也触发一次幂等缓存；并给 `CalibreService` 的 metadata.db 连接补 `PRAGMA busy_timeout=5000`（app.db 连接早已有，书库连接缺失，与 magicbook 容器并发写会 SQLITE_BUSY）。跨仓同源：moon-well R198。worktree 开发，push 闸门留用户。
+
+202. TED 导入的体验缺口（MAGICBOOK-213，本轮仅记录、不修）：① TED 书在 magicbook 书库**无封面**——moon-well `EpubBuilder` 不写封面、`CalibreService.insertBook` 固定 `has_cover=0`、不落 `cover.jpg`（moon-well 侧有 `coverUrl` 但没同步）；② 「未缓存原声」的 TED 书与普通小说书在探测上不可区分，会静默回落 TTS 机器音（R172 想避免的语义错误仍存在于这一小类）；③ 原声伴听无播放进度持久化、无倍速。待排期。
