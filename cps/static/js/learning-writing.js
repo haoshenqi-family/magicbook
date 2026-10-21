@@ -37,16 +37,15 @@
   }
 
   /**
-   * 提交按钮跟着草稿状态走（R168 续写）：一个编辑区、一个提交按钮，
-   * 目标端点由 lastDraftNo 决定——避免「初稿/修订」两个框都能提交同一稿的歧义。
-   * 两稿封顶是上游规则（50513），到 2 就把按钮 disable 而不是让用户去撞错误。
+   * 提交按钮只由「有没有交过稿」决定文案：R190 起放开两稿上限，
+   * 第 2 稿之后每次仍是修订提交，按钮永远可点（在途锁由 busy() 负责）。
+   * 初稿端点 /submit，交过稿后统一走 /revise，由后端顺延稿号。
    */
   function refreshSubmitButton() {
     var btn = els['sw-w-submit'];
-    var done = writing.lastDraftNo != null && writing.lastDraftNo >= 2;
-    var label = done ? mbT('Both drafts finished')
-      : (writing.lastDraftNo === 1 ? mbT('Submit revision') : SUBMIT_LABEL);
-    btn.disabled = done;
+    var label = (writing.lastDraftNo != null && writing.lastDraftNo >= 1)
+      ? mbT('Submit revision') : SUBMIT_LABEL;
+    btn.disabled = false;
     // dataset.label 是 busy() 还原时的基准文案，必须与当前意图一致，
     // 否则「批改中…」结束会退回初稿态的文案（探针实测踩过）
     btn.dataset.label = label;
@@ -135,24 +134,20 @@
 
   function statusLabel(item) {
     if (!item.lastDraftNo) return mbT('Not started yet');
-    if (item.lastDraftNo < 2) return mbT('Draft {{n}} submitted · revision pending')
+    // R190：稿数不再是「完成度」，只说明已经批改到第几稿
+    return mbT('Draft {{n}} reviewed · can keep revising')
       .replace('{{n}}', item.lastDraftNo);
-    return mbT('Both drafts finished');
   }
 
-  // 列表按创建时间倒序，第一条没写完的就是「上次未完成的写作」
+  // R190：稿件没有「完成」终态，续写入口固定指向最近一次写作；
+  // 标签带上稿状态，用户一眼知道接着改的是第几稿。
   function armResumeBar(items) {
-    var candidate = null;
-    items.forEach(function (item) {
-      if (!candidate && (item.lastDraftNo == null || item.lastDraftNo < 2)) {
-        candidate = item;
-      }
-    });
-    if (!candidate) { show(els['sw-w-resume-bar'], false); return; }
-    writing.resumeTaskId = candidate.taskId;
-    var prompt = candidate.prompt || mbT('Free writing');
-    els['sw-w-resume-label'].textContent = prompt.length > 40
-      ? prompt.slice(0, 40) + '…' : prompt;
+    var latest = items && items[0];
+    if (!latest) { show(els['sw-w-resume-bar'], false); return; }
+    writing.resumeTaskId = latest.taskId;
+    var prompt = latest.prompt || mbT('Free writing');
+    var excerpt = prompt.length > 40 ? prompt.slice(0, 40) + '…' : prompt;
+    els['sw-w-resume-label'].textContent = excerpt + ' · ' + statusLabel(latest);
     show(els['sw-w-resume-bar'], true);
   }
 
@@ -228,18 +223,16 @@
         if (review.draftNo != null) writing.lastDraftNo = review.draftNo;
         renderReview(review);
         refreshSubmitButton();
-        // 状态行跟着走：不然用户看到的还是「已恢复第 1 稿」，不知道刚交的是哪一稿
-        esc(els['sw-w-status'], writing.lastDraftNo >= 2
-          ? mbT('Both drafts finished — this task can only be reviewed now.')
-          : mbT('Draft {{n}} reviewed. Revise it above and submit again.')
-              .replace('{{n}}', review.draftNo == null ? '' : review.draftNo));
+        // 状态行跟着走：否则用户看到的还是「已恢复第 N 稿」，不知道刚交的是哪一稿
+        esc(els['sw-w-status'], mbT('Draft {{n}} reviewed. Revise it above and submit again.')
+          .replace('{{n}}', review.draftNo == null ? '' : review.draftNo));
         loadWritingHistory();
       })
       .catch(function (err) { window.alert(err.message); })
       .finally(function () {
         busy(btn, false);
-        // busy(false) 无条件解禁按钮，两稿完成后的 disabled 会被它冲掉（探针实测），
-        // 所以解锁之后必须再按当前草稿状态刷一遍
+        // busy(false) 只还原它进入时的文案；解锁后统一按当前稿态再刷一遍，
+        // 保证「提交批改 / 提交修订稿」与真实意图一致
         refreshSubmitButton();
       });
   });

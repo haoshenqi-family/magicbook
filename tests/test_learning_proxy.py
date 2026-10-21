@@ -727,7 +727,9 @@ def test_writing_page_wires_the_resume_ui(admin_client, moonwell_configured):
     assert '"/ajax/learning/writing/task"' in html
     assert 'id="sw-w-resume"' in html
     assert 'id="sw-w-resume-bar"' in html
-    assert "Continue your last unfinished draft" in html
+    assert "Continue your last writing" in html
+    # R190：两稿封顶取消，页面必须明确告知修订次数不限
+    assert "There is no limit on revisions." in html
     # 双入口已收敛：面板内那套「修订框 + 提交修订按钮」撤掉，只留一个编辑区
     assert 'id="sw-w-revise-text"' not in html
     assert 'id="sw-w-revise"' not in html
