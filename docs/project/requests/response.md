@@ -227,3 +227,15 @@
 - **发布态全量闸门**：`pytest tests/` → **622 passed / 13 failed**。13 个失败全部在 `test_metadata_outbound.py`（`shutdown(cancel_futures)` 需 Python 3.9+，本机 3.8）与 `test_reading_tts_service.py`（`book file is unavailable` 缺本机书库 fixture），已在干净 `origin/develop` 基线（`d85ba8ba`）复现 **13 failed / 15 passed**，与本轮写作改动无关；本机无仓库要求的 `.venv`，故用系统 Python 3.8 跑，正式判据以 CI/容器环境为准。本轮改动的三个测试文件 **90 passed**。
 - **总结**：requests.md 占号 R190；合并 origin/develop 时并行 R130 已轮转 R179，本条写入使窗口达 11，按「写入即检查」再搬最早一节 R180 至 `response-archive/response-R180.md` 并登记索引；冲突记录：与 R130 的 po/response 改动按并集合并，无撞号。
 - **复测 503 说明（2026-10-21 15:40）**：用户提交修订稿收到 `learning b1: /learning/writing/revise service unavailable`。根因是回填文档的 push 触发第二次部署，moon-well 旧容器 graceful shutdown 中断了在途 revise（15:40:38），代理按连接异常返回 503。服务稳定后 moon-well 端已用系统身份端到端复验 generate → submit(1) → revise(2) → revise(3) 全部成功；前端无需改动，用户重试即可，历史草稿与批改均未丢失。该次确为部署停机窗口；**15:43 起的复发是另一因**——代理 90s 小于后端 LLM 150s 预算，见 R191。
+
+## 2026-10-21（R191：写作批改 503 复发——代理预算小于后端 LLM 预算）
+
+### R191（用户：近期没有部署，revise 还是 503）
+
+- **证据（moon-well 访问日志）**：`15:43:04` 的 revise 实际返回 **200**、耗时 **104494ms**，而 magicbook 代理 `timeout=90` 先到点 → 统一返回 `learning b1: /learning/writing/revise service unavailable`；`15:49` 另一次 200 / 79814ms；`16:04`、`16:06` 两次在 magpie 150s 预算处超时。前两次是「后端成功、前端假 503」，后两次是「后端 150s 失败、前端 90s 已先 503」。
+- **根因**：客户端代理预算（90s）< 后端 LLM 预算（150s，Nacos `moon-well-ai.yaml` 的 `magpie.timeout-ms: 150000`）。与蓝绿部署无关；15:40 那次才是部署停机窗口。
+- **改动**：`cps/routes/learning.py` 新增 `_WRITING_LLM_TIMEOUT = 210`（后端 150s + 落库/网络余量），`/ajax/learning/writing/submit` 与 `/revise` 使用；`task/generate` 保持 90s。前端不加自动重试——幂等由 moon-well R193 保证（相同正文复用上一稿批改），自动重试只会放大供应商压力。
+- **中间层核对**：Server 2 Traefik 未配置 `readTimeout/writeTimeout`（写超时默认不限）、fnOS Caddy 无响应超时、浏览器 `fetch` 无默认超时，210s 不会被先掐断。
+- **测试**：`pytest tests/test_learning_proxy.py` → **52 passed**；新增 `test_writing_review_timeout_covers_backend_llm_budget`，锁住 submit/revise 两个入口的转发超时为 210s。
+- **文档**：L1 `docs/product/readme/learning.md` 补「长文批改 1–3 分钟、原样重试不会多一稿」；LLD §5 记录证据、根因与预算口径。
+- **收尾**：分支 `fix/r191-writing-timeout`，merge develop **`a070a9fe`**，push 后 fnOS 构建 **END OK**、容器 `Up (healthy)`；`docker exec magicbook grep _WRITING_LLM_TIMEOUT /app/cps/routes/learning.py` 确认线上为 **210**，submit/revise 两处均引用该常量。全量闸门沿用 R190 已复现的本机基线（13 个 Python 3.8/书库 fixture 失败）；本轮定向 `pytest tests/test_learning_proxy.py` **52 passed**。真实 >90s 链路需用户会话 + 长文，未做线上代理计时；预算与中间层超时已在 LLD §5 逐项核对。
