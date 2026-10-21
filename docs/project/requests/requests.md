@@ -154,3 +154,5 @@
 ## 2026-10-21
 
 190. 修复写作练习「恢复历史任务后改完文稿没有提交 AI 按钮」：现象＝恢复已完成任务后按钮置灰、文案「两稿已完成」。根因非渲染缺陷，而是 R168 设计规则——moon-well 每任务硬性封顶初稿+修订稿两稿（第三稿 50513），前端按 `lastDraftNo>=2` 置灰。用户拍板**放开两稿上限**：同一任务可无限次「修改后再提交批改」，每稿都对比上一稿给进步确认。magicbook 侧改按钮状态机与历史/续写状态文案；moon-well 侧改 `LearningWritingService` 的稿号分配（R192）。跨仓同源：moon-well R192。
+
+191. 写作批改仍报 503（承接 R190 / moon-well R193）：用户复测「近期没有部署，revise 还是 503」。moon-well 日志证据：revise 实际 200、耗时 104494ms，而 magicbook 代理 `timeout=90` 先超时 → 统一返回 `service unavailable`；另两次在 magpie 150s 预算处超时。修复：把 writing submit/revise 代理超时提到 210s（显式常量 + 注释说明后端 150s 预算），并在 moon-well 侧对相同正文的修订稿做幂等复用（跨仓 R193），避免超时重试再生成一稿。跨仓同源：moon-well R193。
