@@ -206,6 +206,8 @@
 - **文档**：L1 `docs/product/readme/learning.md` 补「长文批改 1–3 分钟、原样重试不会多一稿」；LLD §5 记录证据、根因与预算口径。
 - **收尾**：分支 `fix/r191-writing-timeout`，merge develop **`a070a9fe`**，push 后 fnOS 构建 **END OK**、容器 `Up (healthy)`；`docker exec magicbook grep _WRITING_LLM_TIMEOUT /app/cps/routes/learning.py` 确认线上为 **210**，submit/revise 两处均引用该常量。全量闸门沿用 R190 已复现的本机基线（13 个 Python 3.8/书库 fixture 失败）；本轮定向 `pytest tests/test_learning_proxy.py` **52 passed**。真实 >90s 链路需用户会话 + 长文，未做线上代理计时；预算与中间层超时已在 LLD §5 逐项核对。
 
+- **上线后真实批改复验**：moon-well 同一 task=3 追加一句新正文后调 revise，**71.4s** 返回 `draftNo=4`、`progress=true`；该耗时已超过旧 90s 预算的边缘区间，新 210s 预算可完整承接。代理层未改业务逻辑，幂等复用路径由 moon-well R193 保证。
+
 ### R192（部署链纯文档跳过构建/部署）
 
 - **范围**：用户指令「修改一下部署脚本，如果只有文档更新，则不触发部署」；四仓同源 + 「触发但跳过构建/部署」两口径拍板。
