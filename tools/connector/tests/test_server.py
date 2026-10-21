@@ -122,3 +122,145 @@ def test_translation_502_marks_state_and_degrades(env, monkeypatch):
     assert r.status_code == 200
     assert r.get_json()["result"] == "imported-translation-failed"
     assert "translation_error" in read_state(env)["guide"]
+
+
+# ---------- R195：state.json 读写必须在全局锁内（gunicorn --threads 4） ----------
+
+def test_state_updates_are_serialized_across_slugs(env, monkeypatch):
+    """并发写不同 slug 时不得互相覆盖（旧实现整份读-改-写、无全局锁）。"""
+    import threading
+    import time
+
+    real_load = server._load_state
+
+    def slow_load():
+        data = real_load()
+        time.sleep(0.02)  # 放大读-写窗口：无锁时后写者会覆盖前者
+        return data
+
+    monkeypatch.setattr(server, "_load_state", slow_load)
+
+    threads = [threading.Thread(target=server._state_update,
+                                kwargs={"slug": "s%d" % i, "last_sha": "sha%d" % i})
+               for i in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    state = read_state(env)
+    assert sorted(state) == ["s0", "s1", "s2", "s3", "s4"]
+    assert state["s4"]["last_sha"] == "sha4"
+
+
+def test_state_update_removes_translation_error(env, monkeypatch):
+    monkeypatch.setattr(server, "HaloClient", FakeHalo)
+    monkeypatch.setattr(server, "MagicbookClient", lambda *a, **k: types.SimpleNamespace(
+        import_book=lambda *a, **k: {"bookId": 89, "translationJobId": 9}))
+    server._state_update("guide", translation_error="old failure")
+    post_event(env, {"eventType": "NEW_POST", "data": {"slug": "guide"}})
+    assert "translation_error" not in read_state(env)["guide"]
+
+
+# ---------- R196：事件白名单（修订/重新发布也要进书） ----------
+
+def test_update_post_event_is_processed(env, monkeypatch):
+    imported = []
+    monkeypatch.setattr(server, "HaloClient", FakeHalo)
+    monkeypatch.setattr(server, "MagicbookClient", lambda *a, **k: types.SimpleNamespace(
+        import_book=lambda book_id, path, **kw: imported.append(book_id) or
+        {"bookId": book_id, "translationJobId": None}))
+
+    r = post_event(env, {"eventType": "UPDATE_POST", "data": {"slug": "guide"}})
+    assert r.status_code == 200
+    assert r.get_json()["result"] == "imported"
+    assert imported == [89]
+
+
+def test_events_can_be_overridden_by_env(env, monkeypatch):
+    monkeypatch.setenv("CONNECTOR_EVENTS", "NEW_POST")
+    r = post_event(env, {"eventType": "UPDATE_POST", "data": {"slug": "guide"}})
+    assert r.get_json()["result"] == "ignored"
+
+
+def test_delete_events_stay_ignored(env, monkeypatch):
+    r = post_event(env, {"eventType": "DELETE_POST", "data": {"slug": "guide"}})
+    assert r.get_json()["result"] == "ignored"
+
+
+# ---------- R197：/resync 手动补账 ----------
+
+def _stub_import(monkeypatch):
+    imported = []
+
+    class MB:
+        def __init__(self, *a, **k):
+            pass
+
+        def import_book(self, book_id, path, **kw):
+            imported.append(book_id)
+            return {"bookId": book_id, "translationJobId": None}
+
+    monkeypatch.setattr(server, "HaloClient", FakeHalo)
+    monkeypatch.setattr(server, "MagicbookClient", MB)
+    return imported
+
+
+def resync(env, body=None, token="test-token"):
+    return env.client.post("/resync", json=body or {},
+                           headers={"X-Hook-Token": token})
+
+
+def test_resync_requires_token(env):
+    assert resync(env, token="nope").status_code == 401
+    assert resync(env, token="").status_code == 401
+
+
+def test_resync_full_run_then_idempotent(env, monkeypatch):
+    imported = _stub_import(monkeypatch)
+
+    r = resync(env)
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body["total"] == 1 and body["imported"] == 1 and body["failed"] == 0
+    assert body["results"][0]["slug"] == "guide"
+    assert imported == [89]
+
+    # 第二次：sha 未变 → 全 no-op，不再打 magicbook
+    r = resync(env)
+    body = r.get_json()
+    assert body["imported"] == 0
+    assert body["results"][0]["result"] == "no-op"
+    assert imported == [89]
+
+
+def test_resync_reports_unknown_slug_without_failing(env, monkeypatch):
+    _stub_import(monkeypatch)
+    r = resync(env, {"slugs": ["guide", "not-mapped"]})
+    body = r.get_json()
+    assert r.status_code == 200
+    assert body["total"] == 2 and body["imported"] == 1
+    results = {x["slug"]: x for x in body["results"]}
+    assert results["not-mapped"]["result"] == "no-mapping"
+
+
+def test_resync_keeps_going_when_one_slug_fails(env, monkeypatch):
+    class BoomHalo(FakeHalo):
+        def find_post(self, slug):
+            if slug == "bad":
+                raise server.HaloError("boom")
+            return super().find_post(slug)
+
+    monkeypatch.setattr(server, "HaloClient", BoomHalo)
+    monkeypatch.setattr(server, "MagicbookClient", lambda *a, **k: types.SimpleNamespace(
+        import_book=lambda book_id, path, **kw: {"bookId": book_id, "translationJobId": None}))
+    mapping_file = os.path.join(env.data_dir, "mapping2.yaml")
+    with open(mapping_file, "w", encoding="utf-8") as f:
+        f.write("books:\n  - slug: bad\n    book_id: 90\n  - slug: guide\n    book_id: 89\n")
+    server.mapping = Mapping(mapping_file)
+
+    body = resync(env).get_json()
+    results = {x["slug"]: x for x in body["results"]}
+    assert body["failed"] == 1
+    assert "boom" in results["bad"]["error"]
+    assert results["guide"]["result"] == "imported"

@@ -10,7 +10,7 @@
   if (!MB) return;
   var mbT = MB.mbT, $ = MB.byId, show = MB.show, clear = MB.clear, li = MB.li,
       esc = MB.esc, busy = MB.busy, getJson = MB.getJson, postJson = MB.postJson,
-      resultOf = MB.resultOf;
+      resultOf = MB.resultOf, csrfToken = MB.csrfToken;
   var urls = window.learningUrls || {};
 
   var els = {};
@@ -54,6 +54,13 @@
 
   function draftEndpoint() {
     return writing.lastDraftNo && writing.lastDraftNo >= 1 ? urls.writingRevise : urls.writingSubmit;
+  }
+
+  /** R194：SSE 端点与 JSON 端点同源；旧模板没注入 URL 时返回 null，调用方回退 JSON。 */
+  function streamEndpoint() {
+    return writing.lastDraftNo && writing.lastDraftNo >= 1
+      ? (urls.writingReviseStream || null)
+      : (urls.writingSubmitStream || null);
   }
 
   function scoreRow(label, value) {
@@ -187,6 +194,135 @@
     els['sw-w-text'].focus();
   }
 
+  function applyReview(review) {
+    if (review.draftNo != null) writing.lastDraftNo = review.draftNo;
+    renderReview(review);
+    refreshSubmitButton();
+    // 状态行跟着走：否则用户看到的还是「已恢复第 N 稿」，不知道刚交的是哪一稿
+    esc(els['sw-w-status'], mbT('Draft {{n}} reviewed. Revise it above and submit again.')
+      .replace('{{n}}', review.draftNo == null ? '' : review.draftNo));
+    loadWritingHistory();
+  }
+
+  function handleStreamEvent(event, payload) {
+    if (!payload) return;
+    if (event === 'status') {
+      esc(els['sw-w-status'], mbT('Reviewing…'));
+    } else if (event === 'ping') {
+      // ping 是心跳也是等待计时：批改可能 70–150s，用户至少能看到秒数在走。
+      var seconds = Math.max(1, Math.round((payload.elapsedMs || 0) / 1000));
+      esc(els['sw-w-status'], mbT('Reviewing…') + ' ' + seconds + 's');
+    }
+  }
+
+  function errorMessageFrom(text, status) {
+    try {
+      var data = JSON.parse(text);
+      return data.message || data.error || ('HTTP ' + status);
+    } catch (e) {
+      return 'HTTP ' + status;
+    }
+  }
+
+  /**
+   * POST + SSE 读取（R194）：与 /ai/agent/chat 一样用 fetch + ReadableStream，
+   * 而不是 EventSource——需要 POST body 和 X-CSRFToken。
+   *
+   * 成功 resolve 为 Review；业务 error 事件 reject 一个带 streamStarted=true 的
+   * Error。建连失败/流开始前断网时 streamStarted 为 false，调用方可以安全回退
+   * JSON 一次（后端有同文并发去重，回退不会重复批改）。
+   */
+  function postSse(url, body, onEvent) {
+    if (!url || typeof fetch !== 'function' || typeof TextDecoder === 'undefined') {
+      return Promise.reject(new Error('SSE unavailable'));
+    }
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+      body: JSON.stringify(body || {}),
+    }).then(function (response) {
+      if (!response.ok) {
+        return response.text().then(function (text) {
+          throw new Error(errorMessageFrom(text, response.status));
+        });
+      }
+      if (!response.body || typeof response.body.getReader !== 'function') {
+        throw new Error('SSE unavailable');
+      }
+
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var settled = false;
+      var started = false;
+      var review = null;
+      var streamError = null;
+
+      return new Promise(function (resolve, reject) {
+        function fail(err) {
+          if (settled) return;
+          settled = true;
+          err.streamStarted = started;
+          reject(err);
+        }
+
+        function finish() {
+          if (settled) return;
+          if (streamError) { fail(streamError); return; }
+          if (review) { settled = true; resolve(review); return; }
+          fail(new Error(mbT('Connection error')));
+        }
+
+        function handleBlock(block) {
+          var eventName = null;
+          var dataLines = [];
+          block.split(/\r?\n/).forEach(function (line) {
+            var trimmed = line.trim();
+            if (trimmed.indexOf('event:') === 0) {
+              eventName = trimmed.slice(6).trim();
+            } else if (trimmed.indexOf('data:') === 0) {
+              dataLines.push(trimmed.slice(5).trim());
+            }
+          });
+          if (!dataLines.length) return;
+          var payload = null;
+          try { payload = JSON.parse(dataLines.join('\n')); } catch (e) { return; }
+          started = true;
+          if (eventName === 'result') {
+            review = resultOf({ data: payload });
+            settled = true;
+            resolve(review);
+            return;
+          }
+          if (eventName === 'error') {
+            streamError = new Error((payload && payload.message) || mbT('Connection error'));
+            streamError.streamStarted = true;
+            fail(streamError);
+            return;
+          }
+          if (onEvent) onEvent(eventName, payload);
+        }
+
+        function pump() {
+          reader.read().then(function (chunk) {
+            if (chunk.done) { finish(); return; }
+            buffer += decoder.decode(chunk.value, { stream: true });
+            var blocks = buffer.split(/\r?\n\r?\n/);
+            buffer = blocks.pop();
+            blocks.forEach(handleBlock);
+            pump();
+          }).catch(function (err) {
+            if (review) { settled = true; resolve(review); return; }
+            fail(err);
+          });
+        }
+
+        pump();
+      });
+    });
+  }
+
   els['sw-w-generate'].addEventListener('click', function () {
     busy(els['sw-w-generate'], true, mbT('Generating…'));
     postJson(urls.writingGenerate, {
@@ -216,25 +352,38 @@
   els['sw-w-submit'].addEventListener('click', function () {
     if (!writing.taskId) { window.alert(mbT('Generate a task first')); return; }
     var btn = els['sw-w-submit'];
+    var body = { taskId: writing.taskId, text: els['sw-w-text'].value };
+    var streamUrl = streamEndpoint();
+    var usedStream = !!streamUrl;
+    var streamed = false;
     busy(btn, true, mbT('Reviewing…'));
-    postJson(draftEndpoint(), { taskId: writing.taskId, text: els['sw-w-text'].value })
-      .then(function (response) {
-        var review = resultOf(response);
-        if (review.draftNo != null) writing.lastDraftNo = review.draftNo;
-        renderReview(review);
-        refreshSubmitButton();
-        // 状态行跟着走：否则用户看到的还是「已恢复第 N 稿」，不知道刚交的是哪一稿
-        esc(els['sw-w-status'], mbT('Draft {{n}} reviewed. Revise it above and submit again.')
-          .replace('{{n}}', review.draftNo == null ? '' : review.draftNo));
-        loadWritingHistory();
-      })
-      .catch(function (err) { window.alert(err.message); })
-      .finally(function () {
-        busy(btn, false);
-        // busy(false) 只还原它进入时的文案；解锁后统一按当前稿态再刷一遍，
-        // 保证「提交批改 / 提交修订稿」与真实意图一致
-        refreshSubmitButton();
-      });
+    esc(els['sw-w-status'], mbT('Reviewing…'));
+
+    var request = usedStream
+      ? postSse(streamUrl, body, handleStreamEvent)
+      : postJson(draftEndpoint(), body).then(function (response) { return resultOf(response); });
+
+    request.then(function (review) {
+      streamed = true;
+      applyReview(review);
+    }).catch(function (err) {
+      // 只在 SSE 建连失败/首个事件都没到过时回退 JSON 一次。业务 error 事件、
+      // 或已经收到 status/ping 后的断网不重试——批改可能已经落库，重试反而添乱。
+      if (usedStream && !streamed && err && !err.streamStarted) {
+        return postJson(draftEndpoint(), body).then(function (response) {
+          applyReview(resultOf(response));
+        });
+      }
+      throw err;
+    }).catch(function (err) {
+      esc(els['sw-w-status'], (err && err.message) || '');
+      if (err && err.message) window.alert(err.message);
+    }).finally(function () {
+      busy(btn, false);
+      // busy(false) 只还原它进入时的文案；解锁后统一按当前稿态再刷一遍，
+      // 保证「提交批改 / 提交修订稿」与真实意图一致
+      refreshSubmitButton();
+    });
   });
 
   refreshSubmitButton();
