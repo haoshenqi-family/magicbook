@@ -11,7 +11,7 @@ Why：B4 把 epub.js 按域拆成多文件后，跨文件调用（RC./RD./AN./RS
 
 import re
 
-from tests.reader_js_modules import reader_blob, reader_module_order
+from tests.reader_js_modules import reader_blob, reader_module_order, reader_source
 
 ALIASES = {
     "RC": "ReaderCore",
@@ -56,6 +56,33 @@ def test_模块载入顺序保证导出先于使用():
     assert order.index("reader-selection.js") < order.index("reader-immersive.js")
     assert order.index("reader-immersive.js") < order.index("epub.js"), \
         "epub.js 顶层就读 window.Reader* 别名，模块必须排在它之前"
+
+
+def test_跨模块别名必须在所属文件内声明():
+    """每个文件都是独立 IIFE：用 `RT.` 就必须在本文件 `var RT = window.ReaderTedAudio`。
+
+    Why 现有两把锁都漏了这类错误（R203 线上实测踩中，用户报
+    `ReferenceError: RT is not defined at bookPlayerStart`）：
+      1. 「调用面 ⊆ 导出面」用例读的是**拼接后的 blob**——`var RT` 在 epub.js 段里，
+         reader-tts.js 段里的 `RT.` 照样能在同一份文本中对上号，断言通过；
+      2. 「不得引用 epub.js 闭包符号」用例只扫**小写开头、长度 ≥5** 的标识符，
+         `RT` 这种 1–4 位大写别名从正则里就被排除了，还被 `_GLOBALS` 白名单兜住。
+    于是拆分批次 7 把 `RT.` 两处调用搬进 reader-tts.js 时，没有任何一把锁会响——
+    运行时的表现是单段朗读对所有书、整本连播在 TED 回落时全部「点了没反应」。
+    本用例按**单文件**粒度重查一遍，别名清单复用 ALIASES（新增模块自动纳入）。
+    """
+    offenders = []
+    for name in reader_module_order():
+        # 去掉注释/字符串再扫：文档里写「见 epub.js 的 RS.setHost」不是调用
+        src = _strip_comments_and_strings(reader_source(name))
+        declared = set(re.findall(r"\bvar\s+([A-Za-z_]\w*)\s*=\s*window\.", src))
+        for alias, member in sorted(set(_ALIAS_RE.findall(src))):
+            if alias not in declared:
+                offenders.append("%s: 用了 %s.%s，但本文件没有 var %s = window.%s"
+                                 % (name, alias, member, alias, ALIASES[alias]))
+    assert not offenders, (
+        "跨模块别名未在本文件声明（各文件是独立 IIFE，运行为 ReferenceError）：\n%s"
+        % "\n".join(offenders))
 
 
 def test_声明_init_的模块必须被显式调用():
