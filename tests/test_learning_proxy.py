@@ -450,6 +450,29 @@ def test_b1_submit_forwards_cleaned_payload(admin_client, moonwell_configured,
     assert call["payload"] == {"taskId": "T-1", "text": "Hello world."}
 
 
+def test_writing_review_timeout_covers_backend_llm_budget(
+        admin_client, moonwell_configured, monkeypatch):
+    """R191：代理预算必须大于 moon-well 的 150s LLM 预算。
+
+    Why 用 210s 而不是继续 90s：实测 revise 在后端 104s 成功返回，90s 代理先超时
+    只给前端一个 503，用户重试还会再生成一稿。这里锁住 submit/revise 两个入口，
+    避免以后有人按「普通接口」把超时改回去。
+    """
+    proxy = RecordingProxy({
+        "/learning/writing/submit": (_envelope({}), 200),
+        "/learning/writing/revise": (_envelope({}), 200),
+    })
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+
+    admin_client.post("/ajax/learning/writing/submit",
+                      json={"taskId": "1", "text": "x" * 120})
+    admin_client.post("/ajax/learning/writing/revise",
+                      json={"taskId": "1", "text": "x" * 120})
+
+    assert proxy.call_for("/learning/writing/submit")["timeout"] == 210
+    assert proxy.call_for("/learning/writing/revise")["timeout"] == 210
+
+
 def test_b1_rejects_missing_required_fields_locally(admin_client,
                                                      moonwell_configured,
                                                      monkeypatch):
@@ -727,7 +750,9 @@ def test_writing_page_wires_the_resume_ui(admin_client, moonwell_configured):
     assert '"/ajax/learning/writing/task"' in html
     assert 'id="sw-w-resume"' in html
     assert 'id="sw-w-resume-bar"' in html
-    assert "Continue your last unfinished draft" in html
+    assert "Continue your last writing" in html
+    # R190：两稿封顶取消，页面必须明确告知修订次数不限
+    assert "There is no limit on revisions." in html
     # 双入口已收敛：面板内那套「修订框 + 提交修订按钮」撤掉，只留一个编辑区
     assert 'id="sw-w-revise-text"' not in html
     assert 'id="sw-w-revise"' not in html

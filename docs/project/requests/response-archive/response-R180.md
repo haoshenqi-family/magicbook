@@ -1,4 +1,6 @@
-# response 归档 · R180
+# response 归档 · R180（B2 前置小修：getcomic 死块清除激活 + gdriveutils 守卫化）
+
+> 从 response.md 窗口原样搬移（2026-10-21 R190 写入触发轮转）。前后两节（R179 撤销尝试 / R181 小步重做完成）见既有归档与窗口。
 
 ### R180（B2 前置小修两项：getcomic 死块清除激活 + gdriveutils 守卫化）
 

@@ -18,6 +18,12 @@ from flask import url_for
 from flask_babel import gettext as _
 import re
 
+# 写作批改是同步 LLM（moon-well magpie 单次预算 150s，见 Nacos moon-well-ai.yaml）。
+# R191：原先 90s 会在后端仍成功时先超时——实测 revise 104s 返回 200，前端却只拿到
+# 503 service unavailable，用户重试还会再生成一稿。210s = 后端 150s + 落库/网络余量；
+# 调大前先确认上游反代（Traefik/Caddy）与浏览器都不会先掐断。
+_WRITING_LLM_TIMEOUT = 210
+
 
 @web.route("/learning", methods=["GET"])
 @user_login_required
@@ -105,7 +111,7 @@ def learning_writing_generate():
 def learning_writing_submit():
     """Proxy writing submission（LLM 批改：总体+逐句+升级+四维评分）。"""
     return _b1_proxy("/learning/writing/submit", ("taskId", "text"),
-                     required=("taskId", "text"), timeout=90)
+                     required=("taskId", "text"), timeout=_WRITING_LLM_TIMEOUT)
 
 
 @web.route("/ajax/learning/writing/revise", methods=["POST"])
@@ -113,7 +119,7 @@ def learning_writing_submit():
 def learning_writing_revise():
     """Proxy writing revision（同 submit 契约，多进步确认）。"""
     return _b1_proxy("/learning/writing/revise", ("taskId", "text"),
-                     required=("taskId", "text"), timeout=90)
+                     required=("taskId", "text"), timeout=_WRITING_LLM_TIMEOUT)
 
 
 @web.route("/ajax/learning/writing/history", methods=["GET"])
@@ -129,7 +135,7 @@ def learning_writing_history():
 def learning_writing_task():
     """Proxy one writing task with its drafts (R168 续写).
 
-    Why 单独取详情而不是让 history 带正文：草稿上限 4000 字符、每任务两稿、列表
+    Why 单独取详情而不是让 history 带正文：草稿上限 4000 字符、每任务可多稿、列表
     默认 20 条，带正文的最坏情况是几百 KB 的列表响应，而续写一次只用其中一条。
     超时给 20s：详情本身是纯读，但要与同族 LLM 端点同档，避免上游冷启动时前端
     先超时。taskId 只认数字（防把任意串拼进转发路径），越权/不存在由上游按 50512 回。

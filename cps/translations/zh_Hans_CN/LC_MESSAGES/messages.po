@@ -5477,6 +5477,14 @@ msgstr "停止本批次？已经入队的任务仍会由队列消费者生成完
 msgid "Batch stopped: remaining batches will not be queued."
 msgstr "批次已停止：剩余批次不再入队。"
 
+msgid "Draft {{n}} reviewed · can keep revising"
+msgstr "第 {{n}} 稿已批改 · 可继续修订"
+
+msgid "Continue your last writing"
+msgstr "继续上次的写作"
+
+msgid "Fix the flagged points in the editor above, then press the submit button again — it becomes “Submit revision” and returns a progress check against your last draft. There is no limit on revisions."
+msgstr "照着点评在上面编辑框里改，再按一次提交按钮——按钮会变成「提交修订稿」，返回与上一稿对比的进步确认。修订次数不限，可以一直改到满意。"
 # R130 队列监控四区块
 
 msgid "Accepted"

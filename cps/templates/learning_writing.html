@@ -7,9 +7,9 @@
     <a href="{{ url_for('web.learning_page') }}"><span class="glyphicon glyphicon-arrow-left"></span> {{_('Daily Learning')}}</a>
   </p>
 
-  {# R168 一键续写：挑历史里第一条没写完的任务（后端 lastDraftNo 驱动），没有可续的就不显示 #}
+  {# R168 一键续写：R190 起指向最近一次写作（不再判「写没写完」），没有历史就不显示 #}
   <div class="sw-gap" id="sw-w-resume-bar" hidden>
-    <button type="button" id="sw-w-resume" class="btn btn-success">{{_('Continue your last unfinished draft')}}</button>
+    <button type="button" id="sw-w-resume" class="btn btn-success">{{_('Continue your last writing')}}</button>
     <span id="sw-w-resume-label" class="text-muted"></span>
   </div>
 
@@ -60,7 +60,7 @@
       <ul id="sw-w-sentences" class="sw-list"></ul>
       <h4>{{_('Upgraded phrasings')}}</h4>
       <ul id="sw-w-upgrades" class="sw-list"></ul>
-      <p class="text-muted sw-hint">{{_('Fix the flagged points in the editor above, then press the submit button again — it becomes “Submit revision” and returns a progress check against this draft.')}}</p>
+      <p class="text-muted sw-hint">{{_('Fix the flagged points in the editor above, then press the submit button again — it becomes “Submit revision” and returns a progress check against your last draft. There is no limit on revisions.')}}</p>
     </div>
   </div>
 

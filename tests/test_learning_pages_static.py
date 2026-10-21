@@ -103,3 +103,16 @@ def test_no_page_references_the_deleted_scripts():
         for dead in ("js/learning.js", "js/speaking_writing.js"):
             assert "'%s'" % dead not in html and '"%s"' % dead not in html, \
                 "%s 仍引用已删除的 %s（404 且功能静默失效）" % (name, dead)
+
+
+def test_writing_workshop_never_caps_draft_submissions():
+    """R190：两稿上限取消——提交按钮不得再按稿数置灰，也不能再有「两稿已完成」终态。
+
+    这是用户报障的直接形态（恢复历史任务后按钮不可点）；上游 moon-well R192 已改为
+    稿号顺延，前端若回退到按 lastDraftNo>=2 disable，本断言报红。
+    """
+    src = _js("learning-writing.js")
+    assert "Both drafts finished" not in src
+    assert "btn.disabled = done" not in src
+    assert "lastDraftNo >= 2" not in src
+    assert "Draft {{n}} reviewed · can keep revising" in src

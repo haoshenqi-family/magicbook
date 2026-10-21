@@ -30,27 +30,12 @@
 - `response-archive/response-R179.md`：R179 架构评审 B2 尝试（撤销回基线，留存重做清单）（2026-10-15；2026-10-19 R130 写入触发轮转搬移）
 - `response-archive/response-R180.md`：R180 B2 前置小修两项（2026-10-21 R190 写入触发轮转搬移）
 - `response-archive/response-R130.md`：R130 LLM 队列监控面板（承接 moon-well R118 契约、扩展 R126 /llm-tasks），2026-10-21 R191 写入触发轮转
+- `response-archive/response-R181.md`：R181 架构评审波 3 · B2 小步重做完成：web.py 蓝图分域拆分（2026-10-21 台账合并时轮转搬移）
+- `response-archive/response-R182.md`：R182 架构评审波 4 · B7：i18n 种子与 JS 清单生成化（2026-10-21 台账合并时轮转搬移）
 
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-### R181（架构评审波 3 · B2 小步重做完成：web.py 蓝图分域拆分）
-
-- **交付（commit `3211f600`，分支 `refactor/r178-moonwell-client`（同分支第五 commit），已 merge 本地 develop）**：94 条定制路由分四批迁出（每批后全量 pytest）——cps/routes/reading.py（28 段 470 行）/credit.py（19 段 227 行）/vocab.py（9 段 146 行）/learning.py（38 段 432 行），全部 <1000 行；**web.py 3304→2299 行**（定制路由清零回归原版形状，上游 merge 冲突面下降；留守 42 条原版路由与辅助函数为上游同款，原版巨石拆分属上游范畴）。getcomic 死字符串块同步清除（路由激活，R180 前置的连带完成）。
-- **装配**：延迟注册（web.py 末尾 register_domain_routes(web)，全部辅助符号定义后）；装饰注册沿用原 web blueprint——**endpoint 名不变，url_for/模板/前端/测试零改动**；routes 子包内相对导入升两级。
-- **验证**：每批迁移后全量 pytest（reading 2 处桩点配套后全绿；credit/vocab/learning 各一次过）；**endpoint 集合前后比对 133 无丢失**（get_comic_book 为死块激活的预期新增）；四域文件全部 <1000 行；两处配套适配——test_reading_tts 桩点迁 routes 模块属性（whole_book_tts_service 值拷贝绑定），test_llm_task_run 的 hasattr 代理断言改为 endpoint 注册断言（url_for 依赖 url_map 而非模块属性）。
-- **台账**：worktree `../magicbook-arch-b5` 同树多阶段（r177→r178→r179 尝试撤销→r180→r181），merge 后驻留待验收；真机验收点：阅读页全链路（划词/翻译/TTS/批注/伴读）、每日学习七子页、积分充值/订阅、词汇量测试、LLM 任务面板、漫画页（新激活）。未 push。
-- **总结**：requests.md 占号 R181；冲突记录：无。上轮 R179 的四类坑均已按留存方案规避/修复。
-
-### R182（架构评审波 4 · B7：i18n 种子与 JS 清单生成化）
-
-- **交付（commit `8f4197c3`，分支 `refactor/r178-moonwell-client`（同分支第六 commit），已 merge 本地 develop）**：新增 `scripts/generate_i18n_seed.py`（扫 static/js 的 mbT() 字面量：种子字典自动追加新词条（幂等、不自动删——72 条种子有但 JS 已不用的词条打印提示留人工判断，模板层共用词条保护）+ `tests/i18n_js_files.json` 生成物入库）；test_i18n_seed_contract 的 JS_FILES 改读生成清单（**手维护清单漏 3 个用 mbT 的 js 文件——漏一步=静默英文回退的实证修复**）；onboarding 步骤表契约显式定位 onboarding.js（生成清单按字母序不再保证首位）。
-- **验证**：脚本幂等（二次运行零变化）；契约测试 11 例全绿；**全量 549 passed 零回归**。五步链的两处人肉环节（种子手写/清单手维护）消除：新增 JS 文案后重跑脚本即可。
-- **台账**：worktree `../magicbook-arch-b5` 同分支第七 commit，merge 后驻留待验收。未 push。
-- **总结**：requests.md 占号 R182；冲突记录：无。
-
-## 2026-10-15（R183 架构评审波 3 · B4 批次 1：横切原语下沉 reader-core.js）
 
 ### R183（检查四仓 worktree 进度 → 用户改序「先做 moon-well 和 magicbook，app-manager 纯内网使用最后做」→ 本仓续做 B4）
 
@@ -197,7 +182,31 @@
 
 ## 2026-10-19（R130 LLM 队列监控面板：四区块实现）
 
-### R190（部署链纯文档跳过构建/部署）
+### R190（用户：恢复历史写作任务、改完文稿后没有可点的「提交 AI」按钮，按钮显示「两稿已完成」）
+
+- **根因（不是渲染缺陷）**：R168 的设计规则是「每任务初稿 + 修订稿两稿封顶」——moon-well 第三稿返回 `50513`，前端 `refreshSubmitButton` 在 `lastDraftNo >= 2` 时主动 `disabled`。用户恢复的正是已完成两稿的历史任务，所以编辑框能改、按钮不能点。用户拍板**放开两稿上限**（不是改成只读回看）。
+- **前端改动**：`learning-writing.js` 删除 `done` 分支与 disable，交过稿后统一「提交修订稿」且始终可点（在途锁仍由 `busy()` 管）；提交后状态行统一为「第 N 稿已批改，可在上面改完再提交」；历史状态改为「已交第 N 稿 · 可继续修订」；一键续写固定指向最近一次写作并带稿状态（不再挑「<2 稿」）。模板按钮改「继续上次的写作」，批改面板提示补「修订次数不限」。
+- **i18n**：`scripts/generate_i18n_seed.py` 追加 `Draft {{n}} reviewed · can keep revising`；`messages.po` 新增 3 条译文并 `pybabel compile` 重编 `.mo`。旧「两稿已完成」词条保留为未引用项（运行时不取）。
+- **测试**：`pytest tests/test_learning_proxy.py tests/test_learning_pages_static.py tests/test_i18n_seed_contract.py` → **90 passed**；新增静态守卫 `test_writing_workshop_never_caps_draft_submissions`（禁止 `btn.disabled = done` / `lastDraftNo >= 2` / 「两稿已完成」回流）。
+- **文档**：L1 `docs/product/readme/learning.md` 改为「修订次数不限」；LLD 落 `docs/project/iterations/2026-10-writing-unlimited/writing-unlimited/lld.md`（状态：开发中）。
+- **收尾**：分支 `fix/r190-writing-unlimited`，merge 本地 `develop` **`67e8409e`**；合并并行 R130 后（merge `977636ee`）按用户指令 push `develop`，fnOS 构建 **END OK** + 部署 **SUCCESS**，容器 `Up (healthy)`；线上抽查 `https://magicbook.haoyuhang.top/static/js/learning-writing.js` 已无 `btn.disabled = done`、含 `can keep revising`（新状态机已生效）。worktree `../magicbook-r190-writing-unlimited` 留待验收后删除。跨仓依赖 moon-well R192（`revise` 稿号顺延）已于同一时段部署成功（`8dc8690`，active slot=blue）。
+- **发布态全量闸门**：`pytest tests/` → **622 passed / 13 failed**。13 个失败全部在 `test_metadata_outbound.py`（`shutdown(cancel_futures)` 需 Python 3.9+，本机 3.8）与 `test_reading_tts_service.py`（`book file is unavailable` 缺本机书库 fixture），已在干净 `origin/develop` 基线（`d85ba8ba`）复现 **13 failed / 15 passed**，与本轮写作改动无关；本机无仓库要求的 `.venv`，故用系统 Python 3.8 跑，正式判据以 CI/容器环境为准。本轮改动的三个测试文件 **90 passed**。
+- **总结**：requests.md 占号 R190；合并 origin/develop 时并行 R130 已轮转 R179，本条写入使窗口达 11，按「写入即检查」再搬最早一节 R180 至 `response-archive/response-R180.md` 并登记索引；冲突记录：与 R130 的 po/response 改动按并集合并，无撞号。
+- **复测 503 说明（2026-10-21 15:40）**：用户提交修订稿收到 `learning b1: /learning/writing/revise service unavailable`。根因是回填文档的 push 触发第二次部署，moon-well 旧容器 graceful shutdown 中断了在途 revise（15:40:38），代理按连接异常返回 503。服务稳定后 moon-well 端已用系统身份端到端复验 generate → submit(1) → revise(2) → revise(3) 全部成功；前端无需改动，用户重试即可，历史草稿与批改均未丢失。该次确为部署停机窗口；**15:43 起的复发是另一因**——代理 90s 小于后端 LLM 150s 预算，见 R191。
+
+## 2026-10-21（R191：写作批改 503 复发——代理预算小于后端 LLM 预算）
+
+### R191（用户：近期没有部署，revise 还是 503）
+
+- **证据（moon-well 访问日志）**：`15:43:04` 的 revise 实际返回 **200**、耗时 **104494ms**，而 magicbook 代理 `timeout=90` 先到点 → 统一返回 `learning b1: /learning/writing/revise service unavailable`；`15:49` 另一次 200 / 79814ms；`16:04`、`16:06` 两次在 magpie 150s 预算处超时。前两次是「后端成功、前端假 503」，后两次是「后端 150s 失败、前端 90s 已先 503」。
+- **根因**：客户端代理预算（90s）< 后端 LLM 预算（150s，Nacos `moon-well-ai.yaml` 的 `magpie.timeout-ms: 150000`）。与蓝绿部署无关；15:40 那次才是部署停机窗口。
+- **改动**：`cps/routes/learning.py` 新增 `_WRITING_LLM_TIMEOUT = 210`（后端 150s + 落库/网络余量），`/ajax/learning/writing/submit` 与 `/revise` 使用；`task/generate` 保持 90s。前端不加自动重试——幂等由 moon-well R193 保证（相同正文复用上一稿批改），自动重试只会放大供应商压力。
+- **中间层核对**：Server 2 Traefik 未配置 `readTimeout/writeTimeout`（写超时默认不限）、fnOS Caddy 无响应超时、浏览器 `fetch` 无默认超时，210s 不会被先掐断。
+- **测试**：`pytest tests/test_learning_proxy.py` → **52 passed**；新增 `test_writing_review_timeout_covers_backend_llm_budget`，锁住 submit/revise 两个入口的转发超时为 210s。
+- **文档**：L1 `docs/product/readme/learning.md` 补「长文批改 1–3 分钟、原样重试不会多一稿」；LLD §5 记录证据、根因与预算口径。
+- **收尾**：分支 `fix/r191-writing-timeout`，merge develop **`a070a9fe`**，push 后 fnOS 构建 **END OK**、容器 `Up (healthy)`；`docker exec magicbook grep _WRITING_LLM_TIMEOUT /app/cps/routes/learning.py` 确认线上为 **210**，submit/revise 两处均引用该常量。全量闸门沿用 R190 已复现的本机基线（13 个 Python 3.8/书库 fixture 失败）；本轮定向 `pytest tests/test_learning_proxy.py` **52 passed**。真实 >90s 链路需用户会话 + 长文，未做线上代理计时；预算与中间层超时已在 LLD §5 逐项核对。
+
+### R192（部署链纯文档跳过构建/部署）
 
 - **范围**：用户指令「修改一下部署脚本，如果只有文档更新，则不触发部署」；四仓同源 + 「触发但跳过构建/部署」两口径拍板。
 - **改动**：`.github/workflows/build-and-push.yml` 新增 `changes` job（compare API 取改动文件 + 文档口径正则），`build` job 加 `needs` / `if` 门禁；纯文档 push 时镜像构建、ACR 推送、`project-update` 部署通知整体跳过，step summary 留痕。
@@ -207,7 +216,7 @@
 - **驻留**：worktree `../magicbook-doc-skip-deploy`，分支 `chore/r190-doc-skip-deploy`，合并 commit `a8c2af35`（本地 `develop`，未 push）。
 - **补记（2026-10-21 15:55，覆盖面缺口已关闭）**：R153 记的「fnOS 链未加判据，纯文档 push 仍会构建部署」当轮补齐——fnOS `pipeline_lib.sh` 新增 `docs_only_diff` + 基线 marker（`logs/.magicbook.deployed-sha`），`build-magicbook.sh` 在 checkout 后插入 `scope-check`：纯文档时打印 `build SKIPPED (docs-only) (<sha>)` 并 `exit 0`，不构建镜像、不触发 project-update 部署、不发 Bark；`drift-check-build.sh` 已把 SKIPPED 视同 `END OK`。实测 4 例 + 端到端纯文档跳过全符合预期。详见 `../ops/runbook.md` §1 与 ops R154。
 
-### R191（收敛 fnOS 单链 + 部署前按代码指纹判等，2026-10-21）
+### R193（收敛 fnOS 单链 + 部署前按代码指纹判等，2026-10-21）
 
 **背景**：magicbook 的 GHA 早已 `disabled_manually`，现役是 fnOS 链，所以「只留 fnOS」这条对本仓是**补齐代码与事实的一致性**——workflow 文件里还写着 push 触发、还挂着 R190 的 `changes` job，一旦有人 re-enable 就会双链复发。
 
