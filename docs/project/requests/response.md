@@ -29,6 +29,7 @@
 - `response-archive/response-R178.md`：R178 moon-well 防腐层迁出 web.py（B1，架构评审波 2）（2026-10-15；2026-10-16 R189 写入触发轮转搬移）
 - `response-archive/response-R179.md`：R179 架构评审 B2 尝试（撤销回基线，留存重做清单）（2026-10-15；2026-10-19 R130 写入触发轮转搬移）
 - `response-archive/response-R180.md`：R180 B2 前置小修两项（2026-10-21 R190 写入触发轮转搬移）
+- `response-archive/response-R130.md`：R130 LLM 队列监控面板（承接 moon-well R118 契约、扩展 R126 /llm-tasks），2026-10-21 R191 写入触发轮转
 
 ---
 
@@ -117,7 +118,6 @@
 - **验证**：`node --check`；全量 **590 passed**（新增 1 例守卫），merge 后在 develop 新基线复跑同数。**未验**：真书页面下的原声起播/时间轴高亮/点段切播仍需整站验收（本机无书库、依赖 `reader.book.navigation`）。
 - **台账**：MAGICBOOK-2 更新到批次 6；下一批只剩 TTS 簇（≈820 行，非叶子）与装配层收尾——TTS 簇建议连同「播放仲裁器」一起做（届时 immersive/ted-audio 两组共 16 个回调可收敛）。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
 
-
 ### R183 续六（批次 7：朗读与连播迁出 reader-tts.js，B4 判据①达成）
 
 - **交付**（commit `d2a00fff`，merge develop 未 push）：F/G/H/I 共 724 行迁出，**epub.js 3,279→734 行（−77%）**——「每文件 <1,000 行」达成，epub.js 至此只剩装配层（初始化 / 位置恢复 / 生词台账 / 书签 / 主题字体 + 七张 `setHost` 注入单）。
@@ -128,7 +128,6 @@
 - **验证**：`node --check`；全量 **590 passed**（merge 后在 develop 新基线复跑同数）。
 - **B4 剩余**：判据②「阅读器全功能真机回归」与③「R172/R173 不回退」需线上整站验收；A/P 段（位置恢复 / 生词台账 / 书签）还可再拆 `reader-location` / `reader-vocabulary`，但 <1,000 已满足——是否继续由用户定夺，故台账标「判据①达成」而非「B4 完成」。
 - **台账**：MAGICBOOK-2 已更新；worktree `../magicbook-arch-b5` 分支 `refactor/r183-epub-modules` 驻留待验收。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
-
 
 ## 2026-10-16（R185 架构评审文档修正批：DF1–DF5）
 
@@ -144,7 +143,6 @@
 - **过程失误（记下来）**：本条第一次写入时脚本的索引锚点按表格行去找、实际是列表行，`assert` 及时中止，但同一条命令里 `git add/commit` 是独立行、仍把**归档文件**先提交了（commit `cd9617c7`），造成「归档已生成、response.md 未搬移」的中间态；本提交完成搬移，两条都在本地未 push。教训：多步 shell 链里 assert 只保护它自己那一步，收尾动作要另起一条命令或前置 `&&`。
 - **台账**：commit `de80c8f3` + 本条；requests.md 占号 R185，并行会话未提交的 R184（家族迁入 PingCode）随本批原样入库、内容未改；冲突记录：无撞号。窗口：本条写入使 request 数达 11，按「写入即检查」把最旧一节（R174 及其节内的 R176、R177，共 31 行）原样搬至 `response-archive/response-R174-R177.md`，窗口回 10 个 request 内。
 
-
 ### R186（magicbook DF6 + B6：L2 覆盖口径明示 + 整本批次三胞胎抽 JobServiceBase）
 
 - **范围**：用户指令「做 magicbook DF6 + B6」，两项合并一轮交付；代码活按 worktree 纪律在本会话既有 worktree `magicbook-arch-b5` 续作（分支 `refactor/r186-job-service-base`，复用同一 worktree 而非新开）。
@@ -157,7 +155,6 @@
 - **交叉评审揪出三处「形状相似但判据被改」**（`140d334d`，merge `17f68bee`，全部落回原语义并各配用例）：① `_needs_worker` 的否决条件我从「`status == CANCELLED`」写成「`status not in active_statuses`」——朗读 `retry` 按 id 直取批次、终态行也会进来，于是「台账已 COMPLETED 却仍留着 PENDING 段」这种矛盾批次，旧实现会补线程拉回正轨，改后变成**点重试静默 no-op**；已落回原判据，取消态提为类属性 `cancelled_status`（朗读 `CANCELLED`、翻译与详解 `CANCELED`，注释写明这个拼写分叉）。② 一键译全库的「在跑就跳过」我写成 `not _is_stale(...)`，而旧的两条比较在 30 分整那条记录上**不是互补的**（旧＝开新批次，取反＝算在跑）；新增 `_is_fresh` 原样保留严格大于式，并用冻结时间的边界用例钉住「两条都 False」。③ `_own_job` 的 `current_user` 随方法搬进骨架后，测试桩仍打在原子类模块上 ⇒ 翻译/详解的 `get_progress/retry/cancel` 一条都没被跑到，**属主过滤这条鉴权边界失去可测性**；补齐双模块打桩，新增「别人的批次取不到 / 不存在的取不到 / 文案逐字」用例。另把 `_pending_count` 的口径写进 docstring：它数的是 `status == "PENDING"`（没人认领的活儿），不是「未完成」——翻译/详解的「未完成」含 PUBLISHED（已发给队列、正在消费），混为一谈会让自愈对着在途批次再起一条线程。这三条正是我先前那句「判据①要求行为不变」没做到的地方，记录在此而不是悄悄修掉。
 - **台账与并发**：requests.md 占号 R186 于开工前单独 commit `895435ec`（先占后写，避免被整文件写回抹掉）；merge `2ff595bf` 本地 develop（本条收尾提交后 `git rev-list --count origin/develop..develop` = **33**，**未 push**；worktree `magicbook-arch-b5` 与分支 `refactor/r186-job-service-base` 原样保留待验收）。并发实况：主检出有另一会话未提交的 `cps/AGENTS.md` 改动，本批全程未触碰、未提交（所有 commit 用 `--only` 显式列文件）；另发现仓库里有一条 **2026-10-12 的 `stash@{0}: autostash`**（learning / speaking-writing / i18n_seed / layout / web.py 等一批文件），非本会话产物，未 apply 也未 drop，需要它的人自己处置。冲突记录：无撞号（R184 属并行会话的家族迁入 PingCode 条目，原样保留）。PingCode 新增 **MAGICBOOK-201**（In progress）；R183 的 `MAGICBOOK-2` 与并行迁移生成的 `MAGICBOOK-198` 仍是同需求双条目，处置待用户定夺。response.md 窗口：本条写入后为 9 个 request（R175/R178–R183/R185/R186），未触发轮转。
 
-
 ### R187（第四类文档失实 + DF7 删空壳 + DF8 清产物 + 三仓 push）
 
 - **范围**：用户指令「先把第四类做掉，然后 push；DF7 先删了；DF8 的 /locals 是误提交不该被跟踪」。
@@ -169,7 +166,6 @@
 - **顺手记一条家族级观察**：magicbook 那个 `None` 空文件的来源提交是 `83e0ec09`，与 moon-well 的 `37aa393` **同一秒（2026-10-15 09:43:14）、同一提交信息「docks：update」**。这类跨仓批量提交没跑测试就落了库，magicbook 侧留下垃圾文件、moon-well 侧留下红单测——正是评审报告 §5「修正/提交无验收闭环」那条结构性缺陷的新样本。
 - **冲突记录**：`requests.md` 的 187 号本会话已提交（`94e1588a`，内容=本批），而并行会话有一条**分支名** `refactor/r187-docs-v2`（实测该分支 tip 就是 `a2cb8ba0`，**0 个自有提交、无台账行**），家族根 `Agents.md` 已被改写成「magicbook ✅ v2 已迁，R187 试点」——四仓 `git ls-files` 实测 `docs/product/` 与 `docs/project/` 命中数全为 0，即该声明目前没有仓库产物支撑。按「编号只追加不回改」：**台账 187 = 本批**；v2 迁移真正开工时请续编 **188** 并自带 L3，别沿用 187。已改的家族 `Agents.md` 属规则文件，按约定我不回改，更正写进本条。
 - **窗口**：本条写入后 request 数为 10（R175/R178–R183/R185/R186/R187），仍在「保留最近 10 个」上限内，未触发轮转。
-
 
 ## 2026-10-16（R188 家族文档架构 v2 试点迁移：magicbook `docs/` 全仓重排）
 
@@ -201,18 +197,6 @@
 
 ## 2026-10-19（R130 LLM 队列监控面板：四区块实现）
 
-### R130（LLM 队列监控面板——承接 moon-well R118 已交付契约，扩展 R126 /llm-tasks）
-
-- **范围与实现**：按迭代设计（`docs/project/iterations/1.0/r130-llm-queue-monitor/`）落地四区块——总览（caller 分组计数 + 近 24h 吞吐柱 + stale/reclaim 预警；15s 轮询、页面不可见暂停）、失败分类（十类桶 + 恢复徽标，AUTO_REQUEUE/FORBIDDEN 只读无按钮、REPLAY/REPUBLISH 出「去恢复此类」跳转预填）、任务查询与详情（keyword 必须搭配伴生过滤的前端闸门、行点开模态框、输入/输出 2KB 截断可展开）、恢复（plan 恒不带 confirm 只读预案 → 二次确认弹窗 → republish）。六个薄代理端点（overview 10s / failures 15s / page 10s / detail 10s / recovery-plan 20s / republish 30s）：`cps/web.py` `_LLM_TASK_PATHS` 扩六键 + `cps/routes/vocab.py` 六处理器，`_llm_task_admin_gate()` JSON 403 门禁与 R126 同款、先于任何上游调用。
-- **坑（本轮新踩）**：msgid 里不能带 `%`——Jinja i18n 扩展对译文做 `%`-格式化，`Confirm Republish of %N tasks` 渲染即 `ValueError: unsupported format character`；占位符改 `{N}/{C}`，JS `.replace('{N}', …)` 语义不变（已写进 LLD §9）。
-- **测试**：新增 `tests/test_llm_task_admin_monitor_r130.py` 30 条——转发形制与超时钉 LLD 值、非 admin JSON 403 且门禁先于上游、模板守卫（四区块 id、keyword 闸门、只读桶规则、confirm 两步语义、轮询暂停、无裸 `_()`、相邻重复行）、跨仓契约（前端读取字段 ⊆ moon-well DTO、分类下拉 == 失败枚举、状态下拉 ⊆ 状态枚举、PageVO records/total）、zh 真渲染（.mo 未编译即红）。回归：R126 26 条 + i18n 种子契约 7 条 + 受影响面（llm-task/代理相关 10 个测试文件）合计 **213 passed**。
-- **文档四问**：L1 `readme/admin.md` 加「LLM 队列监控」条目；L2 **新建 `docs/product/admin/interface.md`**（admin 模块首个 L2，10 端点全量收录——设计原落 vocabulary/interface.md 是基于错误调查结论，已更正并记入 LLD §8）；L3 沿用「随演进补齐」未建；LLD 状态行改「已实现待验收」。
-- **收尾**：worktree `../magicbook-r130-monitor` 分支 `feat/r130-llm-monitor`（按 R188 基线教训先核 `rev-list` 双向计数：本地 ahead 1（设计 docs）/behind 0，故从本地 develop 顶端切出）；merge 回 develop 后 worktree 原样保留待验收；**未 push**（push 即触发 fnOS 自动构建，由用户定）。PingCode：idea i7iJ3gwo → In progress、工作项 MAGICBOOK-4 → 进行中。
-- **窗口轮转**：本条写入使窗口达 11，R179（B2 尝试撤销节）原样搬至 `response-archive/response-R179.md`。
-- **验收反馈修复（UI 改版，2026-10-19 深夜）**：用户真机反馈「四区块元素堆叠太拥挤」——纵向全宽堆叠改 **Tab 化**（Bootstrap 3 nav-tabs，总览/失败分类/任务查询/恢复一次一个区块）；总览改三个大数字 stat 块 + caller 表与吞吐柱双栏；任务查询与恢复的 form-inline（8/4 个无标签控件挤一行）改 label+控件栅格（两行四列）；「去恢复此类」从滚动跳转改 Tab 切换。新增 msgid 仅 2 条（Created from/to），全部区块 id/data- 属性/JS 契约不变 → 测试零改动 63 绿（R130 30 + R126 26 + i18n 契约 7）。bootstrap.min.js 为完整版含 Tab 组件（39KB）已核实。同 commit 仍在 `feat/r130-llm-monitor`，merge 后随验收循环 push 上线。
-- **UI 改版二轮（用户再反馈）**：「任务执行」（R126）与「队列监控」（R130）也 Tab 化——页面顶层两大 Tab（`Task Runner`/`Queue Monitor`，两者 msgid 均复用现有译文零新增 po），R126 手动执行面板进「任务执行」pane，队列监控（含其四个子 Tab）整体进「队列监控」pane；分隔 hr 与冗余 h2 删除（Tab 即分组）。新增测试断言顶层 Tab 结构，64 绿。
-- **验收闭环（2026-10-19）**：两轮 UI 改版后用户拍板「验收完成」——idea MAGICBOOK-143 → Completed、工作项 MAGICBOOK-4 → 已完成；worktree `../magicbook-r130-monitor` 与分支 `feat/r130-llm-monitor` 按闸门删除（merge 态确认无未提交残留）。R130 全程：设计草案 → 实现上线 → 验收反馈两轮 Tab 化改版 → 验收通过，同日闭环。
-
 ### R190（部署链纯文档跳过构建/部署）
 
 - **范围**：用户指令「修改一下部署脚本，如果只有文档更新，则不触发部署」；四仓同源 + 「触发但跳过构建/部署」两口径拍板。
@@ -223,3 +207,19 @@
 - **驻留**：worktree `../magicbook-doc-skip-deploy`，分支 `chore/r190-doc-skip-deploy`，合并 commit `a8c2af35`（本地 `develop`，未 push）。
 - **补记（2026-10-21 15:55，覆盖面缺口已关闭）**：R153 记的「fnOS 链未加判据，纯文档 push 仍会构建部署」当轮补齐——fnOS `pipeline_lib.sh` 新增 `docs_only_diff` + 基线 marker（`logs/.magicbook.deployed-sha`），`build-magicbook.sh` 在 checkout 后插入 `scope-check`：纯文档时打印 `build SKIPPED (docs-only) (<sha>)` 并 `exit 0`，不构建镜像、不触发 project-update 部署、不发 Bark；`drift-check-build.sh` 已把 SKIPPED 视同 `END OK`。实测 4 例 + 端到端纯文档跳过全符合预期。详见 `../ops/runbook.md` §1 与 ops R154。
 
+### R191（收敛 fnOS 单链 + 部署前按代码指纹判等，2026-10-21）
+
+**背景**：magicbook 的 GHA 早已 `disabled_manually`，现役是 fnOS 链，所以「只留 fnOS」这条对本仓是**补齐代码与事实的一致性**——workflow 文件里还写着 push 触发、还挂着 R190 的 `changes` job，一旦有人 re-enable 就会双链复发。
+
+**改动**
+
+- `.github/workflows/build-and-push.yml`：只留 `workflow_dispatch`，删掉 `changes` job 与 build 门禁。
+- 新增 `deploy/fnos/deploy.sh`：这就是 `/app/magicbook/deploy.sh` 的版本化副本——此前它只存在于 fnOS 项目目录，仓库里的 `deploy/deploy.sh` 是另一个 139 行的开发者多功能脚本，两者不是一回事。以后改部署逻辑要改 `deploy/fnos/` 这份并同步过去。
+- 判等：`docker compose pull magicbook` 之后比新镜像与在跑容器的 `house.code-digest`，一致则打印「镜像代码指纹未变 -> 跳过重启」并退出——不停容器、不 `up -d`。原来的 `stop` + `start` 有停机窗口，判等直接把这窗口也省掉。
+
+**验证**
+
+- 假 docker 三例：指纹一致→跳过（`up -d` 0 次）；指纹变化→`[2/3]` 部署（1 次）；旧镜像无 label→保守部署（1 次）。
+- 真实构建实测（只跑到 push 为止，不触发部署）：镜像 label `code-digest=d73089e559f6bab3`、`build-sha=1b3428d5…`，与 `code_digest HEAD` 算出的值一致。
+
+**状态**：worktree `../magicbook-doc-skip-deploy`（分支 `chore/r191-deploy-skip-unchanged`），未 push。
