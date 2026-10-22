@@ -1,6 +1,8 @@
 # AI 伴读图标改「伙伴」+ 伙伴系统前端（magicbook R206）· LLD
 
-**状态**：开发中（前端已实现，JS/Python 语法校验通过；端到端待 moon-well R201 部署 + MinIO 资产上传）
+**状态**：已入库并 push（develop `6b91bf31`，全量 686 passed）；待 MinIO 资产上传后端到端验收
+
+> **坑（本轮真实踩过，已 push 出一次站内错）**：`i18n_seed.html` 的花名册词条写在 `{% set mb_i18n = { … } %}` **表达式内部**，那里加 `# ---- 分节 ----` 行注释会抛 `TemplateSyntaxError: unexpected char '#'`——Jinja 的词法注释只认 `{# #}`，且只能位于标签体外。本文件被 `layout.html` include，一处模板错＝所有 extends layout 的页面一起 500。判据必须是「页面渲染出来」（`tests/test_buddy_page.py` 已常驻覆盖 `/buddy`），`node --check` / `py_compile` 看不见这一类错。
 
 ## 1. 承接
 
