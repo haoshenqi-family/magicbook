@@ -300,3 +300,15 @@
 - **闸门**：定向 `test_tornado_wsgi_stream.py + test_learning_writing_sse.py + test_learning_proxy.py` **62 passed**；全量 **594 passed / 0 failed / 58 errors**，同环境主检出基线 **590 / 0 / 58**——差值正好是新增 4 条，58 个 error 全是沙箱 pytest 临时目录权限问题（`pytest-of-root` 建不了目录），与本次改动无关。
 - **仍未解决（如实）**：magpie 环在 150s 处零 token 挂起（`ms=150013,status=499`），批改本身仍会以 `error` 结束。那是 moon-well 的 LLM 预算/路由问题，本仓不越界改；修完流式后，用户至少能逐秒看到进度、并在 150s 时收到明确错误而不是干等。
 - **台账**：分支 `fix/r204-sse-stream`，worktree `../magicbook-r204-sse-stream` 留待验收后按闸门删除。
+
+## 2026-10-22（R205：每日学习「单词编故事」——Hub 第八张卡 + 子页面 + SSE 代理）
+
+### R205（承接 moon-well R200；用户：「每日学习新增一个功能，单词编故事，根据我最近需要复习的单词或者我指定的一批单词，让 AI 编一个小故事来帮助我记忆理解。」）
+
+- **页面**：`/learning/story`，双入口（今天到期的词一键 / 粘贴词表），默认 6 词、上限 8；结果面板含标题、正文（目标词加粗）、词表卡（释义 / 原句 / `missing` / `uncached` 标签）、整篇朗读与入账提示；历史点击取详情回看。
+- **代理**：`/ajax/learning/story/generate|generate/stream|history|detail`。写作专用 SSE 代理泛化为 `_llm_sse_proxy(path, label, payload_builder)`；`_story_payload` 只放行 `source/count/words/cefrLevel`，manual 的整段粘贴折成单元素 list，词长 ≤2000；detail 的 id 只认数字。
+- **前端复用**：`postSse` 下沉 `learning-common.js`，写作页改为 `MB.postSse`；故事页只在建连失败 / 未收到首事件时回退 JSON，收到 `status`/`ping` 后断网不重试（故事可能已落库并入账）。
+- **Hub / i18n / 配图**：中枢新增第八张卡（`data-key="story"`、`data-strand="language"`）与 `story.webp`；seed/po/mo 补齐 19 条模板词条与 8 条 JS 词条。`generate_i18n_seed.py` 修两处：mbT 双引号内含撇号漏扫、回填未转义（后者会写坏 Jinja 字典）。
+- **测试**：定向 5 文件 **104 passed**（story / pages_static / hub_cards / writing_sse / i18n_seed_contract）；额外 `test_nav_settings_dropdown.py` + `test_no_duplicate_js_lines.py` **8 passed**。覆盖登录、页面元素、due 白名单、manual 折叠、非法 payload、SSE 头/事件/401 刷新、历史与 detail、50524 透传、卡片顺序与文案译文。
+- **边界（如实）**：未起浏览器真机走完整链路——朗读出音、词汇股徽章 +2 分钟、历史回看均依赖 moon-well R200 部署后验收；本仓 `push` 会触发 fnOS 自动上线，待用户单独确认。
+- **台账**：requests.md 占号 R205（跨仓 moon-well R200）；分支 `feature/r205-word-story`，worktree `../magicbook-word-story` 原样驻留待验收；merge 本地 develop **`b44e20ad`**。
