@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block header %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/buddy.css') }}">
+{% endblock %}
+{% block body %}
+<!-- Why: CSRFProtect 全局启用，claim/equip POST 必须带 token 否则 400；本页自带一份
+     （layout 的 csrf input 挂在有上传权限才渲染的 form 里，普通页面取不到） -->
+<input type="hidden" id="buddy-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Buddies')}}</h1>
+  <div class="col-md-12">
+
+    <div id="buddy-error" class="alert alert-danger hidden" role="alert">
+      <span id="buddy-error-text"></span>
+      <button id="buddy-retry" class="btn btn-default btn-xs" style="margin-left:10px">{{_('Retry')}}</button>
+    </div>
+
+    <p class="buddy-intro">{{_('Your companion rides along on the AI reading button. Claim a buddy and equip your favourite.')}}</p>
+
+    <div id="buddy-roster" class="buddy-roster"></div>
+
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<script src="{{ url_for('static', filename='js/buddy.js') }}"></script>
+{% endblock %}
