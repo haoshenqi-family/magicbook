@@ -188,3 +188,5 @@
 205. 每日学习新增功能「单词编故事」：用户原话——「每日学习新增一个功能，单词编故事，根据我最近需要复习的单词或者我指定的一批单词，让 AI 编一个小故事来帮助我记忆理解。」定稿口径：Hub 第八张卡 + 子页面 `/learning/story`；双入口（今天到期的词一键 / 粘贴词表）、默认 6 词上限 8、全英文 80–120 词微故事 + 词表卡、历史回看、整篇朗读、词汇学习股入账（moon-well `storySeconds=120`）、SSE 进度流 + JSON 回退。跨仓同源：moon-well R200。worktree 开发。
 
 206. AI 伴读图标改「伙伴」+ 伙伴系统前端（承接 moon-well R201，前端主责）：用户原话——「magicbook 的 AI 伴读悬浮按钮图标改成宠物图片，增加宠物系统，新注册可以领取一只，宠物会做一些动作，但是主要功能就只是 AI 伴读的图标替换……不要叫 pet 叫伙伴。默认一个机器人 AI 助手。引导页到伙伴模块，可以领取雪鸮」。定稿口径：默认伙伴=机器人；新增独立 `/buddy` 页（花名册 + 领取/切换）经薄代理调 moon-well `/buddy`（复用 `credit.py` `_moonwell_proxy` 范式）；`ai-companion-fab` 图标由文字「AI」换成当前装备伙伴 head 头像（MinIO 匿名直读直链）；FAB 动效 4 态（idle/hover/thinking/sleep，thinking 窗口取 `ai_chat.js` send 禁用→恢复）；引导页新增一步 handoff 到 `/buddy` 领取雪鸮。美术 ImageGen 生成、不入 git、走 MinIO。积分/成就兑换 = 第二期。worktree 开发，push 闸门留用户。
+
+207. 验收三连：「1 验证，2 推 3 上传」——① 核验两次 push 的 fnOS 构建/部署实况（含 `13e44003` 站内错是否上线）；② 推本轮纯文档台账 commit；③ 把 18 个伙伴资产上传 MinIO。执行中自查发现 R206 的第二处缺陷：CSP `img-src 'self' … data:` 未放行 MinIO 直读源，伙伴图片会被浏览器拦（且 FAB 探测失败静默保留「AI」文字，故障不可见），随本条修复——按 media-src 先例只在 `web.read_book` 与 `web.buddy_page` 两个端点放行该源，不放宽全站。
