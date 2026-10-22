@@ -5733,3 +5733,42 @@ msgstr "正在写故事…"
 
 msgid "Your word list"
 msgstr "你的词表"
+
+msgid "Buddies"
+msgstr "伙伴"
+
+msgid "Your companion rides along on the AI reading button. Claim a buddy and equip your favourite."
+msgstr "你的伙伴会守在 AI 伴读按钮上。领取一只伙伴，再换上你最喜欢的。"
+
+msgid "In use"
+msgstr "使用中"
+
+msgid "Equip"
+msgstr "装备"
+
+msgid "Coming soon"
+msgstr "敬请期待"
+
+msgid "Failed to load"
+msgstr "加载失败"
+
+msgid "Operation failed"
+msgstr "操作失败"
+
+msgid "Claim your snowy owl"
+msgstr "领取你的雪鸮"
+
+msgid "Hedwig is free for new readers. Tap Claim and she's yours — she'll ride on the AI reading button."
+msgstr "雪鸮海德薇对新读者免费开放。点「领取」她就归你了——她会守在 AI 伴读按钮上。"
+
+msgid "Swap anytime"
+msgstr "随时更换"
+
+msgid "Equip any buddy you own; the floating AI button wears its face."
+msgstr "装备任意一只你拥有的伙伴，悬浮的 AI 按钮就会换上它的样子。"
+
+msgid "Claim your first companion — a snowy owl is waiting for new readers."
+msgstr "领取你的第一位伙伴——一只雪鸮正在等新读者。"
+
+msgid "Reading settings, achievements, credits and your Buddies all live in this dropdown."
+msgstr "阅读设置、成就、积分和你的伙伴都在这个下拉菜单里。"

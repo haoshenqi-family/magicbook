@@ -42,6 +42,9 @@
 
 ## 7. 已知待办
 
-- **i18n**：新增英文 msgid（Buddies/In use/Equip/Claim/Coming soon + 引导文案）尚未补 zh_Hans_CN 词条，中文用户暂显英文（mbT 缺失回退 msgid，不报错）。
-- MinIO 资产上传（`buddy/` 前缀 18 个 PNG）在部署期执行，凭证在生产。
+- MinIO 资产上传（`buddy/` 前缀 18 个 PNG）在部署期执行，凭证走 env（脚本见 moon-well `deploy/upload_buddy_assets.py`）。
 - 端到端验收需 moon-well R201 先上线。
+
+## 8. i18n
+
+新增英文 msgid（伙伴页 + 引导 + 改写的 settings 文案）已补 `i18n_seed.html` 的 JS 词条映射，并追加到 `zh_Hans_CN` po + `pybabel compile`；运行时目录实测 `Buddies→伙伴` 等生效。
