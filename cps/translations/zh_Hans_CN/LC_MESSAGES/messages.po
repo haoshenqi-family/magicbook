@@ -5674,3 +5674,62 @@ msgstr "创建时间从"
 
 msgid "Created to"
 msgstr "创建时间至"
+
+# --- R205 单词编故事 ---
+
+msgid "Word Story"
+msgstr "单词编故事"
+
+msgid "Word study strand · 2-3 minutes"
+msgstr "词汇学习股 · 2-3 分钟"
+
+msgid "Take six words from today's review queue — or paste a list of your own — and the AI weaves them into one short English story. Every target word comes back highlighted inside a sentence, with a word card for its meaning, so the memory gets a plot to hold on to."
+msgstr "从今天的复习队列里挑六个词——或粘贴你自己的词表——让 AI 把它们编成一篇简短的英文故事。每个目标词都会在句子里高亮重现，并配一张释义卡，让记忆有个情节可以攀附。"
+
+msgid "Today's due words"
+msgstr "今天到期的词"
+
+msgid "A word list I paste"
+msgstr "我粘贴的词表"
+
+msgid "Weave a story"
+msgstr "编织故事"
+
+msgid "Paste up to 8 English words, separated by commas or new lines"
+msgstr "最多粘贴 8 个英文单词，用逗号或换行分隔"
+
+msgid "Read the story aloud"
+msgstr "朗读整篇故事"
+
+msgid "Counted into the word study strand today."
+msgstr "已计入今天的词汇学习股。"
+
+msgid "Word cards"
+msgstr "词表卡"
+
+msgid "Story history"
+msgstr "故事历史"
+
+msgid "Click a story to read it again — replaying it spends no tokens."
+msgstr "点一条故事即可重读——重读不消耗 Token。"
+
+msgid "Connecting…"
+msgstr "连接中…"
+
+msgid "Meaning from AI"
+msgstr "AI 释义"
+
+msgid "Not in the story"
+msgstr "未出现在故事中"
+
+msgid "Paste a few English words first"
+msgstr "先粘贴几个英文单词"
+
+msgid "Story generation failed"
+msgstr "故事生成失败"
+
+msgid "Writing the story…"
+msgstr "正在写故事…"
+
+msgid "Your word list"
+msgstr "你的词表"

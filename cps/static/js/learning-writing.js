@@ -10,7 +10,7 @@
   if (!MB) return;
   var mbT = MB.mbT, $ = MB.byId, show = MB.show, clear = MB.clear, li = MB.li,
       esc = MB.esc, busy = MB.busy, getJson = MB.getJson, postJson = MB.postJson,
-      resultOf = MB.resultOf, csrfToken = MB.csrfToken;
+      resultOf = MB.resultOf;
   var urls = window.learningUrls || {};
 
   var els = {};
@@ -215,113 +215,9 @@
     }
   }
 
-  function errorMessageFrom(text, status) {
-    try {
-      var data = JSON.parse(text);
-      return data.message || data.error || ('HTTP ' + status);
-    } catch (e) {
-      return 'HTTP ' + status;
-    }
-  }
-
-  /**
-   * POST + SSE 读取（R194）：与 /ai/agent/chat 一样用 fetch + ReadableStream，
-   * 而不是 EventSource——需要 POST body 和 X-CSRFToken。
-   *
-   * 成功 resolve 为 Review；业务 error 事件 reject 一个带 streamStarted=true 的
-   * Error。建连失败/流开始前断网时 streamStarted 为 false，调用方可以安全回退
-   * JSON 一次（后端有同文并发去重，回退不会重复批改）。
-   */
-  function postSse(url, body, onEvent) {
-    if (!url || typeof fetch !== 'function' || typeof TextDecoder === 'undefined') {
-      return Promise.reject(new Error('SSE unavailable'));
-    }
-    return fetch(url, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
-      body: JSON.stringify(body || {}),
-    }).then(function (response) {
-      if (!response.ok) {
-        return response.text().then(function (text) {
-          throw new Error(errorMessageFrom(text, response.status));
-        });
-      }
-      if (!response.body || typeof response.body.getReader !== 'function') {
-        throw new Error('SSE unavailable');
-      }
-
-      var reader = response.body.getReader();
-      var decoder = new TextDecoder();
-      var buffer = '';
-      var settled = false;
-      var started = false;
-      var review = null;
-      var streamError = null;
-
-      return new Promise(function (resolve, reject) {
-        function fail(err) {
-          if (settled) return;
-          settled = true;
-          err.streamStarted = started;
-          reject(err);
-        }
-
-        function finish() {
-          if (settled) return;
-          if (streamError) { fail(streamError); return; }
-          if (review) { settled = true; resolve(review); return; }
-          fail(new Error(mbT('Connection error')));
-        }
-
-        function handleBlock(block) {
-          var eventName = null;
-          var dataLines = [];
-          block.split(/\r?\n/).forEach(function (line) {
-            var trimmed = line.trim();
-            if (trimmed.indexOf('event:') === 0) {
-              eventName = trimmed.slice(6).trim();
-            } else if (trimmed.indexOf('data:') === 0) {
-              dataLines.push(trimmed.slice(5).trim());
-            }
-          });
-          if (!dataLines.length) return;
-          var payload = null;
-          try { payload = JSON.parse(dataLines.join('\n')); } catch (e) { return; }
-          started = true;
-          if (eventName === 'result') {
-            review = resultOf({ data: payload });
-            settled = true;
-            resolve(review);
-            return;
-          }
-          if (eventName === 'error') {
-            streamError = new Error((payload && payload.message) || mbT('Connection error'));
-            streamError.streamStarted = true;
-            fail(streamError);
-            return;
-          }
-          if (onEvent) onEvent(eventName, payload);
-        }
-
-        function pump() {
-          reader.read().then(function (chunk) {
-            if (chunk.done) { finish(); return; }
-            buffer += decoder.decode(chunk.value, { stream: true });
-            var blocks = buffer.split(/\r?\n\r?\n/);
-            buffer = blocks.pop();
-            blocks.forEach(handleBlock);
-            pump();
-          }).catch(function (err) {
-            if (review) { settled = true; resolve(review); return; }
-            fail(err);
-          });
-        }
-
-        pump();
-      });
-    });
-  }
+  // SSE 读取原语 R200 起下沉 learning-common.js（编故事复用同一份），本页只保留
+  // 写作专属的状态文案与回退决策。
+  var postSse = MB.postSse;
 
   els['sw-w-generate'].addEventListener('click', function () {
     busy(els['sw-w-generate'], true, mbT('Generating…'));

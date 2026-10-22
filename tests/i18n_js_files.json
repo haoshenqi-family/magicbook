@@ -11,6 +11,7 @@
   "cps/static/js/learning-retell.js",
   "cps/static/js/learning-review.js",
   "cps/static/js/learning-speaking.js",
+  "cps/static/js/learning-story.js",
   "cps/static/js/learning-voice.js",
   "cps/static/js/learning-writing.js",
   "cps/static/js/onboarding.js",
@@ -24,5 +25,5 @@
   "cps/static/js/reading/reader-word-detail.js",
   "cps/static/js/vocab-test.js"
  ],
- "msgid_count": 290
+ "msgid_count": 299
 }

@@ -404,6 +404,7 @@ _PROXY_LIMITS = {
     "scenario": 16, "scenarioLabel": 60, "coachStyle": 16, "mode": 16,
     "cefrLevel": 8, "bookId": 64, "bookTitle": 200, "chapter": 100,
     "prompt": 500, "text": 20000, "paragraphText": 20000, "transcript": 20000,
+    "storyWords": 2000, "storyId": 64,
 }
 
 

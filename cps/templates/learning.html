@@ -10,7 +10,7 @@
       <button id="ln-retry" class="btn btn-default btn-xs" style="margin-left:10px">{{_('Retry')}}</button>
     </div>
 
-    {# ---------- R166 功能 banner：七个学习小功能循环卡片，点击进入各自子页面 ---------- #}
+    {# ---------- R166 功能 banner：八个学习小功能循环卡片，点击进入各自子页面 ---------- #}
     {# data-strand 决定徽章取哪一股的今日入账（input/language/output/fluency/none）； #}
     {# data-key 供 learning-hub.js 定位卡片与 localStorage 里的轮播偏好。          #}
     <div id="lh-banner" class="lh-banner" role="region"
@@ -98,6 +98,20 @@
             <span class="lh-card-meta">{{_('Word study strand · 20 cards a day, more on request')}}</span>
             <span class="lh-card-badge label label-default" hidden></span>
             <span class="lh-card-cta">{{_('Start reviewing')}} <span class="glyphicon glyphicon-arrow-right"></span></span>
+          </span>
+        </a>
+
+        <a class="lh-card panel panel-default" data-key="story" data-strand="language"
+           href="{{ url_for('web.learning_story_page') }}">
+          <span class="lh-card-media">
+            <img src="{{ url_for('static', filename='img/learning/story.webp') }}" alt="" width="640" height="436">
+          </span>
+          <span class="lh-card-body">
+            <span class="lh-card-title">{{_('Word Story')}}</span>
+            <span class="lh-card-desc">{{_('Take six words from today\'s review queue — or paste a list of your own — and the AI weaves them into one short English story. Every target word comes back highlighted inside a sentence, with a word card for its meaning, so the memory gets a plot to hold on to.')}}</span>
+            <span class="lh-card-meta">{{_('Word study strand · 2-3 minutes')}}</span>
+            <span class="lh-card-badge label label-default" hidden></span>
+            <span class="lh-card-cta">{{_('Start practising')}} <span class="glyphicon glyphicon-arrow-right"></span></span>
           </span>
         </a>
 

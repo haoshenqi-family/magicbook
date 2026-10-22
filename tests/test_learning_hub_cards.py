@@ -1,6 +1,6 @@
 """R166：每日学习中枢的功能 banner 卡片契约。
 
-Why 单独一份：banner 是「七个学习功能」的唯一入口，卡片文案/配图/链接三样
+Why 单独一份：banner 是「八个学习功能」的唯一入口，卡片文案/配图/链接三样
 只要有一样对不上（改了路由忘了改卡、图路径打错、描述漏译），页面照样 200、
 点进去才发现 404 或英文串。这些都能在渲染产物上静态断言，不必等真机。
 
@@ -26,6 +26,7 @@ CARDS = [
     ("reread", "Timed rereading", "web.learning_reread_page", "fluency"),
     ("dictation", "Dictation", "web.learning_dictation_page", "language"),
     ("review", "Review Queue", "web.learning_review_page", "language"),
+    ("story", "Word Story", "web.learning_story_page", "language"),
     ("match", "Book Difficulty Match", "web.learning_match_page", "none"),
 ]
 
@@ -50,7 +51,7 @@ def _card_block(html, key):
     return m.group(0)
 
 
-def test_seven_cards_render_in_order(hub_html):
+def test_all_cards_render_in_order(hub_html):
     keys = re.findall(r'data-key="([a-z]+)"', hub_html)
     assert keys == [c[0] for c in CARDS], "卡片顺序即用户指定的展示顺序，不得漂成别的"
 
@@ -109,7 +110,7 @@ def test_old_speaking_writing_url_redirects_to_hub(admin_client):
 def test_banner_copy_is_translated(hub_html, zh_catalog):
     """七段描述 + 股别行必须能在 .mo 里取到中文（漏译=中文用户看英文长段）。"""
     msgids = set(re.findall(r'class="lh-card-(?:title|desc|meta)">([^<]+)</', hub_html))
-    assert len(msgids) >= 21, "卡片文案数量异常：%d" % len(msgids)
+    assert len(msgids) >= 24, "卡片文案数量异常：%d" % len(msgids)
     untranslated = []
     for msg in msgids:
         text = msg.replace("&amp;", "&").replace("&#39;", "'")
