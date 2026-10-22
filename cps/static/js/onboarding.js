@@ -65,7 +65,7 @@
       body: "Tick it when you finish; read/unread filters and stats rely on it." },
     { id: "settings_menu", sel: "#top_mb_settings",
       title: "Settings",
-      body: "Reading settings, achievements and credits all live in this dropdown." },
+      body: "Reading settings, achievements, credits and your Buddies all live in this dropdown." },
     { id: "finish", sel: null, guide: true,
       title: "Done",
       body: "Leave the rest to habit. A second tour awaits inside the reader." }
@@ -96,6 +96,17 @@
     { id: "reader-finish", sel: null,
       title: "Happy reading",
       body: "Tap the “?” at the bottom-left any time to replay the tour." }
+  ];
+
+  /* R206 伙伴段：只在 /buddy 页出现，花名册异步渲染后由 onRosterReady 触发，
+     锚点指向雪鸮的领取按钮（新用户可免费领取的第一只伙伴）。 */
+  var STEPS_BUDDY = [
+    { id: "claim", sel: "#buddy-claim-hedwig",
+      title: "Claim your snowy owl",
+      body: "Hedwig is free for new readers. Tap Claim and she's yours — she'll ride on the AI reading button." },
+    { id: "buddy-finish", sel: null,
+      title: "Swap anytime",
+      body: "Equip any buddy you own; the floating AI button wears its face." }
   ];
 
   /* ---------------- 存储 ---------------- */
@@ -208,6 +219,7 @@
   var current = null;  // {segment, index}
 
   function stepsFor(segment) {
+    if (segment === "buddy") return STEPS_BUDDY;
     return segment === "reader" ? STEPS_READER : STEPS_MAIN;
   }
 
@@ -215,7 +227,12 @@
     return !!document.querySelector("#show-Toc, #viewerContainer, #viewer");
   }
 
+  function isBuddyPage() {
+    return !!document.querySelector("#buddy-roster");
+  }
+
   function detectSegment() {
+    if (isBuddyPage()) return "buddy";
     return isReaderPage() ? "reader" : "main";
   }
 
@@ -573,12 +590,15 @@
   function showInvite(segment) {
     applyChromePalette();
     var isReader = segment === "reader";
+    var inviteText = segment === "buddy"
+      ? mbT("Claim your first companion — a snowy owl is waiting for new readers.")
+      : (isReader ? mbT("Flip pages, switch themes and use the AI companion, right inside the reader.")
+                  : mbT("Walk through finding books, shelves, download and reading on the real interface."));
     var card = $('<div id="onb-invite" role="dialog" aria-label="' + esc(mbT("Onboarding Tour")) + '"><div class="onb-invite-card">'
       + '<button type="button" class="onb-invite-x" title="' + esc(mbT("Close")) + '" aria-label="' + esc(mbT("Close")) + '">×</button>'
       + '<div class="onb-invite-title">' + esc(mbT("Learn magicbook in 2 minutes")) + '</div>'
       + '<p class="onb-invite-text">'
-      + esc(isReader ? mbT("Flip pages, switch themes and use the AI companion, right inside the reader.")
-                     : mbT("Walk through finding books, shelves, download and reading on the real interface."))
+      + esc(inviteText)
       + '</p><div class="onb-invite-actions">'
       + '<button type="button" class="onb-btn onb-invite-never">' + esc(mbT("Never show again")) + '</button>'
       + '<span class="onb-spacer"></span>'
@@ -634,10 +654,7 @@
     });
   }
 
-  function init() {
-    bindLayoutEntry();
-
-    var segment = detectSegment();
+  function runSegment(segment) {
     var progress = loadProgress();
     if (progress && progress.segment === segment && findStep(segment, progress.step)) {
       // 跨页面/新标签续览：该步锚点不在本页时保持安静，不打断用户也不再自动推进
@@ -656,6 +673,20 @@
     }
     showReaderHelp();
   }
+
+  function init() {
+    bindLayoutEntry();
+    var segment = detectSegment();
+    // 伙伴段的锚点（雪鸮领取按钮）由 buddy.js 异步渲染，DOM 就绪时尚不存在，
+    // 直接跑会把领取步当锚点缺失跳过——交给 onRosterReady 在花名册画完后触发。
+    if (segment === "buddy") return;
+    runSegment(segment);
+  }
+
+  // 暴露给 buddy.js：花名册渲染完成后触发伙伴段导览（幂等，仅伙伴页生效）。
+  cfg.onRosterReady = function () {
+    if (detectSegment() === "buddy") runSegment("buddy");
+  };
 
   $(document).on("keydown.onboarding", function (e) {
     if (e.key !== "Escape" || !current) return;

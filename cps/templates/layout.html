@@ -112,6 +112,7 @@
                     <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> {{_('Reading Settings')}}</a></li>
                     <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> {{_('Achievements')}}</a></li>
                     <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> {{_('Credits')}}</a></li>
+                    <li><a id="top_buddy" href="{{url_for('web.buddy_page')}}"><span class="glyphicon glyphicon-heart"></span> {{_('Buddies')}}</a></li>
                     {# R109 使用引导：常驻手动入口，点击后由 onboarding.js 接管 #}
                     <li><a id="top_onboarding" href="#"><span class="glyphicon glyphicon-education"></span> {{_('Onboarding Tour')}}</a></li>
                     {% if current_user.role_admin() %}

@@ -109,6 +109,7 @@
     });
 
     loadConversations();
+    loadBuddyFab();
   }
 
   function toggleDrawer() {
@@ -119,6 +120,49 @@
   }
   function closeDrawer() {
     $("#ai-companion-drawer").removeClass("open");
+  }
+
+  // ------------------------------------------------------------------
+  // R206 伙伴头像：把 AI 悬浮按钮换成当前装备伙伴头像（MinIO 匿名直读）。
+  // Why 先探测再切换：图片可能尚未上传到 MinIO（资产上传在部署期），直接设 src
+  //   会裂图；用 new Image() 预载成功才加 has-buddy，失败/未装备一律保留「AI」文字兜底。
+  // ------------------------------------------------------------------
+  var fabIdleTimer = null;
+  function loadBuddyFab() {
+    $.getJSON("/ajax/buddy/catalog")
+      .then(function (raw) {
+        var list;
+        try { list = unwrap(raw) || []; } catch (e) { return; }
+        var equipped = null;
+        (list || []).forEach(function (b) { if (b.equipped) { equipped = b; } });
+        if (!equipped || !equipped.imageUrl) { return; }
+        var probe = new Image();
+        probe.onload = function () {
+          $("#ai-companion-fab-img").attr("src", equipped.imageUrl);
+          $("#ai-companion-fab").addClass("has-buddy");
+          startFabIdle();
+        };
+        probe.onerror = function () { /* 图片未就绪：保留文字兜底 */ };
+        probe.src = equipped.imageUrl;
+      })
+      .fail(function () { /* 代理不可达：静默保留文字兜底 */ });
+  }
+
+  function startFabIdle() {
+    if (fabIdleTimer) { return; }
+    function resetIdle() {
+      if (fabIdleTimer) { clearTimeout(fabIdleTimer); }
+      fabIdleTimer = setTimeout(function () {
+        if (!$("#ai-companion-fab").hasClass("buddy-thinking")) {
+          $("#ai-companion-fab").addClass("buddy-sleep");
+        }
+      }, 45000);
+    }
+    $(document).on("mousemove keydown click", function () {
+      $("#ai-companion-fab").removeClass("buddy-sleep");
+      resetIdle();
+    });
+    resetIdle();
   }
 
   // 阅读器划词右键菜单入口：把选中文本以「」引用形式追加到输入框（不发送），
@@ -351,6 +395,8 @@
   function streamChat(message, pageContext) {
     sending = true;
     $("#ai-chat-send").prop("disabled", true);
+    // R206 伙伴动效：请求在途 → FAB 进入 thinking（起伏），醒着别打盹
+    $("#ai-companion-fab").addClass("buddy-thinking").removeClass("buddy-sleep");
 
     // 首个 delta 到达前的等待反馈（R87：零工具场景整段生成期间 stream 静默，
     // tool 芯片也不会出现——动效占位让「没反应」变成「思考中」）
@@ -478,6 +524,8 @@
       }
       sending = false;
       $("#ai-chat-send").prop("disabled", false);
+      // R206 伙伴动效：响应收尾 → 退出 thinking，回到 idle 呼吸
+      $("#ai-companion-fab").removeClass("buddy-thinking");
       if (conversationIdFromFinal) {
         var changed = conversationIdFromFinal !== currentConversationId;
         currentConversationId = conversationIdFromFinal;

@@ -3,7 +3,12 @@
    Depends on jQuery (already loaded by all reader templates). #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ai_chat.css') }}">
 <div id="ai-companion-root">
-  <button id="ai-companion-fab" title="{{_('AI Companion')}}">AI</button>
+  {# R206 伙伴图标：默认显示「AI」文字兜底（MinIO 未就绪/未装备伙伴时），
+     拉到当前装备伙伴头像后切图为图片。img 载入成功才加 has-buddy，避免裂图。 #}
+  <button id="ai-companion-fab" title="{{_('AI Companion')}}" aria-label="{{_('AI Companion')}}">
+    <span id="ai-companion-fab-text">AI</span>
+    <img id="ai-companion-fab-img" alt="" style="display:none">
+  </button>
   <div id="ai-companion-drawer">
     <header>
       <h3>{{_('AI Reading Companion')}}</h3>

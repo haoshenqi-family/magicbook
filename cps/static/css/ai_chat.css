@@ -14,6 +14,27 @@
 }
 #ai-companion-fab:hover { transform: scale(1.08); }
 
+/* ============ R206 伙伴头像 + 动效（idle 呼吸 / thinking 起伏 / sleep 打盹） ============ */
+/* 外圈 hover 缩放走 button transform，内圈动效走 img transform，二者不冲突。 */
+#ai-companion-fab.has-buddy { background: #fff; padding: 0; }
+#ai-companion-fab.has-buddy #ai-companion-fab-text { display: none; }
+#ai-companion-fab-img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+  display: none;
+}
+#ai-companion-fab.has-buddy #ai-companion-fab-img { display: block; }
+#ai-companion-fab.has-buddy #ai-companion-fab-img { animation: buddy-breathe 3.4s ease-in-out infinite; }
+#ai-companion-fab.buddy-thinking #ai-companion-fab-img { animation: buddy-bob 0.7s ease-in-out infinite; }
+#ai-companion-fab.buddy-sleep #ai-companion-fab-img {
+  animation: buddy-breathe 5s ease-in-out infinite;
+  filter: grayscale(0.35) brightness(0.9);
+}
+@keyframes buddy-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes buddy-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) {
+  #ai-companion-fab.has-buddy #ai-companion-fab-img { animation: none; }
+}
+
 #ai-companion-drawer {
   position: fixed; top: 0; right: 0; z-index: 2147483647;
   width: 420px; max-width: 100vw; height: 100vh;
