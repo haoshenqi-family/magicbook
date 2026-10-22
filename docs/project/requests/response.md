@@ -313,3 +313,16 @@
 - **边界（如实）**：未起浏览器真机走完整链路——朗读出音、词汇股徽章 +2 分钟、历史回看均依赖登录后的真人验收；页面与静态资源已确认上线。
 - **上线**：全量 **684 passed**；push `a4b1a53b..c6489147`；部署后 `/static/js/learning-story.js` 200（9,313 B），`/learning/story` 302 → `/login?next=%2Flearning%2Fstory`（登录门槛正常）。
 - **台账**：requests.md 占号 R205（跨仓 moon-well R200）；分支 `feature/r205-word-story`，worktree `../magicbook-word-story` 原样驻留待验收；merge 本地 develop **`b44e20ad`**。
+
+## 2026-10-22（R206：AI 伴读图标改「伙伴」+ 伙伴系统前端——薄代理 + /buddy 页 + FAB 换图 + 引导领取）
+
+### R206（承接 moon-well R201；用户：「AI 伴读悬浮按钮图标改成伙伴图片……主要功能就只是图标替换。默认一个机器人。引导页到伙伴模块，可以领取雪鸮」）
+
+- **薄代理**：新增 `cps/routes/buddy.py`（复用 `credit.py` 的 `_moonwell_proxy` 范式，注册进 `routes/__init__.py`）：`/buddy` 页 + `/ajax/buddy/{catalog,mine,claim,equip}` 透传 moon-well `/buddy`，鉴权 `@user_login_required`。
+- **`/buddy` 页**：`buddy.html`/`buddy.css`/`buddy.js`——花名册卡片网格（全身图 + 名 + 炉石稀有度色签 + 使用中/装备/领取/未开放），复用 `window.MBApi` 解包与 CSRF，领取/装备后就地重渲染。
+- **FAB 换图（主功能）**：`ai-companion-fab` 由文字「AI」改为「文字兜底 + `<img>`」双形态；`loadBuddyFab()` 拉 catalog 取装备伙伴 `imageUrl`，`new Image()` 预载成功才加 `has-buddy` 切图，**未上传/未装备/代理不可达一律保留「AI」文字、绝不裂图**；动效 idle 呼吸 / hover 放大 / thinking 起伏（`streamChat`→`finishMessage`，即 send 禁用→恢复窗口）/ sleep 打盹（45s 无交互），`prefers-reduced-motion` 关闭。
+- **引导领取雪鸮**：`onboarding.js` 新增 `buddy` 段（`STEPS_BUDDY`，锚点 `#buddy-claim-hedwig`）；因花名册异步渲染，`init` 对 buddy 段先 return，由 `buddy.js` 渲染完调 `MagicbookOnboarding.onRosterReady()` 触发；主引导 settings 文案补 Buddies。
+- **导航**：设置下拉新增 `#top_buddy → web.buddy_page`。
+- **i18n**：新增英文 msgid 注册进 `i18n_seed.html`，补 `zh_Hans_CN` po 13 条并 `pybabel compile`；运行时实测 `Buddies→伙伴` 等生效。
+- **验证（如实）**：JS/Python 语法校验通过（`node --check` ×3、`py_compile`）；**未起浏览器真机验收**——FAB 换图与 `/buddy` 页依赖 moon-well R201 先上线 + 18 个资产先传 MinIO（脚本 `moon-well deploy/upload_buddy_assets.py`），二者未就绪前 FAB 走文字兜底、页面无数据。
+- **台账**：requests.md 占号 R206（跨仓 moon-well R201）；分支 `feat/r206-buddy`，worktree `../magicbook-buddy` 原样驻留待验收；merge 本地 develop **`cf068ddb`**（未 push）。PingCode 写入待用户单独确认。
