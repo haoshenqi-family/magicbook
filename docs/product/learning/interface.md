@@ -30,6 +30,7 @@
 - 请求体与 JSON 端点相同：`{"taskId":"...","text":"..."}`；代理按 `taskId`/`text` 白名单裁剪，`text` 上限 20000 字符（后端另有 4000 字符业务校验）。
 - 鉴权：当前用户 session 中的 moon-well token 以 `Authorization: Bearer …` 转发，token 不下发浏览器；CSRF 与登录校验沿用 `/ajax/` 规则。建连前 401 自动刷新并重连一次；流开始后不重放。
 - 响应头：`Content-Type: text/event-stream`、`Cache-Control: no-cache`、`X-Accel-Buffering: no`（禁止 Traefik/Caddy/Nginx 缓冲）。代理逐 chunk 透传，不聚合、不改写事件体。
+- **服务端也必须流式（R204）**：本仓用 tornado `WSGIContainer` 起 WSGI；tornado ≥6.3 的默认实现会把整段 body 收齐再一次性写出并补 `Content-Length`，SSE 会被整体缓冲、等待期零事件。`cps/tornado_wsgi.py` 因此对 `text/event-stream` 走专用流式分支（逐块写出、丢弃 `Content-Length`、阻塞读放在独立线程池，避免占住事件循环）。新增任何流式端点都自动受益，无需改路由。
 - 事件：`status`（`{phase:"accepted"|"grading"}`）、`ping`（`{elapsedMs}`，5s 心跳）、`result`（`Result<Review>`，与 JSON 端点同形）、`error`（`Result`，`success:false` + `code` + `message`）。完整语义见 moon-well L2。
 - 建连前失败：参数不合法 400、未登录 401、moon-well 未配置/不可达 503，均为 JSON；上游非 200 时原样透传 body 与状态码。
 - 断线：浏览器关闭或网络中断时代理关闭上游连接；moon-well 的批改线程不取消，结果继续落库，用户刷新写作历史可取回。
