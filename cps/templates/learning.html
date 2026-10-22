@@ -12,7 +12,8 @@
 
     {# ---------- R166 功能 banner：七个学习小功能循环卡片，点击进入各自子页面 ---------- #}
     {# data-strand 决定徽章取哪一股的今日入账（input/language/output/fluency/none）； #}
-    {# data-key 供 learning-hub.js 定位卡片与 localStorage 里的轮播偏好。          #}
+    {# data-key 供 learning-hub.js 定位卡片、localStorage 镜像与管理抽屉勾选。   #}
+    {# R208：右上角齿轮开管理抽屉，不勾的卡不进轮播；全不勾时显示引导卡。   #}
     <div id="lh-banner" class="lh-banner" role="region"
          aria-label="{{_('Learning activities')}}" tabindex="0">
       <div class="lh-banner-viewport">
@@ -115,13 +116,50 @@
           </span>
         </a>
 
+        {# R208：全不勾兜底引导卡。无 lh-card 类，不进轮播数组；显示由 JS 控。 #}
+        <div id="lh-guide" class="lh-guide panel panel-default" hidden>
+          <div class="lh-guide-body">
+            <p>{{_('All activities are hidden. Choose the ones you want on the banner:')}}</p>
+            <button type="button" id="lh-guide-open" class="btn btn-primary btn-sm">{{_('Choose activities')}}</button>
+          </div>
+        </div>
+
       </div>
+
+      <button type="button" id="lh-manage-btn" class="lh-manage-btn"
+              aria-label="{{_('Manage banner cards')}}" aria-haspopup="true"
+              aria-expanded="false" aria-controls="lh-manage">
+        <span class="glyphicon glyphicon-cog" aria-hidden="true"></span>
+      </button>
 
       <button type="button" id="lh-prev" class="lh-banner-nav lh-prev"
               aria-label="{{_('Previous activity')}}"><span class="glyphicon glyphicon-chevron-left"></span></button>
       <button type="button" id="lh-next" class="lh-banner-nav lh-next"
               aria-label="{{_('Next activity')}}"><span class="glyphicon glyphicon-chevron-right"></span></button>
       <div id="lh-dots" class="lh-banner-dots" role="tablist"></div>
+    </div>
+
+    {# ---------- R208 banner 管理抽屉：勾选决定哪些功能卡进轮播；服务端渲染默认全勾， #}
+    {# 真实勾选态由 JS 按 localStorage 镜像 + moon-well 设置在打开前回填。 #}
+    <div id="lh-manage" class="panel panel-default" hidden>
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Manage banner cards')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="help-block">{{_('Untick an activity to remove it from the banner rotation. Your practice history and strand ledger are unaffected.')}}</p>
+        <div class="lh-manage-list" role="group" aria-label="{{_('Learning activities')}}">
+          <label class="lh-manage-item"><input type="checkbox" data-key="writing" checked> {{_('Writing Workshop')}}</label>
+          <label class="lh-manage-item"><input type="checkbox" data-key="speaking" checked> {{_('AI Speaking Coach')}}</label>
+          <label class="lh-manage-item"><input type="checkbox" data-key="retell" checked> {{_('Retell Drill (4-3-2)')}}</label>
+          <label class="lh-manage-item"><input type="checkbox" data-key="reread" checked> {{_('Timed rereading')}}</label>
+          <label class="lh-manage-item"><input type="checkbox" data-key="dictation" checked> {{_('Dictation')}}</label>
+          <label class="lh-manage-item"><input type="checkbox" data-key="review" checked> {{_('Review Queue')}}</label>
+          <label class="lh-manage-item"><input type="checkbox" data-key="match" checked> {{_('Book Difficulty Match')}}</label>
+        </div>
+        <p id="lh-manage-error" class="help-block lh-manage-error" hidden>{{_('Could not save your selection — please retry.')}}</p>
+        <button type="button" id="lh-manage-save" class="btn btn-primary btn-sm">{{_('Save')}}</button>
+        <button type="button" id="lh-manage-close" class="btn btn-default btn-sm">{{_('Close')}}</button>
+      </div>
     </div>
 
     {# ---------- 每日计划头：四股预算（来自设置，只读展示）---------- #}
@@ -199,6 +237,20 @@
   .lh-dot { display: inline-block; width: 8px; height: 8px; margin: 0 4px; padding: 0;
             border: 0; border-radius: 50%; background: #ddd; }
   .lh-dot.lh-on { background: #5b9bd5; }
+  /* R208：齿轮入口悬于 banner 右上角；引导卡与抽屉的显隐不能用作者 display
+     直接压 [hidden]（UA 隐藏会被作者规则顶掉，R140 同款坑），所以引导卡
+     基态 display:none、非 hidden 态才 flex。 */
+  .lh-manage-btn { position: absolute; top: 6px; right: 0; z-index: 5; border: 0;
+                   background: transparent; color: #bbb; font-size: 15px; padding: 4px 6px; }
+  .lh-manage-btn:hover, .lh-manage-btn:focus { color: #555; }
+  .lh-guide { display: none; }
+  .lh-guide:not([hidden]) { display: flex; align-items: center; justify-content: center;
+                            min-height: 180px; }
+  .lh-guide-body { text-align: center; color: #555; }
+  .lh-guide-body p { margin-bottom: 12px; }
+  .lh-manage { margin: -8px 0 16px; }
+  .lh-manage-item { display: inline-block; margin: 2px 18px 2px 0; font-weight: normal; }
+  .lh-manage-error { color: #a94442; }
   @keyframes lh-fade { from { opacity: 0; } to { opacity: 1; } }
   @media (max-width: 767px) {
     .lh-card.lh-on { flex-direction: column; gap: 10px; }
@@ -239,7 +291,8 @@
   window.learningUrls = {
     plan: "{{ url_for('web.learning_plan_today') }}",
     stats: "{{ url_for('web.learning_srs_stats') }}",
-    week: "{{ url_for('web.learning_strands_summary') }}"
+    week: "{{ url_for('web.learning_strands_summary') }}",
+    settings: "{{ url_for('web.learning_plan_settings') }}"
   };
 })();
 </script>

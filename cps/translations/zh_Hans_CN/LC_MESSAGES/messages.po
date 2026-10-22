@@ -5674,3 +5674,25 @@ msgstr "创建时间从"
 
 msgid "Created to"
 msgstr "创建时间至"
+
+# R208: banner 管理抽屉（learning hub）
+msgid "Manage banner cards"
+msgstr "管理功能卡片"
+
+msgid "Untick an activity to remove it from the banner rotation. Your practice history and strand ledger are unaffected."
+msgstr "取消勾选的功能不会再出现在轮播里；练习记录与四股入账不受影响。"
+
+msgid "All activities are hidden. Choose the ones you want on the banner:"
+msgstr "功能卡都被隐藏了。选几个你想放在 banner 上的："
+
+msgid "Choose activities"
+msgstr "选择功能"
+
+msgid "Could not save your selection — please retry."
+msgstr "保存失败，请重试。"
+
+msgid "Save"
+msgstr "保存"
+
+msgid "Close"
+msgstr "关闭"

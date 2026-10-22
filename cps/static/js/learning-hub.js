@@ -1,4 +1,6 @@
 // 每日学习中枢（R166）：功能 banner 轮播 + 今日计划 + 复习摘要 + 四股周视图。
+// R208：banner 勾选管理——齿轮抽屉决定哪些功能卡进轮播；勾选真相存 moon-well
+// （随 plan/today 顺路带回，不破首屏零上游调用），localStorage 只作消除闪现的镜像。
 //
 // Why 轮播自己写而不用 Bootstrap carousel：仓内 libs/bootstrap.min.js 虽带
 // carousel 插件，但它要 jQuery + 一套 .item/.active 结构，而本页所有学习模块
@@ -22,9 +24,19 @@
    'ln-new-words-line', 'ln-review-summary', 'ln-today-review', 'ln-due-tomorrow',
    'ln-mastered', 'ln-retention', 'ln-due-line', 'ln-week', 'ln-week-bars',
    'ln-week-legend', 'lh-dots', 'lh-prev', 'lh-next',
+   'lh-manage-btn', 'lh-manage', 'lh-manage-save', 'lh-manage-close',
+   'lh-manage-error', 'lh-guide', 'lh-guide-open',
   ].forEach(function (id) { els[id] = $(id); });
 
-  var cards = Array.prototype.slice.call(banner.querySelectorAll('.lh-card'));
+  // R208：主列表固定七张（锚定 a.lh-card——引导卡无 lh-card 类不混入）；
+  // visible 是勾选过滤后的轮播列表，轮播/圆点/缺口排序全部只看 visible。
+  var cards = Array.prototype.slice.call(banner.querySelectorAll('a.lh-card'));
+  var visible = cards.slice();
+  var boxes = els['lh-manage']
+    ? Array.prototype.slice.call(els['lh-manage'].querySelectorAll('input[type=checkbox][data-key]'))
+    : [];
+  var hiddenKeys = {};
+  var MIRROR_KEY = 'ln-banner-hidden-v1';
   var AUTO_MS = 6000;
   var index = 0;
   var timer = null;
@@ -41,7 +53,7 @@
 
   function renderDots() {
     clear(els['lh-dots']);
-    cards.forEach(function (card, i) {
+    visible.forEach(function (card, i) {
       var dot = document.createElement('button');
       dot.type = 'button';
       dot.className = 'lh-dot' + (i === index ? ' lh-on' : '');
@@ -53,7 +65,7 @@
   }
 
   function paint() {
-    cards.forEach(function (card, i) {
+    visible.forEach(function (card, i) {
       if (i === index) card.classList.add('lh-on');
       else card.classList.remove('lh-on');
     });
@@ -61,7 +73,8 @@
   }
 
   function goTo(next, manual) {
-    index = (next + cards.length) % cards.length;
+    if (!visible.length) return; // 全不勾时轮播静默（引导卡接管），不再取模
+    index = (next + visible.length) % visible.length;
     paint();
     if (manual) restart();
   }
@@ -150,22 +163,78 @@
   // 今日欠账最多的那股排到 banner 前面（打开中枢先看见自己缺的那门课）；
   // 缺口相同按模板顺序（写作→口语→复述→重读→听写→复习→选书）稳定排列，
   // 无股卡片（选书）缺口恒为 0 自然垫底。Array#sort 在旧引擎不保证稳定，
-  // 显式带原索引次键。
+  // 显式带原索引次键。R208：只在可见卡里排——被勾掉的卡不占位。
   function orderByDeficit() {
     if (ordered) return;
     ordered = true;
-    if (!lastPlan || !lastPlan.strands) return;
-    var ranked = cards.map(function (card, i) { return [card, i]; }).sort(function (a, b) {
+    if (!lastPlan || !lastPlan.strands || !visible.length) return;
+    var ranked = visible.map(function (card, i) { return [card, i]; }).sort(function (a, b) {
       var gap = strandDeficit(b[0].getAttribute('data-strand')) -
         strandDeficit(a[0].getAttribute('data-strand'));
       return gap !== 0 ? gap : a[1] - b[1];
     }).map(function (pair) { return pair[0]; });
-    if (ranked[0] === cards[0]) return;
+    if (ranked[0] === visible[0]) return;
     var viewport = banner.querySelector('.lh-banner-viewport');
     ranked.forEach(function (card) { viewport.appendChild(card); });
-    cards = ranked;
+    visible = ranked;
     index = 0;
     paint();
+  }
+
+  // ---------- 勾选过滤（R208）：banner 只显示用户勾选的功能卡 ----------
+
+  function applyVisibility() {
+    visible = cards.filter(function (card) {
+      return !hiddenKeys[card.getAttribute('data-key')];
+    });
+    // 可见卡按当前数组顺序重挂到 viewport 末尾（appendChild 即移动节点）：
+    // 被勾掉的卡停在原地 display:none，轮播语义只属于 visible；
+    // 缺口排序后数组已是排序序，这里重挂不会打乱它。
+    var viewport = banner.querySelector('.lh-banner-viewport');
+    visible.forEach(function (card) { viewport.appendChild(card); });
+    if (index >= visible.length) index = 0;
+    show(els['lh-guide'], visible.length === 0);
+    show(els['lh-prev'], visible.length > 1);
+    show(els['lh-next'], visible.length > 1);
+    paint();
+  }
+
+  function loadMirror() {
+    // 镜像只为消除「plan 回来前先全显再隐藏」的闪现；坏数据直接当未配置。
+    // Why 不校验未知 key：过滤到主列表已知 key，防串镜像页互相污染。
+    try {
+      var raw = window.localStorage.getItem(MIRROR_KEY);
+      if (!raw) return;
+      var list = JSON.parse(raw);
+      if (!Array.isArray(list)) return;
+      var known = {};
+      cards.forEach(function (card) { known[card.getAttribute('data-key')] = true; });
+      list.forEach(function (key) {
+        if (typeof key === 'string' && known[key]) hiddenKeys[key] = true;
+      });
+    } catch (error) { /* localStorage 不可用/损坏：按全显 */ }
+  }
+
+  function saveMirror() {
+    try {
+      window.localStorage.setItem(MIRROR_KEY, JSON.stringify(Object.keys(hiddenKeys)));
+    } catch (error) { /* 隐私模式写不进就算了，真相在 moon-well */ }
+  }
+
+  function reconcileHidden(serverKeys) {
+    // 服务端是真相：过滤到已知 key，与当前态不一致才应用并回写镜像——
+    // 另一台设备改过勾选时，本机打开中枢会被对齐。
+    var next = {};
+    serverKeys.forEach(function (key) {
+      if (typeof key === 'string' &&
+          cards.some(function (card) { return card.getAttribute('data-key') === key; })) {
+        next[key] = true;
+      }
+    });
+    if (Object.keys(hiddenKeys).sort().join(',') === Object.keys(next).sort().join(',')) return;
+    hiddenKeys = next;
+    saveMirror();
+    applyVisibility();
   }
 
   // ---------- 今日计划 ----------
@@ -195,6 +264,10 @@
       show(els['ln-new-words-line'], true);
     }
     show(els['ln-plan'], true);
+    // R208：勾选随 plan/today 顺路带回（不破首屏零上游调用）。字段缺失=旧后端，
+    // 保留镜像不做对账；空数组是合法值（显式全显），不能当 falsy 漏掉。
+    var serverKeys = result.settings && result.settings.bannerHiddenKeys;
+    if (serverKeys) reconcileHidden(serverKeys);
     applyBadges();
     orderByDeficit();
     if (result.settings && result.settings.dailyMinutes) loadWeek(result.settings.dailyMinutes);
@@ -281,6 +354,104 @@
     show(els['ln-week'], true);
   }
 
+  // ---------- 管理抽屉（R208）----------
+
+  var manageBtn = els['lh-manage-btn'];
+  var manageErrorText = els['lh-manage-error'].textContent;
+
+  function syncBoxes() {
+    boxes.forEach(function (box) {
+      box.checked = !hiddenKeys[box.getAttribute('data-key')];
+    });
+  }
+
+  function openManage() {
+    syncBoxes();
+    MB.esc(els['lh-manage-error'], manageErrorText);
+    show(els['lh-manage-error'], false);
+    show(els['lh-manage'], true);
+    manageBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeManage() {
+    show(els['lh-manage'], false);
+    manageBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  if (manageBtn) {
+    manageBtn.addEventListener('click', function () {
+      if (els['lh-manage'].hidden) openManage();
+      else closeManage();
+    });
+  }
+  els['lh-manage-close'].addEventListener('click', closeManage);
+  els['lh-guide-open'].addEventListener('click', openManage);
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !els['lh-manage'].hidden) closeManage();
+  });
+
+  function settingsPayload() {
+    // 保存必须带全四股数值（上游是全量替换接口）；缺任一字段就不敢拼——
+    // 宁可报错也不拿猜的默认值盖掉用户已存的四股配比。
+    var settings = lastPlan && lastPlan.settings;
+    if (!settings || settings.dailyNewLimit == null || settings.dailyMinutes == null ||
+        settings.strandInputPct == null || settings.strandLanguagePct == null ||
+        settings.strandOutputPct == null || settings.strandFluencyPct == null) return null;
+    return {
+      dailyNewLimit: settings.dailyNewLimit, dailyMinutes: settings.dailyMinutes,
+      strandInputPct: settings.strandInputPct, strandLanguagePct: settings.strandLanguagePct,
+      strandOutputPct: settings.strandOutputPct, strandFluencyPct: settings.strandFluencyPct,
+    };
+  }
+
+  function saveManage() {
+    var hiddenList = boxes.filter(function (box) { return !box.checked; })
+      .map(function (box) { return box.getAttribute('data-key'); });
+
+    function proceed(base) {
+      if (!base) {
+        // 四股设置没到手（上游挂了/尚未返回）：没有底稿就没有合法 payload，
+        // 报错必须可见、抽屉留着让用户重试。
+        show(els['lh-manage-error'], true);
+        return;
+      }
+      var payload = Object.assign({}, base, { bannerHiddenKeys: hiddenList });
+      MB.busy(els['lh-manage-save'], true, els['lh-manage-save'].textContent);
+      postJson(urls.settings, payload).then(function (response) {
+        MB.busy(els['lh-manage-save'], false);
+        if (!response.ok || !response.data || !response.data.success) {
+          // 失败必须可见：优先上游业务文案，否则保留模板预填的兜底文案
+          var message = response.data && response.data.message;
+          if (message) MB.esc(els['lh-manage-error'], message);
+          show(els['lh-manage-error'], true);
+          return;
+        }
+        hiddenKeys = {};
+        hiddenList.forEach(function (key) { hiddenKeys[key] = true; });
+        saveMirror();
+        applyVisibility();
+        closeManage();
+      }).catch(function () {
+        MB.busy(els['lh-manage-save'], false);
+        show(els['lh-manage-error'], true);
+      });
+    }
+
+    if (lastPlan && lastPlan.settings) proceed(settingsPayload());
+    else {
+      // 抽屉打开在 plan 返回之前：补拉一次（15s 超时同首屏），拿不到就走可见报错
+      getJson(urls.plan).then(function (response) {
+        var result = response.ok && response.data && response.data.result;
+        if (result && result.settings) {
+          lastPlan = result;
+          proceed(settingsPayload());
+        } else proceed(null);
+      }).catch(function () { proceed(null); });
+    }
+  }
+
+  els['lh-manage-save'].addEventListener('click', saveManage);
+
   // ---------- 启动 ----------
 
   function fail(message) {
@@ -302,7 +473,8 @@
 
   els['ln-retry'].addEventListener('click', loadAll);
 
-  paint();
+  loadMirror();
+  applyVisibility(); // 内含 paint：先按镜像裁剪再启动轮播，避免首帧闪现被勾掉的卡
   restart();
   loadAll();
 })();
