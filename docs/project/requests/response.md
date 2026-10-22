@@ -310,5 +310,6 @@
 - **前端复用**：`postSse` 下沉 `learning-common.js`，写作页改为 `MB.postSse`；故事页只在建连失败 / 未收到首事件时回退 JSON，收到 `status`/`ping` 后断网不重试（故事可能已落库并入账）。
 - **Hub / i18n / 配图**：中枢新增第八张卡（`data-key="story"`、`data-strand="language"`）与 `story.webp`；seed/po/mo 补齐 19 条模板词条与 8 条 JS 词条。`generate_i18n_seed.py` 修两处：mbT 双引号内含撇号漏扫、回填未转义（后者会写坏 Jinja 字典）。
 - **测试**：定向 5 文件 **104 passed**（story / pages_static / hub_cards / writing_sse / i18n_seed_contract）；额外 `test_nav_settings_dropdown.py` + `test_no_duplicate_js_lines.py` **8 passed**。覆盖登录、页面元素、due 白名单、manual 折叠、非法 payload、SSE 头/事件/401 刷新、历史与 detail、50524 透传、卡片顺序与文案译文。
-- **边界（如实）**：未起浏览器真机走完整链路——朗读出音、词汇股徽章 +2 分钟、历史回看均依赖 moon-well R200 部署后验收；本仓 `push` 会触发 fnOS 自动上线，待用户单独确认。
+- **边界（如实）**：未起浏览器真机走完整链路——朗读出音、词汇股徽章 +2 分钟、历史回看均依赖登录后的真人验收；页面与静态资源已确认上线。
+- **上线**：全量 **684 passed**；push `a4b1a53b..c6489147`；部署后 `/static/js/learning-story.js` 200（9,313 B），`/learning/story` 302 → `/login?next=%2Flearning%2Fstory`（登录门槛正常）。
 - **台账**：requests.md 占号 R205（跨仓 moon-well R200）；分支 `feature/r205-word-story`，worktree `../magicbook-word-story` 原样驻留待验收；merge 本地 develop **`b44e20ad`**。
