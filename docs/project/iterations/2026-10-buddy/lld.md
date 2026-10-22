@@ -1,6 +1,6 @@
 # AI 伴读图标改「伙伴」+ 伙伴系统前端（magicbook R206）· LLD
 
-**状态**：已入库并 push（develop `6b91bf31`，全量 686 passed）；待 MinIO 资产上传后端到端验收
+**状态**：已上线（develop `6b91bf31`，模板语法修复后全量 686 passed；线上 `/login` 已复测 200）；**CSP 放行修复 `f3b3a782` 待 push**——不推则伙伴头像被浏览器拦、换图静默不生效；18 个资产已传 MinIO 并实测匿名直读 200；余下端到端真机验收
 
 > **坑（本轮真实踩过，已 push 出一次站内错）**：`i18n_seed.html` 的花名册词条写在 `{% set mb_i18n = { … } %}` **表达式内部**，那里加 `# ---- 分节 ----` 行注释会抛 `TemplateSyntaxError: unexpected char '#'`——Jinja 的词法注释只认 `{# #}`，且只能位于标签体外。本文件被 `layout.html` include，一处模板错＝所有 extends layout 的页面一起 500。判据必须是「页面渲染出来」（`tests/test_buddy_page.py` 已常驻覆盖 `/buddy`），`node --check` / `py_compile` 看不见这一类错。
 
@@ -33,6 +33,7 @@
 - `ai_chat_panel.html`：`#ai-companion-fab` 由纯文字「AI」改为「文字兜底 + `<img>`」双形态。
 - `ai_chat.js` `loadBuddyFab()`：拉 catalog 取 equipped 伙伴的 `imageUrl`，`new Image()` 预载成功才加 `has-buddy` 切图；**图片未上传/未装备/代理不可达一律保留「AI」文字**，绝不裂图。
 - `ai_chat.css`：`has-buddy` 时 img 铺满圆钮；动效 4 态——idle 呼吸、hover 放大（沿用）、thinking 起伏（`streamChat` 发起到 `finishMessage` 收尾，即 send 禁用→恢复窗口）、sleep 打盹（45s 无交互）；`prefers-reduced-motion` 关闭动效。
+- **CSP 放行（R207 补，漏了这一条换图永不生效）**：头像是 MinIO 跨源直链，`cps/web.py::add_security_headers` 的 `img-src` 原为 `'self' … data:`，浏览器直接拦掉。且「绝不裂图」的兜底在这里反过来成了**不可见故障**——`new Image()` `onerror` 就静默保留「AI」文字，页面表现完全正常，只表现为「图传了但没换」。按 R181 `media-src` 的窄面范式只在两个端点放行 `https://home.haoshenqi.top:9001`：`web.read_book`（一个端点覆盖 epub/pdf/txt/djvu/cbr，FAB 全在这里）与 `web.buddy_page`（花名册）；其余页面 img-src 不变。该源与 media-src 里已硬编码的是同一个，Nacos 改 `minio.public-url` 时两处一起失效，不新增漂移面。用例见 `tests/test_csp_media.py`（2 端点参数化 + 1 条 index 不得放行的反向守卫）。
 
 ## 5. 引导领取雪鸮
 
@@ -44,8 +45,8 @@
 
 ## 7. 已知待办
 
-- MinIO 资产上传（`buddy/` 前缀 18 个 PNG）在部署期执行，凭证走 env（脚本见 moon-well `deploy/upload_buddy_assets.py`）。
-- 端到端验收需 moon-well R201 先上线。
+- ~~MinIO 资产上传（`buddy/` 前缀 18 个 PNG）在部署期执行，凭证走 env（脚本见 moon-well `deploy/upload_buddy_assets.py`）~~ **已完成（2026-10-22 R207）**：18/18 上传至 `magicbook` 桶 `buddy/`，匿名直读实测 200（对照不存在对象 404，证明前缀策略未放开整桶）。
+- 端到端验收需 moon-well R201 先上线。**已满足**：moon-well `76e5aae` 21:45:06 fnOS 部署 END OK、蓝绿 green healthy。余下真机项：FAB 显示当前装备伙伴头像、`/buddy` 花名册出图、引导领取雪鸮、装备切换、动效。
 
 ## 8. i18n
 
