@@ -24,6 +24,7 @@ TPL_DIR = os.path.join(ROOT, "cps", "templates")
 PAIRS = [
     ("learning-hub.js", "learning.html"),
     ("learning-review.js", "learning_review.html"),
+    ("learning-story.js", "learning_story.html"),
     ("learning-match.js", "learning_match.html"),
     ("learning-writing.js", "learning_writing.html"),
     ("learning-speaking.js", "learning_speaking.html"),
@@ -108,18 +109,32 @@ def test_no_page_references_the_deleted_scripts():
 def test_writing_uses_sse_and_keeps_json_fallback():
     """R192：批改主路径必须是 fetch+ReadableStream 的 SSE；旧 JSON 端点只作回退。
 
-    反向锁：退回 EventSource（不能带 CSRF/POST body）或删掉回退分支都应报红。
+    R200 起读取原语下沉 learning-common.js（编故事复用同一份），反向锁跟着搬家：
+    退回 EventSource（不能带 CSRF/POST body）或删掉回退分支都应报红。
     """
     src = _js("learning-writing.js")
-    assert "function postSse(" in src
-    assert "getReader()" in src
+    common = _js("learning-common.js")
+    assert "function postSse(" in common
+    assert "getReader()" in common
+    assert "postSse = MB.postSse" in src
     assert "streamEndpoint()" in src
     assert "streamStarted" in src
-    assert "new EventSource(" not in src
+    assert "new EventSource(" not in src and "new EventSource(" not in common
     assert "writingSubmitStream" in src and "writingReviseStream" in src
     tpl = _tpl("learning_writing.html")
     assert "writingSubmitStream" in tpl
     assert "writingReviseStream" in tpl
+
+
+def test_story_uses_shared_sse_and_json_fallback():
+    """R200：编故事与写作批改共用 SSE 原语，JSON 端点保留回退。"""
+    src = _js("learning-story.js")
+    assert "postSse = MB.postSse" in src
+    assert "storyGenerateStream" in src and "storyGenerate" in src
+    assert "streamStarted" in src
+    assert "new EventSource(" not in src
+    tpl = _tpl("learning_story.html")
+    assert "storyGenerateStream" in tpl and "storyDetail" in tpl
 
 
 def test_writing_workshop_never_caps_draft_submissions():

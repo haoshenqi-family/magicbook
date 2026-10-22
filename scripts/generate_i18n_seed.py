@@ -11,12 +11,31 @@ Why 脚本化：五步链（JS 加 mbT → 种子加 _() 行 → pybabel 抽取 
 import json
 import os
 import re
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SEED = os.path.join(ROOT, 'cps', 'templates', 'i18n_seed.html')
 OUT_MANIFEST = os.path.join(ROOT, 'tests', 'i18n_js_files.json')
 
-MBT_RE = re.compile(r"mbT\(\s*(['\"])((?:[^'\"\\]|\\.)*?)\1")
+# 内容里允许出现「另一种引号」——双引号里的 Today's 曾因字符类同时排除两种引号被漏扫
+MBT_RE = re.compile(r"mbT\(\s*(['\"])((?:\\.|(?!\1).)*?)\1")
+
+
+def _unescape_js(raw):
+    """按 JS 字面量语义还原转义；种子/po 里的 msgid 是还原后的真实文本。"""
+    return (raw.replace("\\\\", "\\")
+               .replace("\\n", "\n")
+               .replace("\\t", "\t")
+               .replace('\\"', '"')
+               .replace("\\'", "'"))
+
+
+def _py_literal(text):
+    """把 msgid 写成 Jinja 表达式里的 Python 双引号字面量。"""
+    return (text.replace("\\", "\\\\")
+                .replace('"', '\\"')
+                .replace("\n", "\\n")
+                .replace("\t", "\\t"))
 
 
 def scan_js():
@@ -33,12 +52,13 @@ def scan_js():
             found = MBT_RE.findall(code)
             if found:
                 js_files.append(os.path.relpath(p, ROOT))
-                msgids.update(m for _, m in found)
+                msgids.update(_unescape_js(m) for _, m in found)
     return sorted(js_files), msgids
 
 
 def existing_msgids(seed_text):
-    return re.findall(r'^\s{2}"((?:[^"\\]|\\.)*)":\s*_\(', seed_text, re.M)
+    return [_unescape_js(m) for m in
+            re.findall(r'^\s{2}"((?:[^"\\]|\\.)*)":\s*_\(', seed_text, re.M)]
 
 
 def main():
@@ -60,9 +80,12 @@ def main():
                 if not lines[i].rstrip().endswith(','):
                     lines[i] = lines[i].rstrip() + ','
                 break
-        added = ['  "%s": _("%s"),' % (m, m) for m in missing]
+        added = ['  "%s": _("%s"),' % (_py_literal(m), _py_literal(m)) for m in missing]
         lines[insert_at:insert_at] = added
-        open(SEED, 'w', encoding='utf-8').write('\n'.join(lines))
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(SEED), prefix='.i18n_seed.')
+        with os.fdopen(fd, 'w', encoding='utf-8') as fh:
+            fh.write('\n'.join(lines))
+        os.replace(tmp, SEED)
         print(f'种子追加 {len(missing)} 条新词条: {missing[:5]}{"..." if len(missing) > 5 else ""}')
     else:
         print('种子无缺词条')

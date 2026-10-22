@@ -36,8 +36,11 @@ _WRITING_LLM_TIMEOUT = 210
 
 # SSE 建连 10s；单 chunk idle 300s。后端每 5s 发 ping，300s 只是兜底——比「整段
 # 请求 210s」更耐用：心跳期间即使批改超过 150s，代理也不会先掐断连接。
-_WRITING_SSE_CONNECT_TIMEOUT = 10
-_WRITING_SSE_IDLE_TIMEOUT = 300
+_LLM_SSE_CONNECT_TIMEOUT = 10
+_LLM_SSE_IDLE_TIMEOUT = 300
+
+# 编故事实测 10-25s，按写作同档给 120s（JSON 回退用；SSE 走心跳兜底）。
+_STORY_LLM_TIMEOUT = 120
 
 
 @web.route("/learning", methods=["GET"])
@@ -101,6 +104,13 @@ def learning_dictation_page():
     return render_title_template("learning_dictation.html", title=_("Dictation"))
 
 
+@web.route("/learning/story", methods=["GET"])
+@user_login_required
+def learning_story_page():
+    """单词编故事子页面（R200）：到期词/粘贴词表 → AI 微故事 + 词表卡。"""
+    return render_title_template("learning_story.html", title=_("Word Story"))
+
+
 @web.route("/learning/speaking-writing", methods=["GET"])
 @user_login_required
 def speaking_writing_page():
@@ -141,27 +151,33 @@ def learning_writing_revise():
 @user_login_required
 def learning_writing_submit_stream():
     """SSE 透传初稿批改（R194）：status/ping/result/error 分型事件。"""
-    return _writing_sse_proxy("/learning/writing/submit/stream", "learning writing submit stream")
+    return _llm_sse_proxy(
+        "/learning/writing/submit/stream", "learning writing submit stream",
+        lambda: _b1_payload(("taskId", "text"), ("taskId", "text")))
 
 
 @web.route("/ajax/learning/writing/revise/stream", methods=["POST"])
 @user_login_required
 def learning_writing_revise_stream():
     """SSE 透传修订稿批改（R194），契约同 submit/stream。"""
-    return _writing_sse_proxy("/learning/writing/revise/stream", "learning writing revise stream")
+    return _llm_sse_proxy(
+        "/learning/writing/revise/stream", "learning writing revise stream",
+        lambda: _b1_payload(("taskId", "text"), ("taskId", "text")))
 
 
-def _writing_sse_proxy(path, label):
-    """写作批改 SSE 的薄代理：只补 trace/Bearer，不改写事件体。
+def _llm_sse_proxy(path, label, payload_builder):
+    """LLM 长任务 SSE 的薄代理（写作 R194 / 编故事 R200）：只补 trace/Bearer，不改写事件体。
 
-    Why 不复用 _b1_proxy：后者按 ``response.text`` 整段读取，会把 SSE 缓冲到批改
+    Why 不复用 _b1_proxy：后者按 ``response.text`` 整段读取，会把 SSE 缓冲到任务
     结束才返回，等于没流式。这里 ``stream=True`` 逐 chunk yield，并在建连阶段完成
     401 刷新（流开始后无法回滚已发事件，不能重放）。
 
+    payload_builder 返回 None 表示本地校验失败（400），此时不打扰 moon-well。
+
     断线语义：客户端关闭时 Flask 生成器退出，finally 关闭上游 requests 连接；
-    moon-well 侧的批改线程不取消，结果继续落库，用户刷新历史可取回。
+    moon-well 侧的任务线程不取消，结果继续落库，用户刷新历史可取回。
     """
-    payload = _b1_payload(("taskId", "text"), ("taskId", "text"))
+    payload = payload_builder()
     if payload is None:
         return jsonify({"success": False, "message": "invalid request body"}), 400
 
@@ -183,7 +199,7 @@ def _writing_sse_proxy(path, label):
         }
         return requests.post(
             base + path, json=payload, headers=headers, stream=True,
-            timeout=(_WRITING_SSE_CONNECT_TIMEOUT, _WRITING_SSE_IDLE_TIMEOUT),
+            timeout=(_LLM_SSE_CONNECT_TIMEOUT, _LLM_SSE_IDLE_TIMEOUT),
             proxies=NO_PROXY,
         )
 
@@ -254,6 +270,80 @@ def learning_writing_task():
         return jsonify({"success": False, "message": "taskId must be a numeric id"}), 400
     return _moonwell_proxy("/learning/writing/task?taskId=" + task_id, None, 20,
                            "learning writing task", method="GET")
+
+
+@web.route("/ajax/learning/story/generate", methods=["POST"])
+@user_login_required
+def learning_story_generate():
+    """Proxy word-story generation（JSON 回退，SSE 不可用时走这里）。"""
+    payload = _story_payload()
+    if payload is None:
+        return jsonify({"success": False, "message": "invalid request body"}), 400
+    return _moonwell_proxy("/learning/story/generate", payload, _STORY_LLM_TIMEOUT,
+                           "learning word story")
+
+
+@web.route("/ajax/learning/story/generate/stream", methods=["POST"])
+@user_login_required
+def learning_story_generate_stream():
+    """SSE 透传编故事（R200）：status/ping/result/error 分型事件。"""
+    return _llm_sse_proxy("/learning/story/generate/stream",
+                          "learning word story stream", _story_payload)
+
+
+@web.route("/ajax/learning/story/history", methods=["GET"])
+@user_login_required
+def learning_story_history():
+    """Proxy word-story history; ?limit=1..50（越界上游收敛）。"""
+    return _moonwell_proxy("/learning/story/history", None, 15,
+                           "learning word story history", method="GET")
+
+
+@web.route("/ajax/learning/story/detail", methods=["GET"])
+@user_login_required
+def learning_story_detail():
+    """Proxy one story by id（历史回看）。id 只认数字，越权/不存在由上游 50524 回。"""
+    story_id = (request.args.get("id") or "").strip()
+    if not story_id.isdigit() or len(story_id) > _PROXY_LIMITS["storyId"]:
+        return jsonify({"success": False, "message": "id must be a numeric id"}), 400
+    return _moonwell_proxy("/learning/story/" + story_id, None, 15,
+                           "learning word story detail", method="GET")
+
+
+def _story_payload():
+    """编故事请求白名单：due 只带 count，manual 的整段词表折成单元素 list。
+
+    Why 不复用 _b1_payload：它只认字符串/少量整数字段，而本端点有 words 数组。
+    manual 前端只发一个「整段粘贴」字符串；服务端按逗号/分号/换行切分与校验——
+    代理只做长度与类型护栏，词法判断留在 moon-well（一个口径）。
+    """
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return None
+    source = str(payload.get("source") or "due").strip().lower()
+    if source not in ("due", "manual"):
+        return None
+    cleaned = {"source": source}
+    if source == "manual":
+        words = payload.get("words")
+        if not isinstance(words, list) or not words:
+            return None
+        text = "\n".join(item.strip() for item in words
+                         if isinstance(item, str) and item.strip())
+        if not text or len(text) > _PROXY_LIMITS["storyWords"]:
+            return None
+        cleaned["words"] = [text]
+    else:
+        count = payload.get("count", 6)
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= 8:
+            return None
+        cleaned["count"] = count
+    cefr = payload.get("cefrLevel")
+    if cefr is not None:
+        if not isinstance(cefr, str) or cefr not in ("A2", "B1", "B2", "C1"):
+            return None
+        cleaned["cefrLevel"] = cefr
+    return cleaned
 
 
 @web.route("/ajax/learning/speaking/session", methods=["POST"])

@@ -1,0 +1,92 @@
+{% extends "layout.html" %}
+{% block body %}
+<input type="hidden" id="lh-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Word Story')}}</h1>
+  <p class="text-muted lh-sub-hint">
+    <a href="{{ url_for('web.learning_page') }}"><span class="glyphicon glyphicon-arrow-left"></span> {{_('Daily Learning')}}</a>
+  </p>
+
+  <div class="panel panel-default">
+    <div class="panel-body">
+      <div class="form-inline sw-gap">
+        <select id="sw-story-source" class="form-control">
+          <option value="due">{{_("Today's due words")}}</option>
+          <option value="manual">{{_('A word list I paste')}}</option>
+        </select>
+        <span id="sw-story-due-controls" class="form-inline">
+          <select id="sw-story-count" class="form-control">
+            <option value="4">4 {{_('words')}}</option>
+            <option value="6" selected>6 {{_('words')}}</option>
+            <option value="8">8 {{_('words')}}</option>
+          </select>
+          <button type="button" id="sw-story-due-go" class="btn btn-primary">{{_('Weave a story')}}</button>
+        </span>
+      </div>
+
+      <div id="sw-story-manual-controls" hidden>
+        <textarea id="sw-story-words" class="form-control" rows="3"
+                  placeholder="{{_('Paste up to 8 English words, separated by commas or new lines')}}"></textarea>
+        <div class="sw-gap">
+          <button type="button" id="sw-story-manual-go" class="btn btn-primary">{{_('Weave a story')}}</button>
+        </div>
+      </div>
+
+      <p id="sw-story-status" class="text-muted sw-hint" aria-live="polite" hidden></p>
+    </div>
+  </div>
+
+  <div class="panel panel-default" id="sw-story-result" hidden>
+    <div class="panel-body">
+      <h3 id="sw-story-title" class="sw-story-heading"></h3>
+      <p id="sw-story-meta" class="text-muted sw-hint"></p>
+      <p id="sw-story-text" class="sw-story-text"></p>
+      <div class="sw-gap">
+        <button type="button" id="sw-story-speak" class="btn btn-default btn-sm">{{_('Read the story aloud')}}</button>
+        <span id="sw-story-credit" class="text-muted sw-hint" hidden>{{_('Counted into the word study strand today.')}}</span>
+      </div>
+      <h4>{{_('Word cards')}}</h4>
+      <ul id="sw-story-cards" class="sw-list"></ul>
+    </div>
+  </div>
+
+  <div class="panel panel-default" id="sw-story-history-panel" hidden>
+    <div class="panel-heading"><h3 class="panel-title">{{_('Story history')}}</h3></div>
+    <div class="panel-body">
+      <p class="text-muted sw-hint">{{_('Click a story to read it again — replaying it spends no tokens.')}}</p>
+      <ul id="sw-story-history" class="sw-list"></ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block header %}
+{{ super() }}
+{% include "learning_sub_css.html" %}
+<style>
+  .sw-story-heading { margin-top: 0; }
+  .sw-story-text { font-size: 16px; line-height: 1.8; white-space: pre-wrap; }
+  .sw-story-text strong { color: #0f4c81; }
+  .sw-story-card { margin-bottom: 10px; }
+  .sw-story-card-word { font-weight: 600; font-size: 15px; }
+  .sw-story-card-meaning { margin-left: 8px; color: #555; }
+  .sw-story-card-sentence { color: #777; font-size: 13px; margin: 2px 0 0; }
+  .sw-story-tag { margin-left: 8px; font-size: 12px; color: #999; }
+</style>
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+  window.learningUrls = {
+    storyGenerate: "{{ url_for('web.learning_story_generate') }}",
+    storyGenerateStream: "{{ url_for('web.learning_story_generate_stream') }}",
+    storyHistory: "{{ url_for('web.learning_story_history') }}",
+    storyDetail: "{{ url_for('web.learning_story_detail') }}",
+    readingTts: "{{ url_for('web.reading_tts') }}"
+  };
+})();
+</script>
+<script src="{{ url_for('static', filename='js/learning-common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-story.js') }}"></script>
+{% endblock %}

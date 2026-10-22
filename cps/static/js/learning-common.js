@@ -122,6 +122,113 @@
     }).catch(function (err) { window.alert(err.message); });
   }
 
+  function errorMessageFrom(text, status) {
+    try {
+      var data = JSON.parse(text);
+      return data.message || data.error || ('HTTP ' + status);
+    } catch (e) {
+      return 'HTTP ' + status;
+    }
+  }
+
+  /**
+   * POST + SSE 读取（R194 写作批改；R200 编故事复用）：不能 EventSource——
+   * 需要 POST body 与 X-CSRFToken。逐块解析 event/data，result 走 strict 解包。
+   *
+   * 业务 error 事件 reject 一个带 streamStarted=true 的 Error；建连失败或首个
+   * 事件前断网时 streamStarted=false，调用方可以安全回退 JSON 一次。
+   */
+  function postSse(url, body, onEvent) {
+    if (!url || typeof fetch !== 'function' || typeof TextDecoder === 'undefined') {
+      return Promise.reject(new Error('SSE unavailable'));
+    }
+    return fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+      body: JSON.stringify(body || {}),
+    }).then(function (response) {
+      if (!response.ok) {
+        return response.text().then(function (text) {
+          throw new Error(errorMessageFrom(text, response.status));
+        });
+      }
+      if (!response.body || typeof response.body.getReader !== 'function') {
+        throw new Error('SSE unavailable');
+      }
+
+      var reader = response.body.getReader();
+      var decoder = new TextDecoder();
+      var buffer = '';
+      var settled = false;
+      var started = false;
+      var finalResult = null;
+      var streamError = null;
+
+      return new Promise(function (resolve, reject) {
+        function fail(err) {
+          if (settled) return;
+          settled = true;
+          err.streamStarted = started;
+          reject(err);
+        }
+
+        function finish() {
+          if (settled) return;
+          if (streamError) { fail(streamError); return; }
+          if (finalResult) { settled = true; resolve(finalResult); return; }
+          fail(new Error(mbT('Connection error')));
+        }
+
+        function handleBlock(block) {
+          var eventName = null;
+          var dataLines = [];
+          block.split(/\r?\n/).forEach(function (line) {
+            var trimmed = line.trim();
+            if (trimmed.indexOf('event:') === 0) {
+              eventName = trimmed.slice(6).trim();
+            } else if (trimmed.indexOf('data:') === 0) {
+              dataLines.push(trimmed.slice(5).trim());
+            }
+          });
+          if (!dataLines.length) return;
+          var payload = null;
+          try { payload = JSON.parse(dataLines.join('\n')); } catch (e) { return; }
+          started = true;
+          if (eventName === 'result') {
+            finalResult = resultOf({ data: payload });
+            settled = true;
+            resolve(finalResult);
+            return;
+          }
+          if (eventName === 'error') {
+            streamError = new Error((payload && payload.message) || mbT('Connection error'));
+            streamError.streamStarted = true;
+            fail(streamError);
+            return;
+          }
+          if (onEvent) onEvent(eventName, payload);
+        }
+
+        function pump() {
+          reader.read().then(function (chunk) {
+            if (chunk.done) { finish(); return; }
+            buffer += decoder.decode(chunk.value, { stream: true });
+            var blocks = buffer.split(/\r?\n\r?\n/);
+            buffer = blocks.pop();
+            blocks.forEach(handleBlock);
+            pump();
+          }).catch(function (err) {
+            if (finalResult) { settled = true; resolve(finalResult); return; }
+            fail(err);
+          });
+        }
+
+        pump();
+      });
+    });
+  }
+
   function paragraphLine(paragraph, onPick) {
     var line = li((paragraph.chapterTitle ? '[' + paragraph.chapterTitle + '] ' : '') +
       String(paragraph.text || '').slice(0, 80) + '…' +
@@ -141,6 +248,7 @@
     postJson: postJson,
     isBusinessError: isBusinessError,
     resultOf: resultOf,
+    postSse: postSse,
     busy: busy,
     clear: clear,
     li: li,
