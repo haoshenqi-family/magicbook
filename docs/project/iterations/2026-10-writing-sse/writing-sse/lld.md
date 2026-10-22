@@ -1,6 +1,6 @@
 # 写作批改 SSE 进度流（magicbook R194）· LLD
 
-**状态**：已上线（2026-10-21，代码 merge `4cded68c`，回填 commit `bf45c23a`；fnOS build END OK + 部署 SUCCESS，容器 healthy；线上 JS 已含 `postSse`）
+**状态**：已上线，真机验收未通过（2026-10-22 按用户指令暂停修复；SSE 代理与前端解析正常，失败点在 moon-well/magpie 150s 上游超时。代码保留）
 **同源**：moon-well R196（后端 SSE + 在途去重）；承接 magicbook R190/R191、moon-well R192/R193
 
 ## 1. 问题与目标
@@ -74,10 +74,13 @@ data: {"success":false,"code":50515,"message":"正文太短"}
 - 生产验收（2026-10-21 17:15，fnOS build END OK `4cded68c`；回填后 `bf45c23a` 再次 END OK）：magicbook 容器 `Up (healthy)`；线上 `learning-writing.js` 已含 `streamEndpoint` / `postSse` / `getReader`，模板已注入 `writingSubmitStream` / `writingReviseStream` 两个 URL。后端 SSE 直连实测见 moon-well R196 LLD：首条 ping 5.01s、result 前每 5s 一条、87.61s 返回 result；代理层 `X-Accel-Buffering: no` 与 401 刷新由 `test_learning_writing_sse.py` 的 6 条契约测试锁定。
 - `node --check cps/static/js/learning-writing.js` 通过；`python3 -m py_compile cps/routes/learning.py` 通过。
 - 真机验收：长文批改期间每 5s 看到等待秒数；完成后正常渲染；断网/刷新后历史仍能看到已保存结果；同文重试不多稿。
+- **真机验收未通过（2026-10-22 09:29–09:32，用户 task=2 修订稿）**：浏览器 Network 命中 `POST /ajax/learning/writing/revise/stream`，`200 OK`，约 2.5min 后 UI 报错、Response 面板为空。moon-well 日志同一请求建连 37ms、150s 处 magpie `Read timed out` 并发出 SSE `error`；magpie 台账记录 `ms=150013,status=499`。结论：magicbook 的 SSE 代理与前端解析已生效，失败是后端 LLM 预算耗尽，不是代理缓冲或前端仍走旧 JSON 路径。
+- **DevTools 读法**：SSE 响应体在 Network → Response 为空是正常现象，应看 EventStream/事件列表；UI 报错对应后端 `error` 事件，不能据此判定代理未透传。
+- **生产配置未改**：moon-well 侧曾临时把 magpie 超时调到 240000，随后按“放弃修复”指令回滚为 150000；本仓代码无新增改动。
 
 ## 6. 风险与非目标
 
-- SSE 不降低 LLM 延迟，也不绕过 magpie 150s 预算；它只把等待过程显式化并让连接更耐用。
+- SSE 不降低 LLM 延迟，也不绕过 magpie 150s 预算；它只把等待过程显式化并让连接更耐用。**2026-10-22 上游 150s 零 token 挂起仍会以 `error` 结束，本轮未解决。**
 - blue-green 部署切换仍可能中断 SSE（Spring 25s shutdown / 容器 40s grace）；已完成的批改会落库，未完成的仍需重试。该 drain 窗口另项处理。
 - 中间层必须不缓冲：代理已发 `X-Accel-Buffering: no`，Traefik/Caddy 当前未配置响应缓冲；若未来加 Nginx，需要同步关闭 `proxy_buffering`。
 - 非目标：模型 token 级流式、异步 job + 轮询、自动跨版本重试。

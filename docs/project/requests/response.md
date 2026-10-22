@@ -248,4 +248,7 @@
 - **上线**：commit `2d2b2804`，merge develop **`4cded68c`**，push 后 fnOS 构建 **END OK**（17:15:45）、部署 **SUCCESS**，容器 `magicbook Up (healthy)`；回填编号与证据的 commit **`bf45c23a`** 再次 END OK（17:23:56），容器仍 healthy。线上 `learning-writing.js` 已含 `streamEndpoint/postSse`，模板已注入两个 stream URL。后端 SSE 直连复验见 moon-well R196：首条 ping 5.01s、87.61s 返回 result。
 - **边界（如实）**：代理层 `X-Accel-Buffering` 与 401 重连由契约测试锁定，未用真实登录态在公网代理上做逐 chunk 计时；SSE 不降低 LLM 延迟，也不解决 blue-green 25s/40s drain 中断（已完成的批改会落库，未完成的仍需重试）；模型 token 级流式、异步 job 不在本轮。
 - **台账**：分支 `feat/r192-writing-sse`，worktree `../magicbook-r192-writing-sse` 留待验收后按闸门删除；临时 merge worktree `../magicbook-r192-merge` 在文档回填推送后移除。冲突记录：与并行部署链 R192/R193 撞号，已顺延 R194；无内容冲突。
-- **总结**：requests.md 占号 R194；本仓 R192/R193 已被部署链占用，故不再重复占号。
+- **验收结论（2026-10-22，未通过/暂停）**：用户复测 task=2 修订稿，浏览器 Network 确认命中 `POST /ajax/learning/writing/revise/stream`、`200 OK`，约 2.5min 后 UI 报错、Response 面板为空。moon-well 同一请求 `09:29:47` 建连 37ms，`09:32:18` magpie `Read timed out` 后发出 SSE `error`；magpie 台账 `ms=150013,status=499`。结论：magicbook 的 SSE 代理与前端解析已生效，失败原因是后端 LLM 150s 预算耗尽，不是代理缓冲、也不是前端仍走旧 JSON。
+- **DevTools 说明**：`text/event-stream` 的响应体在 Network → Response 为空是正常显示，应看 EventStream/事件列表；UI 报错对应后端 `error` 事件。
+- **停止修复与配置回滚**：moon-well 侧曾临时把 Nacos `ai.providers.magpie.timeout-ms` 调到 240000，按用户“放弃修复”指令已回滚为 150000；本仓无新增代码改动。LLD 状态改为“已上线，真机验收未通过”。
+- **总结**：requests.md 占号 R194；本仓 R192/R193 已被部署链占用，故不再重复占号。本次为 R194 的验收状态更新，未新增编号。
