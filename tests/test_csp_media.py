@@ -141,3 +141,37 @@ def test_non_reader_pages_still_block_blob_media(app, make_response_headers):
     media_directive = [d.strip() for d in csp.split(";") if d.strip().startswith("media-src")]
     # Non-reader pages have no reason to emit media-src at all.
     assert not media_directive, "non-reader pages should not emit media-src: " + csp
+
+MINIO_ORIGIN = "https://home.haoshenqi.top:9001"
+
+
+def _img_directive(csp):
+    return [d.strip() for d in csp.split(";") if d.strip().startswith("img-src")]
+
+
+@pytest.mark.parametrize("endpoint", ["web.read_book", "web.buddy_page"])
+def test_buddy_image_origin_allowed_where_images_render(app, make_response_headers, endpoint):
+    """伙伴头像走 MinIO 跨源直链，渲染它的两个端点必须放行 img-src（R206/R207）。
+
+    这条比 media-src 更难发现：`ai_chat.js` 用 new Image() 预载探测，被 CSP 拦时
+    onerror 分支静默保留「AI」文字兜底——页面看起来完全正常，只是换图永不生效。
+    头像 URL 由 moon-well 下发（`minio.public-url`，Nacos 生产值），本仓 media-src
+    早已硬编码同一源，此处同源复用；Nacos 改基址时两处一起失效，非新增漂移面。
+    """
+    with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):
+        resp = make_response_headers(endpoint)
+
+    img = _img_directive(resp.headers.get("Content-Security-Policy"))
+    assert img, "img-src must stay explicit; CSP was: " + resp.headers.get("Content-Security-Policy")
+    assert MINIO_ORIGIN in img[0], (
+        "%s must allow the MinIO public origin for buddy images; got: %s" % (endpoint, img[0])
+    )
+
+
+def test_buddy_image_origin_not_opened_site_wide(app, make_response_headers):
+    """其余页面维持 img-src 'self' … data:，不放行 MinIO——沿用 R181 的窄面口径。"""
+    with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):
+        resp = make_response_headers("web.index")
+
+    img = _img_directive(resp.headers.get("Content-Security-Policy"))
+    assert img and MINIO_ORIGIN not in img[0], "non-buddy page leaked the MinIO origin: " + img[0]

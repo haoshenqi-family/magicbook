@@ -32,6 +32,7 @@
 - `response-archive/response-R130.md`：R130 LLM 队列监控面板（承接 moon-well R118 契约、扩展 R126 /llm-tasks），2026-10-21 R191 写入触发轮转
 - `response-archive/response-R181.md`：R181 架构评审波 3 · B2 小步重做完成：web.py 蓝图分域拆分（2026-10-21 台账合并时轮转搬移）
 - `response-archive/response-R182.md`：R182 架构评审波 4 · B7：i18n 种子与 JS 清单生成化（2026-10-21 台账合并时轮转搬移）
+- `response-archive/response-R185.md`：R185 架构评审文档修正批 DF1–DF5（2026-10-22 R207 写入触发轮转搬移）
 
 ---
 
@@ -113,44 +114,6 @@
 - **验证**：`node --check`；全量 **590 passed**（merge 后在 develop 新基线复跑同数）。
 - **B4 剩余**：判据②「阅读器全功能真机回归」与③「R172/R173 不回退」需线上整站验收；A/P 段（位置恢复 / 生词台账 / 书签）还可再拆 `reader-location` / `reader-vocabulary`，但 <1,000 已满足——是否继续由用户定夺，故台账标「判据①达成」而非「B4 完成」。
 - **台账**：MAGICBOOK-2 已更新；worktree `../magicbook-arch-b5` 分支 `refactor/r183-epub-modules` 驻留待验收。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
-
-## 2026-10-16（R185 架构评审文档修正批：DF1–DF5）
-
-### R185（magicbook DF1–DF5：把「修正声明无闭环」的实证项就地修掉）
-
-- **范围**：家族根评审 §5 的 C-状态滞留 / C-数值冲突 / C-索引完整性中属本仓的五项。**纯文档批，零代码改动**（按 doc-fixes 清单口径「纯文档活主检出可直接做，无需 worktree」）。
-- **DF1 / DF2（状态行回填，日期与 commit 全部取自 git，不凭报告改写）**：`whole-book-translation` 的 L3 状态停在「设计已确认，尚未开发」而 L1 与 hld 端点表早已上线多轮 → 已上线（2026-09-05 `04c591a3`；2026-09-17 `817f4381` 补容器重启断点续作）；`sso-user-unification` 停在「设计草案（待评审）」→ 已上线（2026-09-07 `457067c5` Authentik 唯一登录）。这两条正是 product-review(10-07) §5.2 自称已修、一周后依旧失实的原件；正文按「历史文档只标注不重写」保留原貌。
-- **DF3（端口口径）**：`oidc-login.md` 三处 8085 → 生产 **8083**（fnOS），并写明 8085 系 UBT 旧部署、已停用待清理——不留「旧值加个注」的二义。家族根端口表那行属 X5/RF2，责任在家族根，未顺手改。
-- **DF4（旧域）**：`docs/REQUIREMENTS.md` 两处 `hyh.haoshenqi.top` 加「已被 `magicbook.haoyuhang.top` 取代」注记。
-- **DF5（索引完整性）**：L1 分级表 feat 计数由失实的 12 改为实测 **18** 并列出全量目录名；此前五个悬空 feat（ai-reading-companion / learning-hub / sso-user-unification / ted-audio-companion / whole-book-tts）现全部有入口，**遍历复查差集为空**。
-- **未做（如实）**：DF6（L2 覆盖口径明示）、DF7（`docs/kb/project-describe/` 空壳填实或删除——需用户定夺）、DF8（仓库卫生：`docs/temp/` epub/mp3 入库、`test/` 与 `tests/` 并存、根目录 `None` 空文件——涉删跟踪文件，须先出清单再动）。
-- **验证**：悬空复查脚本（遍历 `docs/feat/*` 与 L1/L2 引用集合）为空集；两处状态行回读；无代码改动故不跑 pytest 闸门。
-- **过程失误（记下来）**：本条第一次写入时脚本的索引锚点按表格行去找、实际是列表行，`assert` 及时中止，但同一条命令里 `git add/commit` 是独立行、仍把**归档文件**先提交了（commit `cd9617c7`），造成「归档已生成、response.md 未搬移」的中间态；本提交完成搬移，两条都在本地未 push。教训：多步 shell 链里 assert 只保护它自己那一步，收尾动作要另起一条命令或前置 `&&`。
-- **台账**：commit `de80c8f3` + 本条；requests.md 占号 R185，并行会话未提交的 R184（家族迁入 PingCode）随本批原样入库、内容未改；冲突记录：无撞号。窗口：本条写入使 request 数达 11，按「写入即检查」把最旧一节（R174 及其节内的 R176、R177，共 31 行）原样搬至 `response-archive/response-R174-R177.md`，窗口回 10 个 request 内。
-
-### R186（magicbook DF6 + B6：L2 覆盖口径明示 + 整本批次三胞胎抽 JobServiceBase）
-
-- **范围**：用户指令「做 magicbook DF6 + B6」，两项合并一轮交付；代码活按 worktree 纪律在本会话既有 worktree `magicbook-arch-b5` 续作（分支 `refactor/r186-job-service-base`，复用同一 worktree 而非新开）。
-- **DF6（口径明示，不是补写七份 hld）**：L1 分级表把「首批：reading、vocabulary，其余暂以 L3 为准」这句含糊话改成**逐模块实测表**（`ls docs/*/hld/hld.md` 实测只有两份，其余五个模块连 `docs/<module>/` 目录都不存在）。配套把「待升 L2」标注从 1 份补到 6 份承载契约的 L3——AGENTS.md 一直声称这条纪律存在，此前只有 `llm-task-run/admin-monitor.md` 一份兑现，属名实不符。顺手修 reading L2 §1 的两条缺失现役端点行（`/ajax/reading-tts-cached`、`/ajax/reading-tts-book*`），它们只存在于 L3，是「L2 覆盖描述与实际一致」这条验收的直接反例。
-- **B6（实测是三胞胎，不是评审登记的双胞胎）**：`reading_word_detail/service.py`（R176）是第三条同形制链路。逐字比对后归一的部分只有被证明相同的那些：`_book_file`/`_fingerprint` 三份全同、`_ensure_tables` 三份只差表名、活跃批次复用查询三份同形、30 分钟僵尸判定 = 两处常量 + 四处内联表达式、`ACTIVE_STATUSES` 两份相同。新增 `cps/reading_job/service_base.py`（191 行，其中代码 87 / 说明 104），三个 service 代码行 371/305/256 → 337/244/222（总代码行 932 → 890，减去骨架 87 后单源化 129 行重复）。
-- **刻意没做的四条（写清楚，免得被当成「重构没做完」）**：①进度字典与 item 状态机不统一——三家返回字段各异，统一即改前端契约；②花名册只由朗读侧启用——翻译/详解的发布线程靠「幂等复用 + 新鲜度拦截」防重复且后端按缓存/在途跳过兜底，套上花名册会把「连点两次」从「再起一条」改成「静默跳过」，那是行为变更；③朗读 loader 不筛属主（`query(ReadingTtsJob).get(job_id)` vs 另两家 `filter_by(id, user_id)`）如实记为待决事实，鉴权不动；④`_commit_with_retry`/`_thread_db_session` 是单份实现被跨包引用，不是重复，不搬。
-- **观测性守则**（moon-well M6 的教训在 Python 侧重演过一次就够）：骨架日志走 `job_log` 逐类注入，logger 名仍是 `cps.reading_*`，不塌到基类；报错文案（`translation job is unavailable` / `word detail job is unavailable` / `job not found`）与线程名 `whole-book-tts-<id8>` 逐字保持，并由守卫测试钉住。**两处措辞归一**：僵尸关闭行丢掉「; creating fresh batch」与「(no pending left)」两句尾巴，朗读崩溃行 `synth worker crashed` → `worker crashed`；无测试按这些字样断言，ES 正文检索需注意。
-- **验证**：全量 `pytest tests/` **603 passed**（基线 590 + 新守卫 13 例），merge 后在主检出 develop 重跑同样 603。新增 `tests/test_job_service_base.py` 钉「骨架方法不得在子类里长回第二份 / 同一原语三家只有一份实现 / 类属性必须显式填 / 僵尸阈值单一事实源 / 文案逐字不变 / `_needs_worker` 三条边界」。**反向变异两处已做**：给 `WholeBookTtsService` 重新塞一个 `_fingerprint` ⇒ 守卫 2 例转红；把 `_own_job` 的 `user_id` 过滤删掉 ⇒ 属主边界用例转红；两次都从 `/tmp` 副本恢复并核到逐字节一致。测试桩随代码走：`calibre_db`/`config`/`threading.Thread`/`current_user` 四处 monkeypatch 的**打桩位置**移到骨架模块，断言一字未动。
-- **未验（如实）**：B6 判据③「整本翻译与整本朗读各跑一轮真机批次回归」——本机无 calibre 书库跑不了真实书籍页面，需用户在线上各点一轮；B4 的判据②③ 同样仍在等真机验收。
-- **交叉评审揪出三处「形状相似但判据被改」**（`140d334d`，merge `17f68bee`，全部落回原语义并各配用例）：① `_needs_worker` 的否决条件我从「`status == CANCELLED`」写成「`status not in active_statuses`」——朗读 `retry` 按 id 直取批次、终态行也会进来，于是「台账已 COMPLETED 却仍留着 PENDING 段」这种矛盾批次，旧实现会补线程拉回正轨，改后变成**点重试静默 no-op**；已落回原判据，取消态提为类属性 `cancelled_status`（朗读 `CANCELLED`、翻译与详解 `CANCELED`，注释写明这个拼写分叉）。② 一键译全库的「在跑就跳过」我写成 `not _is_stale(...)`，而旧的两条比较在 30 分整那条记录上**不是互补的**（旧＝开新批次，取反＝算在跑）；新增 `_is_fresh` 原样保留严格大于式，并用冻结时间的边界用例钉住「两条都 False」。③ `_own_job` 的 `current_user` 随方法搬进骨架后，测试桩仍打在原子类模块上 ⇒ 翻译/详解的 `get_progress/retry/cancel` 一条都没被跑到，**属主过滤这条鉴权边界失去可测性**；补齐双模块打桩，新增「别人的批次取不到 / 不存在的取不到 / 文案逐字」用例。另把 `_pending_count` 的口径写进 docstring：它数的是 `status == "PENDING"`（没人认领的活儿），不是「未完成」——翻译/详解的「未完成」含 PUBLISHED（已发给队列、正在消费），混为一谈会让自愈对着在途批次再起一条线程。这三条正是我先前那句「判据①要求行为不变」没做到的地方，记录在此而不是悄悄修掉。
-- **台账与并发**：requests.md 占号 R186 于开工前单独 commit `895435ec`（先占后写，避免被整文件写回抹掉）；merge `2ff595bf` 本地 develop（本条收尾提交后 `git rev-list --count origin/develop..develop` = **33**，**未 push**；worktree `magicbook-arch-b5` 与分支 `refactor/r186-job-service-base` 原样保留待验收）。并发实况：主检出有另一会话未提交的 `cps/AGENTS.md` 改动，本批全程未触碰、未提交（所有 commit 用 `--only` 显式列文件）；另发现仓库里有一条 **2026-10-12 的 `stash@{0}: autostash`**（learning / speaking-writing / i18n_seed / layout / web.py 等一批文件），非本会话产物，未 apply 也未 drop，需要它的人自己处置。冲突记录：无撞号（R184 属并行会话的家族迁入 PingCode 条目，原样保留）。PingCode 新增 **MAGICBOOK-201**（In progress）；R183 的 `MAGICBOOK-2` 与并行迁移生成的 `MAGICBOOK-198` 仍是同需求双条目，处置待用户定夺。response.md 窗口：本条写入后为 9 个 request（R175/R178–R183/R185/R186），未触发轮转。
-
-### R187（第四类文档失实 + DF7 删空壳 + DF8 清产物 + 三仓 push）
-
-- **范围**：用户指令「先把第四类做掉，然后 push；DF7 先删了；DF8 的 /locals 是误提交不该被跟踪」。
-- **第四类（文档失回填）**：四仓 `overview.md` 头部那句「全部待启动」按 `git log origin/<dev>..<dev>` 实测重写成进度快照——moon-well `4e4fc3d`（同批给 `.gitignore` 补了 `/local/` 兜底：`cb090d9` 只把 `local/` 移出跟踪，规则里原本只有 `.local/` 与两个子路径，`local/` 本身还能被下次 `git add` 带回来）、magicbook `2dae052e`、app-manager `c9e99f8`（main，纯文档）。**magiclens 的 overview.md 没动**：它正被并行会话持有未提交改动（他们已把 L2 行改成「进行中」），同一文件两处并发是 R113 那类残留的成因。
-- **DF7（按用户选定范围：只删目录）**：`docs/kb/project-describe/` 连同唯一的 `.gitkeep` 移出仓库（`49f84e77`）。**刻意留下的那一半**：`AGENTS.md` 第 12 行「`docs/kb/project-describe/` 仍为空壳、填实或删除属待决策项」与第 121 行目录表那行仍是悬空指向，因为该文件有并行会话在途的 2 行改动（12→18 feat、6→7 模块，写得对、只是没提交），我不把他们未提交的内容混进我的 commit。已在 DF7 段落写成「一句话可做完」的遗留项。
-- **DF8（用户逐条确认后删）**：`test/` 三个上游 QUnit 残骸 + 根目录 0 字节 `None` 删除，`.gitignore` 补 `/test/`（52 行）防同步上游再带回来，并在 DF8 段落补上「留 `tests/` 删 `test/`」的决策记录（那条正是 DF8 验收要求的）。**两条原描述实测失实**：`docs/temp/` 从未入库（`git log --all -- docs/temp` 空、`.gitignore` 已忽略，683MB 全是本地探针夹具）；「运行库入库」也无依据（`git ls-files` 无任何 `.db/.sqlite/.log`）。没有照着清单去删不存在的东西。
-- **push 结果（用户选「三仓全推」，实际推了两仓）**：magicbook `a2cb8ba0..052f875d`（39 提交）已上线——新基线全量 **603 passed** 后推，公网探针确认 `static/js/reading/reader-tts.js` 已是 R183 批次 7 的新内容、首页 302 正常（B4 的七个 reader-* 模块**第一次真正发到线上**）；magiclens `88accf2..77bb3ce`（r46/r47/r48 三提交，无自动化框架，闸门=11 个改动 JS 文件逐个 `node --check` 全过；扩展要生效仍需另发版本）。
-- **⛔ moon-well 没推，是全量闸门拦住的**：`mvn clean test -Djava.version=21`（corretto-21.0.9，`.env` 齐备）**Tests run: 1398, Failures: 3, BUILD FAILURE**——① `CreditRechargeServiceTest.packagesContainTestTierMarkedAdminOnly:100` 期望 3 实得 4；② 同类 `testTierHiddenWhenSwitchDisabled:115` 期望 2 实得 3；③ `ReadingSettingsServiceTest.currentSettingsReturnsStoredValue:71` 期望 6 实得 3。追因：**前两条不是这 13 个未推提交造成的**，破坏来自 `37aa393`（2026-10-15 09:43:14，提交信息「docks：update」）新增 `TOPUP_999`（¥999 / 500 万积分）档而没改断言，**该提交已在 origin/develop**——即线上基线从 10-15 起就带着两条红单测。本地 `.env` 最后修改 10-08 且无任何 tier/package 键，排除了「我机器配置漂移」这条解释。moon-well 的 push 需要先把这三条判红处置清楚，而「999 元档是要的还是误加」是产品判断，我不擅自改断言把它洗白。
-- **顺手记一条家族级观察**：magicbook 那个 `None` 空文件的来源提交是 `83e0ec09`，与 moon-well 的 `37aa393` **同一秒（2026-10-15 09:43:14）、同一提交信息「docks：update」**。这类跨仓批量提交没跑测试就落了库，magicbook 侧留下垃圾文件、moon-well 侧留下红单测——正是评审报告 §5「修正/提交无验收闭环」那条结构性缺陷的新样本。
-- **冲突记录**：`requests.md` 的 187 号本会话已提交（`94e1588a`，内容=本批），而并行会话有一条**分支名** `refactor/r187-docs-v2`（实测该分支 tip 就是 `a2cb8ba0`，**0 个自有提交、无台账行**），家族根 `Agents.md` 已被改写成「magicbook ✅ v2 已迁，R187 试点」——四仓 `git ls-files` 实测 `docs/product/` 与 `docs/project/` 命中数全为 0，即该声明目前没有仓库产物支撑。按「编号只追加不回改」：**台账 187 = 本批**；v2 迁移真正开工时请续编 **188** 并自带 L3，别沿用 187。已改的家族 `Agents.md` 属规则文件，按约定我不回改，更正写进本条。
-- **窗口**：本条写入后 request 数为 10（R175/R178–R183/R185/R186/R187），仍在「保留最近 10 个」上限内，未触发轮转。
 
 ## 2026-10-16（R188 家族文档架构 v2 试点迁移：magicbook `docs/` 全仓重排）
 
@@ -327,3 +290,14 @@
 - **验证（如实）**：JS/Python 语法校验通过（`node --check` ×3、`py_compile`）；**未起浏览器真机验收**——FAB 换图与 `/buddy` 页依赖 moon-well R201 先上线 + 18 个资产先传 MinIO（脚本 `moon-well deploy/upload_buddy_assets.py`），二者未就绪前 FAB 走文字兜底、页面无数据。
 - **台账**：requests.md 占号 R206（跨仓 moon-well R201）；分支 `feat/r206-buddy`，worktree `../magicbook-buddy` 原样驻留待验收；merge 本地 develop **`cf068ddb`**（未 push）。PingCode 写入待用户单独确认。
 - **补记（2026-10-22 21:44 / 22:08 push，含一次我造成的站内错）**：已 push develop 两次——`13e44003`（R206 前端 + 台账，5 提交）与 `6b91bf31`（模板语法修复 + `/buddy` 冒烟用例）。**第一次 push 前我漏跑了全量闸门**（只在 worktree 做了 `node --check` / `py_compile` 级校验，违背本仓「push=上线=新基线全量」口径），补跑才暴露：我在 `i18n_seed.html` 的 `{% set mb_i18n = { … } %}` **表达式内部**写了 `# ---- R206 伙伴（buddy）页 + 引导 ----` 行注释——Jinja 的词法注释只认 `{# #}` 且必须位于标签体外，`#` 直接抛 `TemplateSyntaxError: unexpected char '#'`，而 `layout.html` include 本文件，**所有 extends layout 的页面一起 500**（补跑首测：64 failed / 591 passed / 29 errors）。删掉该注释行，并新增 `tests/test_buddy_page.py`（`/buddy` 真渲染 2 条：页面出 `#buddy-roster`/`#buddy-csrf`、导航项 `#top_buddy` 恰出现一次），复跑全量 **686 passed / 0 failed**（R205 基线 684 + 新增 2）。顺带把驻留 worktree ff 到已推 tip 再跑，主检出未碰。教训两条：① 模板改动的判据是「页面渲染出来」，不是语法级校验；② layout 的 include 面使一处模板错＝全站错，`/buddy` 已纳入常驻用例，push 一律在新基线跑全量。
+## 2026-10-22（R207：伙伴验收三连——fnOS 构建核验 / 文档 push / 18 资产上传，附带修掉 CSP 拦图）
+
+### R207（用户：「1 验证，2 推 3 上传」）
+
+- **① 构建核验（ssh fnOS `/app/codelib/logs/*.log`）**：moon-well `76e5aae` 21:44:13 START → 21:45:06 **END OK**，蓝绿 `active=blue → next=green`，代码指纹 `8a4dd2a7e3c2e271 → 14cfcad5bc6ef06c`（不等→完整部署），`[[mw-phase]]` 五段全 ok，green healthy。**magicbook 那条实测出故障窗口**：`13e44003`（含站内错的 sha）21:44:13 START → 21:44:36 END OK 已部署，修复 `6b91bf31` 21:51:51 START → 21:52:06 END OK——**线上全站 500 实际持续约 7.5 分钟**，不是「推了没上线」的侥幸。现网复核：宿主 `curl 127.0.0.1:8083/login` **200**（layout 渲染链路恢复），`/buddy` **302** 属未登录跳转（`@user_login_required` 正常），容器 `Up (healthy)`。
+- **② 文档 push**：moon-well `f2caec8`、magicbook `34b02b55` 已推 develop；两笔均纯文档，fnOS `docs_only_diff` 判 SKIPPED 不触发部署（R154 口径）。
+- **③ 资产上传**：`moon-well/deploy/upload_buddy_assets.py`（凭证从 gitignored `.env` 注入、全程未打印值）dry-run 先自校验 18 个对象键与 `BuddyDefinitionService` 种子逐一对齐，再实跑 → **18/18 上传成功**（`magicbook` 桶 `buddy/*`，full 512² 约 300KB、head 128² 约 30KB）。匿名直读实测 `https://home.haoshenqi.top:9001/magicbook/buddy/robot-head.png` **200**、`buddy/harry-full.png` **200**；对照组不存在对象 `ted-audio/__probe__.aac` **404**——证明 R201 合并进一条 Statement 的前缀策略确实只放开 `buddy/` 与 `ted-audio/`，没有整桶可读。
+- **④ 自查发现并修复第二处缺陷（CSP 拦图）**：`cps/web.py` 的 `img-src 'self' … data:` 未放行 MinIO 源，伙伴头像跨源取图会被浏览器拦；**且这是不可见故障**——`ai_chat.js` 用 `new Image()` 探测，`onerror` 即静默保留「AI」文字兜底，页面表现完全正常，只表现为「图片传了但没换」。修法沿用 R181 `media-src` 的窄面范式：只在 `web.read_book`（一个端点覆盖 epub/pdf/txt/djvu/cbr 五种阅读器，FAB 都在）与 `web.buddy_page`（花名册）放行 `https://home.haoshenqi.top:9001`，其余页面 img-src 不变；该源与 media-src 里已硬编码的是同一个，Nacos 改 `minio.public-url` 时两处一起失效，未新增漂移面。新增 3 条用例（2 端点参数化 + 1 条「index 不得放行」的反向守卫），**反向变异实测**：临时退回未修复版恰好这 2 条红、恢复后全绿。
+- **闸门（本轮记死）**：R207 代码 push 前在驻留 worktree 的新基线 `f3b3a782` 跑全量 `.venv/bin/python -m pytest tests/` = **689 passed / 0 failed**（R206 修复后 686 + 本轮 3），判据取 pytest 末行汇总。上一轮「先推再补跑」的教训见 R206 补记。
+- **台账与驻留**：requests.md 占号 R207（commit `0ab751d3`，先占即提交）；分支 `feat/r206-buddy`（同会话续作复用同一 worktree，禁止每阶段开新树），已 ff 到已推 tip 后继续推进；worktree `../magicbook-buddy` 原样驻留待真机验收。**代码修复 `f3b3a782` 尚未 push——等一句确认**。跨仓 moon-well 本轮无代码改动，资产上传事实记在其 R201 补记。PingCode 写入仍待用户单独确认。
+- **窗口**：本条写入使 request 数达 11，按「写入即检查」把最早一组 R185（架构评审文档修正批 DF1–DF5）原样搬至 `response-archive/response-R185.md` 并登记索引，窗口回 10。
