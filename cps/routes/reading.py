@@ -6,7 +6,7 @@ from cps.web import (
     _READING_WORD_RE,
     _moonwell_proxy,
     _moonwell_settings_fetch,
-    _ted_audio_book_id,
+    _ted_book_identity,
     _whole_book_closures,
     _whole_book_tts_closures,
     web,
@@ -120,12 +120,16 @@ def reading_ted_audio():
 
     R172：TED/博客类书的内容本质是「一段连续原声」，阅读器伴听直接播整段，
     不走逐段 TTS 合成（逐段合成会把真人原声换成机器音且白烧算力/积分）。
-    未缓存 / 未建注册表时 moon-well 的 result 为 null，前端据此隐藏伴听按钮。
+    R200：改写为按 **书名+作者** 查——moon-well 的 bookId 是它自己 book 表的 id，
+    与本仓 Calibre 书号是两套序列，按 id 透传只有巧合对齐才命中。
+    未缓存 / 未建注册表时上游 result 为 null，前端据此回落 TTS 或隐藏按钮。
     """
-    book_id = _ted_audio_book_id()
-    if book_id is None:
-        return jsonify({"success": False, "message": "bookId must be a number"}), 400
-    return _moonwell_proxy("/book/ted-audio", {"bookId": book_id}, 15, "ted audio")
+    book_name, author, error = _ted_book_identity()
+    if error:
+        status = 404 if error[0] == "not_found" else 400
+        return jsonify({"success": False, "message": error[1]}), status
+    return _moonwell_proxy("/book/ted-audio",
+                           {"bookName": book_name, "author": author}, 15, "ted audio")
 
 
 @web.route("/ajax/ted-audio-paragraphs", methods=["POST"])
@@ -135,11 +139,14 @@ def reading_ted_audio_paragraphs():
 
     R172：时间轴驱动的高亮依赖段落级 tedAudioStart/End（该段在整段原声中的
     毫秒偏移），与 EPUB 段落 1:1；与 /ajax/ted-audio 同批并发拉取。
+    R200：同样改按书名+作者查（`/book/paragraph/list` 本就支持该入参）。
     """
-    book_id = _ted_audio_book_id()
-    if book_id is None:
-        return jsonify({"success": False, "message": "bookId must be a number"}), 400
-    return _moonwell_proxy("/book/paragraph/list", {"bookId": book_id}, 15,
+    book_name, author, error = _ted_book_identity()
+    if error:
+        status = 404 if error[0] == "not_found" else 400
+        return jsonify({"success": False, "message": error[1]}), status
+    return _moonwell_proxy("/book/paragraph/list",
+                           {"bookName": book_name, "author": author}, 15,
                            "ted audio paragraphs")
 
 

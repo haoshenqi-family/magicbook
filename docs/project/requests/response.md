@@ -251,4 +251,38 @@
 - **验收结论（2026-10-22，未通过/暂停）**：用户复测 task=2 修订稿，浏览器 Network 确认命中 `POST /ajax/learning/writing/revise/stream`、`200 OK`，约 2.5min 后 UI 报错、Response 面板为空。moon-well 同一请求 `09:29:47` 建连 37ms，`09:32:18` magpie `Read timed out` 后发出 SSE `error`；magpie 台账 `ms=150013,status=499`。结论：magicbook 的 SSE 代理与前端解析已生效，失败原因是后端 LLM 150s 预算耗尽，不是代理缓冲、也不是前端仍走旧 JSON。
 - **DevTools 说明**：`text/event-stream` 的响应体在 Network → Response 为空是正常显示，应看 EventStream/事件列表；UI 报错对应后端 `error` 事件。
 - **停止修复与配置回滚**：moon-well 侧曾临时把 Nacos `ai.providers.magpie.timeout-ms` 调到 240000，按用户“放弃修复”指令已回滚为 150000；本仓无新增代码改动。LLD 状态改为“已上线，真机验收未通过”。
-- **总结**：requests.md 占号 R194；本仓 R192/R193 已被部署链占用，故不再重复占号。本次为 R194 的验收状态更新，未新增编号。
+- **总结**：requests.md 占号 R194；本仓 R192/R193 已被部署链占用，故不再重复占号。
+
+## 2026-10-21（R195–R202：博客导入链与 TED 导入链缺陷盘点 + 修复）
+
+### R195–R202（用户：检查博客导入和 TED 导入还有哪些不足 → 拆分记录进 PingCode，然后开始修复）
+
+- **盘点口径**：不按代码逐行找 bug，而是按每条链路的**事实源语义**倒推失效面——博客链的事实源是「Halo 当前发布版，webhook 只是触发器」，TED 链的事实源是「moon-well 按 title+author 索引的段落注册表与原声」。凡「源已改、书没跟上」或「源能查到、调用方查不到」的路径都算缺陷，共出 8 条：4 条数据正确性（P0/P1）、1 条体验缺口（P2）、3 条仅记录待排期。
+- **PingCode 登记**：8 条拆成 8 个独立条目（非一个总条目），产品 MAGICBOOK、按模块分 suite——library：MAGICBOOK-206（state 竞态）/207（事件白名单）/208（resync）/209（封面顺序）/210（EPUB 体验缺口，Pending）；reading：MAGICBOOK-211（bookId 语义错位，关键）/212（去重不补缓存 + busy_timeout）/213（TED 无封面/进度/倍速，Pending）。206–209、211、212 置 In progress，验收前不流转 Completed。
+- **R195 连接器 state 竞态**：`_load_state/_save_state` 整份读-改-写只有 per-slug 锁，`gunicorn --threads 4` 下两本书同时发布互相覆盖 `last_sha` → 下次发布旧 sha 被当新版本 → 重建 EPUB → 整本翻译 fingerprint 变 → 白烧积分。新增模块级 `_state_lock`，读改写收敛为 `_state_entry` / `_state_update`（`remove=(...)` 顺带替掉手写 pop）。
+- **R196 事件白名单**：原硬编码只认 `NEW_POST`，修订后重新发布不进书。改 `_allowed_events()`，`CONNECTOR_EVENTS` 可覆盖（缺省 `NEW_POST,UPDATE_POST`），DELETE 类不隐式放宽。
+- **R197 新增 `POST /resync`**：webhook 无补投，停机期丢的事件只能去 Halo 手动重发布。沿用 `X-Hook-Token`，body 可带 `{"slugs":[...]}`（缺省全量），逐条 `_process_slug`（sha 未变 no-op ⇒ 幂等），单条失败不中断，末尾汇总 `{total, imported, failed, results}`；未映射 slug 记 `no-mapping`。
+- **R198 封面先于 EPUB 落盘**：`_do_import` 原顺序「save_cover → 写 EPUB」，EPUB 校验失败时出现「新封面 + 旧正文」。改为「临时文件 → 校验 → `os.replace` → 换封面」，封面失败降级为 `coverError` 字段（正常路径契约不变）。
+- **R200 TED 原声伴听（关键）**：前端传 `calibre.bookId`，moon-well `/book/ted-audio` 用它查**自家 book 表**——两套自增序列只有巧合对齐才命中，错位即 `result=null`、前端静默回落 TTS 机器音（与 R172/R173 事故同症状）。`cps/web.py` 的 `_ted_audio_book_id` → `_ted_book_identity`（返回 title/author/error），两个代理改发 `{"bookName","author"}`；非数字书号 → 400（不再让脏串进上游 `Long.valueOf`）、本地无此书 → 404（不把空书名送去上游当「未缓存」）。跨仓同源 moon-well R197。
+- **测试**：`tools/connector/tests` 21 passed（含 5 线程并发放大窗口用例；反向变异实测无锁时 5 个 slug 只剩 1 条，确认用例有效）；`test_book_import.py` 17 passed；`test_ted_audio_proxy.py` 17 passed（含 404 与「源码不得再出现 `"bookId": book_id`」负向锁）；reading 域回归 91 passed。开发态只跑本次改动相关用例，未跑全量。
+- **边界（如实）**：① 全部改动未经真机验收——`/resync` 与 `CONNECTOR_EVENTS` 需在 fnOS 连接器容器实跑一次，Halo 2.26.1 的修订事件实际枚举仍待抓一次 webhook 日志核实；② TED 原声链路未在真实 TED 书上验证「按名查命中并返回 audioUrl」，仅由单测与源码锁保证；③ 未修项见 R199/R202（H2 不进 TOC、srcset 漏下载、TED 无封面、未缓存态与无原声不可区分、无进度/倍速）。
+- **台账**：magicbook 分支 `fix/r195-import-gaps`、worktree `../magicbook-import-gaps`，合入本地 develop **`2ffce335`**；moon-well 分支 `fix/r197-ted-audio-chain`、worktree `../moon-well-ted-audio-fix`，合入本地 develop **`0ff7c93`**（跨仓 R197/R198，测试 22 passed）。**两仓 worktree 原样驻留待验收；push 已按用户指令执行（见本节「上线」条）**；验收通过后再删 worktree 并流转 PingCode 状态。
+- **文档**：magicbook `docs/product/reading/interface.md` 新增 §1.2 两个代理契约（入参口径、错误码、禁 `bookFormat` 判据）；moon-well `docs/product/book/interface.md` §4 与调用方契约补 `bookId | bookName+author` 二选一；两仓各建 `docs/project/iterations/2026-10-import-audit/{blog-import,ted-audio}/lld.md`（含状态行）。
+- **上线（用户指令「push 然后我来验证」）**：全量闸门先在合并后基线重跑——`pytest -q` **647 passed / 0 failed**，连接器 `tools/connector/tests` **21 passed**。跨仓顺序按兼容性排：**先推 moon-well**（新入参 `bookName+author` 需后端先就位，否则 magicbook 新代理打旧后端会 400），等约 2 分钟构建部署窗口后**再推 magicbook**。moon-well push `961f98c..8a64094`、magicbook push `68cb9a06..8a09af81`。推送后实测 `moon-well.haoshenqi.top/actuator/health` **200**、`magicbook.haoyuhang.top/login` **200**（`/` 仍 302 跳登录，符合预期）。
+- **证据边界**：本次只有外部可达性证据，**未核对 fnOS 构建日志的 START/END 行**（沙箱内无 fnOS 访问通道）；「线上是否真跑上新代码」由用户在浏览器侧验证，判据见下条。
+- **验证路径**：① 打开一本 TED 书点「整本播放」——应播真人原声且随段落高亮，不再回落机器音（若仍是机器音，先看 `/ajax/ted-audio` 返回体里 `result` 是否 null）；② 手动补账 `curl -X POST http://<connector>:9878/resync -H "X-Hook-Token: $TOKEN"`，返回 `unchanged` 说明 sha 对账正常；③ 发布一篇已发文章的修订版，确认触发重导（`UPDATE_POST` 是否真被 Halo 2.26.1 发出，需看连接器日志的 eventType）。
+- **总结**：requests.md 占号 R195–R202（8 条）；moon-well 同源 R197/R198。R199/R202 是「已登记未修」的体验缺口，不在本轮范围。
+
+## 2026-10-21（R203：验收时报 `RT is not defined`——B4 拆分漏带跨模块别名，4 个段落按钮失效）
+
+### R203（用户验收 R200 时贴出：`reader-tts.js:657 Uncaught (in promise) ReferenceError: RT is not defined at bookPlayerStart`）
+
+- **不是本轮改动引入的**：`git log -L` 定位到 `d2a00fff`（2026-10-16，R183 B4 批次 7 把段落朗读与整本连播整块迁出 epub.js）。迁移时 `RT.` / `RI.` / `AN.` 三处跨模块调用连前缀一起搬走，但这三个别名原本是 epub.js 的**函数作用域**变量（`var RT = window.ReaderTedAudio`），新文件里没有重新声明。每个 reader 模块是独立 IIFE，拿不到别人的闭包 → 运行时 `ReferenceError`。
+- **影响面比报障更大（4 个按钮，全部「点了没反应」）**：① 段落「朗读」——**所有书**（`speakParagraph` → `RT.isActive()`）；② 整本连播在 TED 无原声回落时（`bookPlayerStart`，用户报障点）；③ 段落「译」按钮（`RI.translateParagraph`）；④ 批注 / AI 批注按钮（`AN.openPopover`）。后两个是加守卫时顺手扫出来的，不在报障范围内。
+- **为什么两把静态锁都没响**（已写进新用例 docstring）：① `test_每个跨模块调用都在导出面上` 读的是**拼接后的 blob**——epub.js 段里的 `var RT` 让 reader-tts.js 段的 `RT.` 照样对得上号；② `test_模块不得直接引用_epubjs_闭包内的符号` 只扫**小写开头且长度 ≥5** 的标识符（`RT` 三条都不满足），还被 `_GLOBALS` 白名单兜住。教训：静态锁的**粒度**和**字符类**本身就是漏检来源，「拼接后检查」不能替代「单文件检查」。
+- **修法**：`reader-tts.js` 补 `var RI/AN/RT = window.Reader*`；RT 用空实现兜底（让位类调用空转优于连累朗读），RI/AN 不兜底（用户动作空转就是本类事故本身，宁可让 epub.js 的模块缺失检查把话说明白）；顺手删掉重复的 `var TTS_ENGINE_KEY`。
+- **守卫**：`tests/test_reader_module_surface.py` 新增 `test_跨模块别名必须在所属文件内声明`——按**单文件**粒度检查，先剥离注释与字符串（避免「注释里提到 `RS.setHost`」误报），别名清单复用 `ALIASES` 自动纳入新模块。**反向变异**（删掉 RT 声明）实测报红，确认这条锁真的会响。
+- **测试**：`test_reader_module_surface.py` 6 passed；reader/朗读/TED 定向 **60 passed**；合并后全量 `pytest -q` **648 passed / 0 failed**（较上轮 +1，即新增守卫）。
+- **上线**：branch `fix/r203-rt-alias`，merge develop **`a9ebfd58`**，push `11d041b9..a9ebfd58`。**线上实证**：部署窗口后 `curl https://magicbook.haoyuhang.top/static/js/reading/reader-tts.js` → HTTP 200、35,950 字节，文件内含 `var RT = window.ReaderTedAudio`（第 24 行起 `var RI = window.ReaderImmersive`）——这次拿到了「线上真跑新代码」的直接证据，不再是只靠可达性。
+- **边界（如实）**：只做了静态与测试层验证 + 线上文件比对，**没有在浏览器里逐一点击 4 个按钮**；TED 书若原声未缓存，现在会正常走 TTS 连播（不会再崩），但仍是机器音——那是 MAGICBOOK-213 的未修项，不是本 bug。
+- **台账**：R203（PingCode **MAGICBOOK-214**，进行中，待用户验收）。

@@ -202,3 +202,34 @@ def test_bad_cover_rejected_before_epub_write(client, stub_library):
                      content_type="multipart/form-data", headers=_hdr())
     assert rv.status_code == 415
     assert not (tmp_path / "Author/Fake Book/Fake Book.epub").exists()
+
+
+def test_cover_not_touched_when_epub_fails(client, stub_library, monkeypatch, bi):
+    """R198：正文失败时封面必须保持旧图（旧实现先换封面再写 EPUB）。"""
+    calls = []
+    monkeypatch.setattr(bi.helper, "save_cover",
+                        lambda f, path: calls.append(path) or (True, "ok"))
+    monkeypatch.setenv(MAX_MB_ENV, "0")
+    rv = client.post(URL,
+                     data={"book_id": "5", "trigger_translation": "false",
+                           "file": _epub_part(),
+                           "cover": (io.BytesIO(b"img"), "cover.jpg")},
+                     content_type="multipart/form-data", headers=_hdr())
+    assert rv.status_code == 413
+    assert calls == []
+
+
+def test_cover_failure_after_epub_saved_degrades(client, stub_library, monkeypatch, bi):
+    """正文已生效后封面失败：200 + coverError，不回滚已换入的 EPUB。"""
+    tmp_path, _ = stub_library
+    monkeypatch.setattr(bi.helper, "save_cover", lambda f, path: (False, "disk full"))
+    monkeypatch.setattr(bi.helper, "replace_cover_thumbnail_cache",
+                        lambda book_id: pytest.fail("封面失败不应刷缩略图"))
+    rv = client.post(URL,
+                     data={"book_id": "5", "trigger_translation": "false",
+                           "file": _epub_part(),
+                           "cover": (io.BytesIO(b"img"), "cover.jpg")},
+                     content_type="multipart/form-data", headers=_hdr())
+    assert rv.status_code == 200, rv.get_json()
+    assert rv.get_json()["coverError"] == "disk full"
+    assert (tmp_path / "Author/Fake Book/Fake Book.epub").read_bytes() == b"fake-epub-bytes"
