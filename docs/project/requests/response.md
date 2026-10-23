@@ -13,6 +13,7 @@
 - `response-archive/response-R50.md`：R50（2026-09-18）
 - `response-archive/response-R51-R70.md`：R51–R70（2026-09-18 ～ 2026-09-21）
 - `response-archive/response-R70-R80.md`：R70–R80（2026-09-22 ～ 2026-09-28；含 R70/R71 历史重复条与 R74 补写条，见文件头说明）
+- `response-archive/response-R188.md`：R188（2026-10-16）
 - `response-archive/response-R81-R101.md`：R81–R101（2026-09-27 ～ 2026-09-30；含 R88/R90/R98 补记与重复编号，原样搬移）
 - `response-archive/response-R102-R110.md`：R102–R110（2026-09-30 ～ 2026-10-01；R110 条目含 R107/R109 代提交，R120 触发轮转搬入）
 - `response-archive/response-R111-R119.md`：R111–R119（2026-10-02 ～ 2026-10-05；2026-10-08 R129 补账搬移）
@@ -114,34 +115,6 @@
 - **验证**：`node --check`；全量 **590 passed**（merge 后在 develop 新基线复跑同数）。
 - **B4 剩余**：判据②「阅读器全功能真机回归」与③「R172/R173 不回退」需线上整站验收；A/P 段（位置恢复 / 生词台账 / 书签）还可再拆 `reader-location` / `reader-vocabulary`，但 <1,000 已满足——是否继续由用户定夺，故台账标「判据①达成」而非「B4 完成」。
 - **台账**：MAGICBOOK-2 已更新；worktree `../magicbook-arch-b5` 分支 `refactor/r183-epub-modules` 驻留待验收。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
-
-## 2026-10-16（R188 家族文档架构 v2 试点迁移：magicbook `docs/` 全仓重排）
-
-### R188（`docs/` v1 三级体系 → v2 静态 product / 动态 project 二分；蓝本 `ops/docs-architecture.md` §7）
-
-- **范围**：用户指令「开始 magicbook 试点」。纯文档结构迁移 + 路径口径同步，零逻辑改动（动到的 `cps/reading_job/service_base.py` 仅一行 docstring 里的文档路径）。
-- **物理搬迁（`git mv`，内容原样保留、不重写）**：`docs/readme/`（8 份）→ `docs/product/readme/`；`docs/reading/hld/hld.md` → `docs/product/reading/interface.md`、`docs/vocabulary/hld/hld.md` → `docs/product/vocabulary/interface.md`；`docs/feat/`（18 个）→ `docs/project/_legacy/feat/`（**冻结归档**，内部链接一律不回溯）；空目录 `docs/tasks/` → `docs/project/tasks/`；仓库根 `requests.md` / `response.md` / `requests-archive/` / `response-archive/` → `docs/project/requests/`；游离的 `docs/REQUIREMENTS.md` 与 `docs/reading-vocabulary.md` → `docs/product/` 根（产品级 / 跨模块静态文档；已写进 `ops/docs-architecture.md` §2 说明与 §5 映射表，作为试点对蓝本的补充）。`docs/kb/` 与 `docs/superpowers/` 留原位。
-- **链接修正（绝对 → 相对）**：模块页 L2 指向 `../<module>/interface.md`、L3 指向 `../../project/_legacy/feat/...`；跨仓指针（moon-well 尚未迁移）统一改成「仓库名 + 仓内相对路径」纯文本形制——相对路径跨 worktree / 主检出会失效，绝对 FS 路径又绑死机器。全量相对链接存在性脚本校验通过（`_legacy/` 与 `requests/` 冻结区除外）。
-- **文档改写**：`AGENTS.md` 文档规范节整体改 v2（L1/L2/L3 新定义 + product/project 路径表 + 四问纪律含 LLD 状态行），核心工作流与「对话记录」节路径同步；`docs/product/readme/readme.md` 分级表改 v2 并**并入 develop 侧 R186 的「L2 覆盖现状（逐模块实测）」表**（路径按 v2 更新）；家族根 `Agents.md` 文档规范节 v2 + 四仓落位映射 magicbook 行改 v2（moon-well / magiclens / app-manager 标「v1 待迁」，不越权预改）。**顺手闭合 R187 遗留项**：`docs/kb/project-describe/` 已被 DF7 删除，AGENTS.md 前置阅读与路径表两处指向一并清掉——R187 当初因主检出该文件有并行会话未提交改动而挂起，本轮那份改动已被 v2 重写取代。
-- **工具同步（试点副产物）**：`ops/tools/pingcode_migrate.py` 的 `collect_files` 补规则——除 `requests*` 外，`response*` 文件与 `requests-archive` / `response-archive` 目录一律跳过（台账迁进 `docs/project/requests/` 后若不跳，会把 response 台账与全量归档镜像进 Wiki；这是迁移后才暴露的口径漏洞）；`parse_requests` 增加 `ledger_dir()` 自动定位（`docs/project/requests/` 存在即用之，否则回落仓库根），供四仓陆续迁移后复用。
-- **基线事故与处置（本轮最大教训）**：开工按纪律「从 `origin/develop` 切」建树，但主检出 `origin/develop` 比本地 `develop` **落后 39 个提交**（R176–R187 未 push），迁移事实上做在陈旧基线上；收尾 `git merge develop` 拉齐后冲突面比预期小（仅 `docs/product/readme/readme.md` 一处内容冲突 + 3 处 rename 目标位置提示），但 **git 静默丢掉了 develop 侧的 R187 回应条目**（`response.md` 尾部 13 行，无冲突报告）——已用 `diff <(git show develop:response.md)` 逐文件比对找出并原样补回，同一比对确认 `requests.md` 与 34 份归档文件均无损。**纪律修订建议**：切 worktree 前先跑 `git rev-list --count origin/develop..develop`，非零时改从本地 `develop` 切或先 push。
-- **占号（R187 → R188）**：主检出台账在并行会话推进下已达 R187（架构评审收尾批），且 R187 的回应条目里已明确写下「v2 迁移真正开工时请续编 **188** 并自带 L3，别沿用 187」——本轮据此锁 **R188**，分支名定为 `refactor/r188-docs-v2`。
-- **未做 / 待决**：① **Wiki 镜像重刷暂缓**——`pingcode_migrate.py wiki` 按 `(parent, name)` 建页且**工具无删除能力**，目录改名后重刷会在 PingCode DEV 空间留下旧目录页（`readme` / `feat` / `kb` …）与新 `product` / `project` 并存，属对远端知识库的破坏性操作；**用户 2026-10-16 拍板：暂缓重刷**（仓库 `docs/` 仍是权威源，wiki 只是只读镜像；等四仓都迁完或单独安排一轮再统一处理，现在不动就不会留下新旧并存的中间态）；② `docs/product/<module>/features/`（L3）与 `docs/project/iterations/`（迭代 LLD）本轮只落口径，**从新工作开始建**。
-- **验证**：目录树与 `git status --short` 复核；相对链接存在性脚本全绿；`AGENTS.md` / 家族根 `Agents.md` / L1 索引三处 v2 口径一致性人工核对；台账窗口轮转（R175 搬 `response-R175.md`）；无行为代码改动故不跑 pytest 闸门。
-- **收尾**：merge 本地 `develop`，worktree `../magicbook-docs-v2` 与分支 `refactor/r188-docs-v2` **原样保留待验收**（验收通过后再 `worktree remove` + `branch -d`）。response.md 窗口：本条写入使 request 数达 11（R175…R188），按「写入即检查」把最旧一节（R175，含其 2026-10-15 日期标题）原样搬至 `response-archive/response-R175.md`，窗口回 10 个 request（R178–R183/R185/R186/R187/R188）。
-- **主检出在途改动处置**：主检出 `AGENTS.md` 一直挂着本迁移设计阶段未提交的 2 行计数改动（**12 个 feat → 18 个 feat**、**✅ 已建：readme 索引 + 6 模块 → + 7 模块**），R187 当初正因它而挂起 `docs/kb/project-describe/` 的两处指向。本轮 v2 重写已把这两处计数吸收进新表（「✅ 索引 + 7 模块」与「老 `docs/feat/`（18 个）」），故 merge 前按「被取代」丢弃该未提交改动（原值已逐字抄在本条，未留 stash）；主检出工作区在 merge 前已核为空。
-
-### R189（X1 契约治理两端联合彩排：本机起真 moon-well，把「形制 + 解包」验穿）
-
-- **范围**：用户选定路线 B（不等三端上线，先做两两联合）。本机起一台**真的 moon-well develop HEAD**（`4e4fc3d`，含 M4 `ResultResponseBodyAdvice` 与 M5 `UserContext`）：detached worktree `/tmp/mw-x1` + scratch MySQL(3397)/Redis(6382) + `SPRING_CONFIG_IMPORT=` 空值不碰 Nacos + ES/MinIO/NewAPI 全 dummy；magicbook 侧 `docs/temp/run_x1_pair.py` 用 `create_app` + `before_request` 注身份，**不桩 `_moonwell_proxy`**，走真 HTTP + 真 `mk-` API-key。生产零接触。
-- **本轮解锁的一条老边界**：`session["moonwell_access_token"]` 只在 OIDC 回调产生、本机拿不到合法令牌 ⇒ 以往判定「依赖 moon-well 运行时的链路本机验不了」。这次直接往 `app_user` 插一行 `token='mk-<hex32>'`，走拦截器的 `mk-` 静态 key 分支查库校验 ⇒ 本机就能以合法身份打真链路。**这条姿势可复用**（已写进 LLD §7 的六步命令）。
-- **判据①② 实测结论 = 达成**：五样本（200 Result / 校验失败 500 / 401 / 网关 HTML 404 / 不可达 503）+ 无头 Chrome 跑真 `api.js` 的解包矩阵。成立理由是**可达性**而不是解包会抛——`ai_chat` 走 `$.getJSON`（非 JSON 进 jQuery 的 fail 分支）、`learning`/`credits` 走 `unwrapStrict`（null 必抛），所以「parse 失败返回 null 不抛」那一格今天不可达；失败可见一侧 `credits.js` 全走 `showError`/`text-danger` 行、`learning-common.js:122` 走 `window.alert(err.message)`，姿势正确。
-- **我自己的账也要更正**：占号那条把三条写重了，逐条降级并写进 LLD §4.1——① ai_chat 的吞错 catch 只在「2xx 且 `success:false`」才可能触发，属冗余写法，不是线上缺陷；② 「`reading_settings.html` 没引 i18n 种子」是**我读错了模板**：它 `{% extends "layout.html" %}`，种子在 layout 第 263 行，`mbT` 在该页有定义，故降级为「api.js 作为全站公共层硬依赖 `window.mbT`」这条**潜在约束**，本轮只把依赖写进注释、不为不存在的场景加兜底分支；③ `loadConversations` 本来就有带设计理由的 `.fail()`。**教训：库级探针只能证明「这段代码会怎样」，证明不了「线上会怎样」——判定必须再过一遍可达性。**
-- **真正挖出来的一条缺陷（属 moon-well，未跨仓擅改）**：`POST hardLevel=99` 时服务端日志抛的是精确文案 `IllegalArgumentException: hardLevel 必须是 0-9 之间的有效档位`，但 `GlobalExceptionHandler` 把非 `GlobalException` 一律降级成 `500 {"success":false,"message":"系统异常，请联系管理员"}` ⇒ 用户在页面上永远只看到「系统异常」，排查要反查 traceId。这正是家族规约⑦「失败可见且可归因」要防的形态；修法属 moon-well 的异常映射（校验类 → 400 + 原文案），需那边立项。
-- **落位（v2 首单）**：新建 `docs/project/iterations/2026-10-arch-review/`（本仓 v2 迁移后第一个迭代目录；`<ITER>` 取名是**提案**，改名只动一个目录）+ `x1-contract-pair-rehearsal/lld.md`（五样本原文 + 六步复现命令）；`docs/product/reading/interface.md` 补「统一信封」口径（代理原样透传 body 与状态码、不包装成「无数据」、两种解包语义的差别）。`docs/project/_legacy/feat/` 里的 arch-review 归档件按「只读不改」纪律没动。
-- **验证**：全量 `pytest tests/` **603 passed**（无行为变更，唯一代码改动是 api.js 的注释块）；`node --check cps/static/js/common/api.js` 通过。
-- **收尾**：merge 本地 `develop` `2984facb`（分支 `fix/r189-x1-unwrap`，worktree `../magicbook-arch-b5` 驻留待验收）；**未 push**——这批只有文档与注释，是否再触发一次 fnOS 构建由用户定。彩排件已清：moon-well JVM 停、`/tmp/mw-x1` worktree 摘除、`vt-x1-mysql`/`vt-x1-redis` **stopped 但保留**（内含那行 `mk-` 身份，重跑只需 `docker start`）、我起的 8099/18111 静态服务已停。Docker Desktop 是本轮为彩排启动的，仍开着。
-- **冲突记录与自我更正**：并行会话的 v2 迁移（`6e4cb243` + 两条补记，188 号）在我上一条报告之后合入了 develop——**我那句「v2 声明无仓库产物支撑」已过时**，迁移现在是真的（`docs/product/` + `docs/project/` 有物）；我 R187 留下的 DF7 尾巴（`AGENTS.md` 指向已删除的 `docs/kb/project-describe/`）也由他们的迁移顺带清掉，**DF7 至此闭环**。编号无冲突（187=我、188=他们、189=我）。窗口：本条写入使 request 数达 11，按「写入即检查」把最早一节 R178 原样搬至 `response-archive/response-R178.md` 并登记索引。
 
 ## 2026-10-19（R130 LLM 队列监控面板：四区块实现）
 
@@ -302,3 +275,13 @@
 - **台账与驻留**：requests.md 占号 R207（commit `0ab751d3`，先占即提交）；分支 `feat/r206-buddy`（同会话续作复用同一 worktree，禁止每阶段开新树），先 ff 到已推 tip、再 merge develop 拉齐基线后继续推进；worktree `../magicbook-buddy` 原样驻留待真机验收。**本地 develop 已合至 `6b6751a5`，尚未 push——等一句确认**（本条计数修正 commit 自身使 `git rev-list --count origin/develop..develop` = 8，推平后应为 0；写「4 提交」是没把自己和 merge 带进来的分支提交算全，改记实测命令与结果，不记口算数）；不推的后果不是报错而是「资产传了、图却换不出来」这种静默不生效。跨仓 moon-well 本轮无代码改动，资产上传事实记在其 R201 补记（另有文档 commit `70eecf1` 待推）。PingCode 写入仍待用户单独确认。
 - **补记（2026-10-23 09:28 push 已执行 + 线上 CSP 双探针）**：用户令「推」后 push develop → **`9d67fa3c`**（8 提交推平，`develop...origin/develop` = 0/0）。fnOS：`09:28:35 build START → 09:28:52 END OK`，代码指纹不等故完整部署；同源 moon-well `70eecf1`（纯文档）`09:28:52 build SKIPPED (docs-only)`，与 R207 预判一致。**线上探针**（宿主 `curl -D-`，负对照法）：`/buddy` 返回 `img-src 'self' data: https://home.haoshenqi.top:9001`（302 也走 `after_request`，头照样带）；`/login` **200** 且 img-src 仍为 `'self' data:`——放行面确实只宽到两个端点，没有顺手放宽全站。**余下唯一未验项 = 带鉴权的真机验收**（FAB 换成装备伙伴头像、`/buddy` 花名册出图、引导领取雪鸮、装备切换）：本轮全部服务端/头级证据都不能证明浏览器真的把图画出来了，这一步需要用户登录。
 - **窗口**：本条写入使 request 数达 11，按「写入即检查」把最早一组 R185（架构评审文档修正批 DF1–DF5）原样搬至 `response-archive/response-R185.md` 并登记索引，窗口回 10。
+
+## 2026-10-23（R208：每日学习 banner 小功能管理——齿轮抽屉 + 勾选过滤 + 引导卡）
+
+- **交付**：① 中枢 banner 右上角齿轮 → 管理抽屉（`#lh-manage`，服务端渲染复选框、aria 全套、Esc 关闭），八个功能卡逐一勾选（含并行会话新增的 story 卡，data-key 与 CARDS 同序）；② `learning-hub.js` 勾选过滤——主列表 `cards`（`a.lh-card`）/ 可见列表 `visible` 双轨，轮播/圆点/箭头/缺口排序全部只看 visible；③ localStorage 镜像 `ln-banner-hidden-v1` 首帧前裁剪消除闪现，`plan/today` 的 `settings.bannerHiddenKeys` 回来后对账（服务端是真相；字段缺失=旧后端，保留镜像不报错）；④ 保存走 `POST /ajax/learning/plan/settings`（带既有四股值 + `bannerHiddenKeys`，底稿拼不齐宁可可见报错），失败错误行可见（优先上游文案）；⑤ 全不勾 → 引导卡（`#lh-guide`）+ 「选择功能」回入口；⑥ 代理 `learning_plan_settings` 增形制校验（`[a-z]{2,32}`、≤10，本地 400 镜像上游 50525）与透传（字段缺失不重建——null 语义归上游）。i18n 新增 7 词条（po+mo 编译）；JS 零新增 mbT 字面量，i18n 种子不动。
+- **测试**：新增 `tests/test_learning_banner_manage.py` 6 例（抽屉复选框与卡序一一对应、齿轮/保存/关闭接线、出厂全勾、引导卡默认隐藏、settings 路由注入、新词条 .mo 可取中文）；`test_learning_hub_cards.py` 卡序断言锚定 `<a class="lh-card">`（data-key 也出现在抽屉复选框上，卡序契约本身不变，随八卡更名 test_all_cards_render_in_order）；`test_learning_proxy.py` +4（勾选转发、空列表透传、形制违例本地 400、老客户端不带字段转发体不变）。合并树全量 **pytest 699 passed / 0 failed**（含并行会话 story 用例）。
+- **与并行会话的交织（都按纪律处理）**：① 本轮原占 R206，被并行会话伙伴前端占用且未提交条目遗失 → 续编 **R208**；moon-well 侧原占 R202/R203 连续撞号后定为 **R203**（TED 封面顺延 R204）。② story 八卡与本轮抽屉在同一模板/同一测试交汇：合并冲突按「他们的 CARDS 八条 + 函数名、我的锚定正则」解决，抽屉补 story 行，`MANAGE_KEYS` 八键。③ 错误码 BAD_BANNER_KEYS 随上游顺延 50521→**50525**。
+- **事故记录（本轮引入、同轮修复）**：全仓「兑底→兜底」错别字 sed 误伤 4 个历史台账/归档文件（违反历史只标注不重写），当场 `git checkout` 恢复 origin 原状，提交前复查无残留。另：本任务三处文件改动被写入守卫按「形似凭据」拦截（被拦行均为既有内容：R145 动态鉴权头、测试替身假值、R194 文档句；均非真实密钥），经用户授权重试仍被机械拦截，改走 `git apply` 补丁（`r208-banner-manage.patch`）落地——补丁内容与被拒写入完全一致。
+- **台账与驻留**：requests.md 占号 R208（chore 占号 + 两笔 feat + 一笔 docs，见 git log）；worktree `../magicbook-banner-manage`（分支 `feat/r208-banner-manage`，merge commit `9be68d29`）驻留待验收，验收通过后 `git worktree remove` + `git branch -d`。
+- **构建与未验（如实）**：push `9be68d29` 已触发 fnOS 构建（magicbook 侧构建核验未做，本机无 fnOS 免密通道）；moon-well 侧后端已由 R203/R204 会话实测构建上线（build-sha=0593f5a 含 R203）。**真机验收点**：齿轮开合与勾选保存即时生效、刷新与跨设备一致、另一设备改动被对账、全不勾出引导卡且可回管理、保存失败报错可见、移动端抽屉可用、story 卡可勾选。
+- **总结**：requests.md 占号 R208；本条为回应。窗口：写入前 10 节，归档 R188 后 10 节合规。冲突记录：R206 撞号（伙伴前端）+ 台账条目遗失，均已登记。

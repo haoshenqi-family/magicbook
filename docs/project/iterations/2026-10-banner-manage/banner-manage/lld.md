@@ -1,6 +1,6 @@
 # 每日学习 banner 小功能管理（magicbook R208 / moon-well R203）· magicbook 侧 LLD
 
-状态：开发中（2026-10-22，随本轮 merge develop，待用户验收）
+状态：已入库（2026-10-23 push `9be68d29`；magicbook fnOS 构建核验与真机验收待补，见 response.md）
 
 ## 需求一句话与拍板口径
 
