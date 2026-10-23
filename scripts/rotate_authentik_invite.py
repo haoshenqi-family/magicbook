@@ -32,6 +32,10 @@ python3 scripts/rotate_authentik_invite.py --name magicbook-r211 --apply \
 
 关键细节
 --------
+- **默认 `single_use=False`（可复用）**：2026-10-23 用户拍板「登录页那条注册链接
+  要长期有效」——一次性邀请用过就废，入口会周期性坏死（R103 那条就是这么报废的）。
+  风险由 R211 兜底：转发出去也只产生普通用户，管理员仍由人工赋予。
+  需要一次性时加 `--single-use`。
 - **必须 `docker compose up -d` 重建，不能 `docker restart`**：`env_file` 只在容器
   创建时注入进程环境，`restart` 不会重读 `.env`；而 `cps/web.py` 每次请求读
   `os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL")`，所以新链接必须进到进程环境。
@@ -146,11 +150,12 @@ def main(argv=None):
     parser.add_argument("--authentik-url", default=DEFAULT_AUTHENTIK_URL)
     parser.add_argument("--magicbook-url", default=DEFAULT_MAGICBOOK_URL)
     parser.add_argument("--name", default="magicbook-invite", help="邀请备注名")
-    parser.add_argument("--expires-days", type=int, default=30,
-                        help="邀请有效期天数（authentik 默认 30 天）")
-    parser.add_argument("--reusable", action="store_true",
-                        help="允许同一条邀请被多次使用（默认 single_use=True："
-                             "用过即废，正是这次入口报废的原因）")
+    parser.add_argument("--expires-days", type=int, default=90,
+                        help="邀请有效期天数（authentik 默认 30 天；可复用模式下给 90 天）")
+    parser.add_argument("--single-use", action="store_true",
+                        help="把邀请设为一次性（single_use=True）。默认是**可复用**——"
+                             "2026-10-23 用户拍板：登录页那条注册链接要长期有效，"
+                             "否则每注册一个人入口就死一次")
     parser.add_argument("--token-file", help="从文件读 AUTHENTIK_TOKEN（默认读环境变量）")
     parser.add_argument("--apply", action="store_true",
                         help="真正改 fnOS 上的 .env 并重建容器（默认只建邀请并打印）")
@@ -175,7 +180,7 @@ def main(argv=None):
                       ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     pk, obj = create_invitation(args.authentik_url, token, args.name, expires_at,
-                                single_use=not args.reusable)
+                                single_use=args.single_use)
     url = build_invite_url(args.authentik_url, pk)
     print(f"✅ 新邀请已创建：pk={pk}")
     print(f"   链接：{url}")

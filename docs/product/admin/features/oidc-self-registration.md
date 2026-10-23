@@ -56,4 +56,4 @@ python3 scripts/oidc_admin_audit.py --demote --emails a@b.com
 两点推论：
 
 - **新账号一律普通用户**这条修复，正是让「谁拿到链接都无所谓」成立的前提——链接被转发也只产生普通用户，管理员仍由人工赋予。
-- 入口长期可用需要**定期轮换邀请**（或把邀请设为可复用）。轮换工具： [`scripts/rotate_authentik_invite.py`](../../../../scripts/rotate_authentik_invite.py)（建邀请 → 改 fnOS `.env` → `docker compose up -d` 重建 → 校验登录页）；细节见 [OIDC 登录工作流](../../kb/instructions/workflows/oidc-login.md) §2。
+- **入口长期可用的策略已定**（2026-10-23 用户拍板）：**邀请设为可复用**（`single_use=False`）、有效期 90 天——否则每注册一个人入口就死一次，而入口失效只表现为一句报错，很难被察觉。可复用后的风险由本条修复兜底：链接被转发也只产生普通用户，管理员仍由人工赋予。轮换工具（建邀请 → 改 `.env` → 重建 → 校验）： [`scripts/rotate_authentik_invite.py`](../../../../scripts/rotate_authentik_invite.py)（默认 dry-run，`--apply` 才动服务器；细节见 [OIDC 登录工作流](../../kb/instructions/workflows/oidc-login.md) §2）。
