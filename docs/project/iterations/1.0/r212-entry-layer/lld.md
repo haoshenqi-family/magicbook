@@ -55,16 +55,19 @@ MB-11 待办第 1 项：authentik 的 logo 与登录页背景仍是官方默认�
 - 实现/边界变了吗 → 是：字样收敛边界（改什么、留什么）与「站内同源 / 认证域 MinIO」双通道，落在本 LLD 与守卫测试注释。
 - 本次怎么实现 → 本文。
 
-## 7. 上线顺序（不可颠倒）
+## 7. 上线顺序与实况（2026-10-24 回填）
 
-1. moon-well R209 push 上线（bucket 策略在应用启动时写入，**不重启则 `brand/` 一直 403**）。
-2. `deploy/upload_buddy_assets.py --prefix brand/` 上传三张对象，并实测匿名 GET 200。
-3. magicbook push develop（顶栏与字样）。
-4. authentik 写两条 brand 的 `branding_logo` / `branding_favicon` / `branding_default_flow_background` + `docker compose restart server worker`（改 brand 有缓存，必须重启）。
-5. 现网核验：登录页 `<img src>` 与 `--ak-flow-background` 指向新对象、magicbook 顶栏出徽章、`/login` 的 `<title>` 不再出现 Calibre-Web。
+1. ~~moon-well R209 push 上线~~ **未做**（push 闸门留用户）。现网 `brand/` 匿名读改由脚本手工设置 → **不持久**，见 §8。
+2. **已完成**：三张对象已传 MinIO `magicbook/brand/`，匿名 GET 实测 `logo.png`/`favicon.png`/`login-bg.jpg` 全 **200**，`buddy/` 与 `ted-audio/` 同期回归 200（无过授权、无被抹掉）。
+3. **未做**：magicbook push develop（顶栏徽章、favicon、字样收敛仍只在分支 `feat/r212-brand-assets`）。
+4. **已完成**：authentik 两条 brand 的 `branding_logo`/`branding_favicon`/`branding_default_flow_background` 已写入（`UPDATE 2`，改前值备份在 fnOS `/root/authentik-brands-backup-20261024-r212.json`）+ `docker compose restart server worker`（server 约 10s 回 healthy）。
+5. **已完成**：现网核验（headless Chrome 真页面截图）——`--ak-flow-background` 与 `branding_logo`/`branding_favicon` 均指向新对象，圆章与背景实际渲染正确、白卡对比度足够。
+
+**顺带查清的一处非本轮缺陷**：登录按钮文案仍是英文「Log in」（真人中文浏览器实测，非探针假象）。它**不在**任何配置面里——2025.10 的 `authentik_flows_flow` 无 `submit_button_text` 列、`authentik_flows_flowstagebinding` 无 `label` 列（均实测 schema），R162 的「表单文案中文化」覆盖的是 prompt 的 label/placeholder，不含提交按钮。要改只能动上游前端包，另立条目，不夹进本轮。
 
 ## 8. 风险登记
 
 - **IP**：认证域 logo/背景是新的对外可见面，随 `docs/product/companion/features/buddy-ip-risk.md` 同一登记处置（内测可接受，公开注册/对外发布前须换原创）。本轮素材为原创构图，未使用电影原图与校徽。
 - **依赖**：authentik 登录页由此依赖 `minio.haoshenqi.top`（群晖 `.10`）。MinIO 不可达时登录**功能不受影响**，仅裂图；刻意不加兜底 CSS——把素材故障伪装成「本来就这样」会让下一次排查从「图没了」变成「样式怪」。
+- **⚠️ 现网策略是手工设的，不持久**：`brand/` 匿名读由 `vibe_images/brand-staging/set_brand_policy.py` 直接写进 MinIO bucket 策略，而该策略由 moon-well 启动时整体重写——**R209 代码 push 上线前，moon-well 任何一次重启都会把 `brand/` 抹掉，认证页三张图立刻 403**（表现为裂图，登录功能不受影响）。恢复＝重跑该脚本，或（正解）push R209。
 - 生产运行态的站点标题仍是 `Calibre-Web`（存在 `app.db` 的 `config_calibre_web_title`），代码默认值改动不影响存量，需在管理界面改或 SQL 更新——属运维写操作，留用户放行。
