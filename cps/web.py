@@ -2479,6 +2479,26 @@ def read_book(book_id, book_format):
         return redirect(url_for("web.index"))
 
 
+# ---- R214 子项 A：书籍详情元数据呈现判定（判定不进模板，便于单测）----
+from cps.reading_insight.difficulty import resolve_difficulty
+
+
+def _pubdate_is_import_date(pubdate, timestamp):
+    """判定「伪出版日」：pubdate 与入藏 timestamp 相差 ≤1 天视为导入时间。
+
+    Why: Calibre 在 OPF 没有 dc:date 时会把导入时间填进 books.pubdate，详情页
+         因此把「入库日」当「出版日」展示（QA §四）。这类日期不是出版信息，
+         页面改显示「导入于 …」，不伪造出版日（R214 元数据不伪造原则）。
+    """
+    if not pubdate or not timestamp:
+        return False
+    try:
+        delta = (pubdate.replace(tzinfo=None) - timestamp.replace(tzinfo=None)).total_seconds()
+    except (AttributeError, TypeError, ValueError):
+        return False
+    return abs(delta) <= 86400
+
+
 @web.route("/book/<int:book_id>")
 @login_required_if_no_ano
 def show_book(book_id):
@@ -2514,6 +2534,13 @@ def show_book(book_id):
         for media_format in entry.data:
             if media_format.format.lower() in constants.EXTENSIONS_AUDIO:
                 entry.audio_entries.append(media_format.format.lower())
+
+        # R214 子项 A：伪出版日判定 + 难度阶标签（四级兜底，与 R213 共用解析器）
+        entry.pubdate_is_import_date = _pubdate_is_import_date(entry.pubdate, entry.timestamp)
+        entry.difficulty = resolve_difficulty(
+            tag_names=[t.name for t in entry.tags],
+            shelf_names=[s.name for s in book_in_shelves],
+            series_name=entry.series[0].name if entry.series else "")
 
         return render_title_template('detail.html',
                                      entry=entry,
