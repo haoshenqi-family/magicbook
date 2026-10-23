@@ -99,7 +99,7 @@ def test_reader_page_allows_youdao_word_audio(app, make_response_headers):
 
 
 def test_reader_page_allows_ted_audio_minio_origin(app, make_response_headers):
-    """Reader must allow media-src the MinIO public origin for TED audio (R209: 双入口并列).
+    """Reader must allow media-src the MinIO public origin for TED audio (R210: 双入口并列).
 
     TED-type books (R172 "原声伴听") play one continuous native recording whose
     URL moon-well returns as a MinIO *public* HTTPS direct link, e.g.
@@ -120,7 +120,7 @@ def test_reader_page_allows_ted_audio_minio_origin(app, make_response_headers):
     assert media_directive, (
         "reader page CSP must explicitly set media-src; CSP was: " + csp
     )
-    # R209：MinIO 对外入口由 home:9001 迁到 minio.haoshenqi.top（后端同一份对象，实测
+    # R210：MinIO 对外入口由 home:9001 迁到 minio.haoshenqi.top（后端同一份对象，实测
     # Content-Length/ETag 全同）。过渡期两源并列——moon-well 的 minio.public-url 翻转后
     # 只产出新源；旧源待确认无任何响应再产出时，随单独一笔收窄一并从本断言里删掉。
     for origin in ("https://minio.haoshenqi.top", "https://home.haoshenqi.top:9001"):
@@ -146,7 +146,7 @@ def test_non_reader_pages_still_block_blob_media(app, make_response_headers):
     # Non-reader pages have no reason to emit media-src at all.
     assert not media_directive, "non-reader pages should not emit media-src: " + csp
 
-# R209：MinIO 对外入口迁移 home:9001 → minio.haoshenqi.top，过渡期两源并列。
+# R210：MinIO 对外入口迁移 home:9001 → minio.haoshenqi.top，过渡期两源并列。
 MINIO_NEW_ORIGIN = "https://minio.haoshenqi.top"
 MINIO_LEGACY_ORIGIN = "https://home.haoshenqi.top:9001"
 MINIO_ORIGINS = (MINIO_NEW_ORIGIN, MINIO_LEGACY_ORIGIN)
@@ -158,12 +158,12 @@ def _img_directive(csp):
 
 @pytest.mark.parametrize("endpoint", ["web.read_book", "web.buddy_page"])
 def test_buddy_image_origin_allowed_where_images_render(app, make_response_headers, endpoint):
-    """伙伴头像走 MinIO 跨源直链，渲染它的两个端点必须放行 img-src（R206/R207/R209）。
+    """伙伴头像走 MinIO 跨源直链，渲染它的两个端点必须放行 img-src（R206/R207/R210）。
 
     这条比 media-src 更难发现：`ai_chat.js` 用 new Image() 预载探测，被 CSP 拦时
     onerror 分支静默保留「AI」文字兜底——页面看起来完全正常，只是换图永不生效。
     头像 URL 由 moon-well 按 `minio.public-url`（Nacos 生产值）现拼，本仓只能硬编码同源
-    放行，所以**改基址必然两处一起失效**（R209 就是这么触发的）；源清单收敛到
+    放行，所以**改基址必然两处一起失效**（R210 就是这么触发的）；源清单收敛到
     `cps/web.py::MINIO_PUBLIC_ORIGINS` 单点，media-src 与 img-src 共用。
     """
     with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):

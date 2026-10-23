@@ -34,7 +34,7 @@
 - `response-archive/response-R181.md`：R181 架构评审波 3 · B2 小步重做完成：web.py 蓝图分域拆分（2026-10-21 台账合并时轮转搬移）
 - `response-archive/response-R182.md`：R182 架构评审波 4 · B7：i18n 种子与 JS 清单生成化（2026-10-21 台账合并时轮转搬移）
 - `response-archive/response-R185.md`：R185 架构评审文档修正批 DF1–DF5（2026-10-22 R207 写入触发轮转搬移）
-- `response-archive/response-R190.md`：标题壳写作「2026-10-19（R130 LLM 队列监控面板）」、内实为 `### R190` 整节（错挂系 R130 早于 10-21 已归档所致）；2026-10-23 R209 写入触发轮转，标题原样未改写
+- `response-archive/response-R190.md`：标题壳写作「2026-10-19（R130 LLM 队列监控面板）」、内实为 `### R190` 整节（错挂系 R130 早于 10-21 已归档所致）；2026-10-23 R210 写入触发轮转，标题原样未改写
 
 ---
 
@@ -272,15 +272,15 @@
 - **台账与驻留**：requests.md 占号 R208（chore 占号 + 两笔 feat + 一笔 docs，见 git log）；worktree `../magicbook-banner-manage`（分支 `feat/r208-banner-manage`，merge commit `9be68d29`）驻留待验收，验收通过后 `git worktree remove` + `git branch -d`。
 - **构建与未验（如实）**：push `9be68d29` 已触发 fnOS 构建（magicbook 侧构建核验未做，本机无 fnOS 免密通道）；moon-well 侧后端已由 R203/R204 会话实测构建上线（build-sha=0593f5a 含 R203）。**真机验收点**：齿轮开合与勾选保存即时生效、刷新与跨设备一致、另一设备改动被对账、全不勾出引导卡且可回管理、保存失败报错可见、移动端抽屉可用、story 卡可勾选。
 - **总结**：requests.md 占号 R208；本条为回应。窗口：写入前 10 节，归档 R188 后 10 节合规。冲突记录：R206 撞号（伙伴前端）+ 台账条目遗失，均已登记。
-## 2026-10-23（R209：伙伴图片未生效的定性与 MinIO 入口切换的 CSP 侧——源清单收敛单点、过渡双源）
+## 2026-10-23（R210：伙伴图片未生效的定性与 MinIO 入口切换的 CSP 侧——源清单收敛单点、过渡双源）
 
-### R209（用户：「伙伴的图片似乎没有起作用」→「我知道了，我的网络会拦截 https://home.haoshenqi.top:9001。minio地址改为 https://minio.haoshenqi.top，只是入口不同，后端一样」）
+### R210（用户：「伙伴的图片似乎没有起作用」→「我知道了，我的网络会拦截 https://home.haoshenqi.top:9001。minio地址改为 https://minio.haoshenqi.top，只是入口不同，后端一样」）
 
 - **根因**：不是鉴权、不是 CSP 写错，而是**出口入口本身被用户网络拦**。伙伴头像与 TED 原声都按 moon-well 的 `minio.public-url`（现网＝`home.haoshenqi.top:9001`）拼直链，浏览器取不到对象；magicbook 侧 CSP 又硬编码同一源，所以「换入口」天然是两仓联动改动。
 - **入口等价性实测**：同一 TED 对象经两入口 HEAD 得 `Content-Length=10391127`、`ETag=f39b066b…-2` 完全相同；小 PNG 另比 sha256 亦相同 ⇒ 确认「只是入口不同，后端一样」。DNS 侧 `minio.haoshenqi.top`→8.139.5.79（VPS，443 经 lucky 反代），`home.haoshenqi.top`→61.153.123.227（仅 :9001 可达）。
 - **本仓改动**（commit `4944b350`）：`cps/web.py` 新增 `MINIO_PUBLIC_ORIGINS` 单点清单，`media-src`（R181 TED 原声）与 `img-src`（R207 伙伴头像）都由它拼——原先两处各写一遍同一个源，这正是「改基址必然两处同坏」的结构性原因。**过渡期两源并列**：magicbook 先松 CSP，moon-well 再翻配置，避免翻转窗口内 TED 原声与伙伴图同时被拦；待再无任何响应产出旧源，删旧条目单独一笔收窄（注释里写死了这条后续动作，别夹进功能改动）。
 - **测试**：TED 用例改为断言两源并列；伙伴用例改为参数化断言两源；反向守卫加严——`web.index` 不得出现任一 MinIO 源，另加一条「img-src 不得被放宽成通配 / 不得混入无关源」。全量 `.venv/bin/python -m pytest tests/` = **700 passed / 0 failed**（含并行会话 R208 banner 用例与本轮新增）。
 - **排查过程里我的两次探针失误（如实记）**：① 内置浏览器打开 `/buddy` 显示「Failed to load」、`ajax/buddy/catalog` 回 401，我几乎据此判成 buddy 专属缺陷——跑对照组发现**同一会话里 `ajax/achievements-summary|detail|pending` 也全 401**，那只是内置浏览器会话的 moon-well 令牌失效，证据无效；真正可用的是服务端 `mk-` 系统身份直探 `/buddy/catalog`（回 200 且 imageUrl 正常下发）。② 第一次比两入口我用 `curl -m 20` 直接下载，10MB 对象被**我自己的超时**截成 8.69MB，差点报成「两入口内容不一致」；改用 HEAD 比 `Content-Length`/`ETag` 才对。另有一次把「docker logs 里查不到 buddy 请求」当成「前端没发请求」——magicbook 根本不按请求写 stdout（访问日志在 ES），是探针无效而非事实。
-- **跨仓同源**：moon-well R205——`minio.public-url` 三处消费方原为 `@Value` 且全仓无 `@RefreshScope`，配置发布后日志照打 `Refresh keys changed` 却不生效，叠上部署侧「代码指纹相同→跳过重启」，**只改配置会永久卡旧值**；改走仓内既有范式 `@ConfigurationProperties`。
-- **台账与驻留**：requests.md 占号 R209（commit `0cd89023`；本仓最大号已被并行会话用至 208，故取 209，他们记录未动）；分支 `feat/r206-buddy` 复用同一 worktree `../magicbook-buddy`，先 merge `origin/develop` 拉齐基线；worktree 原样驻留待真机验收。**本轮改动尚未 push**（等确认；顺序：先推本仓松 CSP → 再推 moon-well → 最后翻 Nacos 配置）。
+- **跨仓同源**：moon-well R206——`minio.public-url` 三处消费方原为 `@Value` 且全仓无 `@RefreshScope`，配置发布后日志照打 `Refresh keys changed` 却不生效，叠上部署侧「代码指纹相同→跳过重启」，**只改配置会永久卡旧值**；改走仓内既有范式 `@ConfigurationProperties`。
+- **台账与驻留**：requests.md 首占 R209（11:45，commit `0cd89023`），12:51 并行会话在 `26526677`（承接 moon-well R205）里也用了 R209；其记录已入 develop，本方按「后到者让号」续编 **R210**，他们记录一字未动。两轮撞号的共同根因：双方未推分支上的号彼此不可见，「先占即提交」只防已推侧。；分支 `feat/r206-buddy` 复用同一 worktree `../magicbook-buddy`，先 merge `origin/develop` 拉齐基线；worktree 原样驻留待真机验收。**本轮改动尚未 push**（等确认；顺序：先推本仓松 CSP → 再推 moon-well → 最后翻 Nacos 配置）。
 - **窗口**：本条写入使 request 数达 11，按「写入即检查」搬移最旧一节。**这处错挂顺手登记**：窗口里标题为 `## 2026-10-19（R130 LLM 队列监控面板：四区块实现）` 的日期块，内部实际是 `### R190（…）` 整节（R130 自身早在 2026-10-21 R191 轮转时已搬入 `response-R130.md`，标题壳留下后被 R190 复用）。按「只搬原文、不改写」我不动它的标题，归档文件按**实际内容**命名 `response-R190.md`，并在索引里注明这处错挂，供后来人对账。

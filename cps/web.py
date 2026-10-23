@@ -105,7 +105,7 @@ def _begin_trace():
 
 
 # MinIO 对外直链源清单（CSP 用；直链本身由 moon-well 按 minio.public-url 现拼，本站不代理二进制）。
-# R209 过渡态：`minio.haoshenqi.top`（443 经 VPS 反代，新入口）与 `home.haoshenqi.top:9001`
+# R210 过渡态：`minio.haoshenqi.top`（443 经 VPS 反代，新入口）与 `home.haoshenqi.top:9001`
 # （旧入口）并列——先松 CSP、再翻 moon-well 的配置，否则翻转窗口内 TED 原声与伙伴头像会同时被拦。
 # 待线上再无任何响应产出旧源（BuddyService/TedAudioService/LearningParagraphResolver 全部走新值），
 # 删掉旧条目收窄，这必须是单独一笔，别夹在功能改动里。
@@ -133,7 +133,7 @@ def add_security_headers(resp):
         # 由浏览器直连该源播放，同属 media 加载；未放行时阅读页报
         # "Loading media from '…/magicbook/ted-audio/….aac' violates … CSP directive:
         # media-src" 且静默无声（R181 复测现场），故一并放行。仅阅读页。
-        # 源清单见 MINIO_PUBLIC_ORIGINS（R209：入口由 home:9001 迁到 minio.haoshenqi.top，
+        # 源清单见 MINIO_PUBLIC_ORIGINS（R210：入口由 home:9001 迁到 minio.haoshenqi.top，
         # 后端同一份，过渡期两源并列）。
         csp += ("; media-src 'self' blob: https://dict.youdao.com"
                 " " + " ".join(MINIO_PUBLIC_ORIGINS))
