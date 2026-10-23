@@ -37,6 +37,7 @@
 - `response-archive/response-R185.md`：R185 架构评审文档修正批 DF1–DF5（2026-10-22 R207 写入触发轮转搬移）
 - `response-archive/response-R191.md`：R191 写作批改 503 复发（代理预算小于后端 LLM 预算）——2026-10-23 R210 写入触发轮转搬移
 - `response-archive/response-R183.md`：R183 B4 epub.js 分域（批次 1–7 七节，78 行）——2026-10-23 R211 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R195-R202.md`：R195–R202 博客导入链与 TED 导入链缺陷盘点 + 修复（2026-10-23 R217 写入触发轮转搬移，原样搬移不改写）
 
 ---
 
@@ -57,26 +58,6 @@
 - **DevTools 说明**：`text/event-stream` 的响应体在 Network → Response 为空是正常显示，应看 EventStream/事件列表；UI 报错对应后端 `error` 事件。
 - **停止修复与配置回滚**：moon-well 侧曾临时把 Nacos `ai.providers.magpie.timeout-ms` 调到 240000，按用户“放弃修复”指令已回滚为 150000；本仓无新增代码改动。LLD 状态改为“已上线，真机验收未通过”。
 - **总结**：requests.md 占号 R194；本仓 R192/R193 已被部署链占用，故不再重复占号。
-
-## 2026-10-21（R195–R202：博客导入链与 TED 导入链缺陷盘点 + 修复）
-
-### R195–R202（用户：检查博客导入和 TED 导入还有哪些不足 → 拆分记录进 PingCode，然后开始修复）
-
-- **盘点口径**：不按代码逐行找 bug，而是按每条链路的**事实源语义**倒推失效面——博客链的事实源是「Halo 当前发布版，webhook 只是触发器」，TED 链的事实源是「moon-well 按 title+author 索引的段落注册表与原声」。凡「源已改、书没跟上」或「源能查到、调用方查不到」的路径都算缺陷，共出 8 条：4 条数据正确性（P0/P1）、1 条体验缺口（P2）、3 条仅记录待排期。
-- **PingCode 登记**：8 条拆成 8 个独立条目（非一个总条目），产品 MAGICBOOK、按模块分 suite——library：MAGICBOOK-206（state 竞态）/207（事件白名单）/208（resync）/209（封面顺序）/210（EPUB 体验缺口，Pending）；reading：MAGICBOOK-211（bookId 语义错位，关键）/212（去重不补缓存 + busy_timeout）/213（TED 无封面/进度/倍速，Pending）。206–209、211、212 置 In progress，验收前不流转 Completed。
-- **R195 连接器 state 竞态**：`_load_state/_save_state` 整份读-改-写只有 per-slug 锁，`gunicorn --threads 4` 下两本书同时发布互相覆盖 `last_sha` → 下次发布旧 sha 被当新版本 → 重建 EPUB → 整本翻译 fingerprint 变 → 白烧积分。新增模块级 `_state_lock`，读改写收敛为 `_state_entry` / `_state_update`（`remove=(...)` 顺带替掉手写 pop）。
-- **R196 事件白名单**：原硬编码只认 `NEW_POST`，修订后重新发布不进书。改 `_allowed_events()`，`CONNECTOR_EVENTS` 可覆盖（缺省 `NEW_POST,UPDATE_POST`），DELETE 类不隐式放宽。
-- **R197 新增 `POST /resync`**：webhook 无补投，停机期丢的事件只能去 Halo 手动重发布。沿用 `X-Hook-Token`，body 可带 `{"slugs":[...]}`（缺省全量），逐条 `_process_slug`（sha 未变 no-op ⇒ 幂等），单条失败不中断，末尾汇总 `{total, imported, failed, results}`；未映射 slug 记 `no-mapping`。
-- **R198 封面先于 EPUB 落盘**：`_do_import` 原顺序「save_cover → 写 EPUB」，EPUB 校验失败时出现「新封面 + 旧正文」。改为「临时文件 → 校验 → `os.replace` → 换封面」，封面失败降级为 `coverError` 字段（正常路径契约不变）。
-- **R200 TED 原声伴听（关键）**：前端传 `calibre.bookId`，moon-well `/book/ted-audio` 用它查**自家 book 表**——两套自增序列只有巧合对齐才命中，错位即 `result=null`、前端静默回落 TTS 机器音（与 R172/R173 事故同症状）。`cps/web.py` 的 `_ted_audio_book_id` → `_ted_book_identity`（返回 title/author/error），两个代理改发 `{"bookName","author"}`；非数字书号 → 400（不再让脏串进上游 `Long.valueOf`）、本地无此书 → 404（不把空书名送去上游当「未缓存」）。跨仓同源 moon-well R197。
-- **测试**：`tools/connector/tests` 21 passed（含 5 线程并发放大窗口用例；反向变异实测无锁时 5 个 slug 只剩 1 条，确认用例有效）；`test_book_import.py` 17 passed；`test_ted_audio_proxy.py` 17 passed（含 404 与「源码不得再出现 `"bookId": book_id`」负向锁）；reading 域回归 91 passed。开发态只跑本次改动相关用例，未跑全量。
-- **边界（如实）**：① 全部改动未经真机验收——`/resync` 与 `CONNECTOR_EVENTS` 需在 fnOS 连接器容器实跑一次，Halo 2.26.1 的修订事件实际枚举仍待抓一次 webhook 日志核实；② TED 原声链路未在真实 TED 书上验证「按名查命中并返回 audioUrl」，仅由单测与源码锁保证；③ 未修项见 R199/R202（H2 不进 TOC、srcset 漏下载、TED 无封面、未缓存态与无原声不可区分、无进度/倍速）。
-- **台账**：magicbook 分支 `fix/r195-import-gaps`、worktree `../magicbook-import-gaps`，合入本地 develop **`2ffce335`**；moon-well 分支 `fix/r197-ted-audio-chain`、worktree `../moon-well-ted-audio-fix`，合入本地 develop **`0ff7c93`**（跨仓 R197/R198，测试 22 passed）。**两仓 worktree 原样驻留待验收；push 已按用户指令执行（见本节「上线」条）**；验收通过后再删 worktree 并流转 PingCode 状态。
-- **文档**：magicbook `docs/product/reading/interface.md` 新增 §1.2 两个代理契约（入参口径、错误码、禁 `bookFormat` 判据）；moon-well `docs/product/book/interface.md` §4 与调用方契约补 `bookId | bookName+author` 二选一；两仓各建 `docs/project/iterations/2026-10-import-audit/{blog-import,ted-audio}/lld.md`（含状态行）。
-- **上线（用户指令「push 然后我来验证」）**：全量闸门先在合并后基线重跑——`pytest -q` **647 passed / 0 failed**，连接器 `tools/connector/tests` **21 passed**。跨仓顺序按兼容性排：**先推 moon-well**（新入参 `bookName+author` 需后端先就位，否则 magicbook 新代理打旧后端会 400），等约 2 分钟构建部署窗口后**再推 magicbook**。moon-well push `961f98c..8a64094`、magicbook push `68cb9a06..8a09af81`。推送后实测 `moon-well.haoshenqi.top/actuator/health` **200**、`magicbook.haoyuhang.top/login` **200**（`/` 仍 302 跳登录，符合预期）。
-- **证据边界**：本次只有外部可达性证据，**未核对 fnOS 构建日志的 START/END 行**（沙箱内无 fnOS 访问通道）；「线上是否真跑上新代码」由用户在浏览器侧验证，判据见下条。
-- **验证路径**：① 打开一本 TED 书点「整本播放」——应播真人原声且随段落高亮，不再回落机器音（若仍是机器音，先看 `/ajax/ted-audio` 返回体里 `result` 是否 null）；② 手动补账 `curl -X POST http://<connector>:9878/resync -H "X-Hook-Token: $TOKEN"`，返回 `unchanged` 说明 sha 对账正常；③ 发布一篇已发文章的修订版，确认触发重导（`UPDATE_POST` 是否真被 Halo 2.26.1 发出，需看连接器日志的 eventType）。
-- **总结**：requests.md 占号 R195–R202（8 条）；moon-well 同源 R197/R198。R199/R202 是「已登记未修」的体验缺口，不在本轮范围。
 
 ## 2026-10-21（R203：验收时报 `RT is not defined`——B4 拆分漏带跨模块别名，4 个段落按钮失效）
 
@@ -197,3 +178,21 @@
 - **窗口**：本条写入使窗口达 11 个 request，按「写入即检查」把最旧的 R183（B4 epub.js 分域，7 节 78 行）原样搬至 `response-archive/response-R183.md` 并登记索引，窗口回 10；只搬移不改写。
 - **驻留与闸门**：worktree `../magicbook-r211-oidc-admin-role`（分支 `fix/r211-oidc-admin-role`，从 `origin/develop` `2006b6f3` 切出）待验收；**本轮未 push**，push 即触发 fnOS 自动上线，按用户闸门执行。验收通过后 `worktree remove` + `branch -d`。
 - **口径修订（16:1x，用户：「默认都是普通用户，管理员用户由我手动赋予」）**：撤除 `OIDC_ADMIN_EMAILS` 邮箱白名单——不留任何自动提权开关。`resolve_new_user_role()` 改为**无参数**，直接返回站点默认角色并**强制剔除 `ROLE_ADMIN` 位**（默认角色被误配勾了管理员位也只写 warning、不生效，其他权限位照旧尊重配置）。CLI 同步：`demote_target_role()` = 默认角色剔除管理员位，原「默认角色含管理员位即拒绝执行」改为「剔除后执行」；白名单跳过逻辑删除。测试改写为 16 条（新增「误配管理员位强制剔除」「决策函数不接受邮箱参数、模块内无白名单路径」两条正交守卫），仍全绿、反向变异照旧报红。L1/L3/LLD/`.env.example` 同步改写。**上线前不再需要配任何 env**；后台上一条「生产 `.env` 配 `OIDC_ADMIN_EMAILS`」作废，改为「新账号首登后由站长在『用户管理』手动赋管理员」。
+
+## 2026-10-23（R217：注册后自动回 magicbook——邀请注册接回 OIDC 上下文，enrollment 完成后静默授权回站且已登录）
+
+### R217（用户：「3需要做」——上轮四项遗留中唯一要开发的一项）
+
+- **问题**：R103 起登录页「注册账号 Sign up」按钮直接指向 Authentik 邀请链接且 `target="_blank"`。用户注册完停在 **Authentik 侧**，必须自己切回 magicbook 再点一次「Log in」——**注册与登录是断开的两步**，新窗口更让「注册完该去哪」变成断点。这与 16:00 产品决策（注册必须在 OIDC 上下文中发起，enrollment 完成后 OIDC 继续 → 自动回站且已登录）直接对应。
+- **先摸机制再动手**（读源码 + 现网实测，不凭印象）：① Authentik flow 结束时 `next` **硬性要求相对路径**——`authentik/flows/views/executor.py` 的 `_flow_done()` 里 `if next_param and not is_url_absolute(next_param)`，绝对 URL 会被拒为 "Invalid next URL"（`is_url_absolute` = `urlparse(url).netloc` 非空）；② `next` 从 `session[SESSION_KEY_GET]` 取，该值由 `request.GET.get("query")` 解析，前端 `ak-flow-executor` 用 `window.location.search.substring(1)` **整段**透传，故 `next` 能存活到 flow 结束；③ `invitation-enrollment` 末位 stage 是 `UserLoginStage`（`django.contrib.auth.login()`），**flow 结束前已建 Authentik 登录态**；④ OIDC `authorization_endpoint` 与 flow **同域**，故 `next` 可写成相对路径 `/application/o/authorize/?...` —— 正好绕开「必须相对路径」这条硬约束。
+- **方案**：`next` 指向**同域 authorize 端点**而非 magicbook callback——由 Authentik 负责「已登录 → 签发 code → 302 回 magicbook」，magicbook 侧 `callback()` **零改动**，建号/绑号/角色判定（R211 已定稿）不分叉。`state`/`nonce`/`code_verifier` 存 magicbook 的 Flask session，复用 authlib 的 `create_authorization_url()` + `save_authorize_data()`，与既有 `/oidc/login` 路径一致。
+- **itoken 来源**：**不新增** `AUTHENTIK_ENROLLMENT_INVITE_TOKEN`，改为从既有 `AUTHENTIK_ENROLLMENT_INVITE_URL` 的 query 里解析（兼容 `itoken` 与 `token` 两种 key）——避免「invite URL 与 invite token 两份配置各自漂移」，轮换仍只改一处。解析不出则 flash 错误回登录页，**不静默跳坏链接**。
+- **开放重定向防护**：用户可控的只有「注册完回 magicbook 哪个页面」，走 `get_redirect_location(next, "web.index")`（复用 `cps/redirect.py` 的 url_map 白名单校验），只允许站内相对路径。授权 URL 的 path 固定取自 discovery 的 `authorization_endpoint`，**不接受外部输入**。
+- **变更点**：`cps/oidc.py` 新增 `GET /oidc/signup`（+ 两个辅助函数 `_invite_token` / `_signup_authorize_target`）；`cps/web.py` 登录页注入 `authentik_signup_url`；`cps/templates/login.html` 按钮改指向 `/oidc/signup` 并**去掉 `target="_blank"`**（同窗口连续体验）；新增 `tests/test_oidc_signup.py` 16 条；`tests/test_login_invite_link.py` 同步更新断言（R103 旧断言「裸邀请链接 + target=_blank」与新行为**有意冲突**，按 R217 行为变更改写）。
+- **验证（两轮，都不只看绿灯）**：① 单测——16 条新增 + 相关回归（`test_oidc.py` / `test_login_invite_link.py` / `test_oidc_admin_role.py` / `test_smoke.py` / `test_i18n_seed_contract.py`）**49 passed / 0 failed**；② **反向变异两次实测报红**：next 不剥 scheme+host → 2 条红；next 编码保留 `&` → 3 条红。**第一次变异无效**（把 `quote(target, safe="")` 改成 `safe="/"`——`quote` 默认 `safe="/"` 已编码 `&`，两次变异等价，测试当然不红），改用 `safe="&"` 才是真正改坏语义——**变异必须真的改坏，否则「守卫生效」是假象**。
+- **现网端到端实证（不止于单测）**：用与代码同构的 URL 在 `account.haoshenqi.top`（Authentik 2025.10.2）跑完整链路——① executor 入口返回 `ak-flow-redirect`，其 `to` 中 query 完整保留 `next`（双重编码）；② 对照组「不带 next」同样返回 `ak-flow-redirect`，证明这是**正常首阶段跳转而非错误响应**；③ 逐 stage POST 建号后，flow 结束返回 `{"component":"xak-flow-redirect","to":"/application/o/authorize/?client_id=..&state=..&nonce=..&redirect_uri=.."}`——**next 被精确还原为相对路径的 authorize URL**，未触发 "Invalid next URL"，`&` 也未被提前截断；④ 跟随该 redirect → 302 到 `default-provider-authorization-explicit-consent`，consent 阶段的 `pending_user` 正是刚注册的新用户；⑤ 提交 consent → flow 结束返回 `{"to":"https://magicbook.haoshenqi.top/oidc/callback?code=..&state=.."}`——**Authentik 已签发 code 并准备回调 magicbook**，链路终点达成。实测用的测试账号与 consent 记录已清理。
+- **踩坑（如实记）**：Authentik executor 的 POST 需 CSRF，header 名是 **`X-authentik-csrf`**（`CSRF_HEADER_NAME = "HTTP_X_AUTHENTIK_CSRF"`）**而非**常见的 `X-CSRFToken`，且必须同时带 `Referer`；取 cookie 值本机 `grep` 不支持 `-P`，改用 `awk '/authentik_csrf/{print $NF}'`。另：本机 `pytest` 并发跑同一 `TMPDIR` 会撞 `EEXIST: mkdir …/pytest-of-root` 报 4 个 ERROR，**与被测代码无关**（tmpdir 竞争），改独立 `TMPDIR` 后 49 条全绿。
+- **一处需用户拍板（未擅改）**：magicbook provider 的授权 flow 是 `default-provider-authorization-explicit-consent`，**新用户首次授权会看到一个 consent 确认页**（老用户 30 天内免重复确认）。该环节与「注册→回站」链路本身无关，但要做到**完全无感**需把 provider 授权 flow 改为 `default-provider-authorization-implicit-consent`——属现网配置调整，**不在本条范围，已在 LLD §5 登记待拍板**。
+- **文档四问**：能力变了吗 → L3 `docs/product/admin/features/oidc-self-registration.md` 增 § 注册后自动回站；契约变了吗 → 对外**无新接口、无新 env**，登录页注册按钮目标 URL 变化；实现/边界变了吗 → 上述 L3 已含边界条件与实证；本次怎么实现 → LLD `docs/project/iterations/1.0/r217-oidc-signup-return/lld.md`（状态行：已开发，待验收）。另修 KB `docs/kb/instructions/workflows/oidc-login.md`：新增 §1.1 注册链路说明 + §4.5「注册后没回 magicbook」排障 + §4.6 state 失效排障；**并订正一处过时文档**——该文件提到的 `tests/test_user_key.py` **当前仓库不存在**，已加注说明并改指实际文件。
+- **窗口**：本条写入使窗口达 11 个 request，按「写入即检查」把最旧的 R195–R202（博客导入链与 TED 导入链盘点修复，19 行）原样搬至 `response-archive/response-R195-R202.md` 并登记索引，窗口回 10；只搬移不改写。
+- **驻留与闸门**：worktree `../magicbook-r217-oidc-signup-return`（分支 `feat/r217-oidc-signup-return`，从 `origin/develop` `c9282b4b` 切出）待验收；**push 即触发 fnOS 自动上线**，按用户闸门执行。验收通过后 `worktree remove` + `branch -d`。

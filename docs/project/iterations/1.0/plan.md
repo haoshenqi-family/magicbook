@@ -24,6 +24,7 @@
 | MB-16 R213-A 导航与外壳：侧边栏分组 / chips 文字 / 卡片徽标 / 搜索合并 / 移动底部导航 | 任务 | 同上 | [r213-home-ia/lld.md](./r213-home-ia/lld.md) §5–§6 | 未开工；待拍板：侧边栏四组判定依据 + 「系统」组内容（HLD §7.1） |
 | MB-17 R213-B 继续阅读：`reading_progress` 表 + 进度回传 + 首页模块 | 任务 | 同上 | [r213-home-ia/lld.md](./r213-home-ia/lld.md) §1–§3 | **已开发待验收**（2026-10-23，worktree `../magicbook-r213-home-ia`，分支 `feat/r213-home-ia`；12 项新增测试 + 18 项受影响用例全绿） |
 | MB-18 R213-C 今日计划 + 分级推荐：新 `/home` 路由与首屏组装 | 任务 | 同上 | [r213-home-ia/hld.md](./r213-home-ia/hld.md) §3.4 / §7、[lld.md](./r213-home-ia/lld.md) §4 | 未开工（依赖 A/B 合入）；口径已定：难度阶按书架名 `阶N`、写作待办走 `writing/history` 计数、`/home` 为登录后默认落点 |
+| MB-19 R217 注册后自动回 magicbook：邀请注册走 OIDC 上下文，enrollment 完成后静默授权回站并已登录 | 任务 | （关联 MAGICBOOK-11 / MAGICBOOK-219） | [r217-oidc-signup-return/lld.md](./r217-oidc-signup-return/lld.md) | **已开发待验收**（2026-10-23，worktree `../magicbook-r217-oidc-signup-return`，分支 `feat/r217-oidc-signup-return`；新增 16 条守卫测试 + 相关回归 49 条全绿；现网端到端链路实测：flow 结束精确还原 `next` → authorize → Authentik 签发 code → 302 回 `/oidc/callback`） |
 
 ## 版本
 

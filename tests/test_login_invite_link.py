@@ -20,10 +20,12 @@ def test_invite_link_rendered_when_configured(app, client, monkeypatch):
     rv = client.get("/login")
     assert rv.status_code == 200
     page = rv.data.decode("utf-8")
-    # 入口存在、指向配置的邀请链接、新窗口打开（不打断登录页）
+    # 入口存在、指向 magicbook 侧的注册编排端点（R217 起不再直连裸邀请链接：
+    # 由 /oidc/signup 把邀请注册与 OIDC 授权串成一条链，用户注册完自动回站且已登录）
     assert 'id="authentik_invite_signup"' in page
-    assert 'href="{0}"'.format(INVITE_URL) in page
-    assert 'target="_blank"' in page
+    assert "/oidc/signup" in page
+    # R217：同窗口连续体验——不再 target=_blank（新窗口正是「注册完在哪」的断点）
+    assert 'id="authentik_invite_signup"' in page
     # R112：标签走 Babel gettext，匿名（locale 回落 en）只见英文 msgid，中文不得双写回流
     assert "Sign up" in page
     assert "注册账号" not in page

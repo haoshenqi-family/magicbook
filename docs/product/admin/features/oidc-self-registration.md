@@ -2,6 +2,7 @@
 
 > R211（2026-10-23）建立；同日按用户拍板口径**定稿**——「默认都是普通用户，管理员用户由我手动赋予」。
 > 缺陷背景与修复清单见 [lld.md](../../../project/iterations/1.0/r211-oidc-admin-role/lld.md)。
+> R217（2026-10-23）新增「注册后自动回 magicbook」——注册链路从「停在 Authentik」改为「自动回站且已是登录态」，见 [§ 注册后自动回站](#注册后自动回站r217)。
 > 相关：L1 [`admin.md`](../readme/admin.md)、工作流 [`oidc-login.md`](../../kb/instructions/workflows/oidc-login.md)。
 
 ## 实现方式
@@ -22,6 +23,75 @@
 3. **都没命中**（自助注册新账号）→ `role=resolve_new_user_role()`。
 
 因此「手动赋予的管理员」不会因为再次登录被覆盖：第 1、2 条路径都不写 role；第 3 条只发生在建号那一刻。
+
+## 注册后自动回站（R217）
+
+> 完整设计与现网实证见 [lld.md](../../../project/iterations/1.0/r217-oidc-signup-return/lld.md)。
+
+### 链路
+
+R103 起登录页的「注册账号」按钮直接指向 `AUTHENTIK_ENROLLMENT_INVITE_URL`，
+且 `target="_blank"` 新窗口打开。用户完成注册后停在 Authentik 侧，必须自己切回
+magicbook 再点一次「Log in」——**注册与登录是断开的两步**。
+
+R217 起改为三段式，注册完自动回站且**已是登录态**：
+
+```
+magicbook /login  「注册账号」按钮（同窗口，不再 target=_blank）
+   │  GET /oidc/signup   ← magicbook 侧新端点
+   │    ① authlib 生成 OIDC 授权 URL（含 state / nonce / PKCE），参数存 Flask session
+   │    ② 从 AUTHENTIK_ENROLLMENT_INVITE_URL 解析出 itoken
+   │    ③ 把授权 URL 的 path+query 编码成 next，拼成邀请 flow URL
+   ▼
+account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=..&next=%2Fapplication%2Fo%2Fauthorize%2F%3F..
+   │  用户填账号建号 → 末位 UserLoginStage 建立 Authentik 登录态
+   ▼  flow 完成，_flow_done() 取 session 里的 next（必须是相对路径）→ 302
+account.haoshenqi.top/application/o/authorize/?client_id=..&state=..&nonce=..&redirect_uri=..
+   │  已登录 → 签发 code → 302
+   ▼
+magicbook.haoshenqi.top/oidc/callback?code=..&state=..
+   │  换 token → 按 sub 绑定/新建本地用户 → login_user
+   ▼
+magicbook 首页（已登录）
+```
+
+### 关键实现点
+
+| 点 | 做法 | 为什么 |
+| --- | --- | --- |
+| `next` 指向**同域 authorize**（`/application/o/authorize/?...`），不是 magicbook callback | Authentik 的 `_flow_done()` 硬性拒绝绝对 `next`（`is_url_absolute` 判 netloc）；authorize 与 flow 同域，可写成相对路径 | 指向 authorize 后由 Authentik 负责「已登录→签发 code→回调」，magicbook 侧 `callback()` **零改动**——建号/绑号/角色判定不分叉 |
+| `state` / `nonce` / `code_verifier` 存 magicbook 的 Flask session | 复用 authlib 的 `create_authorization_url()` + `save_authorize_data()`，与既有 `/oidc/login` 路径一致 | 回调时 `authorize_access_token()` 凭 `state` 取回并校验 nonce，无需另建存储 |
+| itoken 从既有 `AUTHENTIK_ENROLLMENT_INVITE_URL` **解析**，不新增 env 变量 | 解析 query 取 `itoken`（兼容 `token` key） | 避免「invite URL 与 invite token 两份配置各自漂移」，轮换仍只改一个地方 |
+| 「注册完回 magicbook 哪个页面」走 `get_redirect_location(next, "web.index")` | 复用 `cps/redirect.py` 的 url_map 白名单校验 | 开放重定向防护；用户可控部分只限站内相对路径 |
+
+### 边界条件
+
+- **`AUTHENTIK_ENROLLMENT_INVITE_URL` 未配置** → `/oidc/signup` 不渲染入口（沿用 R103 语义），登录页无注册按钮。
+- **itoken 解析不出**（URL 形态被改）→ flash 错误并回登录页，**不静默跳一个坏链接**。
+- **邀请过期**（现网 invitation `expires=2026-10-30 07:10 UTC`）→ Authentik 侧报 "Invalid invite"；本条不解决过期问题（属运维轮换）。
+- **用户在 flow 中途关页面** → 根本到不了 callback，无副作用；magicbook session 里会残留一条未被消费 的 state 数据（框架级过期，不影响登录）。
+- **用户已有账号再点注册** → invitation flow 的 `user_write` stage 会因 username 冲突报错，这是 Authentik 侧既有语义。
+- **OIDC 未启用** → `/oidc/signup` flash 错误并回登录页。
+
+### 守卫测试
+
+`tests/test_oidc_signup.py`（16 条）：`_invite_token` 3 条、`/oidc/signup` 9 条（302 目标 / next 为相对路径 / next 指向 `/application/o/authorize/` / next 含 client_id+redirect_uri+response_type+scope / state 与 session 一致 / 开放重定向拒绝 / 站内 next 保留 / redirect_uri 回退 / 未配置邀请不跳 / OIDC 关闭不跳）、登录页 3 条。
+反向变异实测两次报红：next 不剥 scheme+host（2 条红）、next 编码保留 `&`（3 条红）。
+
+### 现网端到端实证（2026-10-23）
+
+用与代码同构的 URL 在现网实测完整链路，**不是推断**：
+
+1. `GET /api/v3/flows/executor/invitation-enrollment/?query=itoken=..&next=..` → 返回 `ak-flow-redirect`，其 `to` 中的 query 完整保留了 `next`（证明 next 已进入 Authentik session 机制）。
+2. 逐 stage POST（identification → user-write）完成建号 → flow 结束返回
+   `{"component": "xak-flow-redirect", "to": "/application/o/authorize/?client_id=..&state=..&nonce=..&redirect_uri=.."}`
+   —— **next 被精确还原为相对路径的 authorize URL**，未触发 "Invalid next URL"。
+3. 跟随该 redirect → 302 到 `default-provider-authorization-explicit-consent`（provider 的授权 flow），consent 阶段的 `pending_user` 即刚注册的新用户。
+4. 提交 consent → flow 结束返回
+   `{"to": "https://magicbook.haoshenqi.top/oidc/callback?code=..&state=.."}`
+   —— **Authentik 已签发 code 并准备回调 magicbook**。
+
+> 实测用的测试账号已在验证后删除（Authentik 侧 `r217e2eprobe` 用户与对应 consent 记录）。
 
 ## 边界条件
 
