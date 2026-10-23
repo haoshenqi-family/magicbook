@@ -680,7 +680,8 @@
 .translation-rail-source:empty { display: none; }
 .translation-rail-body {
   flex: 1;
-  padding: 16px;
+  /* 底部留出 FAB 的位置：AI 按钮层级高于覆盖式译文栏，否则会压住译文 */
+  padding: 16px 16px 96px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
@@ -700,21 +701,9 @@
   cursor: pointer;
 }
 
-/* 译文栏的宽度契约（AI 面板已回滚为覆盖式抽屉，不再参与缩宽） */
-body[data-side-panel="translation"] { --side-panel-width: clamp(300px, 32vw, 420px); }
-body[data-side-panel="translation"] #main.reader-main {
-  width: calc(100% - var(--side-panel-width));
-  left: 0;
-  right: auto;
-  /* 宽度瞬时落定，避免 0.2s 宽度过渡触发多次 epub.js 重分页；transform 仍保留侧边栏动画 */
-  transition: transform .4s;
-}
-/* 侧栏（TOC）打开时 reader 会给 #main 加 .closed 并右移 300px；译文栏已把
-   右侧让出去了，再右移会钻到面板下面，这里改为让 TOC 覆盖在正文上 */
-body[data-side-panel="translation"] #main.reader-main.closed { transform: none; }
-
+/* R215 验收回滚（2026-10-23）：译文栏改为覆盖式浮层，不再缩 #main、
+   不再触发 epub.js 重分页；data-side-panel 只用于浮层避让。 */
 @media only screen and (max-width: 900px) {
-  body[data-side-panel="translation"] #main.reader-main { width: 100%; left: 0; right: 0; }
   .translation-rail {
     top: auto;
     bottom: 0;
