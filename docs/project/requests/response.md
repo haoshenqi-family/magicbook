@@ -196,3 +196,4 @@
 - **上线前必须做的运维动作**（已写入 LLD §4）：生产 `.env` 配 `OIDC_ADMIN_EMAILS=站长邮箱`（不配也不会让现有站长掉权，但配了以后新邮箱注册才仍是管理员）；存量超管按清单确认后再 `--demote --ids`，容器内库路径 `/config/app.db`。
 - **窗口**：本条写入使窗口达 11 个 request，按「写入即检查」把最旧的 R183（B4 epub.js 分域，7 节 78 行）原样搬至 `response-archive/response-R183.md` 并登记索引，窗口回 10；只搬移不改写。
 - **驻留与闸门**：worktree `../magicbook-r211-oidc-admin-role`（分支 `fix/r211-oidc-admin-role`，从 `origin/develop` `2006b6f3` 切出）待验收；**本轮未 push**，push 即触发 fnOS 自动上线，按用户闸门执行。验收通过后 `worktree remove` + `branch -d`。
+- **口径修订（16:1x，用户：「默认都是普通用户，管理员用户由我手动赋予」）**：撤除 `OIDC_ADMIN_EMAILS` 邮箱白名单——不留任何自动提权开关。`resolve_new_user_role()` 改为**无参数**，直接返回站点默认角色并**强制剔除 `ROLE_ADMIN` 位**（默认角色被误配勾了管理员位也只写 warning、不生效，其他权限位照旧尊重配置）。CLI 同步：`demote_target_role()` = 默认角色剔除管理员位，原「默认角色含管理员位即拒绝执行」改为「剔除后执行」；白名单跳过逻辑删除。测试改写为 16 条（新增「误配管理员位强制剔除」「决策函数不接受邮箱参数、模块内无白名单路径」两条正交守卫），仍全绿、反向变异照旧报红。L1/L3/LLD/`.env.example` 同步改写。**上线前不再需要配任何 env**；后台上一条「生产 `.env` 配 `OIDC_ADMIN_EMAILS`」作废，改为「新账号首登后由站长在『用户管理』手动赋管理员」。

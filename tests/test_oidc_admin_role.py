@@ -1,9 +1,10 @@
-"""R211 守卫：OIDC 自助注册不再默认授予管理员权限。
+"""R211 守卫：OIDC 自助注册一律普通用户，管理员只由人工在管理后台赋予。
 
 三个层面各钉一条：
-1. 决策函数 `resolve_new_user_role`——白名单命中才给管理员，否则站点默认角色；
-2. 回调建号形制——`cps/oidc.py` 建号处不得再出现 `ADMIN_USER_ROLES` 直写；
-3. 存量排查 CLI——清单可导出、降级必须点名、白名单受保护、写库前留备份。
+1. 决策函数 `resolve_new_user_role`——取站点默认角色并强制剔除管理员位；
+2. 回调建号形制——`cps/oidc.py` 建号处不得出现 `ADMIN_USER_ROLES` 直写，
+   也不得有邮箱白名单之类的隐式提权路径；
+3. 存量排查 CLI——清单可导出、降级必须点名、目标角色不含管理员位、写库前备份。
 """
 import importlib.util
 import inspect
@@ -13,7 +14,7 @@ import sys
 
 import pytest
 
-from cps import constants, oidc
+from cps import config, constants, oidc
 
 _SCRIPT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                        "scripts", "oidc_admin_audit.py")
@@ -24,38 +25,35 @@ _spec.loader.exec_module(audit)
 
 
 class TestResolveNewUserRole:
-    def test_普通邮箱拿到站点默认角色(self):
-        assert oidc.resolve_new_user_role(
-            "reader@example.com", admin_emails={"admin@example.com"},
-            default_role=0) == 0
+    def test_站点默认角色为0时新账号是普通用户(self, monkeypatch):
+        monkeypatch.setattr(config, "config_default_role", 0, raising=False)
+        assert oidc.resolve_new_user_role() == 0
+        assert not constants.has_flag(oidc.resolve_new_user_role(), constants.ROLE_ADMIN)
 
-    def test_白名单邮箱拿到管理员全权限(self):
-        assert oidc.resolve_new_user_role(
-            "Admin@Example.com ", admin_emails={"admin@example.com"},
-            default_role=0) == constants.ADMIN_USER_ROLES
-
-    def test_默认角色原样透传(self):
+    def test_站点默认角色的其他权限位原样透传(self, monkeypatch):
         role = constants.ROLE_DOWNLOAD | constants.ROLE_VIEWER
-        assert oidc.resolve_new_user_role(
-            "reader@example.com", admin_emails=set(), default_role=role) == role
+        monkeypatch.setattr(config, "config_default_role", role, raising=False)
+        assert oidc.resolve_new_user_role() == role
 
-    def test_空邮箱不会命中白名单(self):
-        role = oidc.resolve_new_user_role("", admin_emails={"", "a@b.c"}, default_role=3)
-        assert role == 3
+    def test_默认角色被误配成含管理员位时强制剔除(self, monkeypatch):
+        """用户拍板「管理员由我手动赋予」：配置里勾了管理员位也不生效。"""
+        monkeypatch.setattr(config, "config_default_role", constants.ADMIN_USER_ROLES,
+                            raising=False)
+        role = oidc.resolve_new_user_role()
+        assert not constants.has_flag(role, constants.ROLE_ADMIN)
+        # 其他位照旧保留，只掉管理员位
+        assert role == constants.ADMIN_USER_ROLES & ~constants.ROLE_ADMIN
 
-    def test_站点默认角色未初始化时按最小权限(self, monkeypatch):
-        from cps import config
+    def test_配置未初始化时按最小权限(self, monkeypatch):
         monkeypatch.setattr(config, "config_default_role", None, raising=False)
         assert oidc.site_default_role() == 0
-        assert oidc.resolve_new_user_role("x@y.z", admin_emails=set()) == 0
+        assert oidc.resolve_new_user_role() == 0
 
-    def test_parse_admin_emails_去空格转小写忽略空项(self, monkeypatch):
-        monkeypatch.setenv("OIDC_ADMIN_EMAILS", " A@B.com , ,c@d.com,, ")
-        assert oidc.parse_admin_emails() == {"a@b.com", "c@d.com"}
-
-    def test_白名单为空时无人获得管理员(self):
-        assert oidc.resolve_new_user_role(
-            "anyone@example.com", admin_emails=set(), default_role=0) == 0
+    def test_角色决策不看邮箱_不存在白名单旁路(self):
+        """回归守卫：决策函数不接受邮箱参数，模块也不再暴露白名单解析。"""
+        assert inspect.signature(oidc.resolve_new_user_role).parameters == {}
+        assert not hasattr(oidc, "parse_admin_emails")
+        assert not hasattr(oidc, "ADMIN_EMAILS_ENV")
 
 
 class TestCallbackContract:
@@ -64,12 +62,15 @@ class TestCallbackContract:
     def test_建号处不再直写管理员角色(self):
         src = inspect.getsource(oidc.callback)
         assert "ADMIN_USER_ROLES" not in src, "回调不得再写死 ADMIN_USER_ROLES"
-        assert src.count("role=resolve_new_user_role(email)") == 1
+        assert src.count("role=resolve_new_user_role()") == 1
 
     def test_既有账号合并路径不赋值角色(self):
         """存量账号（OIDC subject 或 email 命中）只补绑定，不得动 role。"""
         src = inspect.getsource(oidc.callback)
         assert src.count("role=") == 1, "role= 只应出现在新建账号分支"
+
+    def test_模块内不存在邮箱白名单提权路径(self):
+        assert "OIDC_ADMIN_EMAILS" not in inspect.getsource(oidc)
 
 
 class TestAuditCli:
@@ -91,6 +92,11 @@ class TestAuditCli:
     def test_role_admin_常量与脚本内联值同源(self):
         assert audit.ROLE_ADMIN == constants.ROLE_ADMIN
 
+    def test_降级目标角色剔除管理员位(self):
+        target = audit.demote_target_role(constants.ADMIN_USER_ROLES)
+        assert target == constants.ADMIN_USER_ROLES & ~constants.ROLE_ADMIN
+        assert not constants.has_flag(target, constants.ROLE_ADMIN)
+
     def test_清单标注是否经oidc登录(self, tmp_path):
         db = str(tmp_path / "app.db")
         self._make_db(db)
@@ -105,39 +111,37 @@ class TestAuditCli:
         assert by_id[2]["is_admin"] and by_id[2]["via_oidc"]
         assert not by_id[3]["is_admin"]
 
-    def test_降级必须点名(self, tmp_path):
-        db = str(tmp_path / "app.db")
-        self._make_db(db)
+    def test_降级必须点名(self):
         with pytest.raises(ValueError):
             audit.plan_demotions([{"id": 2, "email": "a@b.c", "is_admin": True, "role": 479}])
 
-    def test_默认角色含管理员位时拒绝降级(self):
-        with pytest.raises(ValueError):
-            audit.plan_demotions(
-                [{"id": 2, "email": "a@b.c", "is_admin": True, "role": 479}],
-                ids=[2], default_role=constants.ADMIN_USER_ROLES)
-
-    def test_白名单账号受保护_已普通账号跳过(self):
+    def test_已普通账号跳过(self):
         rows = [
-            {"id": 1, "name": "admin", "email": "admin@example.com", "role": 479,
-             "is_admin": True, "via_oidc": False},
             {"id": 2, "name": "newbie", "email": "newbie@example.com", "role": 479,
              "is_admin": True, "via_oidc": True},
             {"id": 3, "name": "reader", "email": "reader@example.com", "role": 0,
              "is_admin": False, "via_oidc": True},
         ]
-        targets, skipped = audit.plan_demotions(
-            rows, ids=[1, 2, 3], default_role=0,
-            admin_emails={"admin@example.com"})
+        targets, skipped = audit.plan_demotions(rows, ids=[2, 3], default_role=0)
         assert [r["id"] for r in targets] == [2]
         reasons = {r["id"]: reason for r, reason in skipped}
-        assert "白名单" in reasons[1]
         assert "本就不含管理员位" in reasons[3]
 
-    def test_端到端降级写库并留备份(self, tmp_path, capsys, monkeypatch):
+    def test_默认角色含管理员位时降级目标仍不含管理员(self, tmp_path):
+        """站点默认角色误配了管理员位，降级也不能把账号留在管理员态。"""
+        db = str(tmp_path / "app.db")
+        self._make_db(db, default_role=constants.ADMIN_USER_ROLES)
+        assert audit.main(["--db", db, "--demote", "--ids", "2"]) == 0
+        conn = sqlite3.connect(db)
+        try:
+            role = conn.execute("SELECT role FROM user WHERE id = 2").fetchone()[0]
+        finally:
+            conn.close()
+        assert not constants.has_flag(role, constants.ROLE_ADMIN)
+
+    def test_端到端降级写库并留备份(self, tmp_path, capsys):
         db = str(tmp_path / "app.db")
         self._make_db(db)
-        monkeypatch.delenv("OIDC_ADMIN_EMAILS", raising=False)
         assert audit.main(["--db", db, "--demote", "--ids", "2"]) == 0
         conn = sqlite3.connect(db)
         try:
