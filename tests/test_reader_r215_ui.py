@@ -50,7 +50,8 @@ def test_译文栏存在且不再向正文插译文():
         assert forbidden not in immersive, "译文仍会进入正文流：%s" % forbidden
     assert "RAIL_MODE_KEY" in immersive
     assert "function bindContent" in immersive
-    assert "reader:panel-open" in immersive
+    assert "setAttribute('data-side-panel', 'translation')" in immersive
+    assert "reader:panel-open" not in immersive, "AI 面板回滚后不应再有侧栏互斥事件"
     assert ".reading-para-selected" in _read("cps/static/js/reading/reader-core.js")
 
 
@@ -64,22 +65,25 @@ def test_翻译模式点击守卫含选区与链接排除():
     assert "upstreamErrorText(xhr)" in js, "失败时未显示上游错误原文"
 
 
-def test_AI面板桌面半屏与移动底部抽屉():
+def test_AI面板恢复覆盖式抽屉():
+    """2026-10-23 验收回滚：桌面 420px 浮层、移动全屏；不再缩正文。"""
     css = _read("cps/static/css/ai_chat.css")
-    assert "width: 50vw" in css and "max-width: 50vw" in css, "桌面未固定半屏"
-    assert "height: 55vh" in css, "移动端未改 55vh 底部抽屉"
+    assert "width: 420px" in css and "max-width: 100vw" in css, "桌面未恢复 420px 覆盖式抽屉"
+    assert "height: 55vh" not in css, "移动端仍是底部 55vh 抽屉（应回滚为全屏）"
+    assert "width: 50vw" not in css, "桌面仍是 50vw 停靠（应回滚）"
+    assert "width: 100vw; max-width: 100vw; height: 100vh" in css, "移动端未恢复全屏"
     assert "#ai-companion-fab-label" in css, "FAB 文字标签缺失"
     reader_css = _read("cps/static/css/reader.css")
-    assert 'body[data-side-panel="ai"] { --side-panel-width: 50vw; }' in reader_css
+    assert 'body[data-side-panel="ai"]' not in reader_css, "AI 面板不应再参与正文缩宽"
     assert 'body[data-side-panel="translation"]' in reader_css
 
 
-def test_AI面板互斥与FAB标签状态():
+def test_AI面板FAB标签状态与覆盖式生命周期():
     js = _read("cps/static/js/ai_chat.js")
-    assert 'document.body.setAttribute("data-side-panel", kind)' in js
-    assert "reader:panel-open" in js and "reader:panel-close" in js
     assert 'calibre.ai.fabLabelSeen' in js
-    assert "function openDrawer" in js and "function hideDrawerOnly" in js
+    assert "function openDrawer" in js and "function closeDrawer" in js
+    assert "data-side-panel" not in js, "AI 面板不应再维护侧栏布局状态"
+    assert "reader:panel-open" not in js and "reader:panel-close" not in js
 
 
 def test_思考中先于页面上下文():
@@ -107,8 +111,12 @@ def test_placeholder按阅读格式分口径():
 def test_段尾触屏菜单与图标放大():
     core = _read("cps/static/js/reading/reader-core.js")
     assert ".reading-para-menu-btn" in core
-    assert ".reading-para-tools" in core and ".reading-para-toolbar" in core, \
-        "段尾工具未脱离正文流（绝对定位锚点缺失）"
+    tools_rule = core.split(".reading-para-tools{", 1)[1].split("}", 1)[0]
+    toolbar_rule = core.split(".reading-para-toolbar{", 1)[1].split("}", 1)[0]
+    menu_rule = core.split(".reading-para-menu-btn{", 1)[1].split("}", 1)[0]
+    assert "display:inline-flex" in tools_rule and "display:inline-flex" in toolbar_rule
+    for rule in (tools_rule, toolbar_rule, menu_rule):
+        assert "position:absolute" not in rule, "段尾工具不得用浮层压字（用户验收否决）"
     assert "font-size:1.5em" in core, "桌面段尾图标未放大到 24px 口径"
     tts = _read("cps/static/js/reading/reader-tts.js")
     assert "function openParagraphMenu" in tts
@@ -129,7 +137,7 @@ def test_幽灵问号避让页码与侧栏():
     block = css.split("#onb-help {", 1)[1].split("#onb-help:hover", 1)[0]
     assert "right: 16px" in block and "left: auto" in block
     assert "bottom: 88px" in block, "未移到 FAB 上方"
-    assert "body[data-side-panel] #onb-help" in css, "侧栏打开时未让位"
+    assert 'body[data-side-panel="translation"] #onb-help' in css, "译文栏打开时未让位"
     assert "bottom: 76px" in css, "窄屏避让未同步"
 
 

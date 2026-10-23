@@ -2556,6 +2556,27 @@ def show_book(book_id):
             shelf_names=_shelf_names_for_book(book_in_shelves),
             series_name=entry.series[0].name if entry.series else "")
 
+        # R214 B：内容速览——一次解析缓存（book_insight），供简介/目录/试读三区块
+        # 与后续代价面板共用同一份量。解析失败不拖垮详情页，区块内显示错误原文
+        # （LLD §8 禁止静默降级），故兜 Exception 而非只兜 ValueError。
+        entry.insight = None
+        entry.insight_error = None
+        entry.insight_format = ("epub" if "epub" in entry.reader_list
+                                else "kepub" if "kepub" in entry.reader_list else "")
+        if entry.insight_format:
+            try:
+                # 延迟导入：reading_insight.service 的 generate_summary 反向引用 web，
+                # 模块级互引会成环（routes/book_detail.py 同因）。
+                from cps.reading_insight.service import get_or_build
+                entry.insight = get_or_build(book_id, entry.insight_format)
+                ai_summary = (entry.insight or {}).get("aiSummary")
+                if ai_summary and ai_summary.get("generatedAt"):
+                    from datetime import datetime
+                    ai_summary["generatedAtText"] = datetime.fromtimestamp(
+                        ai_summary["generatedAt"]).strftime("%Y-%m-%d")
+            except Exception as error:
+                entry.insight_error = str(error)
+
         return render_title_template('detail.html',
                                      entry=entry,
                                      cc=cc,
