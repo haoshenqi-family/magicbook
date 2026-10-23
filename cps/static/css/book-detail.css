@@ -34,3 +34,59 @@
 .admin-tools p {
   margin-bottom: 4px;
 }
+
+/* R214 B：内容速览三区块（简介三级回退 / 目录 / 首章试读）。 */
+
+/* AI 简介：标注行弱化在正文之下，不冒充书目自带简介（拍板④） */
+.ai-summary-note {
+  margin: 6px 0 0;
+}
+
+/* 目录：层级缩进由模板按 level 内联输出，这里只管行距与折叠态 */
+.book-toc .toc-list {
+  list-style: none;
+  padding-left: 0;
+  margin-bottom: 8px;
+}
+
+.book-toc .toc-item {
+  padding: 3px 0;
+  border-bottom: 1px dotted #f0f0f0;
+}
+
+.book-toc .toc-toggle {
+  cursor: pointer;
+}
+
+.book-toc .toc-first-paragraph {
+  margin: 4px 0 2px;
+  font-size: 12px;
+}
+
+/* 首章试读：超高淡出遮罩，明示「还有」而不是截断感 */
+.book-preview .preview-body {
+  position: relative;
+  max-height: 420px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.book-preview .preview-body::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #fff);
+  pointer-events: none;
+}
+
+.book-preview .preview-chapter-title {
+  margin: 10px 0 4px;
+}
+
+.book-preview .preview-text {
+  margin: 0 0 8px;
+  line-height: 1.7;
+}

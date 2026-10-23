@@ -19,6 +19,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/popup.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/reader.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/onboarding.css') }}">
+    {# R216 账号主题同步：head 早载，异步拉取；不阻塞阅读器启动 #}
+    <script src="{{ url_for('static', filename='js/ui-prefs.js') }}"></script>
 </head>
 
 <body>
@@ -102,15 +104,15 @@
                 {{_('Choose a theme below:')}}<br />
 
           <!-- Hardcoded a tick in the light theme button because it is the "default" theme. Need to find a way to do this dynamically on startup-->
-                <button type="button" id="lightTheme" class="lightTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="lightTheme" class="lightTheme" onclick="selectTheme(this.id, true)"><span
                         id="lightSelected">✓</span>{{_('Light')}}</button>
-                <button type="button" id="darkTheme" class="darkTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="darkTheme" class="darkTheme" onclick="selectTheme(this.id, true)"><span
                         id="darkSelected"> </span>{{_('Dark')}}</button>
-                <button type="button" id="sepiaTheme" class="sepiaTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="sepiaTheme" class="sepiaTheme" onclick="selectTheme(this.id, true)"><span
                         id="sepiaSelected"> </span>{{_('Sepia')}}</button>
-                <button type="button" id="amberTheme" class="amberTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="amberTheme" class="amberTheme" onclick="selectTheme(this.id, true)"><span
                         id="amberSelected"> </span>{{_('Amber')}}</button>
-                <button type="button" id="blackTheme" class="blackTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="blackTheme" class="blackTheme" onclick="selectTheme(this.id, true)"><span
                         id="blackSelected"> </span>{{_('Black')}}</button>
 
           <!-- Custom theme: color input + pickr -->
@@ -245,7 +247,39 @@
             },
         };
 
-        function selectTheme (id) {
+        var BUILTIN_THEMES = ["lightTheme", "darkTheme", "sepiaTheme", "amberTheme", "blackTheme"];
+
+        // R216：用户主动点内置主题时同步到账号；失败不回滚本机主题，只 toast 提示。
+        function syncThemeToAccount(id) {
+            var tokenInput = document.querySelector("input[name='csrf_token']");
+            fetch((window.__mbBasePath || "") + "/ajax/ui-settings/reader-theme", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": tokenInput ? tokenInput.value : ""
+                },
+                body: JSON.stringify({theme: id})
+            }).then(function (response) {
+                return response.text().then(function (text) {
+                    var data = null;
+                    try { data = text ? JSON.parse(text) : null; } catch (e) { /* 非 JSON */ }
+                    if (!response.ok || !data || data.success !== true) {
+                        throw new Error((data && data.message) || ("HTTP " + response.status));
+                    }
+                });
+            }).catch(function () {
+                var message = window.mbT ? window.mbT("Theme could not be synced to your account")
+                                          : "Theme could not be synced to your account";
+                if (window.ReaderCore && window.ReaderCore.toast) {
+                    window.ReaderCore.toast(message);
+                } else if (window.console && console.warn) {
+                    console.warn(message);
+                }
+            });
+        }
+
+        function selectTheme (id, sync) {
             let tickSpans = document.getElementById("themes").querySelectorAll("span");
             tickSpans.forEach(function (tickSpan) {
                try {
@@ -265,6 +299,11 @@
 
             // Saving theme to local storage
             localStorage.setItem("calibre.reader.theme", id);
+
+            if (sync === true && BUILTIN_THEMES.indexOf(id) >= 0) {
+                window.__mbReaderThemePicked = true;
+                syncThemeToAccount(id);
+            }
 
             // If selecting custom theme, ensure epubjs theme is registered with chosen bg color
             if (id === "customTheme") {
@@ -453,6 +492,8 @@
           try {
             localStorage.setItem("calibre.reader.theme", "customTheme");
           } catch (e) {}
+          // R216：自定义主题只留本机；标记用户已手选，晚到的账号主题不得覆盖
+          window.__mbReaderThemePicked = true;
           // Clear ticks and set custom tick
           var tickSpans = document
             .getElementById("themes")

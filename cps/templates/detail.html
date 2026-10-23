@@ -328,10 +328,69 @@
             {% endif %}
 
 
-            {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
-                <div class="comments">
-                    <h3 id="decription">{{ _('Description:') }}</h3>
+            {# R214 B：内容速览——简介三级回退（书目简介 > AI 生成 > 暂无简介指向目录/试读）
+               + 目录 + 首章试读。AI 简介带「由 AI 生成」标注（拍板④）；已生成即定稿、
+               无「重新生成」按钮（拍板⑦）；生成按钮仅管理员（拍板①同源）。 #}
+            {% if entry.insight_error %}
+                <div class="alert alert-warning book-insight-error">内容速览解析失败：{{ entry.insight_error }}</div>
+            {% endif %}
+
+            <div class="comments">
+                <h3 id="decription">{{ _('Description:') }}</h3>
+                {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
                     {{ entry.comments[0].text|clean_string|safe }}
+                {% elif entry.insight and entry.insight.get('aiSummary') %}
+                    <div class="ai-summary">
+                        <div class="ai-summary-text">{{ entry.insight.aiSummary.text|safe }}</div>
+                        <p class="ai-summary-note text-muted"><small>由 AI 生成{% if entry.insight.aiSummary.model %} · {{ entry.insight.aiSummary.model }}{% endif %}{% if entry.insight.aiSummary.generatedAtText %} · {{ entry.insight.aiSummary.generatedAtText }}{% endif %}</small></p>
+                    </div>
+                {% else %}
+                    <p class="no-description text-muted">暂无简介。可先看下方「目录」与「首章试读」判断是否合口味。</p>
+                    {% if current_user.role_admin() and entry.insight_format %}
+                        <button type="button" class="btn btn-sm btn-default" id="generate-book-summary"
+                                data-book-id="{{ entry.id }}" data-book-format="{{ entry.insight_format }}"
+                                data-csrf-token="{{ csrf_token() }}"
+                                data-idle-label="生成简介" data-busy-label="生成中…">生成简介</button>
+                        <div id="book-summary-error" class="text-danger"></div>
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            {% if entry.insight and entry.insight.chapters %}
+                <div class="book-toc">
+                    <h3>目录 <small class="text-muted">共 {{ entry.insight.chapters|length }} 章 · {{ entry.insight.paragraphCount }} 段</small></h3>
+                    <ol class="toc-list">
+                        {% for ch in entry.insight.chapters %}
+                            <li class="toc-item{% if loop.index > 8 %} toc-extra{% endif %}"
+                                {% if loop.index > 8 %}hidden{% endif %}
+                                style="padding-left: {{ (ch.level - 1) * 16 }}px">
+                                <a href="javascript:void(0)" class="toc-toggle" data-target="toc-p{{ loop.index }}">{{ ch.title }}</a>
+                                <span class="text-muted small">（{{ ch.paragraphCount }} 段）</span>
+                                {% if ch.firstParagraph %}
+                                    <p class="toc-first-paragraph text-muted" id="toc-p{{ loop.index }}" hidden>{{ ch.firstParagraph }}</p>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ol>
+                    {% if entry.insight.chapters|length > 8 %}
+                        <button type="button" class="btn btn-sm btn-default" id="toc-expand"
+                                data-expanded="0"
+                                data-label-collapsed="展开全部（{{ entry.insight.chapters|length }} 章）"
+                                data-label-expanded="收起">展开全部（{{ entry.insight.chapters|length }} 章）</button>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if entry.insight and entry.insight.excerpt %}
+                <div class="book-preview">
+                    <h3>首章试读</h3>
+                    <div class="preview-body">
+                        {% for ex in entry.insight.excerpt %}
+                            <p class="preview-chapter-title"><strong>{{ ex.chapter }}</strong></p>
+                            <p class="preview-text">{{ ex.text }}</p>
+                        {% endfor %}
+                    </div>
+                    <a class="btn btn-primary" href="{{ url_for('web.read_book', book_id=entry.id, book_format=entry.insight_format or 'epub') }}">继续阅读</a>
                 </div>
             {% endif %}
 
@@ -421,6 +480,7 @@
     </a>
 </script>
 <script src="{{ url_for('static', filename='js/details.js') }}"></script>
+<script src="{{ url_for('static', filename='js/book-insight.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
 <script type="text/javascript">
     $(function () {

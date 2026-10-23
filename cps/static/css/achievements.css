@@ -21,18 +21,26 @@
   padding: 12px 14px; margin-bottom: 10px;
   background: #fff; border: 1px solid #ddd; border-radius: 4px;
 }
-.ach-card.locked { opacity: 0.62; background: #f9f9f9; }
+/* 锁态：保留 tier 底色与整卡可读性，只用虚线边 + 锁标区分，避免「整块灰像坏图」 */
+.ach-card.locked { border-style: dashed; }
 .ach-badge {
+  position: relative;
   flex: 0 0 56px; width: 56px; height: 56px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 26px; color: #fff;
 }
 .ach-badge .glyphicon { top: 0; }
-.ach-card.locked .ach-badge { background: #b8b8b8 !important; }
 .ach-badge-bronze   { background: #a05f2c; }
 .ach-badge-silver   { background: #7c8894; }
 .ach-badge-gold     { background: #b08830; }
 .ach-badge-platinum { background: #5e6b64; }
+.ach-lock {
+  position: absolute; right: -3px; bottom: -3px;
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #555; background: #fff;
+  border: 1px solid #ccc;
+}
 .ach-info { flex: 1 1 auto; min-width: 0; }
 .ach-name { font-weight: bold; font-size: 15px; }
 .ach-desc { color: #666; font-size: 13px; }

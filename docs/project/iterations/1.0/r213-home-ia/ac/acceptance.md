@@ -1,7 +1,7 @@
 # AC — R213 首页信息架构（三子项验收标准）
 
 > 状态：草案（2026-10-23），随 HLD/LLD 定稿后逐条勾选
-> 关联：[hld.md](../hld.md) · [lld.md](../lld.md) · 需求基线 [`product/library/requirements.md`](../../../../product/library/requirements.md)
+> 关联：[hld.md](../hld.md) · [lld.md](../lld.md) · 需求基线 [`product/library/requirements.md`](../../../../../product/library/requirements.md)
 > 回归视口：桌面 1440×900 · 移动 390×844（对应 QA 报告 §三 / §八 截图重拍对比）
 
 ## A · 导航与外壳
@@ -12,6 +12,7 @@
 - [ ] **A4** GIVEN 书库列表 WHEN 看任意卡片 THEN 能区分 EPUB / PDF / TED 音频 / 视频（音频与视频卡显示时长；已缓存原声有标识）
 - [ ] **A5** GIVEN 顶栏 WHEN 使用搜索 THEN 只有一个搜索入口；高级筛选从该入口展开，无并排重复的第二个「搜索」按钮
 - [ ] **A6** GIVEN 移动端 390×844 WHEN 在任意一级页 THEN 底部常驻「书架 / 学习 / 我的」，正文不被遮挡、无横向滚动
+- [ ] **A7** GIVEN 高级搜索页 WHEN 看「阅读状态」THEN 只有「不限 / 未读 / 在读 / 已读」四项，附一行中文说明；选「未读」能筛出**从没打开过**的书；旧链接带 `read_status=True/False` 打开不报错且语义不变
 
 ## B · 继续阅读
 

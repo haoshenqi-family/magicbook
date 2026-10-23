@@ -143,6 +143,53 @@ def test_admin_tools_grouped_and_gated():
     assert "admin-tools" in src and "管理员工具" in src
 
 
+# ---- 内容速览 B：简介三级回退 / 目录 / 试读 ------------------------------
+def test_ai_summary_badge_required():
+    """AI 简介必须带「由 AI 生成」标注（拍板④）——标注被删要报红，不许冒充书目简介。"""
+    assert "由 AI 生成" in _read()
+
+
+def test_summary_three_level_fallback_structure():
+    """简介三级回退顺序：书目 comments → insight.aiSummary → 暂无简介（指向目录/试读）。"""
+    src = _read()
+    comments_at = src.index("entry.comments|length > 0")
+    ai_at = src.index("aiSummary")
+    fallback_at = src.index("no-description")
+    assert comments_at < ai_at < fallback_at, "三级回退顺序被打乱"
+    assert "首章试读" in src and "暂无简介" in src
+
+
+def test_generate_summary_button_admin_gated():
+    """「生成简介」按钮仅管理员（拍板①同源）；挪出 admin 块 → 报红。"""
+    gates = _enclosing_conditions(_read(), 'id="generate-book-summary"')
+    assert any("role_admin" in g for g in gates), "生成简介按钮不在 role_admin 门禁内: {0}".format(gates)
+
+
+def test_no_regenerate_button():
+    """拍板⑦：AI 简介无「重新生成」按钮——模板（剥掉 Jinja 注释后）不许出现该字样。
+
+    Why 剥注释：设计注释里合理提到「无重新生成按钮」，A 轮「全文单词详解」同款
+    误伤（标记文字出现在注释里被误判）；守卫要看的是可渲染内容。
+    """
+    src = re.sub(r"\{#.*?#\}", "", _read(), flags=re.S)
+    assert "重新生成" not in src
+
+
+def test_toc_and_preview_blocks_present():
+    src = _read()
+    assert "book-toc" in src and "toc-expand" in src
+    assert "book-preview" in src and "继续阅读" in src
+    assert "entry.insight.chapters" in src and "entry.insight.excerpt" in src
+
+
+def test_book_insight_js_included():
+    assert 'filename=\'js/book-insight.js\'' in _read()
+
+
+def test_insight_error_is_visible_not_silent():
+    """解析失败要在页面上可见（LLD §8 禁止静默降级）——警示块不得被删。"""
+    src = _read()
+    assert "book-insight-error" in src and "entry.insight_error" in src
 # ---- 缺陷修复（子项 A 验收）：书架名解析吃到了 shelf id → /book/<id> 整页 500 --
 SHELF_LEVEL_NAME = "英文分级·阶5（6500–9000词）"
 WEB = os.path.join(ROOT, "cps", "web.py")

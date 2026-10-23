@@ -2,7 +2,7 @@
 
 > R211（2026-10-23）建立；同日按用户拍板口径**定稿**——「默认都是普通用户，管理员用户由我手动赋予」。
 > 缺陷背景与修复清单见 [lld.md](../../../project/iterations/1.0/r211-oidc-admin-role/lld.md)。
-> 相关：L1 [`admin.md`](../readme/admin.md)、工作流 [`oidc-login.md`](../../kb/instructions/workflows/oidc-login.md)。
+> 相关：L1 [`admin.md`](../../readme/admin.md)、工作流 [`oidc-login.md`](../../../kb/instructions/workflows/oidc-login.md)。
 
 ## 实现方式
 

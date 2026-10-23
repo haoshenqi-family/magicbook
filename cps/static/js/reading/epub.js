@@ -747,8 +747,14 @@ var reader;
     }
 
     // Default settings load
-    const theme = localStorage.getItem("calibre.reader.theme") ?? "lightTheme";
+    // R216：账号同步值（ui-prefs.js 早载写入）优先于 localStorage；若同步结果晚于此处到达，
+    // 由 magicbook:reader-theme 事件补切一次。用户在本次会话手选过主题时 ui-prefs 不再广播。
+    const theme = window.__mbReaderTheme || localStorage.getItem("calibre.reader.theme") || "lightTheme";
     selectTheme(theme);
+    window.addEventListener("magicbook:reader-theme", function (event) {
+        const synced = event && event.detail && event.detail.theme;
+        if (synced) { selectTheme(synced); }
+    });
 
     // Restore saved font and font size after reader is ready
     reader.book.ready.then(() => {
