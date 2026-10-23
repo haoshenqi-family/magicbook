@@ -48,6 +48,22 @@
 - 消费侧 `common/api.js`：JSON 端点走 `unwrapStrict`（非信封即抛）；SSE 的 `result`/`error` 也按同一信封解包。
 - 失败文案：前端直接展示 `message`；网络层错误由浏览器 `fetch` 抛出，SSE 已开始后提示「结果可能已保存，刷新历史」。
 
+## 计划设置与 banner 勾选（R208）
+
+| magicbook 端点 | moon-well 端点 | 超时 | 说明 |
+| --- | --- | --- | --- |
+| `POST /ajax/learning/plan/settings` | `POST /learning/plan/settings` | 10s | 四股配比全量替换 + banner 勾选可选透传 |
+| `GET /ajax/learning/plan/today` | `GET /learning/plan/today` | 15s | 今日计划；R208 起 `settings.bannerHiddenKeys` 随响应带回 |
+
+- 请求体：`dailyNewLimit`（0-50）、`dailyMinutes`（5-240）、四股 `strand*Pct`（0-100，
+  和=100 的校验在上游 50503）+ 可选 `bannerHiddenKeys: string[]`（banner 隐藏卡 key 列表）。
+- `bannerHiddenKeys` 语义：**字段缺失 = 不改动既有勾选**（老客户端兼容，防止老前端保存
+  四股时抹掉另一台设备配好的勾选）；空数组 = 显式全部显示；非空数组 = 隐藏这些卡。
+  key 形制 `[a-z]{2,32}`、最多 10 个——形制违例本地 400 不打上游，业务违例由上游回 50521。
+- 前端消费：中枢页 `learning-hub.js` 管理抽屉保存；`plan/today` 响应的
+  `settings.bannerHiddenKeys` 用于打开页面时对齐勾选（localStorage 只作首屏镜像，
+  服务端是真相）。
+
 ## 相关文档
 
 - 用户手册：[learning](../readme/learning.md)

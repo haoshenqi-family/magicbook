@@ -468,11 +468,23 @@ def learning_plan_settings():
                _int_in("strandOutputPct", 0, 100), _int_in("strandFluencyPct", 0, 100)]
     if daily_new is None or daily_minutes is None or any(s is None for s in strands):
         return jsonify({"success": False, "message": "invalid plan settings"}), 400
-    return _moonwell_proxy("/learning/plan/settings", {
+    hidden_keys = payload.get("bannerHiddenKeys")
+    if hidden_keys is not None:
+        # R208：勾选列表本地镜像上游形制校验（key [a-z]{2,32}、≤10 个，对齐
+        # moon-well MAX_BANNER_KEYS），违例 400 不打上游；空列表合法=显式全显。
+        # 字段缺失不重建进 body——「不改动既有勾选」的 null 语义归上游判定。
+        if (not isinstance(hidden_keys, list) or len(hidden_keys) > 10
+                or any(isinstance(k, bool) or not isinstance(k, str)
+                       or not re.match(r"^[a-z]{2,32}$", k) for k in hidden_keys)):
+            return jsonify({"success": False, "message": "invalid banner hidden keys"}), 400
+    body = {
         "dailyNewLimit": daily_new, "dailyMinutes": daily_minutes,
         "strandInputPct": strands[0], "strandLanguagePct": strands[1],
         "strandOutputPct": strands[2], "strandFluencyPct": strands[3],
-    }, 10, "learning plan settings")
+    }
+    if hidden_keys is not None:
+        body["bannerHiddenKeys"] = hidden_keys
+    return _moonwell_proxy("/learning/plan/settings", body, 10, "learning plan settings")
 
 
 @web.route("/ajax/learning/match/books", methods=["GET"])
