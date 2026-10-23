@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）· 子项 A 开发中**；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）· 子项 A 已合入 develop 待验收（c4a98e54，未 push）**，子项 B/C 待开发；拍板⑦：AI 简介无「重新生成」按钮
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
 
