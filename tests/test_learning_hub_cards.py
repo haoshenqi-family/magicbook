@@ -52,7 +52,9 @@ def _card_block(html, key):
 
 
 def test_all_cards_render_in_order(hub_html):
-    keys = re.findall(r'data-key="([a-z]+)"', hub_html)
+    # R208 起 data-key 也出现在管理抽屉的复选框上，锚定 <a class="lh-card"> 只数功能卡；
+    # 顺序契约本身不变（卡片顺序即用户指定的展示顺序，八卡含 story）。
+    keys = re.findall(r'<a class="lh-card[^"]*"[^>]*data-key="([a-z]+)"', hub_html)
     assert keys == [c[0] for c in CARDS], "卡片顺序即用户指定的展示顺序，不得漂成别的"
 
 

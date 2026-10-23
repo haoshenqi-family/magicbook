@@ -756,3 +756,58 @@ def test_writing_page_wires_the_resume_ui(admin_client, moonwell_configured):
     # 双入口已收敛：面板内那套「修订框 + 提交修订按钮」撤掉，只留一个编辑区
     assert 'id="sw-w-revise-text"' not in html
     assert 'id="sw-w-revise"' not in html
+
+
+# ---------- 5. plan/settings banner 勾选（R208）----------
+
+def test_plan_settings_forwards_banner_keys(admin_client, moonwell_configured,
+                                            monkeypatch):
+    payload = _valid_settings()
+    payload["bannerHiddenKeys"] = ["writing", "match"]
+    proxy = RecordingProxy({"/learning/plan/settings": (_envelope(_valid_settings()), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/plan/settings", json=payload)
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/plan/settings")["payload"] == payload
+
+
+def test_plan_settings_empty_banner_keys_forwarded(admin_client, moonwell_configured,
+                                                   monkeypatch):
+    """空列表=显式全显，必须原样透传——丢弃会把「全显」错成「不动」，勾选存不上。"""
+    payload = _valid_settings()
+    payload["bannerHiddenKeys"] = []
+    proxy = RecordingProxy({"/learning/plan/settings": (_envelope(_valid_settings()), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/plan/settings", json=payload)
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/plan/settings")["payload"] == payload
+
+
+def test_plan_settings_rejects_bad_banner_keys_locally(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    """形制违例本地 400 不打上游（镜像 moon-well 校验）；字段缺失不拦（null=不动）。"""
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for bad in ("writing",          # 非列表
+                ["Writing"],        # 大写非法
+                ["writing", 3],     # 非字符串元素
+                ["ok"] * 11):       # 超上限（moon-well MAX_BANNER_KEYS=10）
+        payload = _valid_settings()
+        payload["bannerHiddenKeys"] = bad
+        assert admin_client.post("/ajax/learning/plan/settings",
+                                 json=payload).status_code == 400, bad
+    assert not proxy.calls
+
+
+def test_plan_settings_without_banner_keys_unchanged(admin_client,
+                                                     moonwell_configured,
+                                                     monkeypatch):
+    """老客户端不带 banner 字段：转发体里也不出现该字段（null 语义归上游）。"""
+    proxy = RecordingProxy({"/learning/plan/settings": (_envelope(_valid_settings()), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/plan/settings", json=_valid_settings())
+    assert response.status_code == 200
+    forwarded = proxy.call_for("/learning/plan/settings")["payload"]
+    assert "bannerHiddenKeys" not in forwarded
+    assert forwarded == _valid_settings()
