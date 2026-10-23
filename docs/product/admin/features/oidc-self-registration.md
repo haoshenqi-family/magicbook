@@ -47,13 +47,21 @@ python3 scripts/oidc_admin_audit.py --demote --emails a@b.com
 
 守卫测试：`tests/test_oidc_admin_role.py`（16 条）——决策函数 5 条、回调形制 3 条、CLI 8 条；反向变异（把建号改回 `ADMIN_USER_ROLES`）实测报红。
 
-## 注册入口本身：邀请是一次性的
+## 注册入口本身：链接形式是它的命门
 
-自助注册**不是**随便谁都能点的公开入口，而是走 Authentik 的 `invitation-enrollment` flow：登录页「注册账号 Sign up (invite)」指向一条具体邀请（`.env` 的 `AUTHENTIK_ENROLLMENT_INVITE_URL`）。
+自助注册**不是**公开入口，而是走 Authentik 的 `invitation-enrollment` flow：登录页「注册账号 Sign up (invite)」指向一条具体邀请（`.env` 的 `AUTHENTIK_ENROLLMENT_INVITE_URL`）。
 
-该邀请是 `single_use` 一次性资源：**被用于注册一次后即失效**。2026-10-23 实测同一条 itoken 在 15:00 还能注册，21:00 已 `Invalid invite/invite not found`（R103 那条 `5566492c…` 就是被当天下午的 QA 自助注册用掉的；R161 域名切换只换了域名、没新建邀请，于是入口报废且无人察觉）。
+**这条链接的「形式」比链接本身更要命。** 2026-10-23 实测：老式 `?itoken=<uuid>` 一律被 authentik 判 `Invalid invite/invite not found`，而邀请记录本身完全正常（`single_use=false`、未过期、Django ORM `filter_not_expired` 能查到）。根因在 authentik 源码 `authentik/flows/views/executor.py`：
+
+```python
+get_params = QueryDict(request.GET.get(QS_QUERY, ""))   # QS_QUERY = "query"
+```
+
+顶层 query 不被读，**必须整段塞进 `?query=` 里**——正确形式是 `?query=itoken%3D<uuid>`（authentik 自己回的 `to` 字段也是这个形式）。
+
+失效的表现极具迷惑性：点进去只显示一句「Invalid invite」，**不会有人来报「注册不了」**，登录页上的注册按钮就此长期坏死而不被察觉（R161 域名切换只换域名、没动形式，入口就此报废，直到 2026-10-23 才被追出来）。
 
 两点推论：
 
-- **新账号一律普通用户**这条修复，正是让「谁拿到链接都无所谓」成立的前提——链接被转发也只产生普通用户，管理员仍由人工赋予。
-- **入口长期可用的策略已定**（2026-10-23 用户拍板）：**邀请设为可复用**（`single_use=False`）、有效期 90 天——否则每注册一个人入口就死一次，而入口失效只表现为一句报错，很难被察觉。可复用后的风险由本条修复兜底：链接被转发也只产生普通用户，管理员仍由人工赋予。轮换工具（建邀请 → 改 `.env` → 重建 → 校验）： [`scripts/rotate_authentik_invite.py`](../../../../scripts/rotate_authentik_invite.py)（默认 dry-run，`--apply` 才动服务器；细节见 [OIDC 登录工作流](../../kb/instructions/workflows/oidc-login.md) §2）。
+- **新账号一律普通用户**这条修复，正是让「链接被转发也无所谓」成立的前提——转发出去也只产生普通用户，管理员仍由人工赋予。
+- 入口要长期可用，得保证链接形式跟 authentik 当前版本对得上。策略已定（2026-10-23 用户拍板）：**邀请设为可复用**（`single_use=False`）、有效期 90 天；轮换工具 [`scripts/rotate_authentik_invite.py`](../../../../scripts/rotate_authentik_invite.py)（建邀请 → 生成新式链接 → 改 fnOS `.env` → `docker compose up -d` 重建 → 校验登录页；默认 dry-run，`--apply` 才动服务器）。细节见 [OIDC 登录工作流](../../kb/instructions/workflows/oidc-login.md) §2。
