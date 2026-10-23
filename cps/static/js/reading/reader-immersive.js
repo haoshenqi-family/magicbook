@@ -88,15 +88,6 @@
         };
     }
 
-    function requestRepagination() {
-        // 宽度落定后再让 epub.js 重分页一次：它监听 window resize
-        window.requestAnimationFrame(function () {
-            setTimeout(function () {
-                window.dispatchEvent(new Event('resize'));
-            }, 0);
-        });
-    }
-
     function setRailBody(text, state) {
         var parts = railParts();
         if (!parts.body) return;
@@ -124,19 +115,19 @@
             setRailBody(mbT('Click a paragraph to see its translation'), 'empty');
         }
         if (alreadyOpen) return;
+        // R215 验收回滚（2026-10-23）：译文栏改为覆盖式，不再缩正文/重分页；
+        // data-side-panel 仅用于让幽灵「?」等浮层避让，不参与布局。
         document.body.setAttribute('data-side-panel', 'translation');
-        requestRepagination();
     }
 
     function closeRail() {
         var parts = railParts();
         if (!parts.rail) return;
-        var wasOpen = !parts.rail.hidden;
-        var cleared = document.body.getAttribute('data-side-panel') === 'translation';
         parts.rail.hidden = true;
         parts.rail.setAttribute('aria-hidden', 'true');
-        if (cleared) document.body.removeAttribute('data-side-panel');
-        if (wasOpen && cleared) requestRepagination();
+        if (document.body.getAttribute('data-side-panel') === 'translation') {
+            document.body.removeAttribute('data-side-panel');
+        }
     }
 
     function clearSelection() {

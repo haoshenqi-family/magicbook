@@ -52,6 +52,7 @@ def test_译文栏存在且不再向正文插译文():
     assert "function bindContent" in immersive
     assert "setAttribute('data-side-panel', 'translation')" in immersive
     assert "reader:panel-open" not in immersive, "AI 面板回滚后不应再有侧栏互斥事件"
+    assert "requestRepagination" not in immersive, "译文栏覆盖式不应再触发重分页"
     assert ".reading-para-selected" in _read("cps/static/js/reading/reader-core.js")
 
 
@@ -75,7 +76,9 @@ def test_AI面板恢复覆盖式抽屉():
     assert "#ai-companion-fab-label" in css, "FAB 文字标签缺失"
     reader_css = _read("cps/static/css/reader.css")
     assert 'body[data-side-panel="ai"]' not in reader_css, "AI 面板不应再参与正文缩宽"
-    assert 'body[data-side-panel="translation"]' in reader_css
+    assert 'body[data-side-panel="translation"] #main' not in reader_css, \
+        "译文栏不应再缩正文（2026-10-23 验收回滚为覆盖式）"
+    assert "--side-panel-width" not in reader_css, "侧栏宽度变量应已删除"
 
 
 def test_AI面板FAB标签状态与覆盖式生命周期():

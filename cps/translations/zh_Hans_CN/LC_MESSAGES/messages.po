@@ -5906,9 +5906,6 @@ msgstr "记忆"
 msgid "Filter and Sort"
 msgstr "筛选与排序"
 
-msgid "Downloads"
-msgstr "下载量"
-
 msgid "Newest"
 msgstr "最新"
 
@@ -5944,3 +5941,29 @@ msgstr "学习"
 
 msgid "Mobile Navigation"
 msgstr "移动端导航"
+
+#: R213-A 高级搜索「阅读状态」四态化（2026-10-23）：旧译「任何/空/确认/没有」
+#: 是 Any/Empty/Yes/No 的直译，中文语境里无法理解，且「空」与「没有」同义。
+msgid "Reading Status"
+msgstr "阅读状态"
+
+msgid "Unread"
+msgstr "未读"
+
+msgid "In progress"
+msgstr "在读"
+
+msgid "Not finished"
+msgstr "未读完"
+
+msgid "Set to yes"
+msgstr "是"
+
+msgid "Set to no"
+msgstr "否"
+
+msgid "Filtering on the custom read column (yes/no only)."
+msgstr "按 calibre 自定义阅读列筛选（该列只有「是 / 否」两个值）。"
+
+msgid "Unread: never opened, or marked as unread. In progress: opened but not finished. Read: finished."
+msgstr "未读：从没打开过，或手动标记为未读。在读：打开过但没读完。已读：读到最后一页或标记为已读。"

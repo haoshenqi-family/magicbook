@@ -7,7 +7,7 @@
 
 - **模式开关**：`#immersive-translate`（`reader-immersive.js`）只切换 `calibre.reader.translationRailMode`。开启 = 打开右栏 + 进入点段翻译模式；关闭 = 收起右栏、清除选中。旧键 `calibre.reader.immersiveTranslate` 初始化时删除，不再读取。
 - **选中**：每个渲染帧由 `epub.js` 的 `rendered` 钩子调用 `RI.bindContent(content)`，在 iframe document 上挂 `click`。模式关闭、存在选区、命中链接/按钮/段尾工具时直接返回；否则取最近的叶子段落交给 `selectParagraph`。
-- **译文栏**：`read.html` 的 `#translation-rail` 固定在外层文档（不进入 iframe）。桌面占 `clamp(300px, 32vw, 420px)`，≤900px 改为 50vh 底部抽屉；`body[data-side-panel="translation"]` 让 `#main.reader-main` 缩宽。
+- **译文栏（2026-10-23 验收回滚）**：`read.html` 的 `#translation-rail` 固定在外层文档（不进入 iframe）。桌面为 `clamp(300px, 32vw, 420px)` 覆盖式浮层，≤900px 为 50vh 底部抽屉；**不缩 `#main`、不触发 epub.js 重分页**。`body[data-side-panel="translation"]` 仅用于幽灵「?」避让；FAB 层级高于译文栏，故栏体底部预留 96px，避免按钮压住译文。
 - **请求与缓存**：选中段落后先查 `localStorage['calibre.reader.translation.<bookKey>']`（`{paragraphHash: text}`），miss 才 POST `readingTranslateBatchUrl`（单段 `paragraphs:[text]`，带 `bookName`/`chapter`）。响应按 `railRequestSeq` 与 `selectedEl` 双重校验，后选覆盖先选；成功写缓存。
 - **零插入**：译文只写 `#translation-rail-body` 的 `textContent`，正文 iframe 内不插入任何译文节点；段尾工具条保持在段落尾部行内（R215 验收修订：绝对定位浮层会压字，已回退）。
 

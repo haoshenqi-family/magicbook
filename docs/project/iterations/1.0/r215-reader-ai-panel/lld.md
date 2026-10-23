@@ -12,7 +12,7 @@
 | 新增 | `cps/static/js/reading/reader-toolbar.js` | 顶栏窄屏折叠 / 「更多」菜单 / 标签状态；无跨模块别名、无 `init` |
 | 改 | `cps/templates/read.html` | `#main` 加 `reader-main` 类；顶栏标签 + `#title-more`；译文栏 DOM；移除自动隐藏相关注释 |
 | 改 | `cps/static/css/reader.css` | 阅读器作用域内的顶栏、译文栏、面板布局、移动端覆盖 |
-| 改 | `cps/static/css/ai_chat.css` | 桌面 50vw 停靠、移动 55vh 抽屉、头部标签、FAB 环/标签 |
+| 改 | `cps/static/css/ai_chat.css` | 桌面 420px 覆盖式抽屉、移动全屏、头部标签、FAB 环/标签 |
 | 改 | `cps/static/css/onboarding.css` | `#onb-help` 避让页码并让位侧栏 |
 | 改 | `cps/static/js/reading/reader-tts.js` | 段尾 4 图标 + 触屏「⋯」菜单；翻译图标改为选中该段 |
 | 改 | `cps/static/js/reading/reader-immersive.js` | 翻译模式 / 译文栏 / 段落选中 / 缓存；删除正文流内译文插入 |
@@ -140,20 +140,16 @@ var railRequestSeq = 0;      // 选中/请求序号，后选覆盖先选
 
 状态：`empty`（提示）/ `loading`（「翻译中…」）/ `text`（译文）/ `error`（错误 + 重试）。
 
-### 4.5 面板互斥
+### 4.5 面板共存（2026-10-23 验收回滚）
 
-- 打开译文栏：`document.dispatchEvent(new CustomEvent('reader:panel-open', {detail:{kind:'translation'}}))`；监听 `reader:panel-open` 且 `kind === 'ai'` 时只 `closeRail()`（保留 `railMode`，不派发 close）。
-- AI 面板同理：打开时派发 `kind:'ai'`，译文栏收到后收起；AI 关闭时派发 `reader:panel-close`，译文栏若 `railMode` 为真则重新打开。
-- 避免递归：收到对方 open 时只做「收起自己」，不再派发新事件。
+原「译文栏与 AI 面板互斥」已撤销：不再派发/监听 `reader:panel-open/close`。AI 面板是覆盖式浮层，打开时直接盖在译文栏之上，关闭后译文栏原样可见。
 
-### 4.6 布局
+### 4.6 布局（2026-10-23 验收回滚）
 
-`body[data-side-panel="translation"]` 表示译文栏打开（AI 面板不参与）：
-
-- 桌面：`--side-panel-width: clamp(300px, 32vw, 420px)`；`#main.reader-main{width:calc(100% - var(--side-panel-width)); left:0; right:auto}`。
-- ≤900px：`#main` 宽度 100%；`#translation-rail` 改底部抽屉（`top:auto; bottom:0; width:100vw; height:50vh; border-radius:16px 16px 0 0`）。
-- 宽度切换不加 transition；落定后 `window.dispatchEvent(new Event('resize'))` 触发 epub.js 重分页（它监听 window resize）。
-- **AI 面板已回滚为覆盖式抽屉**（2026-10-23 验收否决），不设置 `data-side-panel`、不缩正文、不触发重分页；PDF/TXT 同此。
+- 桌面：`#translation-rail` 右侧 `clamp(300px, 32vw, 420px)` 固定浮层，覆盖正文；**不缩 `#main`、不触发 epub.js 重分页**。
+- ≤900px：`#translation-rail` 为 50vh 底部抽屉（`top:auto; bottom:0; width:100vw; height:50vh; border-radius:16px 16px 0 0`），同为覆盖。
+- `body[data-side-panel="translation"]` 仅作为 UI 状态（幽灵「?」避让），不再有 `--side-panel-width` 或 `#main` 宽度规则。
+- AI 面板同样为覆盖式（§5.1），两者互不影响正文宽度。
 
 ## 5. AI 面板（`ai_chat.css` + `ai_chat.js` + `ai_chat_panel.html`）
 
@@ -205,7 +201,7 @@ body[data-side-panel] #onb-help{display:none;}
 | `tests/test_reader_module_surface.py` | `ALIASES` 不变（新模块无跨模块别名、无 `init`）；`test_声明_init_的模块必须被显式调用` 仍只允许 `ReaderImmersive` |
 | `tests/test_onboarding_tour.py` | 顶栏 ID 与 `#onb-help` 追加逻辑保持不变 |
 | `tests/test_reader_lens_handoff.py` | 保留 `getElementById('immersive-translate')` |
-| 新增 `tests/test_reader_r215_ui.py` | ① 顶栏有 `.tb-label` / `#title-more` / 原有 ID；② `reader-immersive.js` 不再包含正文流内 `insertTranslation`，含 `translation-rail` 与模式键；③ 段落点击守卫含选区/链接判断；④ `ai_chat.css` 含 50vw / 55vh / `data-side-panel`；⑤ `sendMessage` 中 `beginThinking` 调用先于 `getPageContextAsync`；⑥ placeholder 三个口径；⑦ `#onb-help` 右移且侧栏打开时隐藏 |
+| 新增 `tests/test_reader_r215_ui.py` | ① 顶栏有 `.tb-label` / `#title-more` / 原有 ID；② `reader-immersive.js` 不再包含正文流内 `insertTranslation`，含 `translation-rail` 与模式键；③ 段落点击守卫含选区/链接判断；④ `ai_chat.css` 为 420px 覆盖式 / 移动全屏且不含 `data-side-panel`；译文栏不得出现 `#main` 缩宽规则；⑤ `sendMessage` 中 `beginThinking` 调用先于 `getPageContextAsync`；⑥ placeholder 三个口径；⑦ `#onb-help` 右移且侧栏打开时隐藏 |
 | 反向变异 | 逐条注入旧行为（恢复双重 opacity、把译文插回正文、把思考中移回 streamChat）确认报红 |
 
 开发态闸门：`node --check` 全部改动 JS + 上述 pytest 文件全绿。正式发布态按仓规跑全量。
@@ -215,12 +211,12 @@ body[data-side-panel] #onb-help{display:none;}
 | MB-14 原文 | 实际实现 | 原因 |
 | --- | --- | --- |
 | 逐段翻译「写预留占位」 | 译文右栏，正文零插入 | 分页列布局下任何流内高度变化都会重分页；占位只能减少次数不能消除（用户拍板改形态） |
-| AI 面板「可拖宽/停靠」 | 桌面固定 50vw 停靠，不可拖 | 用户拍板固定半屏 |
+| AI 面板「可拖宽/停靠」 | 桌面 420px 覆盖式抽屉 / 移动全屏 | 用户 2026-10-23 验收否决停靠方案，回滚覆盖式 |
 | 段尾「≥44px 或收进段落菜单」 | 桌面四图标 24px；触屏 44px 菜单 | 兼顾桌面效率与触屏触达（用户拍板） |
 | 幽灵「?」处置 | 仅位置避让 | DOM 归属 `onboarding.js`，R216 将重做；避免两单同时改守卫断言 |
 
 ## 9. 风险与回滚
 
-- 风险：`#main` 宽度变化触发 epub.js 重分页，个别书在两栏模式下可能落到异常页；回滚开关 = 关闭侧栏（模式状态与选中状态均不落库）。
+- 风险：覆盖式浮层不改变正文宽度，不再有重分页风险；剩余风险是浮层遮挡右侧文字，用户可随时关闭面板。
 - 风险：点击即译误触；已用「模式开关 + 选区/链接/按钮排除」收敛，真机用三指/拖选各测一次。
 - 回滚：纯前端改动，revert merge 即可；localStorage 新键不影响旧版本（旧键不读取）。
