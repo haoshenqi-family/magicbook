@@ -164,6 +164,25 @@ def level_of_shelf(name):  # 解析不出 → None
 | 搜索合并 | `layout.html` 顶栏 | 高级搜索入口并入搜索框输入组（input-group-btn 内的 `⏷` 按钮，保留 `id="advanced_search"`——onboarding 引导步骤选中它），主导航不再并排。**已实现（2026-10-23）**。**偏差**：原案的「`⏷` 展开内联高级面板」未做，改为直达高级搜索页——内联面板与 C 的筛选能力重叠，留给 C 一并设计 |
 | 移动端底部导航 | `layout.html` 尾部 + `style.css` | `@media (max-width: 767px)` 固定底栏：书库 `/` · 学习 `/learning` · 我的（未登录显示登录）；`body { padding-bottom: 54px }`。**已实现（2026-10-23）**。样式落 `style.css`（非 caliBlur——caliBlur 是主题覆盖层，基础组件样式应进主表） |
 | 「创建书架」裁切 | `style.css` `.navigation` | `max-height: calc(100vh - 80px); overflow-y: auto;`（仅 ≥768px，侧栏不脱离文档流）。**已实现（2026-10-23）** |
+| 高级搜索「阅读状态」 | `search_form.html` + `search.py` | **见 §6.1**（顺手修，不在原始拆单范围内但同属「搜索入口可用」） |
+
+### 6.1 高级搜索「阅读状态」四态化（2026-10-23 追加）
+
+**问题**：这个下拉原样继承自 Calibre-Web，选项是布尔三态的直译——`Any/Empty/Yes/No` → **任何 / 空 / 确认 / 没有**。在中文语境里：
+- 「确认」「没有」完全无法对应「读过 / 没读过」；
+- 未配置 calibre 自定义阅读列时，`Empty` 与 `False` 落到**同一个 SQL 条件**（`coalesce(read_status,0) != FINISHED`），等于两个名字不同、行为相同的选项；
+- 本仓 `ReadBook` 早就是三态（UNREAD/IN_PROGRESS/FINISHED），但界面上没有「在读」这个最常用的选项。
+
+**改法**：
+- 界面改成互斥且穷尽的三态 + 「不限」，并加一行说明兜住边界：**未读**（从没打开过或标记未读）/ **在读**（打开过没读完）/ **已读**（读完了）。
+- 后端取值改为语义化 `unread` / `in_progress` / `finished`；旧 URL 的 `True` / `False` / 空值**保持兼容**（`True`→已读、空→未读、`False`→历史「未读完」语义）。
+- `unread` 用 `NOT EXISTS(... IN (IN_PROGRESS, FINISHED))` 实现——从没打开过的书**没有 ReadBook 行**，等值匹配会把它们全漏掉，而它们才是「未读」的主体。
+- 配了 calibre 自定义阅读列的实例退化成布尔三项（该列只有是/否），措辞改为「未填写 / 是 / 否」，不再出现「空/确认/没有」。
+- 搜索条回显把内部值翻成人话（`Read Status = '未读'`），不再把 `in_progress` 直接糊到页面上。
+- 同页自定义布尔列下拉（`cc.datatype == 'bool'`）是同一套直译，一并换成「未填写 / 是 / 否」。
+- i18n 新增 9 条 msgid 并编译；**没有改全局的 `Yes`/`No`/`Empty`**——`Yes` 在别处（如确认对话框）仍是「是」，改全局会连带误伤。
+
+**测试**：`tests/test_adv_search_read_status.py` 7 例（三态条件互不相同、unread 必须走 NOT EXISTS、旧值兼容、模板与 .mo 词条守卫）。测试环境无 calibre 库、跑不起 `/advsearch` 渲染，故界面断言落在模板源码 + 已编译译文上。
 
 ## 7. 异常与边界
 

@@ -133,12 +133,36 @@ def adv_search_ratings(q, rating_high, rating_low):
 
 
 def adv_search_read_status(read_status):
+    """阅读状态筛选。
+
+    取值（R213-A 起为语义化四态，旧 URL 的 True/False/空值仍兼容）：
+      - ``unread``      未读：没有任何进展记录（从没打开过）或被标记为未读
+      - ``in_progress`` 在读：打开过但没读完
+      - ``finished``    已读完
+      - ``False``/其他  历史语义「未读完」，保留以兼容旧链接
+    三者互斥且穷尽——用户看到的「未读 / 在读 / 已读完」不会重叠，
+    这是它此前不可理解的根源：旧实现把「空」和「没有」映射到同一个条件。
+    """
     if not config.config_read_column:
-        if read_status == "True":
-            db_filter = and_(ub.ReadBook.user_id == int(current_user.id),
-                             ub.ReadBook.read_status == ub.ReadBook.STATUS_FINISHED)
-        else:
-            db_filter = coalesce(ub.ReadBook.read_status, 0) != ub.ReadBook.STATUS_FINISHED
+        if read_status in ("finished", "True"):
+            return and_(ub.ReadBook.user_id == int(current_user.id),
+                        ub.ReadBook.read_status == ub.ReadBook.STATUS_FINISHED)
+
+        if read_status == "in_progress":
+            return and_(ub.ReadBook.user_id == int(current_user.id),
+                        ub.ReadBook.read_status == ub.ReadBook.STATUS_IN_PROGRESS)
+
+        if read_status in ("unread", ""):
+            # Why 用 NOT EXISTS 而不是 `read_status == STATUS_UNREAD`：从没打开过的书
+            # 根本没有 ReadBook 记录，等值匹配会把它们全漏掉——而它们才是「未读」的主体。
+            started = ub.session.query(ub.ReadBook.id).filter(
+                ub.ReadBook.book_id == db.Books.id,
+                ub.ReadBook.user_id == int(current_user.id),
+                ub.ReadBook.read_status.in_((ub.ReadBook.STATUS_IN_PROGRESS,
+                                             ub.ReadBook.STATUS_FINISHED))).exists()
+            return ~started
+
+        db_filter = coalesce(ub.ReadBook.read_status, 0) != ub.ReadBook.STATUS_FINISHED
     else:
         try:
             if read_status == "":
@@ -244,7 +268,14 @@ def extend_search_term(searchterm,
     if rating_low:
         searchterm.extend([_("Rating >= %(rating)s", rating=rating_low)])
     if read_status != "Any":
-        searchterm.extend([_("Read Status = '%(status)s'", status=read_status)])
+        # 显示成人话，不把 unread/in_progress 这种内部值直接糊到搜索条上
+        status_label = {
+            "unread": _("Unread"), "": _("Unread"),
+            "in_progress": _("In progress"),
+            "finished": _("Read"), "True": _("Read"),
+            "False": _("Not finished"),
+        }.get(read_status, read_status)
+        searchterm.extend([_("Read Status = '%(status)s'", status=status_label)])
     searchterm.extend(ext for ext in tags['include_extension'])
     searchterm.extend(ext for ext in tags['exclude_extension'])
     # handle custom columns
@@ -278,7 +309,11 @@ def render_adv_search_results(term, offset=None, order=None, limit=None):
     rating_low = term.get("ratinghigh")
     rating_high = term.get("ratinglow")
     description = term.get("comments")
+    # 缺省即「不限」：字段缺失时若按 None 落进筛选分支，会静默变成「未读完」筛选。
+    # 只把 None 兜成 Any——空字符串是旧版「空」选项的合法取值（映射为未读），不能吞掉。
     read_status = term.get("read_status")
+    if read_status is None:
+        read_status = "Any"
     if author_name:
         author_name = strip_whitespaces(author_name).lower().replace(',', '|')
     if book_title:
@@ -413,7 +448,9 @@ def render_prepare_search_form(cc):
     else:
         languages = None
     return render_title_template('search_form.html', tags=tags, languages=languages, extensions=extensions,
-                                 series=series,shelves=shelves, title=_("Advanced Search"), cc=cc, page="advsearch")
+                                 series=series, shelves=shelves, title=_("Advanced Search"), cc=cc, page="advsearch",
+                                 # 配了 calibre 自定义阅读列时，三态模型不成立，模板要退化成布尔三项
+                                 read_column_configured=bool(config.config_read_column))
 
 
 def render_search_results(term, offset=None, order=None, limit=None):
