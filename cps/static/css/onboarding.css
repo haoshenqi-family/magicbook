@@ -286,8 +286,11 @@ body.onboarding-active.onb-step-ai #ai-companion-fab {
 
 #onb-help {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  right: 16px;
+  left: auto;
+  /* R215：原本 left:16/bottom:16 与左下页码（left:12/bottom:2）撞位；
+     移到 FAB 上方，并在任一侧栏打开时让位 */
+  bottom: 88px;
   z-index: 2147483640;
   width: 34px;
   height: 34px;
@@ -307,6 +310,10 @@ body.onboarding-active.onb-step-ai #ai-companion-fab {
   opacity: 1;
 }
 
+body[data-side-panel="translation"] #onb-help {
+  display: none;
+}
+
 /* ---------------- 窄屏 ---------------- */
 
 @media (max-width: 767px) {
@@ -320,5 +327,11 @@ body.onboarding-active.onb-step-ai #ai-companion-fab {
     right: 12px;
     bottom: 12px;
     max-width: none;
+  }
+
+  #onb-help {
+    right: 16px;
+    left: auto;
+    bottom: 76px;
   }
 }

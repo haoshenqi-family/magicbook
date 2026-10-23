@@ -190,3 +190,97 @@ def test_insight_error_is_visible_not_silent():
     """解析失败要在页面上可见（LLD §8 禁止静默降级）——警示块不得被删。"""
     src = _read()
     assert "book-insight-error" in src and "entry.insight_error" in src
+# ---- 缺陷修复（子项 A 验收）：书架名解析吃到了 shelf id → /book/<id> 整页 500 --
+SHELF_LEVEL_NAME = "英文分级·阶5（6500–9000词）"
+WEB = os.path.join(ROOT, "cps", "web.py")
+
+
+def _read_web():
+    with open(WEB, encoding="utf-8") as fh:
+        return fh.read()
+
+
+@pytest.fixture
+def shelf_rows(app):
+    """真 ORM 造一个「阶N」书架 + 一条书-书架关联，用例后拆除。"""
+    from cps import ub
+    admin = ub.session.query(ub.User).filter(ub.User.name == "admin").one()
+    shelf = ub.Shelf(name=SHELF_LEVEL_NAME, user_id=admin.id)
+    ub.session.add(shelf)
+    ub.session.commit()
+    link = ub.BookShelf(book_id=900001)
+    # 必须经关系挂载：ub.py 的 before_flush 钩子要写 change.ub_shelf.last_modified，
+    # 只填外键列会让 backref 停在 None，commit 直接抛 AttributeError。
+    shelf.books.append(link)
+    ub.session.commit()
+    yield shelf, link
+    ub.session.delete(link)
+    ub.session.delete(shelf)
+    ub.session.commit()
+
+
+def test_shelf_names_converts_ids_to_names(webmod, shelf_rows):
+    """入参是 id、出参必须是名称——原缺陷正是拿 id 当对象取 `.name`。"""
+    assert webmod._shelf_names_for_book([shelf_rows[1].shelf]) == [SHELF_LEVEL_NAME]
+
+
+def test_shelf_names_empty_for_unshelved_book(webmod):
+    """不在任何书架的书：空 id 列表直接回空，不发 SQL、不抛错（这条路径原本没炸，
+    所以「有的书能打开、有的 500」——必须钉住空集行为）。"""
+    assert webmod._shelf_names_for_book([]) == []
+
+
+def test_difficulty_resolves_from_shelf_name_chain(webmod, shelf_rows):
+    """接线口径：id → 名 → 解析器，「阶5」书架要解析成 (5, "shelf")。"""
+    from cps.reading_insight.difficulty import resolve_difficulty
+    names = webmod._shelf_names_for_book([shelf_rows[1].shelf])
+    assert resolve_difficulty([], names, "") == (5, "shelf")
+
+
+def test_show_book_wiring_uses_shelf_name_helper():
+    """调用点守卫：show_book 的 shelf_names 必须走 _shelf_names_for_book。
+
+    Why: 上三条只证明「转换器 + 解析器各自正确」，而 500 出在调用点把 id 列表
+         当对象列表用——参数形制在调用点错位，只有钉住调用点源码才拦得住。
+         反向变异：把该行换回 `[s.name for s in book_in_shelves]` 必须报红。
+    """
+    src = _read_web()
+    m = re.search(r"def show_book\(.+?(?=\n@web\.route|\ndef |\Z)", src, re.S)
+    assert m, "web.py 里找不到 show_book 函数体"
+    body = m.group(0)
+    assert "shelf_names=_shelf_names_for_book(book_in_shelves)" in body
+    assert "[s.name for s in book_in_shelves]" not in src
+
+
+# ---- 弹窗失败可见性（同一缺陷的第二半：500 不得静默成「这本书没详情」）--------
+LAYOUT = os.path.join(ROOT, "cps", "templates", "layout.html")
+MAIN_JS = os.path.join(ROOT, "cps", "static", "js", "main.js")
+
+
+def _details_modal_handler():
+    with open(MAIN_JS, encoding="utf-8") as fh:
+        js = fh.read()
+    start = js.index('$("#bookDetailsModal")')
+    return js[start:js.index('$("#modal_kobo_token")')]
+
+
+def test_details_modal_has_visible_failure_state():
+    """模板预置失败节点 + JS 有 .fail 分支把它显示出来。
+
+    Why: 弹窗正文靠 AJAX 填充，原先只挂 `.done()`——`/book/<id>` 一 500 就停在
+         模板占位符字面量 "..."，把接口故障伪装成「这本书没有详情」，用户报回来的
+         永远是「我的书打不开」。ops 准则⑦点名的正是这种静默降级。
+    """
+    with open(LAYOUT, encoding="utf-8") as fh:
+        layout = fh.read()
+    assert 'class="alert alert-danger book-details-error"' in layout
+    assert "_('Failed to load')" in layout, "失败文案必须走 _()，不许硬编码中文/英文"
+    handler = _details_modal_handler()
+    assert ".fail(function" in handler, "详情弹窗 AJAX 没有失败分支"
+    assert "$loadError.show()" in handler
+
+
+def test_details_modal_fail_branch_releases_prefilter():
+    """失败分支必须同样摘掉 useCache preFilter，否则它永久挂在 jQuery 上。"""
+    handler = _details_modal_handler()
+    assert handler.count("preFilters.remove(useCache)") == 2, "成功/失败两条路径各摘一次"

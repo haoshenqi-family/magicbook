@@ -1,6 +1,7 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）；子项 B **开发完成**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，测试 38+17 全绿；develop 合并待主检出并行会话暂存落地后执行）；子项 C 待开发（费率回传端点 moon-well R207 **已实现**，见 §11）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；子项 C 待开发（费率回传端点 moon-well R207 **已实现**，见 §11）；拍板⑦：AI 简介无「重新生成」按钮
+> **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
 
@@ -195,6 +196,7 @@ wordDetail: tokens = targetWords * 4000  ; credits = ceil(tokens / 1000) * per1k
 | 翻译 cache lookup 失败 | 覆盖率显示「缓存命中暂不可得」，**不显示 0** |
 | AI 简介上游失败 | 区块内红字显示上游 message，不冒充「暂无简介」 |
 | 活跃批次查询失败 | 按钮回到「开始」并在控制台留 warn（页面可用） |
+| 详情弹窗 AJAX 非 2xx | 弹窗内显示「加载失败」（`layout.html` 预置节点 + `main.js` `.fail()`），**不停在占位符 `...`**；见 §12 |
 
 ## 9. 存量语言补正（`scripts/backfill_languages.py`）
 
@@ -226,3 +228,38 @@ python3 scripts/backfill_languages.py --apply --ids 337,336
 2. ~~moon-well R207 占号~~ **已落地（2026-10-23）**：`POST /book/ai/ability/book-intro`（按正文入参，不吃 bookId）+ `GET /credit/billing`（费率回传）已实现并合入 moon-well develop（`f89c9ff`+`2433c65`）。**设计修正**：book-intro 不进 `perCall` 白名单——能力调用走 `callForTask` 任务路径按 token 计量，`perCall` 只覆盖交互路径，原「perCall 加 book-intro:1」会造出假费率，已回正（详见 moon-well requests R207）。两侧 L2 契约文档互链待 C 收尾时补。
 
 > 已拍板关闭：AI 简介不提供「重新生成」按钮（2026-10-23 拍板⑦）；简介长度 120–200 字、模型取 moon-well `book-intro` 默认。
+
+## 12. 子项 A 验收缺陷：`/book/<id>` 整页 500（2026-10-23，`fix/r214-detail-500`）
+
+**现象**：书架页点封面 → 「书籍详情」弹窗正文只剩字面量 `...`，读不了书。
+
+**根因**（`fdd95225` 引入）：A6 的二级兜底要「书架名」，调用点写成
+`shelf_names=[s.name for s in book_in_shelves]`；而 `book_in_shelves` 攒的是
+`ub.BookShelf.shelf` —— `Column(Integer, ForeignKey('shelf.id'))`，整数列不是 Shelf 关系对象。
+`AttributeError: 'int' object has no attribute 'name'` → `show_book` 抛 500。
+
+**为什么只有部分书炸**：不在任何书架的书 `book_in_shelves` 为空，推导式不执行 → 页面照常。
+现象因此长成「有的书打得开、书架里的整架打不开」，容易被误读成个别文件损坏。
+线上 ES 实证 21:07 起 9 次 `Exception on /book/{id}`，栈顶即 `web.py:2576`。
+
+**为什么单测没拦住**：§10 表里那条「集成：真 socket 起 app 打 `/book/337`」**子项 A 没落地**，
+`test_book_detail_r214.py` 全是模板正则守卫 + `resolve_difficulty` 纯函数单测——
+纯函数签名写明「参数为名称列表、不碰数据库」，调用点却传了 id 列表，两侧各自正确、
+接线错误无人守。ops 准则⑦的同一形态：契约有形制、消费侧无守卫。
+
+**修法**：名称由 `_shelf_names_for_book(shelf_ids)` 单查一次（`in_` 一条 SQL，不按书架数
+lazy load 出 N+1）。`book_in_shelves` 保持 id 列表不动——`detail.html` 用
+`shelf.id in books_shelfs` 判「已加入书架」，形制改了会连带坏掉。
+
+**补的守卫**（`tests/test_book_detail_r214.py`）：
+- 真 ORM 造「阶N」书架 + 书-架关联，钉住 id→名→解析器整条接线，含空集分支；
+- **调用点源码守卫**：断言 `show_book` 体内是 `_shelf_names_for_book(book_in_shelves)`，
+  且全文件不再出现 `[s.name for s in book_in_shelves]`——转换器与解析器的单测都拦不住
+  「参数形制在调用点错位」，只能钉调用点（反向变异换回去即报红，已实测）；
+- 弹窗失败可见性守卫 ×2（见下）。
+
+**顺带修掉的第二半（静默降级）**：`#bookDetailsModal` 的 `$.get` 原先只挂 `.done()`，
+服务端一报错弹窗就停在模板占位符 `...`——接口故障被伪装成「这本书没详情」。现补 `.fail()`
+显示「加载失败」（复用 po 已有词条，不新引 msgid、不动 i18n 生成链）。同时补
+`preFilters.remove(useCache)`：原代码只在成功路径摘，一次失败就把 preFilter 永久挂在
+jQuery 上污染后续所有 AJAX。
