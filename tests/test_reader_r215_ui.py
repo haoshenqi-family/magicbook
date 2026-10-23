@@ -110,7 +110,11 @@ def test_段尾触屏菜单与图标放大():
     assert "display:inline-flex" in tools_rule and "display:inline-flex" in toolbar_rule
     for rule in (tools_rule, toolbar_rule, menu_rule):
         assert "position:absolute" not in rule, "段尾工具不得用浮层压字（用户验收否决）"
-    assert "font-size:1.5em" in core, "桌面段尾图标未放大到 24px 口径"
+    assert "font-size:1.5em" not in core, "满幅字形不应再统一 1.5em"
+    assert ".reading-tts-btn{font-size:.95em}" in core
+    assert ".reading-translate-btn{font-size:.9em;font-weight:600}" in core
+    assert ".reading-annotation-btn{font-size:1.15em}" in core
+    assert ".reading-companion-btn{font-size:1.05em}" in core
     tts = _read("cps/static/js/reading/reader-tts.js")
     assert "function openParagraphMenu" in tts
     assert "reading-para-menu-btn" in tts
