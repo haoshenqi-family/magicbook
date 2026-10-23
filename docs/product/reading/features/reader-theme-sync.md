@@ -2,7 +2,7 @@
 
 > R216（2026-10-23）建立：5 个内置主题跨设备一致，自定义颜色仍只留本机。
 > 相关：L1 [reading.md](../../readme/reading.md)、L2 [interface.md](../interface.md)、
-> 本次实现 [lld.md](../../../project/iterations/1.0/r216-onboarding-prefs/lld.md)、moon-well R207（`user_ui_settings.reader_theme`）。
+> 本次实现 [lld.md](../../../project/iterations/1.0/r216-onboarding-prefs/lld.md)、moon-well R208（`user_ui_settings.reader_theme`）。
 
 ## 1. 主题范围
 

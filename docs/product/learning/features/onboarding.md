@@ -2,7 +2,7 @@
 
 > R109（2026-08）建立三段式 spotlight 导览；R216（2026-10-23）收敛为**账号级只自动邀请一次**。
 > 相关：L1 [readme.md](../../readme/readme.md)、L2 [reading/interface.md](../../reading/interface.md)（UI 设置代理）、
-> 本次实现 [lld.md](../../../project/iterations/1.0/r216-onboarding-prefs/lld.md)、moon-well R207（`user_ui_settings` 存储主责）。
+> 本次实现 [lld.md](../../../project/iterations/1.0/r216-onboarding-prefs/lld.md)、moon-well R208（`user_ui_settings` 存储主责）。
 
 ## 1. 能力与入口
 

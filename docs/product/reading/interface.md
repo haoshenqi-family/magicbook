@@ -61,7 +61,7 @@ TED/博客类书的内容是**一段连续原声**（`ted-audio/<slug>.aac`）�
 
 ### 4. 账号级 UI 偏好代理（`cps/routes/preferences.py`，R216）
 
-引导已读与阅读主题存在 moon-well `user_ui_settings`（跨设备一致）；本仓只做鉴权转发。后端契约权威：moon-well R207 LLD（`docs/project/iterations/2026-10-ui-prefs/lld.md`，该模块暂无 L2）。
+引导已读与阅读主题存在 moon-well `user_ui_settings`（跨设备一致）；本仓只做鉴权转发。后端契约权威：moon-well R208 LLD（`docs/project/iterations/2026-10-ui-prefs/lld.md`，该模块暂无 L2）。
 
 | magicbook 端点 | moon-well 端点 | 方法 | 超时 | 说明 |
 | --- | --- | --- | --- | --- |

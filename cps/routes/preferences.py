@@ -1,4 +1,4 @@
-# cps/routes/preferences.py — 账号级 UI 偏好代理（R216，承接 moon-well R207）。
+# cps/routes/preferences.py — 账号级 UI 偏好代理（R216，承接 moon-well R208）。
 # 引导已读与阅读器主题存 moon-well user_ui_settings，本站只做鉴权转发；
 # 失败原样透传（401/503/业务错误），不包装成「数据不存在」。
 

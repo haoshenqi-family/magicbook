@@ -2,7 +2,7 @@
 
 > 状态：已定稿，已开发待验收（2026-10-23；六条交付实现 + 无头验收完成，未 push）
 > 工作项：PingCode MB-15 / Ship MAGICBOOK-223（R216）· 关联 R109（引导）· R208（账号级偏好范式）· QA 报告 §六/§七
-> 跨仓：moon-well R207（账号级 UI 偏好存储与契约主责）· magicbook R216（本仓）
+> 跨仓：moon-well R208（账号级 UI 偏好存储与契约主责；原占 R207，2026-10-23 让号）· magicbook R216（本仓）
 > 迭代：magicbook 1.0 · 设计文档路径 `docs/project/iterations/1.0/r216-onboarding-prefs/`
 
 ## 1. 目标与不做什么
@@ -39,7 +39,7 @@
 
 ## 3. 数据与契约
 
-### 3.1 moon-well（主责仓 R207）
+### 3.1 moon-well（主责仓 R208）
 
 新表 `user_ui_settings`（`ddl-auto: update` 自动建表，per-user 单行）：
 
@@ -181,6 +181,6 @@
 ## 9. 文档回填（交付四问 · 2026-10-23 已落地）
 
 - L1：`docs/product/readme/readme.md`（快速开始 + /me/引导行为）、`readme/companion.md`（伙伴定义）、`readme/library.md`（首页难度入口）。
-- L2：`docs/product/reading/interface.md` 增补三条 UI 设置代理映射；moon-well 侧 L2 由其 R207 工作项维护。
+- L2：`docs/product/reading/interface.md` 增补三条 UI 设置代理映射；moon-well 侧 L2 由其 R208 工作项维护。
 - L3：`docs/product/learning/features/onboarding.md`（状态机与失败口径）、`docs/product/reading/features/reader-theme-sync.md`（主题同步）、`docs/product/companion/features/buddy-ip-risk.md`（IP 风险登记，含 8 个 HP 派生角色与替换点）。
 - 迭代：`docs/project/iterations/1.0/plan.md` MB-15 状态回写；`response.md` 驻留台账。
