@@ -90,6 +90,11 @@ def get_epub_info(tmp_file_path, original_file_name, original_file_extension, no
                 epub_metadata[s] = ', '.join(tmp)
             elif s == 'date':
                 epub_metadata[s] = tmp[0][:10]
+            elif s == 'language':
+                # R214 子项 A：双语 EPUB 会声明多个 dc:language（如 eng+chi），原实现
+                # 只取 tmp[0]、丢掉其余声明 → 双语书导入后语言只剩单语（QA §四 根因）。
+                # 此处先全部收下，出口处统一规范化为 lang3 逗号串。
+                epub_metadata[s] = ', '.join(strip_whitespaces(x) for x in tmp if strip_whitespaces(x))
             else:
                 epub_metadata[s] = strip_whitespaces(tmp[0])
         else:
@@ -111,8 +116,15 @@ def get_epub_info(tmp_file_path, original_file_name, original_file_extension, no
         else:
             epub_metadata['description'] = ""
 
-    lang = epub_metadata['language'].split('-', 1)[0].lower()
-    epub_metadata['language'] = isoLanguages.get_lang3(lang)
+    # R214 子项 A：多语言逐个规范化（zh-Han 等区域变体归并到 lang3）后逗号拼接、
+    # 去重保序。下游 edit_book_languages() 本就按逗号拆分落库（cps/editbooks.py:1272），
+    # 形制无需改动；无声明时输出空串，与 BookMeta 默认值一致。
+    norm_langs = []
+    for raw in epub_metadata['language'].split(','):
+        code = isoLanguages.get_lang3(strip_whitespaces(raw).split('-', 1)[0].lower())
+        if code and code not in norm_langs:
+            norm_langs.append(code)
+    epub_metadata['language'] = ','.join(norm_langs)
 
     epub_metadata = parse_epub_series(ns, tree, epub_metadata)
 
