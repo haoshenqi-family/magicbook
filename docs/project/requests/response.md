@@ -198,3 +198,18 @@
 - **跨仓待办**：moon-well 侧 R207（`GET /credit/billing` 费率回传 + `book-intro` 按正文入参摘要能力，`perCall` 加 `book-intro:1`）尚未占号开工，子项 C 的积分行在它就绪前走「费率暂不可得」分支。
 - **窗口**：本条写入使窗口达 11 个 request，按「写入即检查」把最旧的 **R194**（写作批改 SSE 进度流，15 行）原样搬至 `response-archive/response-R194.md` 并登记索引，窗口回 10；只搬移不改写。
 - **总结**：requests.md 占号 R214（2026-10-23，条目 214）；本条为回应；冲突记录：无撞号（写入前核对 develop 台账，214 空位且无并行占用）。
+
+## 2026-10-23（R218：R214 子项 A 验收缺陷——在书架里的书详情页 500，读不了书）
+
+### R218（用户：「我为什么没办法读书了」+ 详情弹窗只剩 `...` 的截图 → 定性 → 「可以，按方案修复」）
+
+- **任务定位**：缺陷，挂 R214 子项 A / PJM MB-13 / Ship MAGICBOOK-221。不做无主修复——根因就在 `fdd95225`（子项 A 元数据修正）里。
+- **定性证据**（先查 ES 再读码，`app-log-magicbook`）：`Exception on /book/145 [GET]` 栈顶 `web.py:2576 shelf_names=[s.name for s in book_in_shelves]` → `AttributeError: 'int' object has no attribute 'name'`；近 24h `/book/{id}` 9 次、首次 21:07（＝子项 A 部署后）。**影响面按数据切成两半**：`ub.BookShelf.shelf` 是 `Column(Integer, ForeignKey('shelf.id'))`，攒出来的是 id 列表，凡在任意书架里的书必 500；不在书架的书走空列表分支照常打开——所以现象长成「书架里的整架打不开」，极易被误读成个别文件损坏。详情弹窗正文靠 AJAX 填 `/book/<id>`，**「在线阅读」入口就在里面**，500 等于把阅读器入口整个摘掉（`/read/<id>/<fmt>` 路由本身无异常，属可绕过路径）。
+- **修复（两 commit）**：① `88ba3626` 名称改由 `_shelf_names_for_book(shelf_ids)` 单查一次（`in_` 一条 SQL，不按书架数 lazy load 出 N+1）；`book_in_shelves` 保持 id 列表不动——`detail.html` 用 `shelf.id in books_shelfs` 判「已加入书架」，形制改了会连带坏掉。② `8643f8fe` 弹窗 AJAX 补 `.fail()`：原先只挂 `.done()`，服务端一报错就停在 `layout.html` 的模板占位符字面量 `...`，把接口故障伪装成「这本书没详情」（ops 准则⑦点名的静默降级形态）；失败分支同时补 `preFilters.remove(useCache)`——原代码只在成功路径摘，一次失败就把 preFilter 永久挂在 jQuery 上污染后续所有 AJAX。文案复用 po 已有 `"Failed to load"`（加载失败），**不新引 msgid、不动 i18n 生成链**（见下「未顺带做的」）。
+- **测试**：`tests/test_book_detail_r214.py` 17→**19 条**——真 ORM 造「阶N」书架 + 书-架关联钉住 id→名→解析器整条接线（含空集分支），另加**调用点源码守卫**。Why 要这条：转换器与解析器各自的单测都拦不住「参数形制在调用点错位」，而 §10 计划里那条「集成：真 socket 起 app 打 `/book/337`」子项 A 根本没落地——这正是缺陷漏网的直接原因。反向变异实测三处均报红：调用点换回 `[s.name for s in ...]`、转换器改成 `return list(shelf_ids)`、JS 删掉整个 `.fail` 分支。全量复跑干净 worktree **762 passed / 0 failed**（`layout.html` 是全站布局，不敢只跑改动模块）。
+- **同编号互斥的例外（需你知悉）**：R214 的 worktree `../magicbook-r214-book-detail` 已被**子项 B 的 3 个未合并提交**占用（`develop...feat/r214-book-detail` = 3/2），在里面改会把未验收的 B 一起带上线，故另起 `../magicbook-r214-detail-500`（分支 `fix/r214-detail-500`，从 `origin/develop` `040b627b` 切出）。这是对第 9 条「禁止换 slug 绕开」的一次破例，理由不是便利而是**避免把并行在途工作误发布**；子项 B 后续 merge 时会自然拿到本修复（同函数 `show_book` 有冲突面，届时按 B 优先合）。
+- **未顺带做的**：跑 `scripts/generate_i18n_seed.py` 会带出不相关的陈旧清单漂移——`cps/static/js/buddy.js`（R206 并行会话合入时漏跑生成器）不在 `tests/i18n_js_files.json` 里、`msgid_count` 299→311。这 12 条词条与本次 hotfix 无关，且把 buddy.js 新纳入契约扫描可能翻出别人的红。已单独记为待办，不在本分支处理。
+- **文档四问**：能力变了吗 → L1 无变化（缺陷修复，`readme/library.md` 的「书籍详情」条仍成立）；契约变了吗 → 无对外接口变化；实现/边界 → LLD **§12 新增**（根因/影响面/为何单测没拦住/修法/守卫），§8 降级表补「详情弹窗 AJAX 非 2xx」一行；本次怎么实现 → LLD §12 + 状态行回填缺陷修复。AC 补 **A8**（在书架的书 `/book/<id>` 必须 200）与 **A9**（AJAX 失败可见 + 失败分支摘 preFilter），A1–A7 仍待你真机验收，未代你勾选。
+- **驻留与闸门**：worktree `../magicbook-r214-detail-500`（分支 `fix/r214-detail-500`，含 merge `origin/develop` 的 `03a9c991`）原样驻留待验收；验收通过后 `worktree remove` + `branch -d`。**台账占号 R218 已 push**（`4e1aff6f`，纯文档 commit，按「占号即 push」惯例——注意 fnOS 链未加「纯文档跳过」判据，这一推会起一次构建，产物内容与 `040b627b` 等值）。**代码修复本身未 push**，等你的上线指令。
+- **窗口**：本条写入后 `## ` 节数达 12，超 10。**本轮不搬移**——`response-R195-R202.md` 的轮转已存在于本地 develop 未 push 的 `6dcaced0` 上（并行会话工作区还 staged 了 `D response-R195-R202.md` / `D response-R203.md`），此处再轮转一次必然与之冲突。登记为待办：待 R217/QA 那批 staged 内容落定后，由一轮统一整理窗口的人按「写入即检查」补齐，不静默滞留。
+- **总结**：requests.md 占号 R218（2026-10-23，条目 218，已 push）；本条为回应；冲突记录：与 R214 子项 B 同函数 `show_book` 存在合并冲突面（本分支只动 `shelf_names` 一行 + 新增 helper，B 动 insight 注入，交集小）；与并行会话的 response 归档整理存在窗口轮转撞车风险，已按上条避让。
