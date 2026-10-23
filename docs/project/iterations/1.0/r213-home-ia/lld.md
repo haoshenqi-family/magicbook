@@ -1,6 +1,6 @@
 # LLD — R213 首页信息架构（三子项实现细节）
 
-> 状态：**B 已开发待验收 / A、C 设计未定稿**（2026-10-23；B 见 §1–§3，A 卡侧边栏分组口径、C 依赖 A/B）
+> 状态：**A（非分组部分）与 B 已开发待验收 / A 侧边栏分组与 C 未定稿**（2026-10-23；A 已实现 chips 文字标签、卡片格式徽标、搜索合并、移动底部导航、创建书架裁切修复，**侧边栏四组分组按用户要求暂缓**等拍板；C 依赖 A/B 合入）
 > 迭代：1.0 · PJM 工作项 [MB-12](https://haoshenqi.pingcode.com/pjm/workitems/cc_nhJnW) 及拆出的 A/B/C 三个任务（MB-16/17/18） · Ship 需求 MAGICBOOK-220
 > 实现落点：worktree `../magicbook-r213-home-ia`，分支 `feat/r213-home-ia`（A/B/C 共用一树，按同编号互斥纪律）
 > 上游：[hld.md](./hld.md)（方案选型与被否方案）· 需求基线 [`product/library/requirements.md`](../../../product/library/requirements.md)
@@ -159,10 +159,11 @@ def level_of_shelf(name):  # 解析不出 → None
 
 | 项 | 落点 | 做法 |
 | --- | --- | --- |
-| 格式徽标 | `image.html` 封面宏 + `_book_card.html` | 角标显示 `EPUB` / `PDF` / `TED 音频 12:34`；原声缓存状态读现有音频缓存标记（有则显示「已缓存」小图标，无则点击时才合成）；EPUB/PDF 不加时长 |
-| chips 文字 | 书库筛选模板（`index.html` 上方 filterheader 同族） | 每个 chip 加 `<span class="chip-label">`；`<768px` 收进「筛选」抽屉（复用现有抽屉组件），抽屉内保留文字 |
-| 搜索合并 | `layout.html` 顶栏 | 「高级搜索」入口并入搜索框：输入即普通搜索，`⏷` 展开高级面板（作者/标签/语言/格式），删掉并排的第二个「搜索」文字按钮 |
-| 移动端底部导航 | `layout.html` + `caliBlur.css` | `@media (max-width: 767px)` 固定底栏：书架 `/` · 学习 `/learning` · 我的 `/me`；`padding-bottom` 让内容不被遮挡；汉堡菜单保留次要项 |
+| 格式徽标 | `index.html` 两处封面循环（随机区 + 列表区） | 角标显示主文本格式（`main_format` 过滤器：第一个非音频格式）+ 音频徽标。**已实现（2026-10-23）**。**偏差**：时长/「已缓存」未做——缓存状态在 moon-well，列表页同步拉会 N 打它的接口，留异步批量接（C 或单独小单）；EPUB/PDF 不加时长照原案 |
+| chips 文字 | `index.html` filterheader | 每个 chip 加 `<span class="chip-label">`（msgid 走 Babel，zh_Hans_CN 已补词条）；`<768px` 整排收进 Bootstrap collapse 抽屉，「筛选与排序」按钮开合，桌面端媒体查询强制展开。**已实现（2026-10-23）** |
+| 搜索合并 | `layout.html` 顶栏 | 高级搜索入口并入搜索框输入组（input-group-btn 内的 `⏷` 按钮，保留 `id="advanced_search"`——onboarding 引导步骤选中它），主导航不再并排。**已实现（2026-10-23）**。**偏差**：原案的「`⏷` 展开内联高级面板」未做，改为直达高级搜索页——内联面板与 C 的筛选能力重叠，留给 C 一并设计 |
+| 移动端底部导航 | `layout.html` 尾部 + `style.css` | `@media (max-width: 767px)` 固定底栏：书库 `/` · 学习 `/learning` · 我的（未登录显示登录）；`body { padding-bottom: 54px }`。**已实现（2026-10-23）**。样式落 `style.css`（非 caliBlur——caliBlur 是主题覆盖层，基础组件样式应进主表） |
+| 「创建书架」裁切 | `style.css` `.navigation` | `max-height: calc(100vh - 80px); overflow-y: auto;`（仅 ≥768px，侧栏不脱离文档流）。**已实现（2026-10-23）** |
 
 ## 7. 异常与边界
 
