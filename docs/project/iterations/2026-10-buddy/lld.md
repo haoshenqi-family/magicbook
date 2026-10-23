@@ -34,6 +34,7 @@
 - `ai_chat.js` `loadBuddyFab()`：拉 catalog 取 equipped 伙伴的 `imageUrl`，`new Image()` 预载成功才加 `has-buddy` 切图；**图片未上传/未装备/代理不可达一律保留「AI」文字**，绝不裂图。
 - `ai_chat.css`：`has-buddy` 时 img 铺满圆钮；动效 4 态——idle 呼吸、hover 放大（沿用）、thinking 起伏（`streamChat` 发起到 `finishMessage` 收尾，即 send 禁用→恢复窗口）、sleep 打盹（45s 无交互）；`prefers-reduced-motion` 关闭动效。
 - **CSP 放行（R207 补，漏了这一条换图永不生效）**：头像是 MinIO 跨源直链，`cps/web.py::add_security_headers` 的 `img-src` 原为 `'self' … data:`，浏览器直接拦掉。且「绝不裂图」的兜底在这里反过来成了**不可见故障**——`new Image()` `onerror` 就静默保留「AI」文字，页面表现完全正常，只表现为「图传了但没换」。按 R181 `media-src` 的窄面范式只在两个端点放行 `https://home.haoshenqi.top:9001`：`web.read_book`（一个端点覆盖 epub/pdf/txt/djvu/cbr，FAB 全在这里）与 `web.buddy_page`（花名册）；其余页面 img-src 不变。该源与 media-src 里已硬编码的是同一个，Nacos 改 `minio.public-url` 时两处一起失效，不新增漂移面。用例见 `tests/test_csp_media.py`（2 端点参数化 + 1 条 index 不得放行的反向守卫）。
+- **R210 更正并落实**：上面那句「两处一起失效」当天就应验了——用户网络拦 `home.haoshenqi.top:9001`，MinIO 对外入口迁到 `https://minio.haoshenqi.top`（后端同一份：同一对象两入口 `Content-Length`/`ETag` 全同）。两处硬编码已收敛为**单点清单** `cps/web.py::MINIO_PUBLIC_ORIGINS`，`media-src` 与 `img-src` 共用；过渡期两源并列（先松 CSP 再翻 moon-well 配置，避免翻转窗口内 TED 原声与伙伴图同断），**待再无任何出口产出旧源后删旧条目收窄，须单独一笔、不夹功能改动**。反向守卫同步加严：index 不得出现任一 MinIO 源，且 img-src 不得被放宽成通配。
 
 ## 5. 引导领取雪鸮
 
