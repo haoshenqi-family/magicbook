@@ -71,3 +71,59 @@ def test_whole_book_buttons_admin_gated():
 def test_old_combined_gate_is_gone():
     """旧的 role_viewer() and current_user.role_admin() 合并门禁不得复活。"""
     assert "role_viewer() and current_user.role_admin()" not in _read()
+
+
+# ---- 伪出版日判定（R214 元数据不伪造）------------------------------------
+# cps.web 的 import 链需 app 初始化（test_book_import 同款教训），延迟 import。
+@pytest.fixture
+def webmod(app):
+    import cps.web as web
+    return web
+
+
+def test_pubdate_near_timestamp_is_import_date(webmod):
+    ts = datetime.datetime(2026, 10, 10, 9, 0, 0)
+    assert webmod._pubdate_is_import_date(ts + datetime.timedelta(hours=3), ts) is True
+
+
+def test_pubdate_far_from_timestamp_is_real(webmod):
+    ts = datetime.datetime(2026, 10, 10, 9, 0, 0)
+    assert webmod._pubdate_is_import_date(ts - datetime.timedelta(days=300), ts) is False
+
+
+def test_pubdate_handles_tz_aware_and_missing(webmod):
+    utc = datetime.timezone.utc
+    ts = datetime.datetime(2026, 10, 10, 9, 0, tzinfo=utc)
+    naive_same = datetime.datetime(2026, 10, 10, 9, 30)  # 混搭 tz 也不许炸
+    assert webmod._pubdate_is_import_date(naive_same, ts) is True
+    assert webmod._pubdate_is_import_date(None, ts) is False
+    assert webmod._pubdate_is_import_date(ts, None) is False
+
+
+def test_template_renders_imported_label_when_flagged():
+    """模板在伪出版日分支显示「导入于」，不显示 Published。"""
+    src = _read()
+    assert "导入于" in src and "entry.pubdate_is_import_date" in src
+
+
+# ---- 难度阶四级兜底（与 R213 共用解析器）---------------------------------
+def test_difficulty_prefers_tag_then_shelf_then_series():
+    from cps.reading_insight.difficulty import resolve_difficulty as r
+
+    assert r(["英文分级", "阶2"], ["英文分级·阶5（6500–9000词）"], "书虫·第6级") == (2, "tag")
+    assert r([], ["英文分级·阶5（6500–9000词）"], "书虫·第6级") == (5, "shelf")
+    assert r([], ["书虫·牛津英汉双语读物"], "书虫·第6级") == (3, "series")
+    assert r([], [], "") == (None, None)
+
+
+def test_difficulty_series_map_is_annotated_as_series():
+    """系列映射必须带 series 来源，UI 才能标注「粗映射」——不允许伪装成书目事实。"""
+    from cps.reading_insight.difficulty import resolve_difficulty as r
+
+    level, source = r([], [], "书虫·第1级")
+    assert (level, source) == (1, "series")
+
+
+def test_template_shows_unrated_when_no_difficulty():
+    src = _read()
+    assert "难度: 未分级" in src and "book-difficulty" in src

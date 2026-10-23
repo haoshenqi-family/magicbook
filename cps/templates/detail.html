@@ -188,9 +188,24 @@
                 <div class="languages">
                     <p>
                         <span class="label label-default">{{_('Language')}}: {% for language in entry.languages %}{{language.language_name}}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                        {# R214 子项 A：声明 ≥2 种语言时标「双语」——只按书目自身声明，不猜（拍板⑤） #}
+                        {% if entry.languages|length > 1 %}<span class="label label-info">双语</span>{% endif %}
                     </p>
                 </div>
             {% endif %}
+
+            {# R214 子项 A：难度阶标签（四级兜底：标签 > 书架 > 系列映射 > 未分级，
+               与 R213 分级推荐共用 cps/reading_insight/difficulty.py）。 #}
+            <div class="book-difficulty">
+                <p>
+                    {% if entry.difficulty and entry.difficulty[0] %}
+                        <span class="label label-warning"
+                              title="{% if entry.difficulty[1] == 'series' %}按系列粗映射（R162），可加「阶N」标签或书架名覆盖{% elif entry.difficulty[1] == 'tag' %}按书目标签「阶N」{% else %}按书架名「阶N」{% endif %}">难度: 阶{{ entry.difficulty[0] }}</span>
+                    {% else %}
+                        <span class="label label-default">难度: 未分级</span>
+                    {% endif %}
+                </p>
+            </div>
 
             {% if entry.identifiers|length > 0 %}
                 <div class="identifiers">
@@ -231,7 +246,13 @@
 
             {% if (entry.pubdate|string)[:10] != '0101-01-01' %}
                 <div class="publishing-date">
-                    <p>{{ _('Published') }}: {{ entry.pubdate|formatdate }} </p>
+                    {# R214 子项 A：OPF 无 dc:date 时 Calibre 用导入时间填 pubdate，
+                       这种「伪出版日」改显示为「导入于」，不冒充出版信息。 #}
+                    {% if entry.pubdate_is_import_date %}
+                        <p title="本书元数据未标注出版日期，此处显示的是入库时间">导入于: {{ entry.timestamp|formatdate }}</p>
+                    {% else %}
+                        <p>{{ _('Published') }}: {{ entry.pubdate|formatdate }} </p>
+                    {% endif %}
                 </div>
             {% endif %}
             {% if cc|length > 0 %}
