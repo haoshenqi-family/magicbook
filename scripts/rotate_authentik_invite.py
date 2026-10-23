@@ -29,7 +29,8 @@ python3 scripts/rotate_authentik_invite.py --name magicbook-r211 --apply \
 关键细节
 --------
 - **默认 `single_use=False`（可复用）**：2026-10-23 用户拍板「登录页那条注册链接
-  要长期有效」。风险由 R211 兜底：转发出去也只产生普通用户，管理员仍由人工赋予。
+  要长期有效」——一次性邀请用过就废，入口会周期性坏死（R103 那条就是这么报废的）。
+  风险由 R211 兜底：转发出去也只产生普通用户，管理员仍由人工赋予。
   需要一次性时加 `--single-use`。
 - **链接形式**：脚本生成的是 `?query=itoken%3D<uuid>`（authentik 现在唯一认的
   形式，见 `build_invite_url` 的注释）。

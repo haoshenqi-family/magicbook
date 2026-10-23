@@ -132,5 +132,5 @@ get_params = QueryDict(request.GET.get(QS_QUERY, ""))   # QS_QUERY = "query"
 
 两点推论：
 
-- **新账号一律普通用户**这条修复，正是让「链接被转发也无所谓」成立的前提——转发出去也只产生普通用户，管理员仍由人工赋予。
-- 入口要长期可用，得保证链接形式跟 authentik 当前版本对得上。策略已定（2026-10-23 用户拍板）：**邀请设为可复用**（`single_use=False`）、有效期 90 天；轮换工具 [`scripts/rotate_authentik_invite.py`](../../../../scripts/rotate_authentik_invite.py)（建邀请 → 生成新式链接 → 改 fnOS `.env` → `docker compose up -d` 重建 → 校验登录页；默认 dry-run，`--apply` 才动服务器）。细节见 [OIDC 登录工作流](../../kb/instructions/workflows/oidc-login.md) §2。
+- **新账号一律普通用户**这条修复，正是让「谁拿到链接都无所谓」成立的前提——链接被转发也只产生普通用户，管理员仍由人工赋予。
+- **入口长期可用的策略已定**（2026-10-23 用户拍板）：**邀请设为可复用**（`single_use=False`）、有效期 90 天——否则每注册一个人入口就死一次，而入口失效只表现为一句报错，很难被察觉。同时必须使用 Authentik 的嵌套 query 形式（`?query=itoken%3D<pk>`）。轮换工具（建邀请 → 改 `.env` → 重建 → 校验）： [`scripts/rotate_authentik_invite.py`](../../../../scripts/rotate_authentik_invite.py)（默认 dry-run，`--apply` 才动服务器；细节见 [OIDC 登录工作流](../../kb/instructions/workflows/oidc-login.md) §2）。
