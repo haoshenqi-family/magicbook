@@ -36,16 +36,19 @@ OIDC 全部由环境变量配置，`docker-compose.yml` 经 `env_file` 注入，
 
 | 环境变量 | 示例 | 说明 |
 |---|---|---|
-| `AUTHENTIK_ISSUER` | `https://authentik.haoshenqi.top/application/o/magicbook/` | Authentik Provider 的 issuer |
+| `AUTHENTIK_ISSUER` | `https://account.haoshenqi.top/application/o/magicbook/` | Authentik Provider 的 issuer（**随请求 Host 变化**，见 §6 域名切换） |
 | `AUTHENTIK_MAGICBOOK_CLIENT_ID` | `<client_id>` | Authentik 侧 magicbook application 的 Client ID |
 | `AUTHENTIK_MAGICBOOK_CLIENT_SECRET` | `<client_secret>` | 与 id_token 签名/凭证换取相关的密钥 |
-| `AUTHENTIK_MAGICBOOK_REDIRECT_URI` | `https://magicbook.haoyuhang.top/oidc/callback` | **回调地址**，授权后 Authentik 重定向到此处；未设置时回退 `url_for(..., _external=True)` |
-| `AUTHENTIK_ENROLLMENT_INVITE_URL` | `https://authentik.haoshenqi.top/if/flow/invitation-enrollment/?itoken=<邀请pk>` | **邀请制注册入口**（R103）。配置后登录页（游客首页）在登录按钮下渲染「注册账号 Sign up (invite)」；Authentik 邀请默认 30 天过期，轮换时更新此值并重启容器，未配置则不渲染 |
+| `AUTHENTIK_MAGICBOOK_REDIRECT_URI` | `https://magicbook.haoshenqi.top/oidc/callback` | **回调地址**，授权后 Authentik 重定向到此处；未设置时回退 `url_for(..., _external=True)` |
+| `AUTHENTIK_ENROLLMENT_INVITE_URL` | `https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=<邀请pk>` | **邀请制注册入口**（R103）。配置后登录页（游客首页）在登录按钮下渲染「注册账号 Sign up (invite)」；Authentik 邀请默认 30 天过期，轮换时更新此值并重启容器，未配置则不渲染 |
 
-> **当前线上取值（2026-08-21 修订后）**
+> **当前线上取值（2026-10-23 R161 域名切换后）**
 >
-> - Issuer 不变：`https://authentik.haoshenqi.top/application/o/magicbook/`
-> - Redirect URI：`https://magicbook.haoyuhang.top/oidc/callback`
+> - Issuer：`https://account.haoshenqi.top/application/o/magicbook/`
+> - Redirect URI：`https://magicbook.haoshenqi.top/oidc/callback`
+> - 注册邀请：`https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=…`
+> - 旧域 `magicbook.haoyuhang.top` / `authentik.haoshenqi.top` 均保留：前者整站 301 到新域，后者仅浏览器入口 301（OIDC 机器端点原地保留，供 note/immich 等旧 issuer 的 RP 使用）
+> - 改这三项须同步 authentik provider 的 `_redirect_uris` 白名单（新旧两条并存）与 moon-well 的 `AUTHENTIK_MAGICBOOK_ISSUER`（换票校验逐字比对 issuer）
 
 ## 3. 回调地址（redirect_uri）约束
 
