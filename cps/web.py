@@ -104,6 +104,14 @@ def _begin_trace():
     logger.trace_id_var.set(_moonwell_trace_id())
 
 
+# MinIO 对外直链源清单（CSP 用；直链本身由 moon-well 按 minio.public-url 现拼，本站不代理二进制）。
+# R209 过渡态：`minio.haoshenqi.top`（443 经 VPS 反代，新入口）与 `home.haoshenqi.top:9001`
+# （旧入口）并列——先松 CSP、再翻 moon-well 的配置，否则翻转窗口内 TED 原声与伙伴头像会同时被拦。
+# 待线上再无任何响应产出旧源（BuddyService/TedAudioService/LearningParagraphResolver 全部走新值），
+# 删掉旧条目收窄，这必须是单独一笔，别夹在功能改动里。
+MINIO_PUBLIC_ORIGINS = ("https://minio.haoshenqi.top", "https://home.haoshenqi.top:9001")
+
+
 @app.after_request
 def add_security_headers(resp):
     # trace-id 回写：报障时用户可直接提供此 ID，ES 中按 message 检索即可定位全链路日志
@@ -121,13 +129,14 @@ def add_security_headers(resp):
         # 拦（控制台 "Loading media from 'blob:...' violates CSP"），必须显式放行。
         # 划词单词发音直连有道 dictvoice 词库 mp3（免费免 key），同样属 media
         # 加载，需一并放行该源（仅阅读页，其余页面不受影响）。
-        # TED 类书的整段原声（R172「原声伴听」）由 moon-well 返回 MinIO 外网直链
-        # （https://home.haoshenqi.top:9001，取值见 moon-well R181 的 minio.public-url），
+        # TED 类书的整段原声（R172「原声伴听」）由 moon-well 返回 MinIO 外网直链，
         # 由浏览器直连该源播放，同属 media 加载；未放行时阅读页报
-        # "Loading media from 'https://home.haoshenqi.top:9001/…' violates … CSP
-        # directive: media-src" 且静默无声（R181 复测现场），故一并放行。仅阅读页。
+        # "Loading media from '…/magicbook/ted-audio/….aac' violates … CSP directive:
+        # media-src" 且静默无声（R181 复测现场），故一并放行。仅阅读页。
+        # 源清单见 MINIO_PUBLIC_ORIGINS（R209：入口由 home:9001 迁到 minio.haoshenqi.top，
+        # 后端同一份，过渡期两源并列）。
         csp += ("; media-src 'self' blob: https://dict.youdao.com"
-                " https://home.haoshenqi.top:9001")
+                " " + " ".join(MINIO_PUBLIC_ORIGINS))
     csp += "; img-src 'self'"
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"
@@ -137,7 +146,7 @@ def add_security_headers(resp):
     # 文字兜底，故障在页面上不可见，故必须显式放行（同 R181 media-src 的踩坑口径）。
     # 沿用其窄面做法：只在悬浮按钮真正出现的阅读页与 /buddy 花名册页放行。
     if request.endpoint in ("web.read_book", "web.buddy_page"):
-        csp += " https://home.haoshenqi.top:9001"
+        csp += " " + " ".join(MINIO_PUBLIC_ORIGINS)
     if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
         csp += " *"
     if request.endpoint == "web.read_book":
