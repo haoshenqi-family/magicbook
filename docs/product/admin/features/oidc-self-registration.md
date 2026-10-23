@@ -46,3 +46,14 @@ python3 scripts/oidc_admin_audit.py --demote --emails a@b.com
 安全边界：默认 dry-run；`--demote` 必须显式点名，**不支持全量**；写库前自动备份 `<db>.r211-bak-<时间戳>`；**降级目标角色＝站点默认角色剔除管理员位**（脚本不会把任何人留在或推回管理员）。库路径优先级：`--db` > `CONFIG_PATH/app.db` > 仓库根 `app.db`（容器内即 `/config/app.db`，需 `-v` 挂载或用 `docker exec`）。
 
 守卫测试：`tests/test_oidc_admin_role.py`（16 条）——决策函数 5 条、回调形制 3 条、CLI 8 条；反向变异（把建号改回 `ADMIN_USER_ROLES`）实测报红。
+
+## 注册入口本身：邀请是一次性的
+
+自助注册**不是**随便谁都能点的公开入口，而是走 Authentik 的 `invitation-enrollment` flow：登录页「注册账号 Sign up (invite)」指向一条具体邀请（`.env` 的 `AUTHENTIK_ENROLLMENT_INVITE_URL`）。
+
+该邀请是 `single_use` 一次性资源：**被用于注册一次后即失效**。2026-10-23 实测同一条 itoken 在 15:00 还能注册，21:00 已 `Invalid invite/invite not found`（R103 那条 `5566492c…` 就是被当天下午的 QA 自助注册用掉的；R161 域名切换只换了域名、没新建邀请，于是入口报废且无人察觉）。
+
+两点推论：
+
+- **新账号一律普通用户**这条修复，正是让「谁拿到链接都无所谓」成立的前提——链接被转发也只产生普通用户，管理员仍由人工赋予。
+- 入口长期可用需要**定期轮换邀请**（或把邀请设为可复用）。轮换工具： [`scripts/rotate_authentik_invite.py`](../../../../scripts/rotate_authentik_invite.py)（建邀请 → 改 fnOS `.env` → `docker compose up -d` 重建 → 校验登录页）；细节见 [OIDC 登录工作流](../../kb/instructions/workflows/oidc-login.md) §2。

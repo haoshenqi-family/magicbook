@@ -40,7 +40,7 @@ OIDC 全部由环境变量配置，`docker-compose.yml` 经 `env_file` 注入，
 | `AUTHENTIK_MAGICBOOK_CLIENT_ID` | `<client_id>` | Authentik 侧 magicbook application 的 Client ID |
 | `AUTHENTIK_MAGICBOOK_CLIENT_SECRET` | `<client_secret>` | 与 id_token 签名/凭证换取相关的密钥 |
 | `AUTHENTIK_MAGICBOOK_REDIRECT_URI` | `https://magicbook.haoshenqi.top/oidc/callback` | **回调地址**，授权后 Authentik 重定向到此处；未设置时回退 `url_for(..., _external=True)` |
-| `AUTHENTIK_ENROLLMENT_INVITE_URL` | `https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=<邀请pk>` | **邀请制注册入口**（R103）。配置后登录页（游客首页）在登录按钮下渲染「注册账号 Sign up (invite)」；Authentik 邀请默认 30 天过期，轮换时更新此值并重启容器，未配置则不渲染 |
+| `AUTHENTIK_ENROLLMENT_INVITE_URL` | `https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=<邀请pk>` | **邀请制注册入口**（R103）。配置后登录页（游客首页）在登录按钮下渲染「注册账号 Sign up (invite)」；Authentik 邀请默认 30 天过期，轮换时更新此值并重启容器，未配置则不渲染。⚠️ **邀请是 `single_use` 一次性资源**：被用于注册后即失效——2026-10-23 实测同一条 itoken 在 15:00 还能注册，21:00 已 `Invalid invite/invite not found`（R103 那条 `5566492c…` 就是被当天下午的 QA 自助注册用掉的；R161 域名切换只换了域名、没新建邀请，于是登录页的注册入口就此报废）。失效只表现为「点进去报错」，不会有人来报「注册不了」，所以必须**主动轮换**：见 [`scripts/rotate_authentik_invite.py`](../../../../scripts/rotate_authentik_invite.py)（建邀请 → 改 .env → 重建容器 → 校验登录页） |
 
 > **当前线上取值（2026-10-23 R161 域名切换后）**
 >
