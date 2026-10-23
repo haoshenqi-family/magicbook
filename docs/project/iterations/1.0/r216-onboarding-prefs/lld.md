@@ -1,6 +1,6 @@
 # R216 引导收敛 + /me 偏好页 + 难度入口前置 + 成就占位 + 伙伴 IP 风险登记 · LLD
 
-> 状态：已定稿，已开发待验收（2026-10-23；六条交付实现 + 无头验收完成，未 push）
+> 状态：已定稿，**已上线**（2026-10-23 push develop `634a24c6`；跨仓 moon-well R208 先行为 `e03afbe`。第四次合并基线上全量 **808 passed / 0 failed**，现网探针 `ui-prefs.js`/`me.js` 200、`/ajax/ui-settings` 302、`reader-theme` 405）。余下＝带鉴权的真人跨设备验收
 > 工作项：PingCode MB-15 / Ship MAGICBOOK-223（R216）· 关联 R109（引导）· R208（账号级偏好范式）· QA 报告 §六/§七
 > 跨仓：moon-well R208（账号级 UI 偏好存储与契约主责；原占 R207，2026-10-23 让号）· magicbook R216（本仓）
 > 迭代：magicbook 1.0 · 设计文档路径 `docs/project/iterations/1.0/r216-onboarding-prefs/`
