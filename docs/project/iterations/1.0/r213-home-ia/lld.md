@@ -49,7 +49,7 @@ form: book_id, format, position, percent, page_current, page_total, csrf_token
 - **入参防御**：`book_id` 必须数字且在库；`format` 白名单（EPUB/PDF/TXT/CBR）；`percent` 夹到 0–100；`page_current ≤ page_total`；`position` 截断 512 字符。
 - **失败不打扰读者**：任何校验失败返回 4xx + `{"success": false}`，前端静默丢弃（进度不是关键路径），但**控制台留 warning**——不做静默失败（家族纪律 ⑦：故障要在界面上可见，这里可见面是 devtools 而非 toast）。
 - **节流**：前端 10 秒或翻 5 页触发一次；`pagehide` + `visibilitychange(hidden)` 补最后一笔，用 **`fetch(..., {keepalive: true})`**——不是 `sendBeacon`。这是本仓既有姿势（`reading_time_tracker.js` 同款），keepalive fetch 能带 `X-CSRFToken` 头，绕开「beacon 不能加自定义头、只能把 token 塞 body」的绕路方案（初稿写的就是那条绕路，实测后按仓内先例收口）。
-- **格式覆盖（首版）**：只接 **EPUB/KEPUB**。PDF（viewerjs iframe 内部页码）与 TXT（自定义分页）翻页机制不同，需各自接线，留同单后续；PDF/TXT 的位置目前仍是浏览器本地，L1 措辞已按此修正。
+- **格式覆盖**：**EPUB/KEPUB、PDF、TXT 均已接线**（2026-10-23 二次提交）。PDF 走 readpdf.html 内联脚本挂 `PDFViewerApplication.eventBus('pagechanging')`，恢复用 viewer 原生 `#page=N` 片段（`viewer.js` 是 vendored 文件，不动它）；TXT 走 txt_reader.js 位移计页（`homeLeft - offset` / `pageWidth`），**TXT 由此第一次拥有进度记忆**。CBR/CBZ 未接（`readcbr.html` kthoom 链路，同口径后续再接）。
 - **`ReadBook.last_time_started_reading` 不能当「最近阅读」用**：该字段只有 `cps/kobo.py:804` 写入，网页读者恒为 NULL（这是「不能靠 ReadBook 排序」的直接证据，比「只有三态」更硬）。
 
 ### 2.1 读回优先级（阅读器进入时）
@@ -68,7 +68,7 @@ form: book_id, format, position, percent, page_current, page_total, csrf_token
 | --- | --- | --- |
 | EPUB | `rendition.currentLocation().start.cfi` | `rendition.location.start.displayed.page/total`（epub.js `locations.generate` 后可用；未生成时只报 percent） |
 | PDF | 页码字符串 | `PDFViewerApplication.page` / `pagesCount` |
-| TXT | 字符偏移 | 按行高估算滚动百分比，页码留空 |
+| TXT | 页码（复用 page_current 列，position 留空） | 位移计页：`(homeLeft - offsetLeft) / (width + gap)` + 1，总页 `ceil(scrollWidth / pageWidth)` |
 | CBR | 页码 | `kthoom` 当前页 |
 
 ## 3. 「继续阅读」模块取数（子项 B → C 消费）

@@ -21,5 +21,5 @@
 - **页码同源**：`page_current/page_total` 必须取自 `book.locations.locationFromCfi(cfi)` 与 `locations.length()`——与阅读器顶部显示的 `37/125` 同源，另算一次会出现首页与阅读器两个页码。
 - **越界百分比夹取不拒绝**：书结构异常时 epub.js 会算出 >100，拒绝等于整条记录丢掉。
 - **老账号回填**：服务端无记录时用 localStorage 位置，首次 `relocated` 上报即自然写入，不跑迁移脚本。
-- **格式覆盖（首版）**：只接 EPUB/KEPUB。PDF/TXT/CBR 的上报与恢复未接——它们各自的翻页机制不同（PDF 走 viewerjs iframe、TXT 走自定义分页），需单独接，见 LLD §2.2。
+- **格式覆盖**：EPUB/KEPUB（reader-core 链路）、PDF（readpdf.html 内联脚本挂 `PDFViewerApplication.eventBus`，恢复走 `#page=N` 片段，viewer.js 是 vendored 文件不改动）、TXT（txt_reader.js 按位移计页，首次接入——TXT 此前没有任何进度记忆）。CBR/CBZ 未接。
 - **失败可见性**：前端只 `console.warn`，不弹 toast（进度不是关键路径）；但服务端一律返回 4xx + JSON，不做静默吞。

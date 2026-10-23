@@ -47,7 +47,8 @@ See https://github.com/adobe-type-tools/cmap-resources
         PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
         PDFViewerApplicationOptions.set('imageResourcesPath', "{{ url_for('static', filename='css/images/') }}");
         PDFViewerApplicationOptions.set('workerSrc', "{{ url_for('static', filename='js/libs/pdf.worker.js') }}");
-        PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf') }}")
+        // R213-B：服务端记录的上次页码 → #page=N 片段，viewer 打开即落位
+        PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf') }}{% if reading_position and reading_position.page_current %}#page={{ reading_position.page_current }}{% endif %}")
     });
     </script>
 
@@ -526,5 +527,49 @@ See https://github.com/adobe-type-tools/cmap-resources
     {% include 'i18n_seed.html' %}
     {% include 'ai_chat_panel.html' %}
     <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>
+    {# R213-B：账号级阅读位置——reader-progress 提供采集/节流，下面内联脚本负责 #}
+    {# PDF 阅读器专有的「取当前页 + 恢复页」装配（viewer.js 是 vendored 文件不动它） #}
+    <script src="{{ url_for('static', filename='js/reading/reader-progress.js') }}"></script>
+    {% if current_user.is_authenticated %}
+    <script type="text/javascript">
+    (function () {
+        window.calibre = window.calibre || {};
+        window.calibre.bookId = {{ pdffile }};
+        window.calibre.bookFormat = "PDF";
+        // 恢复位置：pdf.js viewer 原生支持 URL 里的 #page=N 片段，零侵入
+        window.calibre.readerPosition = {{ (reading_position or {})|tojson }};
+        var _restoredPage = (window.calibre.readerPosition.page_current) || null;
+
+        function reportPage() {
+            try {
+                var app = window.PDFViewerApplication;
+                if (!app || !app.pagesCount) return;
+                var page = app.page;
+                window.ReaderProgress.update({
+                    page: page,
+                    total: app.pagesCount,
+                    percent: Math.round(page / app.pagesCount * 10000) / 100,
+                });
+            } catch (e) {}
+        }
+
+        // Why 轮询而不是直接挂 eventBus：webviewerloaded 时 PDFViewerApplication
+        // 可能还没初始化完（app 对象是懒创建的），事件总线晚于 options 就绪
+        var _tries = 0;
+        function hook() {
+            var app = window.PDFViewerApplication;
+            if (app && app.eventBus && app.pagesCount) {
+                app.eventBus.on("pagechanging", reportPage);
+                reportPage(); // 首屏也算一次位置（恢复页）
+                return;
+            }
+            if (++_tries < 60) setTimeout(hook, 500);
+        }
+        document.addEventListener("webviewerloaded", function () { setTimeout(hook, 300); });
+        // webviewerloaded 可能在我们监听前就触发（脚本在 head），兜底再钓一次
+        if (window.PDFViewerApplication) setTimeout(hook, 1000);
+    })();
+    </script>
+    {% endif %}
   </body>
 </html>
