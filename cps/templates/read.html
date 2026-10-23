@@ -192,6 +192,8 @@
             ttsConfigured: {{ current_user.is_authenticated | tojson }},
             bookId: {{ bookid }},
             bookName: {{ title|tojson }},
+            {# R213-B：服务端记录的阅读位置（跨设备），优先于 localStorage #}
+            readerPosition: {{ (reading_position or {})|tojson }},
             readingVocabularyEnabled: {{ current_user.is_authenticated|tojson }}
         };
 
@@ -546,6 +548,8 @@
       <script src="{{ url_for('static', filename='js/reading/reader-immersive.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/reader-ted-audio.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/reader-tts.js') }}"></script>
+      {# R213-B：账号级阅读位置上报（须在 epub.js 之前，装配层 relocated 时调用） #}
+      <script src="{{ url_for('static', filename='js/reading/reader-progress.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
       {# R151 阅读活跃心跳：四股台账 INPUT 股信号源（可见 + 近 3 分钟有交互才计） #}
       <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>

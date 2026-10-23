@@ -196,6 +196,20 @@ def contains_music(book_formats):
             result = True
     return result
 
+@jinjia.app_template_filter('main_format')
+def main_format(book_formats):
+    """R213-A：卡片格式徽标用的「主文本格式」。
+
+    Why 单独成过滤器：Books.data 是「格式集合」（同一本书可有 EPUB+PDF+MP3），
+    徽标只展示一个主格式——取第一个非音频格式；纯音频书返回 None（由音频徽标
+    单独表达）。判定口径与 contains_music 共用 g.constants.EXTENSIONS_AUDIO，
+    两处不会漂移。
+    """
+    for format in book_formats:
+        if format.format.lower() not in g.constants.EXTENSIONS_AUDIO:
+            return format.format.upper()
+    return None
+
 @jinjia.app_template_filter('clean_string')
 def clean_string(unsafe_text):
     return html_clean_string(unsafe_text)

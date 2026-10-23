@@ -48,7 +48,14 @@ TED/博客类书的内容是**一段连续原声**（`ted-audio/<slug>.aac`）�
 
 ### 3. 阅读进度与批注
 
-进度经 moon-well book 模块上报恢复；用户手写批注走 moon-well reading 段落批注接口。
+| magicbook 端点 | 上游 | 说明 |
+| --- | --- | --- |
+| `POST /ajax/reading-progress` | **无（本仓 app.db）** | 账号级阅读位置（R213 / MB-17）：`{book_id, format, position, percent, page_current, page_total}` → `{success, percent, last_read_at}`；按 `(user_id, book_id, book_format)` upsert，`percent` 夹取到 0–100，`page_current` 不得超过 `page_total`。**唯一不代理 moon-well 的 reading 端点**——位置是阅读器自身状态，读写都在本进程 |
+| 阅读位置恢复 | 同上表 | 阅读器进入时优先级：`reading_progress.position`（账户级，跨设备）→ 浏览器 localStorage（本机兜底）→ 书首 |
+| Kobo 同步位置 | Kobo 通道自有 | `KoboReadingState.current_bookmark`（`progress_percent` / `content_source_progress_percent`），由 `cps/kobo.py` 读写；**网页端不写它**，两套位置互不覆盖 |
+
+- 口径修订（R213，2026-10-23）：本节旧文「进度经 moon-well book 模块上报恢复」与实况不符——网页阅读器此前**没有**任何服务端位置，靠 epub.js 写 localStorage（设备级，换浏览器即丢）；`ub.ReadBook` 只有「未读/在读/读完」三态且 `last_time_started_reading` 仅 Kobo 通道写入。账号级位置自 R213 起由本表端点承载，与 moon-well 无关。
+- 用户手写批注仍走 moon-well reading 段落批注接口（未变）。
 
 ## 调用方契约
 

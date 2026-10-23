@@ -5793,3 +5793,46 @@ msgstr "保存"
 
 msgid "Close"
 msgstr "关闭"
+
+#: R213-A 排序 chips 文字标签 / 卡片徽标 / 移动底部导航（2026-10-23）
+msgid "Filter and Sort"
+msgstr "筛选与排序"
+
+msgid "Downloads"
+msgstr "下载量"
+
+msgid "Newest"
+msgstr "最新"
+
+msgid "Oldest"
+msgstr "最早"
+
+msgid "Title A-Z"
+msgstr "标题 A-Z"
+
+msgid "Title Z-A"
+msgstr "标题 Z-A"
+
+msgid "Author A-Z"
+msgstr "作者 A-Z"
+
+msgid "Author Z-A"
+msgstr "作者 Z-A"
+
+msgid "Series Asc"
+msgstr "丛书正序"
+
+msgid "Series Desc"
+msgstr "丛书倒序"
+
+msgid "Audio"
+msgstr "音频"
+
+msgid "Library"
+msgstr "书库"
+
+msgid "Learning"
+msgstr "学习"
+
+msgid "Mobile Navigation"
+msgstr "移动端导航"
