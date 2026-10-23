@@ -1,7 +1,7 @@
 # LLD — R211 [缺陷] OIDC 自助注册默认授予管理员权限
 
-> 状态：开发中（2026-10-23 本轮交付，待真机验收）
-> 迭代：1.0 · PJM 工作项 [MAGICBOOK-10](https://haoshenqi.pingcode.com/pjm/workitems/ldCa0y89)（缺陷）· Ship 关联需求 MAGICBOOK-218
+> 状态：开发中（2026-10-23 本轮交付，待真机验收；同日按用户口径「默认都是普通用户，管理员由我手动赋予」定稿——原邮箱白名单方案已撤除）
+> 迭代：1.0 · PJM 工作项 [MB-10](https://haoshenqi.pingcode.com/pjm/workitems/ldCa0y89)（缺陷，原编号 MAGICBOOK-10）· Ship 关联需求 MAGICBOOK-218
 > 来源：首访体验报告 §二 `docs/project/qa/2026-10-23/2026-10-23-qa-report.md`（截图 `e7-admin.png`）
 
 ## 1. 问题与根因
@@ -19,30 +19,30 @@
 
 | # | 改动 | 文件 |
 | --- | --- | --- |
-| 1 | 新增 `parse_admin_emails` / `site_default_role` / `resolve_new_user_role`；建号改用 `resolve_new_user_role(email)` | `cps/oidc.py` |
-| 2 | 管理员邮箱白名单 env `OIDC_ADMIN_EMAILS`（逗号分隔、大小写不敏感） | `cps/oidc.py` + `.env.example` |
-| 3 | 存量排查 / 降级 CLI，默认 dry-run、必须点名、写库前备份 | `scripts/oidc_admin_audit.py` |
+| 1 | 新增 `site_default_role()` / `resolve_new_user_role()`；建号改用后者 | `cps/oidc.py` |
+| 2 | **不设任何自动提权开关**：角色＝站点默认角色，且强制剔除 `ROLE_ADMIN` 位；管理员只由人在管理后台手动赋予（2026-10-23 用户拍板） | `cps/oidc.py` + `.env.example`（说明性注释） |
+| 3 | 存量排查 / 降级 CLI：默认 dry-run、必须点名、降级目标剔除管理员位、写库前备份 | `scripts/oidc_admin_audit.py` |
 | 4 | 守卫测试：决策函数 + 回调形制 + CLI | `tests/test_oidc_admin_role.py` |
 
-决策口径：**白名单命中 → 管理员全权限；否则 → 站点默认角色**（`config_default_role`，生产当前为 `0`＝普通读者）。`site_default_role()` 在配置未初始化时按 `0` 兜底，避免 `role=None` 让权限判断崩掉。
+决策口径（定稿）：**新账号一律等于站点默认角色且不含管理员位**。`site_default_role()` 在配置未初始化时按 `0` 兜底，并在默认角色含管理员位时剔除该位 + 写 warning——配置项不能用来绕过「管理员手动赋予」。
 
 三条身份路径的角色处理差异（这是「不误伤存量」的关键）：
 
 - subject 命中 → 直接登录，不改 role；
-- email 命中本地账号 → 只补 OIDC 绑定，保留本地角色；
-- 都不命中 → 新账号按上述决策建号。
+- email 命中既有本地账号 → 只补 OIDC 绑定，保留本地角色；
+- 都不命中 → 新账号按上述口径建号（唯一写 role 的分支）。
 
 ## 3. 验收（AC）
 
 1. 新账号走 OIDC 首登后**无管理入口**，直接访问 `/admin` 返回 403；
-2. `OIDC_ADMIN_EMAILS` 命中的新账号首登仍为管理员；
-3. 存量管理员账号（含 `admin@example.org`）登录后角色不变；
+2. 站点默认角色即便被勾上管理员位，新账号仍不是管理员（`site_default_role` 剔除）；
+3. 手动在管理后台赋予管理员的账号，再次 OIDC 登录仍保持管理员（subject / email 命中路径不写 role）；
 4. `scripts/oidc_admin_audit.py` 只读模式能导出清单；`--demote --ids` 降级后该账号登录态不失效、权限按新角色生效；
 5. `tests/test_oidc_admin_role.py` 16 条全绿，反向变异（建号改回 `ADMIN_USER_ROLES`）报红。
 
 ## 4. 上线前必须做的运维动作
 
-- **在生产 `.env` 里配 `OIDC_ADMIN_EMAILS=站长邮箱`**。不配也不会让站长掉权（站长账号已存在，走 subject / email 命中路径），但配了才能保证「以后用新邮箱注册仍是管理员」。
+- **无需新增 env**（原 `OIDC_ADMIN_EMAILS` 白名单方案已按用户口径撤除，`.env` 不必改）。
 - **存量超管排查**（容器内库为 `/config/app.db`）：
 
   ```bash
@@ -50,12 +50,13 @@
   # 或宿主：python3 scripts/oidc_admin_audit.py --db /vol1/1000/app/magicbook/config/app.db
   ```
 
-  按清单确认哪些是自助注册的历史账号，再 `--demote --ids ...`（自动备份到 `app.db.r211-bak-<ts>`）。
+  按清单确认哪些是自助注册的历史账号，再 `--demote --ids ...`（自动备份到 `app.db.r211-bak-<ts>`）。降级后需要保留管理员权限的账号，在管理后台「用户管理」手动勾回。
+- **新环境/新账号**：首次登录后到「用户管理」手动把站长账号设为管理员。
 
 ## 5. 风险与回滚
 
-- 风险：白名单漏配导致「新注册的站长账号」不是管理员——影响面仅限新建账号，且可用管理后台手工提权修复。
-- 风险：降级误伤本地管理员——脚本只处理显式点名的 id/邮箱，且白名单账号跳过、写库前整库备份。
+- 风险：站长若用一个全新账号首登，会先拿到普通用户、进不了管理后台——需已有管理员账号或直接改库赋权。这是「管理员手动赋予」口径的必然代价，已在 L1/L3 写明。
+- 风险：降级误伤——脚本只处理显式点名的 id/邮箱，且写库前整库备份。
 - 回滚：代码 revert 本轮 commit 即恢复旧行为（不建议，会把缺陷放回）；数据回滚用 `app.db.r211-bak-*` 覆盖。
 
 ## 6. 测试与证据

@@ -16,13 +16,13 @@
 
 安全边界（有意为之）：
 - 默认 dry-run，绝不写库；`--demote` 必须显式给 `--ids` 或 `--emails`，**不支持全量降级**
-  —— 管理员位一旦被批量抹掉只能靠备份回滚。
+  —— 管理员位一旦被批量抹掉只能靠备份回滚，而且「谁是管理员」应由人点名，不由脚本猜。
 - 写库前把库文件复制为 `<db>.r211-bak-<时间戳>`，并回显备份路径。
-- `OIDC_ADMIN_EMAILS` 白名单内的账号即使被点名也跳过（避免把站长本人降权）。
-- 站点默认角色若含管理员位，拒绝执行降级（目标角色本身就不安全）。
+- 降级目标＝站点默认角色**剔除管理员位**：管理员只由管理后台手动赋予
+  （2026-10-23 用户拍板），脚本不会把任何人留在或推回管理员。
 
 不依赖 Flask 应用：只读 SQLite 的 `user` / `settings` 两张表，常量与
-`cps/constants.py` 同源（`tests/test_oidc_admin_audit.py` 有对账守卫）。
+`cps/constants.py` 同源（`tests/test_oidc_admin_role.py` 有对账守卫）。
 """
 import argparse
 import json
@@ -90,29 +90,29 @@ def load_default_role(conn):
     return int(row[0])
 
 
-def admin_emails_from_env(raw=None):
-    if raw is None:
-        raw = os.getenv("OIDC_ADMIN_EMAILS", "")
-    return {item.strip().lower() for item in (raw or "").split(",") if item.strip()}
+def demote_target_role(default_role):
+    """降级后的目标角色＝站点默认角色剔除管理员位。
+
+    Why：2026-10-23 用户拍板「管理员由我手动赋予」，所以降级不能落回
+        一个仍含 ROLE_ADMIN 的角色；站点默认角色若被误配成含管理员位，
+        这里同样剔除（与 cps/oidc.py 的 site_default_role 口径一致）。
+    """
+    return default_role & ~ROLE_ADMIN
 
 
-def plan_demotions(rows, ids=None, emails=None, default_role=0, admin_emails=None):
+def plan_demotions(rows, ids=None, emails=None, default_role=0):
     """计算降级计划，返回 (targets, skipped)。
 
-    skipped 里带原因，便于在真机上判断是「已无需处理」还是「被保护」。
+    skipped 里带原因，便于在真机上判断是「已无需处理」还是「不符合条件」。
     目标必须显式点名（ids / emails 至少一个），否则抛 ValueError——批量
     降级不做默认行为。
     """
     ids = {int(i) for i in (ids or [])}
     emails = {e.strip().lower() for e in (emails or []) if e.strip()}
-    admin_emails = admin_emails or set()
     if not ids and not emails:
         raise ValueError("降级必须显式指定 --ids 或 --emails（不支持全量降级）")
-    if has_flag(default_role, ROLE_ADMIN):
-        raise ValueError(
-            f"站点默认角色（{default_role}）含管理员位，降级目标不安全；"
-            "请先在管理后台调整「新用户默认角色」")
 
+    target_role = demote_target_role(default_role)
     targets, skipped = [], []
     for row in rows:
         named = row["id"] in ids or (row["email"] and row["email"].lower() in emails)
@@ -120,9 +120,7 @@ def plan_demotions(rows, ids=None, emails=None, default_role=0, admin_emails=Non
             continue
         if not row["is_admin"]:
             skipped.append((row, "本就不含管理员位"))
-        elif row["email"] and row["email"].lower() in admin_emails:
-            skipped.append((row, "命中 OIDC_ADMIN_EMAILS 白名单，跳过"))
-        elif row["role"] == default_role:
+        elif row["role"] == target_role:
             skipped.append((row, "角色已等于默认角色"))
         else:
             targets.append(row)
@@ -188,14 +186,14 @@ def main(argv=None):
     finally:
         conn.close()
 
-    admin_emails = admin_emails_from_env()
+    target_role = demote_target_role(default_role)
     shown = [r for r in rows if args.all_oidc or r["is_admin"]]
     oidc_admins = [r for r in rows if r["is_admin"] and r["via_oidc"]]
 
     print(f"数据库：{db_path}")
     print(f"站点默认角色：{default_role}"
-          f"（{'含管理员位 ⚠️' if has_flag(default_role, ROLE_ADMIN) else '不含管理员位'}）")
-    print(f"管理员白名单：{', '.join(sorted(admin_emails)) or '（空）'}")
+          f"（{'含管理员位 → 建号/降级时剔除' if has_flag(default_role, ROLE_ADMIN) else '不含管理员位'}）")
+    print(f"降级目标角色：{target_role}（＝默认角色剔除管理员位；管理员只由管理后台手动赋予）")
     print(f"账号总数 {len(rows)}｜管理员 {sum(1 for r in rows if r['is_admin'])}"
           f"｜其中经 OIDC 登录过 {len(oidc_admins)}")
     print()
@@ -204,7 +202,7 @@ def main(argv=None):
     if args.json:
         with open(args.json, "w", encoding="utf-8") as fh:
             json.dump({"db": db_path, "default_role": default_role,
-                       "admin_emails": sorted(admin_emails),
+                       "demote_target_role": target_role,
                        "admins": shown}, fh, ensure_ascii=False, indent=2)
         print(f"\n清单已导出：{args.json}")
 
@@ -215,7 +213,7 @@ def main(argv=None):
     try:
         targets, skipped = plan_demotions(
             rows, ids=_split(args.ids), emails=_split(args.emails),
-            default_role=default_role, admin_emails=admin_emails)
+            default_role=default_role)
     except ValueError as exc:
         print(f"\n拒绝执行：{exc}")
         return 2
@@ -226,11 +224,11 @@ def main(argv=None):
         print("\n没有可降级的账号，未写库。")
         return 0
 
-    print(f"\n将把 {len(targets)} 个账号降级为角色 {default_role}：")
+    print(f"\n将把 {len(targets)} 个账号降级为角色 {target_role}：")
     print(render_table(targets))
     backup_path = backup_db(db_path)
     print(f"已备份：{backup_path}")
-    changed = apply_demotions(db_path, targets, default_role)
+    changed = apply_demotions(db_path, targets, target_role)
     print(f"已改写 {changed} 行。回滚方式：停容器后用备份覆盖 {db_path}")
     return 0
 
