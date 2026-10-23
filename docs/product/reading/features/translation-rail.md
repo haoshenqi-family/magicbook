@@ -9,7 +9,7 @@
 - **选中**：每个渲染帧由 `epub.js` 的 `rendered` 钩子调用 `RI.bindContent(content)`，在 iframe document 上挂 `click`。模式关闭、存在选区、命中链接/按钮/段尾工具时直接返回；否则取最近的叶子段落交给 `selectParagraph`。
 - **译文栏**：`read.html` 的 `#translation-rail` 固定在外层文档（不进入 iframe）。桌面占 `clamp(300px, 32vw, 420px)`，≤900px 改为 50vh 底部抽屉；`body[data-side-panel="translation"]` 让 `#main.reader-main` 缩宽。
 - **请求与缓存**：选中段落后先查 `localStorage['calibre.reader.translation.<bookKey>']`（`{paragraphHash: text}`），miss 才 POST `readingTranslateBatchUrl`（单段 `paragraphs:[text]`，带 `bookName`/`chapter`）。响应按 `railRequestSeq` 与 `selectedEl` 双重校验，后选覆盖先选；成功写缓存。
-- **零插入**：译文只写 `#translation-rail-body` 的 `textContent`，正文 iframe 内不插入任何译文节点；工具条的 4 个图标也改为绝对定位悬浮（0×0 锚点），不占正文流。
+- **零插入**：译文只写 `#translation-rail-body` 的 `textContent`，正文 iframe 内不插入任何译文节点；段尾工具条保持在段落尾部行内（R215 验收修订：绝对定位浮层会压字，已回退）。
 
 ## 边界条件
 

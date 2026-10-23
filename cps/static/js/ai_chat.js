@@ -115,24 +115,6 @@
     initFabLabel();
     loadConversations();
     loadBuddyFab();
-
-    // R215：译文栏与 AI 面板互斥——对方打开时只收起自己，不派发 close（避免回环）
-    document.addEventListener("reader:panel-open", function (event) {
-      if (event.detail && event.detail.kind === "translation") hideDrawerOnly();
-    });
-  }
-
-  function setPanelState(kind) {
-    if (kind) document.body.setAttribute("data-side-panel", kind);
-    else if (document.body.getAttribute("data-side-panel") === "ai") {
-      document.body.removeAttribute("data-side-panel");
-    }
-  }
-
-  function repaginate() {
-    window.requestAnimationFrame(function () {
-      setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 0);
-    });
   }
 
   function markFabLabelSeen() {
@@ -157,31 +139,16 @@
     $("#ai-chat-input").attr("placeholder", mbT(key));
   }
 
+  // R215 验收回滚（2026-10-23）：AI 面板恢复为覆盖式抽屉——
+  // 桌面 420px 右侧浮层、移动全屏；不再缩正文、不再与译文栏互斥。
   function openDrawer() {
-    var wasOpen = $("#ai-companion-drawer").hasClass("open");
     $("#ai-companion-drawer").addClass("open");
-    setPanelState("ai");
     markFabLabelSeen();
-    document.dispatchEvent(new CustomEvent("reader:panel-open", {detail: {kind: "ai"}}));
-    if (!wasOpen) repaginate();
     if ($("#ai-memory-panel").hasClass("open")) loadMemoryPanel();
   }
 
-  function hideDrawerOnly() {
-    if (!$("#ai-companion-drawer").hasClass("open")) return;
-    var cleared = document.body.getAttribute("data-side-panel") === "ai";
-    $("#ai-companion-drawer").removeClass("open");
-    if (cleared) document.body.removeAttribute("data-side-panel");
-    // 译文栏已先把 dataset 改成 translation 时，宽度变化由它触发重分页
-    if (cleared) repaginate();
-  }
-
   function closeDrawer() {
-    if (!$("#ai-companion-drawer").hasClass("open")) return;
     $("#ai-companion-drawer").removeClass("open");
-    setPanelState(null);
-    document.dispatchEvent(new CustomEvent("reader:panel-close", {detail: {kind: "ai"}}));
-    repaginate();
   }
 
   // ------------------------------------------------------------------

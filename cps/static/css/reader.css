@@ -700,25 +700,21 @@
   cursor: pointer;
 }
 
-/* 正文与侧栏的宽度契约：同一时刻只有一个侧栏 */
+/* 译文栏的宽度契约（AI 面板已回滚为覆盖式抽屉，不再参与缩宽） */
 body[data-side-panel="translation"] { --side-panel-width: clamp(300px, 32vw, 420px); }
-body[data-side-panel="ai"] { --side-panel-width: 50vw; }
-/* AI 半屏时正文只剩一半宽度，顶栏标签让位给图标 + tooltip，避免书名被挤没 */
-body[data-side-panel="ai"] .reader-main #titlebar a.tb-tool .tb-label { display: none; }
-body[data-side-panel="ai"] .reader-main #titlebar a.tb-tool { min-width: 36px; padding: 0 6px; gap: 0; }
-body[data-side-panel] #main.reader-main {
+body[data-side-panel="translation"] #main.reader-main {
   width: calc(100% - var(--side-panel-width));
   left: 0;
   right: auto;
   /* 宽度瞬时落定，避免 0.2s 宽度过渡触发多次 epub.js 重分页；transform 仍保留侧边栏动画 */
   transition: transform .4s;
 }
-/* 侧栏（TOC）打开时 reader 会给 #main 加 .closed 并右移 300px；半屏面板已把
+/* 侧栏（TOC）打开时 reader 会给 #main 加 .closed 并右移 300px；译文栏已把
    右侧让出去了，再右移会钻到面板下面，这里改为让 TOC 覆盖在正文上 */
-body[data-side-panel] #main.reader-main.closed { transform: none; }
+body[data-side-panel="translation"] #main.reader-main.closed { transform: none; }
 
 @media only screen and (max-width: 900px) {
-  body[data-side-panel] #main.reader-main { width: 100%; left: 0; right: 0; }
+  body[data-side-panel="translation"] #main.reader-main { width: 100%; left: 0; right: 0; }
   .translation-rail {
     top: auto;
     bottom: 0;

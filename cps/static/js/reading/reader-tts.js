@@ -147,9 +147,8 @@
         collectParagraphElements(doc).forEach(function (el) {
             if (el.querySelector(':scope > .reading-para-tools')) return;
 
-            // R215：工具条不再作为 4 个行内 span 占正文宽度（24px 放大后会把
-            // 末行挤出额外折行）。外层锚点是 0×0 行内块，工具条绝对定位在
-            // 段落末尾上方，hover 才显形——彻底脱离正文流。
+            // R215：四个 24px 图标保持在段落尾部行内；不采用绝对定位浮层
+            // （用户验收反馈：浮层压字太丑）。触屏由行内 44px「⋯」承接。
             var tools = doc.createElement('span');
             tools.className = 'reading-para-tools';
             var bar = doc.createElement('span');

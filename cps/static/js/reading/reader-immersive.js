@@ -125,12 +125,10 @@
         }
         if (alreadyOpen) return;
         document.body.setAttribute('data-side-panel', 'translation');
-        document.dispatchEvent(new CustomEvent('reader:panel-open', {detail: {kind: 'translation'}}));
         requestRepagination();
     }
 
-    // 只收起栏面，保留翻译模式（AI 面板抢占右侧时使用；不派发 close，避免回环）
-    function hideRailOnly() {
+    function closeRail() {
         var parts = railParts();
         if (!parts.rail) return;
         var wasOpen = !parts.rail.hidden;
@@ -138,13 +136,7 @@
         parts.rail.hidden = true;
         parts.rail.setAttribute('aria-hidden', 'true');
         if (cleared) document.body.removeAttribute('data-side-panel');
-        // 若 AI 已先把 dataset 改成 ai，宽度变化由 AI 自己触发一次重分页，这里不重复
         if (wasOpen && cleared) requestRepagination();
-    }
-
-    function closeRail() {
-        hideRailOnly();
-        document.dispatchEvent(new CustomEvent('reader:panel-close', {detail: {kind: 'translation'}}));
     }
 
     function clearSelection() {
@@ -328,14 +320,6 @@
             if (event.key !== 'Escape' || !railMode) return;
             if (document.body.getAttribute('data-side-panel') !== 'translation') return;
             setRailMode(false);
-        });
-
-        // 面板互斥：AI 打开 → 只收起栏面（保留模式）；AI 关闭 → 恢复栏面
-        document.addEventListener('reader:panel-open', function (event) {
-            if (event.detail && event.detail.kind === 'ai') hideRailOnly();
-        });
-        document.addEventListener('reader:panel-close', function (event) {
-            if (event.detail && event.detail.kind === 'ai' && railMode) openRail();
         });
     }
 

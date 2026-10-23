@@ -51,7 +51,7 @@
 
 #ai-companion-drawer {
   position: fixed; top: 0; right: 0; z-index: 2147483647;
-  width: 50vw; max-width: 50vw; height: 100vh;
+  width: 420px; max-width: 100vw; height: 100vh;
   background: #fff; box-shadow: -4px 0 24px rgba(0,0,0,0.2);
   display: none; flex-direction: column;
 }
@@ -169,22 +169,8 @@
   /* 首次打开后收起文字标签；桌面端始终保留 */
   #ai-companion-fab.fab-label-seen #ai-companion-fab-label { display: none; }
 
-  /* Drawer: bottom sheet，上半屏正文仍可见（不再 100vh 全屏覆盖） */
-  #ai-companion-drawer {
-    top: auto; bottom: 0; left: 0; right: 0;
-    width: 100vw; max-width: 100vw; height: 55vh;
-    border-radius: 16px 16px 0 0;
-    box-shadow: 0 -8px 28px rgba(0, 0, 0, .28);
-  }
-  #ai-companion-drawer::before {
-    content: ""; position: absolute; top: 6px; left: 50%;
-    width: 36px; height: 4px; margin-left: -18px;
-    border-radius: 999px; background: rgba(255, 255, 255, .6);
-    pointer-events: none;
-  }
-
   /* Slightly more compact header so the conversation dropdown + title fit. */
-  #ai-companion-drawer header { padding: 14px 12px 10px; }
+  #ai-companion-drawer header { padding: 10px 12px; }
   #ai-companion-drawer header h3 { font-size: 15px; }
   .ai-ctl-label { display: none; }
   #ai-companion-drawer header button { min-width: 44px; min-height: 44px; font-size: 20px; }
@@ -197,4 +183,14 @@
 
   /* Messages: allow slightly wider bubbles on phones. */
   .ai-chat-msg { max-width: 95%; padding: 10px 12px; }
+}
+
+/* R215 验收回滚：移动端恢复全屏覆盖抽屉（原 55vh 底部 sheet 被否决） */
+@media (max-width: 600px) {
+  #ai-companion-drawer {
+    top: 0; bottom: auto; left: auto; right: 0;
+    width: 100vw; max-width: 100vw; height: 100vh;
+    border-radius: 0;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, .2);
+  }
 }

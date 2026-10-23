@@ -71,9 +71,9 @@
 
 ## 3. 段尾工具（`reader-tts.js`）
 
-`injectParagraphTools` 保持「4 个隐藏 span + 1 个菜单按钮」：
+`injectParagraphTools` 生成「行内工具容器 + 4 个 span + 1 个菜单按钮」，全部留在段落尾部行内（2026-10-23 验收修订：绝对定位浮层压字，已回退）：
 
-- 4 个 span 仍带 `.reading-para-btn` + 专类，title/aria-label 补全；桌面 hover 显示 24px 图标（`READER_TOOLS_STYLE` 内改 `font-size:1.5em; width:24px; height:24px`，触屏 `@media(hover:none)` 下 `display:none`）。
+- 4 个 span 仍带 `.reading-para-btn` + 专类，title/aria-label 补全；桌面 hover 显示 24px 图标（`READER_TOOLS_STYLE` 内 `font-size:1.5em; min-width:24px; height:24px`，触屏 `@media(hover:none)` 下 `display:none`）。
 - 新增 `<span class="reading-para-menu-btn" role="button" aria-label="...">⋯</span>`：
   - 触屏（`hover:none`）显示，44×44；桌面 `display:none`。
   - 点击 → `openParagraphMenu(el, menuBtn)`：外层 `document.body` 建 `.reading-para-menu`，按 iframe 矩形定位（复制 `reader-annotations.js` 的坐标换算），含 4 个带文字按钮。
@@ -148,21 +148,23 @@ var railRequestSeq = 0;      // 选中/请求序号，后选覆盖先选
 
 ### 4.6 布局
 
-`body[data-side-panel]` 表示有侧栏：
+`body[data-side-panel="translation"]` 表示译文栏打开（AI 面板不参与）：
 
-- 桌面（>900px）且 `kind=translation`：`--side-panel-width: clamp(300px, 32vw, 420px)`；`#main.reader-main{width:calc(100% - var(--side-panel-width)); left:0; right:auto}`。
-- 桌面 `kind=ai`：`--side-panel-width:50vw`。
+- 桌面：`--side-panel-width: clamp(300px, 32vw, 420px)`；`#main.reader-main{width:calc(100% - var(--side-panel-width)); left:0; right:auto}`。
 - ≤900px：`#main` 宽度 100%；`#translation-rail` 改底部抽屉（`top:auto; bottom:0; width:100vw; height:50vh; border-radius:16px 16px 0 0`）。
 - 宽度切换不加 transition；落定后 `window.dispatchEvent(new Event('resize'))` 触发 epub.js 重分页（它监听 window resize）。
-- PDF/TXT 没有 `#main.reader-main`，AI 面板仍以 50vw 覆盖，不改它们的布局。
+- **AI 面板已回滚为覆盖式抽屉**（2026-10-23 验收否决），不设置 `data-side-panel`、不缩正文、不触发重分页；PDF/TXT 同此。
 
 ## 5. AI 面板（`ai_chat.css` + `ai_chat.js` + `ai_chat_panel.html`）
 
-### 5.1 布局
+### 5.1 布局（2026-10-23 验收回滚）
 
-- 桌面：`#ai-companion-drawer{width:50vw; max-width:50vw; height:100vh}`；打开时 body `data-side-panel="ai"`。
-- ≤900px：`top:auto; bottom:0; width:100vw; height:55vh; border-radius:16px 16px 0 0`，顶部加 36×4 的视觉拖拽条（`::before`，不做手势）。
-- 打开/关闭流程统一走 `setPanelState(kind)`：设置/清除 `body.dataset.sidePanel`，派发 open/close 事件，落定后 resize。
+原「桌面 50vw 停靠 + 正文缩宽 / 移动 55vh 底部抽屉」被用户否决，已恢复覆盖式抽屉：
+
+- 桌面：`#ai-companion-drawer{width:420px; max-width:100vw; height:100vh}`，`position:fixed` 覆盖正文；不设置 `data-side-panel`、不缩 `#main`、不触发重分页。
+- ≤600px：`width:100vw; height:100vh; top:0; right:0` 全屏抽屉；无圆角、无拖拽条。
+- `openDrawer()/closeDrawer()` 只切换 `.open` 类，并保留 FAB 标签记录；不再派发 `reader:panel-open/close`。
+- 与译文栏不再互斥：AI 浮层直接覆盖右栏，关闭后右栏原样可见。
 
 ### 5.2 头部与 FAB
 
