@@ -8,6 +8,13 @@
   .credit-package-card .pkg-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
   .credit-package-card .pkg-price { font-size: 24px; font-weight: bold; }
   .credit-package-card .pkg-desc { color: #777; font-size: 12px; margin: 8px 0; }
+  /* R205：活动角标 / 划线原价 / 倒计时 */
+  .credit-package-card .pkg-badge { display: inline-block; background: #d9534f; color: #fff;
+                                    font-size: 12px; border-radius: 10px; padding: 1px 8px;
+                                    margin-left: 6px; vertical-align: middle; }
+  .credit-package-card .pkg-base { color: #999; text-decoration: line-through; font-size: 13px; }
+  .credit-package-card .pkg-promo { color: #d9534f; font-size: 12px; margin-top: 4px; }
+  #credit-promo-table td, #credit-promo-table th { font-size: 13px; }
   .credit-package-card .btn { margin-top: auto; }
   #credit-qr img, #credit-qr canvas { margin: 0 auto; }
   /* 消耗明细（R64） */
@@ -88,6 +95,37 @@
       <p class="text-muted" style="margin-top:8px;margin-bottom:0;font-size:12px">
         {{_('Positive amount adds credits, negative deducts. Every adjustment is recorded in the ledger with your user id.')}}
       </p>
+
+      <hr>
+      <h4 style="margin-top:0">{{_('Credit Promotion (Multiplier)')}}</h4>
+      <form id="credit-promo-form" class="form-inline" style="margin-bottom:0">
+        <input type="datetime-local" id="credit-promo-start" class="form-control" step="1"
+               style="width:210px" required>
+        <span style="margin:0 4px">~</span>
+        <input type="datetime-local" id="credit-promo-end" class="form-control" step="1"
+               style="width:210px" required>
+        <input type="number" id="credit-promo-multiplier" class="form-control" min="1" max="100"
+               step="1" value="10" style="width:90px" required>
+        <button type="submit" class="btn btn-danger btn-sm">{{_('Publish')}}</button>
+      </form>
+      <p class="text-muted" style="margin-top:8px;margin-bottom:6px;font-size:12px">
+        {{_('Times are Beijing time (UTC+8). Credits granted = base credits × multiplier. A published promotion cannot be edited or revoked — verify the window and multiplier before publishing.')}}
+      </p>
+      <div class="table-responsive">
+        <table class="table table-condensed table-striped" id="credit-promo-table">
+          <thead>
+            <tr>
+              <th>{{_('Start')}}</th>
+              <th>{{_('End')}}</th>
+              <th>{{_('Multiplier')}}</th>
+              <th>{{_('Status')}}</th>
+            </tr>
+          </thead>
+          <tbody id="credit-promo-rows">
+            <tr><td colspan="4" class="text-muted">{{_('Loading...')}}</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
   {% endif %}

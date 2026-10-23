@@ -1,13 +1,18 @@
-# response 归档 · R130
+# 回应归档 · R130 节（正文实为 R190 回应）
 
-### R130（LLM 队列监控面板——承接 moon-well R118 已交付契约，扩展 R126 /llm-tasks）
+> 2026-10-23 R209 写入触发轮转，原样搬移，正文未改写；节标题沿用原文件写法（标 R130，内容为 R190 的回复），不做更正。
 
-- **范围与实现**：按迭代设计（`docs/project/iterations/1.0/r130-llm-queue-monitor/`）落地四区块——总览（caller 分组计数 + 近 24h 吞吐柱 + stale/reclaim 预警；15s 轮询、页面不可见暂停）、失败分类（十类桶 + 恢复徽标，AUTO_REQUEUE/FORBIDDEN 只读无按钮、REPLAY/REPUBLISH 出「去恢复此类」跳转预填）、任务查询与详情（keyword 必须搭配伴生过滤的前端闸门、行点开模态框、输入/输出 2KB 截断可展开）、恢复（plan 恒不带 confirm 只读预案 → 二次确认弹窗 → republish）。六个薄代理端点（overview 10s / failures 15s / page 10s / detail 10s / recovery-plan 20s / republish 30s）：`cps/web.py` `_LLM_TASK_PATHS` 扩六键 + `cps/routes/vocab.py` 六处理器，`_llm_task_admin_gate()` JSON 403 门禁与 R126 同款、先于任何上游调用。
-- **坑（本轮新踩）**：msgid 里不能带 `%`——Jinja i18n 扩展对译文做 `%`-格式化，`Confirm Republish of %N tasks` 渲染即 `ValueError: unsupported format character`；占位符改 `{N}/{C}`，JS `.replace('{N}', …)` 语义不变（已写进 LLD §9）。
-- **测试**：新增 `tests/test_llm_task_admin_monitor_r130.py` 30 条——转发形制与超时钉 LLD 值、非 admin JSON 403 且门禁先于上游、模板守卫（四区块 id、keyword 闸门、只读桶规则、confirm 两步语义、轮询暂停、无裸 `_()`、相邻重复行）、跨仓契约（前端读取字段 ⊆ moon-well DTO、分类下拉 == 失败枚举、状态下拉 ⊆ 状态枚举、PageVO records/total）、zh 真渲染（.mo 未编译即红）。回归：R126 26 条 + i18n 种子契约 7 条 + 受影响面（llm-task/代理相关 10 个测试文件）合计 **213 passed**。
-- **文档四问**：L1 `readme/admin.md` 加「LLM 队列监控」条目；L2 **新建 `docs/product/admin/interface.md`**（admin 模块首个 L2，10 端点全量收录——设计原落 vocabulary/interface.md 是基于错误调查结论，已更正并记入 LLD §8）；L3 沿用「随演进补齐」未建；LLD 状态行改「已实现待验收」。
-- **收尾**：worktree `../magicbook-r130-monitor` 分支 `feat/r130-llm-monitor`（按 R188 基线教训先核 `rev-list` 双向计数：本地 ahead 1（设计 docs）/behind 0，故从本地 develop 顶端切出）；merge 回 develop 后 worktree 原样保留待验收；**未 push**（push 即触发 fnOS 自动构建，由用户定）。PingCode：idea i7iJ3gwo → In progress、工作项 MAGICBOOK-4 → 进行中。
-- **窗口轮转**：本条写入使窗口达 11，R179（B2 尝试撤销节）原样搬至 `response-archive/response-R179.md`。
-- **验收反馈修复（UI 改版，2026-10-19 深夜）**：用户真机反馈「四区块元素堆叠太拥挤」——纵向全宽堆叠改 **Tab 化**（Bootstrap 3 nav-tabs，总览/失败分类/任务查询/恢复一次一个区块）；总览改三个大数字 stat 块 + caller 表与吞吐柱双栏；任务查询与恢复的 form-inline（8/4 个无标签控件挤一行）改 label+控件栅格（两行四列）；「去恢复此类」从滚动跳转改 Tab 切换。新增 msgid 仅 2 条（Created from/to），全部区块 id/data- 属性/JS 契约不变 → 测试零改动 63 绿（R130 30 + R126 26 + i18n 契约 7）。bootstrap.min.js 为完整版含 Tab 组件（39KB）已核实。同 commit 仍在 `feat/r130-llm-monitor`，merge 后随验收循环 push 上线。
-- **UI 改版二轮（用户再反馈）**：「任务执行」（R126）与「队列监控」（R130）也 Tab 化——页面顶层两大 Tab（`Task Runner`/`Queue Monitor`，两者 msgid 均复用现有译文零新增 po），R126 手动执行面板进「任务执行」pane，队列监控（含其四个子 Tab）整体进「队列监控」pane；分隔 hr 与冗余 h2 删除（Tab 即分组）。新增测试断言顶层 Tab 结构，64 绿。
-- **验收闭环（2026-10-19）**：两轮 UI 改版后用户拍板「验收完成」——idea MAGICBOOK-143 → Completed、工作项 MAGICBOOK-4 → 已完成；worktree `../magicbook-r130-monitor` 与分支 `feat/r130-llm-monitor` 按闸门删除（merge 态确认无未提交残留）。R130 全程：设计草案 → 实现上线 → 验收反馈两轮 Tab 化改版 → 验收通过，同日闭环。
+## 2026-10-19（R130 LLM 队列监控面板：四区块实现）
+
+### R190（用户：恢复历史写作任务、改完文稿后没有可点的「提交 AI」按钮，按钮显示「两稿已完成」）
+
+- **根因（不是渲染缺陷）**：R168 的设计规则是「每任务初稿 + 修订稿两稿封顶」——moon-well 第三稿返回 `50513`，前端 `refreshSubmitButton` 在 `lastDraftNo >= 2` 时主动 `disabled`。用户恢复的正是已完成两稿的历史任务，所以编辑框能改、按钮不能点。用户拍板**放开两稿上限**（不是改成只读回看）。
+- **前端改动**：`learning-writing.js` 删除 `done` 分支与 disable，交过稿后统一「提交修订稿」且始终可点（在途锁仍由 `busy()` 管）；提交后状态行统一为「第 N 稿已批改，可在上面改完再提交」；历史状态改为「已交第 N 稿 · 可继续修订」；一键续写固定指向最近一次写作并带稿状态（不再挑「<2 稿」）。模板按钮改「继续上次的写作」，批改面板提示补「修订次数不限」。
+- **i18n**：`scripts/generate_i18n_seed.py` 追加 `Draft {{n}} reviewed · can keep revising`；`messages.po` 新增 3 条译文并 `pybabel compile` 重编 `.mo`。旧「两稿已完成」词条保留为未引用项（运行时不取）。
+- **测试**：`pytest tests/test_learning_proxy.py tests/test_learning_pages_static.py tests/test_i18n_seed_contract.py` → **90 passed**；新增静态守卫 `test_writing_workshop_never_caps_draft_submissions`（禁止 `btn.disabled = done` / `lastDraftNo >= 2` / 「两稿已完成」回流）。
+- **文档**：L1 `docs/product/readme/learning.md` 改为「修订次数不限」；LLD 落 `docs/project/iterations/2026-10-writing-unlimited/writing-unlimited/lld.md`（状态：开发中）。
+- **收尾**：分支 `fix/r190-writing-unlimited`，merge 本地 `develop` **`67e8409e`**；合并并行 R130 后（merge `977636ee`）按用户指令 push `develop`，fnOS 构建 **END OK** + 部署 **SUCCESS**，容器 `Up (healthy)`；线上抽查 `https://magicbook.haoyuhang.top/static/js/learning-writing.js` 已无 `btn.disabled = done`、含 `can keep revising`（新状态机已生效）。worktree `../magicbook-r190-writing-unlimited` 留待验收后删除。跨仓依赖 moon-well R192（`revise` 稿号顺延）已于同一时段部署成功（`8dc8690`，active slot=blue）。
+- **发布态全量闸门**：`pytest tests/` → **622 passed / 13 failed**。13 个失败全部在 `test_metadata_outbound.py`（`shutdown(cancel_futures)` 需 Python 3.9+，本机 3.8）与 `test_reading_tts_service.py`（`book file is unavailable` 缺本机书库 fixture），已在干净 `origin/develop` 基线（`d85ba8ba`）复现 **13 failed / 15 passed**，与本轮写作改动无关；本机无仓库要求的 `.venv`，故用系统 Python 3.8 跑，正式判据以 CI/容器环境为准。本轮改动的三个测试文件 **90 passed**。
+- **总结**：requests.md 占号 R190；合并 origin/develop 时并行 R130 已轮转 R179，本条写入使窗口达 11，按「写入即检查」再搬最早一节 R180 至 `response-archive/response-R180.md` 并登记索引；冲突记录：与 R130 的 po/response 改动按并集合并，无撞号。
+- **复测 503 说明（2026-10-21 15:40）**：用户提交修订稿收到 `learning b1: /learning/writing/revise service unavailable`。根因是回填文档的 push 触发第二次部署，moon-well 旧容器 graceful shutdown 中断了在途 revise（15:40:38），代理按连接异常返回 503。服务稳定后 moon-well 端已用系统身份端到端复验 generate → submit(1) → revise(2) → revise(3) 全部成功；前端无需改动，用户重试即可，历史草稿与批改均未丢失。该次确为部署停机窗口；**15:43 起的复发是另一因**——代理 90s 小于后端 LLM 150s 预算，见 R191。
+

@@ -207,6 +207,32 @@ def credit_admin_adjust():
                            "credit admin adjust")
 
 
+@web.route("/ajax/credit/admin-promotion-create", methods=["POST"])
+@user_login_required
+def credit_admin_promotion_create():
+    """Proxy admin promotion publishing (moon-well POST /credit/admin/promotion/create, R205).
+
+    payload {"startTime": "2026-10-24T00:00", "endTime": "2026-12-31T23:59:59",
+    "multiplier": 10}。时间按东八区解释（moon-well 侧显式 Clock），前端不得换算时区。
+    Front-end gate 与 admin-adjust 同形态：只有管理员看得见入口，moon-well 再按白名单校验。
+    """
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": "admin only"}), 403
+    payload = request.get_json(silent=True) or {}
+    return _moonwell_proxy("/credit/admin/promotion/create", payload, 10,
+                           "credit admin promotion create")
+
+
+@web.route("/ajax/credit/admin-promotion-list", methods=["POST"])
+@user_login_required
+def credit_admin_promotion_list():
+    """Proxy the promotion list (moon-well POST /credit/admin/promotion/list, R205)."""
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": "admin only"}), 403
+    return _moonwell_proxy("/credit/admin/promotion/list", {}, 10,
+                           "credit admin promotion list")
+
+
 @web.route("/ajax/credit/consume-page", methods=["POST"])
 @user_login_required
 def credit_consume_page():
