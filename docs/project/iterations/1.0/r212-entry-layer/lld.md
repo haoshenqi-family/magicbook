@@ -21,7 +21,9 @@ MB-11 待办第 1 项：authentik 的 logo 与登录页背景仍是官方默认�
 
 **同一枚圆章、两份产物**，由 `haoshenqi-family/vibe_images/build_brand_assets.py` 一次性生成（源图 = AI 生成的圆章与背景；圆章无水印，背景裁掉右下角「Qoder AI生成」水印条）。改标识只改源图 + 重跑脚本，两份产物不手改。
 
-产物尺寸：MinIO `logo.png` 256px/106KB、`favicon.png` 64px/9KB、`login-bg.jpg` 1792×972/240KB；站内 `logo.png` 128px/30KB（顶栏实显 26px，留 5x 余量）、`favicon.png` 64px/9KB。
+产物尺寸：MinIO `logo.png` 256px/106KB、`favicon.png` 64px/9KB、`login-bg.jpg` 1792×972/**178KB**；站内 `logo.png` 128px/30KB（顶栏实显 26px，留 5x 余量）、`favicon.png` 64px/9KB。
+
+**背景做过一次压暗**（整图 ×0.72 + 中上带再压）：authentik 的 flow 标题是**无阴影白字**，落点正在这张图的亮窗上——headless Chrome 去掉 mock 里误加的 `text-shadow` 复测，对比度不足。压暗比给 brand 挂 `branding_custom_css` 更省事，也不会把「素材问题」伪装成「样式覆盖问题」。
 
 ## 3. 字样收敛（交付项 2）
 
