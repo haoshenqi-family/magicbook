@@ -213,3 +213,14 @@
 - **驻留与闸门**：worktree `../magicbook-r214-detail-500`（分支 `fix/r214-detail-500`，含 merge `origin/develop` 的 `03a9c991`）原样驻留待验收；验收通过后 `worktree remove` + `branch -d`。**台账占号 R218 已 push**（`4e1aff6f`，纯文档 commit，按「占号即 push」惯例——注意 fnOS 链未加「纯文档跳过」判据，这一推会起一次构建，产物内容与 `040b627b` 等值）。**代码修复本身未 push**，等你的上线指令。
 - **窗口**：本条写入后 `## ` 节数达 12，超 10。**本轮不搬移**——`response-R195-R202.md` 的轮转已存在于本地 develop 未 push 的 `6dcaced0` 上（并行会话工作区还 staged 了 `D response-R195-R202.md` / `D response-R203.md`），此处再轮转一次必然与之冲突。登记为待办：待 R217/QA 那批 staged 内容落定后，由一轮统一整理窗口的人按「写入即检查」补齐，不静默滞留。
 - **总结**：requests.md 占号 R218（2026-10-23，条目 218，已 push）；本条为回应；冲突记录：与 R214 子项 B 同函数 `show_book` 存在合并冲突面（本分支只动 `shelf_names` 一行 + 新增 helper，B 动 insight 注入，交集小）；与并行会话的 response 归档整理存在窗口轮转撞车风险，已按上条避让。
+
+## 2026-10-23（R211 收尾：真机端到端验收通过，缺陷已推「已发布」）
+
+### R211（用户：「push 我来验证」→「注册一个账号验证一下，验证完成后，收尾此工作」）
+
+- **验收结论：通过**。用登录页邀请链接**真实注册**新账号 `r211e2e`（可复用邀请 `1572b336-…`，`?query=itoken%3D` 新式链接），跑完整链路：邀请注册 → authentik 建号 → magicbook OIDC 首登（授权码 + consent）→ 落地 `/` 200。判据全部成立：生产库该账号 `role=0`（普通读者）、`GET /admin/view` **403**、首页无管理入口。
+- **反向判据（手动赋权不被登录覆盖）**：把该账号 `role` 改为 479（备份 `app.db.r211-e2e-bak-*` 后在容器内改）→ 重新 OIDC 登录 → `/admin/view` **200**、首页出现 `/admin`，**角色未被登录写回**——印证「subject 命中 / email 命中既有账号只补绑定、不改 role」三条身份路径的设计。
+- **清理**：`r211e2e` 已从 magicbook `user` 表与 authentik（`authentik_core_user` / `authenticatedsession` / `oauth2_authorizationcode|accesstoken|refreshtoken` / `userconsent`）两库彻底删除，临时会话与令牌无残留。生产现为 5 账号 / 3 管理员。
+- **MB-19（authentik 密码登录「全挂」）结案：无法复现，非代码缺陷**。静态配置全对（password stage backends 含 `InbuiltBackend` 且四个 backend 均可导入；`PASSWORD_HASHERS[0]=PBKDF2`；登录 flow stage 链完整），容器内直调 `stage.authenticate()` 返回用户对象，`mb19probe` 与 `r211e2e` 两个账号用 username/email 双标识实测登录均通过。判断为 R161 重建 authentik 后**运行态与库内配置不一致**，`docker compose restart server worker` 后自愈。**运维沉淀：重建/升级 authentik 后必须重启 server 与 worker**（已写入 kb 工作流待办，本轮未改该文件——它正被并行会话 staged，避免撞车）。
+- **PingCode**：缺陷 **MB-10「已修复 → 已发布」**（描述追加验收表）；缺陷 **MB-19「新提交 → 已修复」**（描述追加排查证据与结案判断）；Ship 需求 **MAGICBOOK-218 / 9PU4YSle「进行中 → 已完成」**。
+- **本分支未合并 develop（有意为之，收尾时 worktree 已移除）**：并行会话工作区正 staged 着与本次完全重叠的文件（`cps/oidc.py`、`docs/kb/instructions/workflows/oidc-login.md`、`docs/product/admin/features/oidc-self-registration.md`、`docs/project/requests/response.md`、`requests.md`），此刻 merge 必起冲突并污染其未提交内容。**代码修复本身（`e399b78d`/`d066f5ec`，merge `57101027`）早已在 develop 并已上线**，本分支剩余 4 个 commit 仅为**邀请轮换脚本 + 文档订正 + 本条台账**（纯增量）。收尾处置：分支已推 `origin/fix/r211-oidc-admin-role` 存档（推送特性分支不触发 fnOS 构建——`webhook_listener.py` 的 magicbook 白名单只有 `develop`/`main`），worktree `../magicbook-r211-oidc-admin-role` 已移除；待并行会话落定后执行 `git merge fix/r211-oidc-admin-role` 收口并 `branch -d`。
