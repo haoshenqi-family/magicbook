@@ -4056,6 +4056,11 @@ msgstr "以后再说"
 msgid "Learn magicbook in 2 minutes"
 msgstr "花 2 分钟学会 magicbook"
 
+msgid ""
+"Take a quick tour of finding books, shelves, reading and the AI companion — "
+"on the real interface."
+msgstr "快速走一遍找书、书架、阅读和 AI 伴读——就在真实界面上。"
+
 msgid "Learning profile unavailable: "
 msgstr "学情暂不可用："
 
@@ -5793,3 +5798,59 @@ msgstr "保存"
 
 msgid "Close"
 msgstr "关闭"
+
+# R216 /me 偏好页
+msgid "Not set"
+msgstr "未设置"
+
+msgid "Your account is managed by your sign-in provider. Your name and email cannot be changed here."
+msgstr "账号由登录服务管理，姓名与邮箱不能在这里修改。"
+
+msgid "Choose the theme used when you open a book. It is saved to your account and applies on every device; custom colors stay on the device where you pick them."
+msgstr "选择打开书籍时使用的主题。它会保存到账号并在所有设备生效；自定义颜色只留在你挑选它的设备上。"
+
+msgid "Your buddy is the face on the AI reading button. It is appearance only and never changes the AI's role as your English teacher."
+msgstr "伙伴是 AI 伴读按钮上的那张脸，只改变外观，不会改变 AI 作为你的英语老师的角色。"
+
+msgid "Manage buddies"
+msgstr "管理伙伴"
+
+msgid "Choose a theme first."
+msgstr "请先选择一个主题。"
+
+msgid "Could not load your saved theme; showing this device's last choice."
+msgstr "未能读取账号里的主题，当前显示这台设备上次的选择。"
+
+msgid "Theme saved"
+msgstr "主题已保存"
+
+msgid "Theme could not be synced to your account"
+msgstr "主题未能同步到账号"
+
+msgid "Could not load your buddy."
+msgstr "未能加载你的伙伴。"
+
+msgid "No buddy equipped yet."
+msgstr "还没有装备伙伴。"
+
+# R216 首页难度入口 / 成就锁态 / 伙伴文案
+msgid "Reading difficulty"
+msgstr "阅读难度"
+
+msgid "Tap to set"
+msgstr "点此设置"
+
+msgid "Change"
+msgstr "修改"
+
+msgid "Claim one, or equip another you own."
+msgstr "领取一只，或切换到已拥有的其他伙伴。"
+
+msgid "Locked"
+msgstr "未解锁"
+
+msgid "Unlocks with an achievement"
+msgstr "完成成就后解锁"
+
+msgid "Unlocks with credits"
+msgstr "用积分兑换解锁"

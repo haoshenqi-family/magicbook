@@ -1,0 +1,164 @@
+{% extends "layout.html" %}
+{% block header %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/me.css') }}">
+{% endblock %}
+{% block body %}
+<div class="discover" id="me-page">
+  <h1>{{title}}</h1>
+  <div class="col-md-10 col-lg-8">
+
+    {# 账号块只读：/me 不再承担改用户名/邮箱/密码，这些由登录方式（OIDC）管理 #}
+    <div class="panel panel-default" id="me-account">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Account')}}</h3>
+      </div>
+      <div class="panel-body">
+        <dl class="dl-horizontal">
+          <dt>{{_('Username')}}</dt>
+          <dd>{{ content.name }}</dd>
+          <dt>{{_('Email')}}</dt>
+          <dd>
+            {% if content.email %}{{ content.email }}
+            {% else %}<span class="text-muted">{{_('Not set')}}</span>{% endif %}
+          </dd>
+        </dl>
+        <p class="help-block">
+          {{_('Your account is managed by your sign-in provider. Your name and email cannot be changed here.')}}
+        </p>
+        {% if registered_oauth and registered_oauth.keys()|length > 0 %}
+        <div class="form-group">
+          {% for id, name in registered_oauth.items() %}
+            {% if oauth_status is not none and id in oauth_status %}
+            <a class="btn btn-default btn-sm" id="config_{{ id }}_oauth"
+               href="{{ url_for('oauth.' + name + '_login_unlink') }}">{{_('Unlink')}} {{ name }}</a>
+            {% else %}
+            <a class="btn btn-default btn-sm" id="config_{{ id }}_oauth"
+               href="{{ url_for('oauth.' + name + '_login') }}">{{_('Link')}} {{ name }}</a>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="panel panel-default" id="me-language">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Language')}}</h3>
+      </div>
+      <div class="panel-body">
+        {# 局部更新：POST /me/preferences 只写 locale 与 default_language，
+           避免旧 change_profile 的全量覆盖把书架视图等字段重置 #}
+        <form role="form" method="POST" action="{{ url_for('web.update_preferences') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group">
+            <label for="me-locale">{{_('Language')}}</label>
+            <select name="locale" id="me-locale" class="form-control">
+              {% for translation in translations %}
+              <option value="{{ translation }}"
+                      {% if translation|string == content.locale %}selected{% endif %}>{{ translation.display_name|capitalize }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="me-default-language">{{_('Language of Books')}}</label>
+            <select name="default_language" id="me-default-language" class="form-control">
+              <option value="all" {% if content.default_language == "all" %}selected{% endif %}>{{_('Show All')}}</option>
+              {% for language in languages %}
+              <option value="{{ language.lang_code }}"
+                      {% if content.default_language == language.lang_code %}selected{% endif %}>{{ language.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" id="me-language-save" class="btn btn-primary">{{_('Save')}}</button>
+        </form>
+      </div>
+    </div>
+
+    {# 深链锚点：首页难度入口与阅读设置页都指到 #difficulty #}
+    <div class="panel panel-default" id="difficulty">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Vocabulary Difficulty Level')}}</h3>
+      </div>
+      <div class="panel-body">
+        {% if settings_error %}
+        <div class="alert alert-danger" role="alert">
+          {{_('Failed to load reading settings')}}: {{ settings_error }}
+          <button type="button" id="me-difficulty-retry" class="btn btn-default btn-xs"
+                  style="margin-left:10px">{{_('Retry')}}</button>
+        </div>
+        {% endif %}
+        <p class="text-muted">
+          {{_('Words harder than this level are marked as unknown while reading. Default: CET4.')}}
+        </p>
+        <form id="me-difficulty-form" role="form"
+              data-save-url="{{ url_for('web.reading_settings_update_hard_level') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group">
+            <label for="me-hard-level">{{_('Hard level')}}</label>
+            <select class="form-control" id="me-hard-level" name="hardLevel"
+                    {% if not settings %}disabled{% endif %}>
+              {% if settings %}
+                {% for opt in settings.options %}
+                <option value="{{ opt.code }}" {% if settings.hardLevel == opt.code %}selected{% endif %}>
+                  {{ opt.code }} - {{ opt.name }}{% if settings.usingDefault and settings.hardLevel == opt.code %} ({{_('default')}}){% endif %}
+                </option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+          <button type="submit" id="me-difficulty-save" class="btn btn-primary"
+                  {% if not settings %}disabled{% endif %}>{{_('Save')}}</button>
+          <span id="me-difficulty-status" class="me-status text-muted" role="status" aria-live="polite"></span>
+        </form>
+      </div>
+    </div>
+
+    <div class="panel panel-default" id="me-theme">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Theme')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted">
+          {{_('Choose the theme used when you open a book. It is saved to your account and applies on every device; custom colors stay on the device where you pick them.')}}
+        </p>
+        <form id="me-theme-form" role="form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <fieldset>
+            <legend class="sr-only">{{_('Theme')}}</legend>
+            <div class="me-theme-options">
+              <label><input type="radio" name="reader-theme" value="lightTheme"> {{_('Light')}}</label>
+              <label><input type="radio" name="reader-theme" value="darkTheme"> {{_('Dark')}}</label>
+              <label><input type="radio" name="reader-theme" value="sepiaTheme"> {{_('Sepia')}}</label>
+              <label><input type="radio" name="reader-theme" value="amberTheme"> {{_('Amber')}}</label>
+              <label><input type="radio" name="reader-theme" value="blackTheme"> {{_('Black')}}</label>
+            </div>
+          </fieldset>
+          <button type="submit" id="me-theme-save" class="btn btn-primary">{{_('Save')}}</button>
+          <span id="me-theme-status" class="me-status text-muted" role="status" aria-live="polite"></span>
+        </form>
+      </div>
+    </div>
+
+    <div class="panel panel-default" id="me-buddy">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Buddies')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted">
+          {{_('Your buddy is the face on the AI reading button. It is appearance only and never changes the AI\'s role as your English teacher.')}}
+        </p>
+        <div id="me-buddy-body" class="me-buddy" role="status" aria-live="polite">
+          {{_('Loading...')}}
+        </div>
+        <p class="me-buddy-manage">
+          <a href="{{ url_for('web.buddy_page') }}" class="btn btn-default btn-sm">{{_('Manage buddies')}}</a>
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<script src="{{ url_for('static', filename='js/me.js') }}"></script>
+{% endblock %}

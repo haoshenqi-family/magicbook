@@ -1,7 +1,9 @@
 {
  "generated_by": "scripts/generate_i18n_seed.py",
  "files": [
+  "cps/static/js/achievements.js",
   "cps/static/js/ai_chat.js",
+  "cps/static/js/buddy.js",
   "cps/static/js/common/api.js",
   "cps/static/js/learning-common.js",
   "cps/static/js/learning-dictation.js",
@@ -14,6 +16,7 @@
   "cps/static/js/learning-story.js",
   "cps/static/js/learning-voice.js",
   "cps/static/js/learning-writing.js",
+  "cps/static/js/me.js",
   "cps/static/js/onboarding.js",
   "cps/static/js/reading/epub.js",
   "cps/static/js/reading/reader-annotations.js",
@@ -25,5 +28,5 @@
   "cps/static/js/reading/reader-word-detail.js",
   "cps/static/js/vocab-test.js"
  ],
- "msgid_count": 299
+ "msgid_count": 321
 }

@@ -59,7 +59,7 @@
       } else if (b.claimable) {
         action.appendChild(mkBtn(mbT("Claim"), "btn btn-primary btn-xs", function () { post("/ajax/buddy/claim", b.code); }, "buddy-claim-" + b.code));
       } else {
-        action.innerHTML = '<span class="buddy-state">' + mbT("Coming soon") + "</span>";
+        action.innerHTML = '<span class="buddy-state">' + lockedLabel(b) + "</span>";
       }
       card.appendChild(action);
 
@@ -69,6 +69,14 @@
     if (window.MagicbookOnboarding && window.MagicbookOnboarding.onRosterReady) {
       window.MagicbookOnboarding.onRosterReady();
     }
+  }
+
+  // 锁定态按获取方式给准确文案：成就/积分是已定义的解锁路径，
+  // 不再统一写「Coming soon」误导成未开发。
+  function lockedLabel(b) {
+    if (b.unlockType === "ACHIEVEMENT") { return mbT("Unlocks with an achievement"); }
+    if (b.unlockType === "POINTS") { return mbT("Unlocks with credits"); }
+    return mbT("Coming soon");
   }
 
   function mkBtn(text, cls, onClick, id) {

@@ -694,10 +694,6 @@ $(function() {
         );
     });
 
-    $("#user_submit").click(function() {
-        this.closest("form").submit();
-    });
-
     function handle_response(data) {
         if (!jQuery.isEmptyObject(data)) {
             data.forEach(function (item) {
