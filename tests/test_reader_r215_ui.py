@@ -41,29 +41,19 @@ def test_顶栏节点搬家不克隆():
         "禁止复制节点：会重复 ID 并丢事件监听"
 
 
-def test_译文栏存在且不再向正文插译文():
+def test_译文恢复段内内联():
+    """2026-10-23 验收回滚：译文回到段落下方，接受重分页。"""
     html = _read("cps/templates/read.html")
-    assert 'id="translation-rail"' in html and 'id="translation-rail-body"' in html
+    assert "translation-rail" not in html, "右栏 DOM 应已删除"
     immersive = _read("cps/static/js/reading/reader-immersive.js")
-    for forbidden in ("insertTranslation", "applyImmersiveTranslation",
-                      "restoreCachedTranslations", "insertBefore"):
-        assert forbidden not in immersive, "译文仍会进入正文流：%s" % forbidden
-    assert "RAIL_MODE_KEY" in immersive
-    assert "function bindContent" in immersive
-    assert "setAttribute('data-side-panel', 'translation')" in immersive
-    assert "reader:panel-open" not in immersive, "AI 面板回滚后不应再有侧栏互斥事件"
-    assert "requestRepagination" not in immersive, "译文栏覆盖式不应再触发重分页"
-    assert ".reading-para-selected" in _read("cps/static/js/reading/reader-core.js")
-
-
-def test_翻译模式点击守卫含选区与链接排除():
-    js = _read("cps/static/js/reading/reader-immersive.js")
-    assert "if (!railMode) return;" in js, "未按模式开关拦截点击"
-    assert "getSelection()" in js, "拖选未排除"
-    assert "target.closest('a, button, .reading-para-tools, .reading-para-btn, .reading-para-menu-btn" in js, \
-        "链接/工具按钮未排除"
-    assert "setRailMode(!railMode)" in js, "开关未切成「模式」语义"
-    assert "upstreamErrorText(xhr)" in js, "失败时未显示上游错误原文"
+    for required in ("insertTranslation", "applyImmersiveTranslation",
+                     "restoreCachedTranslations", "translationEnabled"):
+        assert required in immersive, "译文段内实现缺失：%s" % required
+    assert "RAIL_MODE_KEY" not in immersive and "bindContent" not in immersive
+    assert "reader:panel-open" not in immersive
+    core = _read("cps/static/js/reading/reader-core.js")
+    assert ".reading-translation" in core, "段内译文样式未恢复"
+    assert ".reading-para-selected" not in core, "点段选中样式应已删除"
 
 
 def test_AI面板恢复覆盖式抽屉():
@@ -135,12 +125,11 @@ def test_段尾触屏菜单与图标放大():
     assert "min-height: 44px" in _read("cps/static/css/reader.css")
 
 
-def test_幽灵问号避让页码与侧栏():
+def test_幽灵问号避让页码():
     css = _read("cps/static/css/onboarding.css")
     block = css.split("#onb-help {", 1)[1].split("#onb-help:hover", 1)[0]
     assert "right: 16px" in block and "left: auto" in block
     assert "bottom: 88px" in block, "未移到 FAB 上方"
-    assert 'body[data-side-panel="translation"] #onb-help' in css, "译文栏打开时未让位"
     assert "bottom: 76px" in css, "窄屏避让未同步"
 
 
