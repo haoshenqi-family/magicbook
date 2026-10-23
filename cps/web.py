@@ -2499,6 +2499,20 @@ def _pubdate_is_import_date(pubdate, timestamp):
     return abs(delta) <= 86400
 
 
+def _shelf_names_for_book(shelf_ids):
+    """把书架 id 列表换成书架名列表（难度阶②级兜底要吃名称）。
+
+    Why: `ub.BookShelf.shelf` 是 `Column(Integer, ForeignKey('shelf.id'))`——外键整数列，
+         不是 Shelf 关系对象。详情页把书所属书架直接攒成 id 列表（模板按 id 判
+         「已加入书架」，形制不能改），拿它 `.name` 必然 AttributeError→整页 500。
+         名称单独查一次，也避免按书架数逐行 lazy load 出 N+1。
+    """
+    if not shelf_ids:
+        return []
+    return [name for (name,) in ub.session.query(ub.Shelf.name)
+            .filter(ub.Shelf.id.in_(shelf_ids)).all()]
+
+
 @web.route("/book/<int:book_id>")
 @login_required_if_no_ano
 def show_book(book_id):
@@ -2539,7 +2553,7 @@ def show_book(book_id):
         entry.pubdate_is_import_date = _pubdate_is_import_date(entry.pubdate, entry.timestamp)
         entry.difficulty = resolve_difficulty(
             tag_names=[t.name for t in entry.tags],
-            shelf_names=[s.name for s in book_in_shelves],
+            shelf_names=_shelf_names_for_book(book_in_shelves),
             series_name=entry.series[0].name if entry.series else "")
 
         return render_title_template('detail.html',

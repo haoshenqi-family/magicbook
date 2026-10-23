@@ -14,6 +14,8 @@
 - [ ] **A5** GIVEN 存量书目语言缺失/单边 WHEN 运行 `scripts/backfill_languages.py`（默认 dry-run）THEN 只输出「book_id | 现状 | OPF 声明」差异清单、不写库；`--apply` 才写，且执行前自动备份 `metadata.db`，**不动 EPUB 文件**
 - [ ] **A6** GIVEN 书的难度来源 WHEN 看详情 THEN 按四级兜底显示难度标签：① 标签 `阶N` ② 书架名 `阶N` ③ 系列映射（如 `书虫·第N级`）④ 都没有显示「未分级」；与 R213 分级推荐同一解析器、同一本书两处结论一致
 - [ ] **A7** GIVEN 书已在某书架 WHEN 看详情 THEN 已加入的书架显示为可移除 chip（含 ✕），与「加入书架」按钮**视觉可分**（对照 QA 截图原状逐项对比）
+- [ ] **A8**（子项 A 验收缺陷，`fix/r214-detail-500`）GIVEN 书在**任意书架**里 WHEN 打开 `/book/<id>` THEN **200 不 500**，难度标签按 A6 取书架名（真 ORM 接线测试钉住；反向变异把 `shelf_names` 换回 `[s.name for s in book_in_shelves]` 必须报红）
+- [ ] **A9**（同缺陷第二半）GIVEN 详情接口返回非 2xx WHEN 点封面开弹窗 THEN 弹窗内显示「加载失败」，**不得停在模板占位符 `...`**；且失败分支要摘掉 `useCache` preFilter（守卫断言成功/失败各摘一次）
 
 ## B · 内容速览（简介 / 目录 / 试读）
 

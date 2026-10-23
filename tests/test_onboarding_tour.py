@@ -399,9 +399,9 @@ def test_i18n_seed_renders_chinese_for_zh_user(app):
         assert val, f"词条 {key!r} 翻译为空"
     assert d["Whole-book translation submitted\nTotal paragraphs: {total}\nCached: {cached}\n"
             "Newly published: {published}\n\nTranslations are generated in the background "
-            "paragraph by paragraph and appear automatically while reading."] == (
+            "paragraph by paragraph; turn on Translation mode and click a paragraph to read them."] == (
         "整本翻译已提交\n总段落：{total}\n已缓存：{cached}\n新发布：{published}\n\n"
-        "译文会在后台逐段生成，完成后阅读时自动显示。")
+        "译文会在后台逐段生成；开启翻译模式后点击段落即可查看。")
     assert d['(No long-term memories yet — say "remember…" in the chat or add one below)'] == (
         "（暂无长期记忆——对话里说「记住…」或在下方面板手动添加）")
     assert d["Delete this memory?"] == "删除这条记忆？"

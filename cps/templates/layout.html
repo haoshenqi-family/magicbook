@@ -232,6 +232,9 @@
             <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             <h4 class="modal-title" id="bookDetailsModalLabel">{{_('Book Details')}}</h4>
           </div>
+          {# 详情加载失败提示（R214 子项 A 验收缺陷）。放在 .modal-body 之外：正文在成功/关闭 #}
+          {# 两条路径上都会被整体重写，放里面会被抹掉。词条复用 po 已有的「加载失败」。 #}
+          <div class="alert alert-danger book-details-error" role="alert" style="display:none">{{_('Failed to load')}}</div>
           <div class="modal-body">...</div>
           <div class="modal-footer">
             <button type="button" id="details_close" class="btn btn-default" data-dismiss="modal">{{_('Close')}}</button>
