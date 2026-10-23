@@ -1,6 +1,6 @@
 # AI 伴读图标改「伙伴」+ 伙伴系统前端（magicbook R206）· LLD
 
-**状态**：已上线（develop `6b91bf31`，模板语法修复后全量 686 passed；线上 `/login` 已复测 200）；**CSP 放行修复 `f3b3a782` 待 push**——不推则伙伴头像被浏览器拦、换图静默不生效；18 个资产已传 MinIO 并实测匿名直读 200；余下端到端真机验收
+**状态**：已上线（develop `9d67fa3c`；CSP 修复已随车，合并基线全量 689 passed，fnOS 2026-10-23 09:28:52 END OK；线上实测 `/buddy` 的 `img-src` 已含 MinIO 源、`/login` 反向对照仍是 `'self' data:`）；18 个资产已传 MinIO 且匿名直读 200；余下带鉴权的真机验收
 
 > **坑（本轮真实踩过，已 push 出一次站内错）**：`i18n_seed.html` 的花名册词条写在 `{% set mb_i18n = { … } %}` **表达式内部**，那里加 `# ---- 分节 ----` 行注释会抛 `TemplateSyntaxError: unexpected char '#'`——Jinja 的词法注释只认 `{# #}`，且只能位于标签体外。本文件被 `layout.html` include，一处模板错＝所有 extends layout 的页面一起 500。判据必须是「页面渲染出来」（`tests/test_buddy_page.py` 已常驻覆盖 `/buddy`），`node --check` / `py_compile` 看不见这一类错。
 
