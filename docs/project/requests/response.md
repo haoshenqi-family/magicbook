@@ -34,6 +34,7 @@
 - `response-archive/response-R181.md`：R181 架构评审波 3 · B2 小步重做完成：web.py 蓝图分域拆分（2026-10-21 台账合并时轮转搬移）
 - `response-archive/response-R182.md`：R182 架构评审波 4 · B7：i18n 种子与 JS 清单生成化（2026-10-21 台账合并时轮转搬移）
 - `response-archive/response-R185.md`：R185 架构评审文档修正批 DF1–DF5（2026-10-22 R207 写入触发轮转搬移）
+- `response-archive/response-R190.md`：标题壳写作「2026-10-19（R130 LLM 队列监控面板）」、内实为 `### R190` 整节（错挂系 R130 早于 10-21 已归档所致）；2026-10-23 R209 写入触发轮转，标题原样未改写
 
 ---
 
@@ -115,20 +116,6 @@
 - **验证**：`node --check`；全量 **590 passed**（merge 后在 develop 新基线复跑同数）。
 - **B4 剩余**：判据②「阅读器全功能真机回归」与③「R172/R173 不回退」需线上整站验收；A/P 段（位置恢复 / 生词台账 / 书签）还可再拆 `reader-location` / `reader-vocabulary`，但 <1,000 已满足——是否继续由用户定夺，故台账标「判据①达成」而非「B4 完成」。
 - **台账**：MAGICBOOK-2 已更新；worktree `../magicbook-arch-b5` 分支 `refactor/r183-epub-modules` 驻留待验收。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
-
-## 2026-10-19（R130 LLM 队列监控面板：四区块实现）
-
-### R190（用户：恢复历史写作任务、改完文稿后没有可点的「提交 AI」按钮，按钮显示「两稿已完成」）
-
-- **根因（不是渲染缺陷）**：R168 的设计规则是「每任务初稿 + 修订稿两稿封顶」——moon-well 第三稿返回 `50513`，前端 `refreshSubmitButton` 在 `lastDraftNo >= 2` 时主动 `disabled`。用户恢复的正是已完成两稿的历史任务，所以编辑框能改、按钮不能点。用户拍板**放开两稿上限**（不是改成只读回看）。
-- **前端改动**：`learning-writing.js` 删除 `done` 分支与 disable，交过稿后统一「提交修订稿」且始终可点（在途锁仍由 `busy()` 管）；提交后状态行统一为「第 N 稿已批改，可在上面改完再提交」；历史状态改为「已交第 N 稿 · 可继续修订」；一键续写固定指向最近一次写作并带稿状态（不再挑「<2 稿」）。模板按钮改「继续上次的写作」，批改面板提示补「修订次数不限」。
-- **i18n**：`scripts/generate_i18n_seed.py` 追加 `Draft {{n}} reviewed · can keep revising`；`messages.po` 新增 3 条译文并 `pybabel compile` 重编 `.mo`。旧「两稿已完成」词条保留为未引用项（运行时不取）。
-- **测试**：`pytest tests/test_learning_proxy.py tests/test_learning_pages_static.py tests/test_i18n_seed_contract.py` → **90 passed**；新增静态守卫 `test_writing_workshop_never_caps_draft_submissions`（禁止 `btn.disabled = done` / `lastDraftNo >= 2` / 「两稿已完成」回流）。
-- **文档**：L1 `docs/product/readme/learning.md` 改为「修订次数不限」；LLD 落 `docs/project/iterations/2026-10-writing-unlimited/writing-unlimited/lld.md`（状态：开发中）。
-- **收尾**：分支 `fix/r190-writing-unlimited`，merge 本地 `develop` **`67e8409e`**；合并并行 R130 后（merge `977636ee`）按用户指令 push `develop`，fnOS 构建 **END OK** + 部署 **SUCCESS**，容器 `Up (healthy)`；线上抽查 `https://magicbook.haoyuhang.top/static/js/learning-writing.js` 已无 `btn.disabled = done`、含 `can keep revising`（新状态机已生效）。worktree `../magicbook-r190-writing-unlimited` 留待验收后删除。跨仓依赖 moon-well R192（`revise` 稿号顺延）已于同一时段部署成功（`8dc8690`，active slot=blue）。
-- **发布态全量闸门**：`pytest tests/` → **622 passed / 13 failed**。13 个失败全部在 `test_metadata_outbound.py`（`shutdown(cancel_futures)` 需 Python 3.9+，本机 3.8）与 `test_reading_tts_service.py`（`book file is unavailable` 缺本机书库 fixture），已在干净 `origin/develop` 基线（`d85ba8ba`）复现 **13 failed / 15 passed**，与本轮写作改动无关；本机无仓库要求的 `.venv`，故用系统 Python 3.8 跑，正式判据以 CI/容器环境为准。本轮改动的三个测试文件 **90 passed**。
-- **总结**：requests.md 占号 R190；合并 origin/develop 时并行 R130 已轮转 R179，本条写入使窗口达 11，按「写入即检查」再搬最早一节 R180 至 `response-archive/response-R180.md` 并登记索引；冲突记录：与 R130 的 po/response 改动按并集合并，无撞号。
-- **复测 503 说明（2026-10-21 15:40）**：用户提交修订稿收到 `learning b1: /learning/writing/revise service unavailable`。根因是回填文档的 push 触发第二次部署，moon-well 旧容器 graceful shutdown 中断了在途 revise（15:40:38），代理按连接异常返回 503。服务稳定后 moon-well 端已用系统身份端到端复验 generate → submit(1) → revise(2) → revise(3) 全部成功；前端无需改动，用户重试即可，历史草稿与批改均未丢失。该次确为部署停机窗口；**15:43 起的复发是另一因**——代理 90s 小于后端 LLM 150s 预算，见 R191。
 
 ## 2026-10-21（R191：写作批改 503 复发——代理预算小于后端 LLM 预算）
 
@@ -285,3 +272,15 @@
 - **台账与驻留**：requests.md 占号 R208（chore 占号 + 两笔 feat + 一笔 docs，见 git log）；worktree `../magicbook-banner-manage`（分支 `feat/r208-banner-manage`，merge commit `9be68d29`）驻留待验收，验收通过后 `git worktree remove` + `git branch -d`。
 - **构建与未验（如实）**：push `9be68d29` 已触发 fnOS 构建（magicbook 侧构建核验未做，本机无 fnOS 免密通道）；moon-well 侧后端已由 R203/R204 会话实测构建上线（build-sha=0593f5a 含 R203）。**真机验收点**：齿轮开合与勾选保存即时生效、刷新与跨设备一致、另一设备改动被对账、全不勾出引导卡且可回管理、保存失败报错可见、移动端抽屉可用、story 卡可勾选。
 - **总结**：requests.md 占号 R208；本条为回应。窗口：写入前 10 节，归档 R188 后 10 节合规。冲突记录：R206 撞号（伙伴前端）+ 台账条目遗失，均已登记。
+## 2026-10-23（R209：伙伴图片未生效的定性与 MinIO 入口切换的 CSP 侧——源清单收敛单点、过渡双源）
+
+### R209（用户：「伙伴的图片似乎没有起作用」→「我知道了，我的网络会拦截 https://home.haoshenqi.top:9001。minio地址改为 https://minio.haoshenqi.top，只是入口不同，后端一样」）
+
+- **根因**：不是鉴权、不是 CSP 写错，而是**出口入口本身被用户网络拦**。伙伴头像与 TED 原声都按 moon-well 的 `minio.public-url`（现网＝`home.haoshenqi.top:9001`）拼直链，浏览器取不到对象；magicbook 侧 CSP 又硬编码同一源，所以「换入口」天然是两仓联动改动。
+- **入口等价性实测**：同一 TED 对象经两入口 HEAD 得 `Content-Length=10391127`、`ETag=f39b066b…-2` 完全相同；小 PNG 另比 sha256 亦相同 ⇒ 确认「只是入口不同，后端一样」。DNS 侧 `minio.haoshenqi.top`→8.139.5.79（VPS，443 经 lucky 反代），`home.haoshenqi.top`→61.153.123.227（仅 :9001 可达）。
+- **本仓改动**（commit `4944b350`）：`cps/web.py` 新增 `MINIO_PUBLIC_ORIGINS` 单点清单，`media-src`（R181 TED 原声）与 `img-src`（R207 伙伴头像）都由它拼——原先两处各写一遍同一个源，这正是「改基址必然两处同坏」的结构性原因。**过渡期两源并列**：magicbook 先松 CSP，moon-well 再翻配置，避免翻转窗口内 TED 原声与伙伴图同时被拦；待再无任何响应产出旧源，删旧条目单独一笔收窄（注释里写死了这条后续动作，别夹进功能改动）。
+- **测试**：TED 用例改为断言两源并列；伙伴用例改为参数化断言两源；反向守卫加严——`web.index` 不得出现任一 MinIO 源，另加一条「img-src 不得被放宽成通配 / 不得混入无关源」。全量 `.venv/bin/python -m pytest tests/` = **700 passed / 0 failed**（含并行会话 R208 banner 用例与本轮新增）。
+- **排查过程里我的两次探针失误（如实记）**：① 内置浏览器打开 `/buddy` 显示「Failed to load」、`ajax/buddy/catalog` 回 401，我几乎据此判成 buddy 专属缺陷——跑对照组发现**同一会话里 `ajax/achievements-summary|detail|pending` 也全 401**，那只是内置浏览器会话的 moon-well 令牌失效，证据无效；真正可用的是服务端 `mk-` 系统身份直探 `/buddy/catalog`（回 200 且 imageUrl 正常下发）。② 第一次比两入口我用 `curl -m 20` 直接下载，10MB 对象被**我自己的超时**截成 8.69MB，差点报成「两入口内容不一致」；改用 HEAD 比 `Content-Length`/`ETag` 才对。另有一次把「docker logs 里查不到 buddy 请求」当成「前端没发请求」——magicbook 根本不按请求写 stdout（访问日志在 ES），是探针无效而非事实。
+- **跨仓同源**：moon-well R205——`minio.public-url` 三处消费方原为 `@Value` 且全仓无 `@RefreshScope`，配置发布后日志照打 `Refresh keys changed` 却不生效，叠上部署侧「代码指纹相同→跳过重启」，**只改配置会永久卡旧值**；改走仓内既有范式 `@ConfigurationProperties`。
+- **台账与驻留**：requests.md 占号 R209（commit `0cd89023`；本仓最大号已被并行会话用至 208，故取 209，他们记录未动）；分支 `feat/r206-buddy` 复用同一 worktree `../magicbook-buddy`，先 merge `origin/develop` 拉齐基线；worktree 原样驻留待真机验收。**本轮改动尚未 push**（等确认；顺序：先推本仓松 CSP → 再推 moon-well → 最后翻 Nacos 配置）。
+- **窗口**：本条写入使 request 数达 11，按「写入即检查」搬移最旧一节。**这处错挂顺手登记**：窗口里标题为 `## 2026-10-19（R130 LLM 队列监控面板：四区块实现）` 的日期块，内部实际是 `### R190（…）` 整节（R130 自身早在 2026-10-21 R191 轮转时已搬入 `response-R130.md`，标题壳留下后被 R190 复用）。按「只搬原文、不改写」我不动它的标题，归档文件按**实际内容**命名 `response-R190.md`，并在索引里注明这处错挂，供后来人对账。
