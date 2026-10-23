@@ -127,3 +127,17 @@ def test_difficulty_series_map_is_annotated_as_series():
 def test_template_shows_unrated_when_no_difficulty():
     src = _read()
     assert "难度: 未分级" in src and "book-difficulty" in src
+
+
+# ---- 视觉分层（QA §四：已加入书架 vs 加入书架 不可分辨）--------------------
+def test_shelf_chip_distinguished_from_add_button():
+    """已加入的书架必须是 chip（label shelf-chip），不是与「加入书架」同款 btn。"""
+    src = _read()
+    remove_zone = src[src.index('id="remove-from-shelves"'):src.index('id="shelf-action-errors"')]
+    assert "shelf-chip" in remove_zone
+    assert "btn btn-sm btn-default" not in remove_zone, "移除芯片又变回与加入按钮同款"
+
+
+def test_admin_tools_grouped_and_gated():
+    src = _read()
+    assert "admin-tools" in src and "管理员工具" in src

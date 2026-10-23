@@ -1,5 +1,6 @@
 {% extends is_xhr|yesno("fragment.html", "layout.html") %}
 {% block header %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/book-detail.css') }}" />
     <meta property="og:type" content="book" />
     <meta property="og:title" content="{{ entry.title|truncate(35) }}" />
     {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
@@ -370,7 +371,7 @@
                                         {% if shelf.id in books_shelfs %}
                                             <a data-href="{{ url_for('shelf.remove_from_shelf', book_id=entry.id, shelf_id=shelf.id) }}"
                                                data-add-href="{{ url_for('shelf.add_to_shelf', book_id=entry.id, shelf_id=shelf.id) }}"
-                                               class="btn btn-sm btn-default" role="button"
+                                               class="label label-default shelf-chip" role="button"
                                                data-shelf-action="remove"
                                             >
 								              <span {% if not shelf.is_public or current_user.role_edit_shelfs() %}
@@ -387,7 +388,11 @@
 
                 {% endif %}
                 {% if current_user.role_edit() %}
-                    <div class="col-sm-12">
+                    {# R214 子项 A：管理动作收进「管理员工具」分组，与读者操作分视觉层级
+                       （QA §四：「已加入书架」芯片与「加入书架」按钮不可分辨的同款问题）。
+                       权限门禁 role_edit() 不变。 #}
+                    <div class="col-sm-12 admin-tools">
+                        <p class="text-muted"><small>管理员工具</small></p>
                         <div class="btn-group" role="group" aria-label="Edit/Delete book">
                             <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id) }}"
                                class="btn btn-sm btn-primary" id="edit_book" role="button"><span
@@ -410,7 +415,7 @@
     </li>
 </script>
 <script type="text/template" id="template-shelf-remove">
-    <a data-href="<%= remove %>" data-add-href="<%= add %>" class="btn btn-sm btn-default"
+    <a data-href="<%= remove %>" data-add-href="<%= add %>" class="label label-default shelf-chip"
        data-shelf-action="remove">
         <span class="glyphicon glyphicon-remove"></span> <%= content %>
     </a>
