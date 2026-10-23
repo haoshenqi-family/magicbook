@@ -43,7 +43,7 @@ magicbook /login  「注册账号」按钮（同窗口，不再 target=_blank）
    │    ② 从 AUTHENTIK_ENROLLMENT_INVITE_URL 解析出 itoken
    │    ③ 把授权 URL 的 path+query 编码成 next，拼成邀请 flow URL
    ▼
-account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=..&next=%2Fapplication%2Fo%2Fauthorize%2F%3F..
+account.haoshenqi.top/if/flow/invitation-enrollment/?query=itoken%3D..&next=%2Fapplication%2Fo%2Fauthorize%2F%3F..
    │  用户填账号建号 → 末位 UserLoginStage 建立 Authentik 登录态
    ▼  flow 完成，_flow_done() 取 session 里的 next（必须是相对路径）→ 302
 account.haoshenqi.top/application/o/authorize/?client_id=..&state=..&nonce=..&redirect_uri=..
@@ -116,3 +116,21 @@ python3 scripts/oidc_admin_audit.py --demote --emails a@b.com
 安全边界：默认 dry-run；`--demote` 必须显式点名，**不支持全量**；写库前自动备份 `<db>.r211-bak-<时间戳>`；**降级目标角色＝站点默认角色剔除管理员位**（脚本不会把任何人留在或推回管理员）。库路径优先级：`--db` > `CONFIG_PATH/app.db` > 仓库根 `app.db`（容器内即 `/config/app.db`，需 `-v` 挂载或用 `docker exec`）。
 
 守卫测试：`tests/test_oidc_admin_role.py`（16 条）——决策函数 5 条、回调形制 3 条、CLI 8 条；反向变异（把建号改回 `ADMIN_USER_ROLES`）实测报红。
+## 注册入口本身：链接形式是它的命门
+
+自助注册**不是**公开入口，而是走 Authentik 的 `invitation-enrollment` flow：登录页「注册账号 Sign up (invite)」指向一条具体邀请（`.env` 的 `AUTHENTIK_ENROLLMENT_INVITE_URL`）。
+
+**这条链接的「形式」比链接本身更要命。** 2026-10-23 实测：老式 `?itoken=<uuid>` 一律被 authentik 判 `Invalid invite/invite not found`，而邀请记录本身完全正常（`single_use=false`、未过期、Django ORM `filter_not_expired` 能查到）。根因在 authentik 源码 `authentik/flows/views/executor.py`：
+
+```python
+get_params = QueryDict(request.GET.get(QS_QUERY, ""))   # QS_QUERY = "query"
+```
+
+顶层 query 不被读，**必须整段塞进 `?query=` 里**——正确形式是 `?query=itoken%3D<uuid>`（authentik 自己回的 `to` 字段也是这个形式）。
+
+失效的表现极具迷惑性：点进去只显示一句「Invalid invite」，**不会有人来报「注册不了」**，登录页上的注册按钮就此长期坏死而不被察觉（R161 域名切换只换域名、没动形式，入口就此报废，直到 2026-10-23 才被追出来）。
+
+两点推论：
+
+- **新账号一律普通用户**这条修复，正是让「链接被转发也无所谓」成立的前提——转发出去也只产生普通用户，管理员仍由人工赋予。
+- 入口要长期可用，得保证链接形式跟 authentik 当前版本对得上。策略已定（2026-10-23 用户拍板）：**邀请设为可复用**（`single_use=False`）、有效期 90 天；轮换工具 [`scripts/rotate_authentik_invite.py`](../../../../scripts/rotate_authentik_invite.py)（建邀请 → 生成新式链接 → 改 fnOS `.env` → `docker compose up -d` 重建 → 校验登录页；默认 dry-run，`--apply` 才动服务器）。细节见 [OIDC 登录工作流](../../kb/instructions/workflows/oidc-login.md) §2。

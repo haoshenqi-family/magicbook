@@ -81,13 +81,13 @@ OIDC 全部由环境变量配置，`docker-compose.yml` 经 `env_file` 注入，
 | `AUTHENTIK_MAGICBOOK_CLIENT_ID` | `<client_id>` | Authentik 侧 magicbook application 的 Client ID |
 | `AUTHENTIK_MAGICBOOK_CLIENT_SECRET` | `<client_secret>` | 与 id_token 签名/凭证换取相关的密钥 |
 | `AUTHENTIK_MAGICBOOK_REDIRECT_URI` | `https://magicbook.haoshenqi.top/oidc/callback` | **回调地址**，授权后 Authentik 重定向到此处；未设置时回退 `url_for(..., _external=True)` |
-| `AUTHENTIK_ENROLLMENT_INVITE_URL` | `https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=<邀请pk>` | **邀请制注册入口**（R103）。配置后登录页（游客首页）在登录按钮下渲染「注册账号 Sign up (invite)」；**R217 起该按钮改为指向 magicbook 侧 `/oidc/signup`**（由它串起邀请注册与 OIDC 授权，注册完自动回站且已登录），itoken 从本变量的 query 里解析，不另设独立变量。Authentik 邀请默认 30 天过期，轮换时更新此值并重启容器，未配置则不渲染注册入口 |
+| `AUTHENTIK_ENROLLMENT_INVITE_URL` | `https://account.haoshenqi.top/if/flow/invitation-enrollment/?query=itoken%3D<邀请pk>` | **邀请制注册入口**（R103）。配置后登录页（游客首页）在登录按钮下渲染「注册账号 Sign up (invite)」；**R217 起该按钮改为指向 magicbook 侧 `/oidc/signup`**（由它串起邀请注册与 OIDC 授权，注册完自动回站且已登录），itoken 从本变量的嵌套 query 里解析，不另设独立变量。⚠️ **链接形式必须用嵌套 query（`?query=itoken%3D<pk>`）**：authentik 的 flow 入口只读 `request.GET["query"]` 里的整段参数（源码 `authentik/flows/views/executor.py`：`get_params = QueryDict(request.GET.get(QS_QUERY, ""))`，`QS_QUERY="query"`），老式 `?itoken=<pk>` 会被判 `Invalid invite/invite not found`。2026-10-23 实测：该报错**与邀请本身无关**（库里 `single_use=false`、未过期、ORM 查得到），只是形式不对；R161 域名切换只换域名没改形式，登录页注册入口因此长期坏死且无人察觉。轮换工具 `scripts/rotate_authentik_invite.py`（建邀请 → 换 .env → `docker compose up -d` 重建 → 校验登录页；`docker restart` 不重读 env_file）。未配置则不渲染注册入口 |
 
 > **当前线上取值（2026-10-23 R161 域名切换后）**
 >
 > - Issuer：`https://account.haoshenqi.top/application/o/magicbook/`
 > - Redirect URI：`https://magicbook.haoshenqi.top/oidc/callback`
-> - 注册邀请：`https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=…`
+> - 注册邀请：`https://account.haoshenqi.top/if/flow/invitation-enrollment/?query=itoken%3D…`
 > - 旧域 `magicbook.haoyuhang.top` / `authentik.haoshenqi.top` 均保留：前者整站 301 到新域，后者仅浏览器入口 301（OIDC 机器端点原地保留，供 note/immich 等旧 issuer 的 RP 使用）
 > - 改这三项须同步 authentik provider 的 `_redirect_uris` 白名单（新旧两条并存）与 moon-well 的 `AUTHENTIK_MAGICBOOK_ISSUER`（换票校验逐字比对 issuer）
 
