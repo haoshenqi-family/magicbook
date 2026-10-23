@@ -2380,6 +2380,65 @@ def profile():
 # ###################################Show single book ##################################################################
 
 
+def recent_reading(user_id, limit=6):
+    """首页「继续阅读」取数（R213-B / MB-17）。
+
+    Why 不直接 order_by 后 limit：`reading_progress` 里可能残留已读完的书与被
+    删除的书，先截断再过滤会让列表出现空位。这里按 limit 的 3 倍取候选再过滤，
+    过滤后不足 limit 就少显示几张卡，不补位。
+
+    Why 返回 dict 而不是 ORM 行：模板要的是「书名 + 封面 + 37/125」，
+    拼装放在这里，避免模板里再 join 书库。
+    """
+    if not user_id:
+        return []
+    try:
+        rows = ub.session.query(ub.ReadingProgress).filter(
+            ub.ReadingProgress.user_id == int(user_id)).order_by(
+            ub.ReadingProgress.last_read_at.desc()).limit(max(limit, 1) * 3).all()
+    except Exception as e:
+        log.warning("recent_reading query failed: %s", e)
+        return []
+    if not rows:
+        return []
+
+    book_ids = [r.book_id for r in rows]
+    # 一次查出已读完集合，避免逐本查 ReadBook
+    finished = set()
+    try:
+        for read_book in ub.session.query(ub.ReadBook).filter(
+                ub.ReadBook.user_id == int(user_id),
+                ub.ReadBook.book_id.in_(book_ids),
+                ub.ReadBook.read_status == ub.ReadBook.STATUS_FINISHED).all():
+            finished.add(read_book.book_id)
+    except Exception as e:
+        log.warning("recent_reading read-status lookup failed: %s", e)
+
+    entries = []
+    for row in rows:
+        if len(entries) >= limit:
+            break
+        if row.book_id in finished:
+            continue
+        try:
+            book = calibre_db.get_filtered_book(row.book_id)
+        except Exception:
+            book = None
+        # 书被删或当前用户无权看：静默跳过，不进列表也不报错
+        if not book:
+            continue
+        entries.append({
+            "book": book,
+            "format": row.book_format,
+            "position": row.position,
+            "percent": row.progress_percent,
+            "page_current": row.page_current,
+            "page_total": row.page_total,
+            "last_read_at": row.last_read_at,
+        })
+    return entries
+
+
 @web.route("/read/<int:book_id>/<book_format>")
 @login_required_if_no_ano
 @viewer_required
@@ -2400,16 +2459,32 @@ def read_book(book_id, book_format):
         bookmark = ub.session.query(ub.Bookmark).filter(and_(ub.Bookmark.user_id == int(current_user.id),
                                                              ub.Bookmark.book_id == book_id,
                                                              ub.Bookmark.format == book_format.upper())).first()
+    # 账号级阅读位置（R213-B）：EPUB 恢复位置用；服务端优先于浏览器 localStorage
+    reading_position = None
+    if current_user.is_authenticated:
+        progress = ub.session.query(ub.ReadingProgress).filter(
+            ub.ReadingProgress.user_id == int(current_user.id),
+            ub.ReadingProgress.book_id == book_id,
+            ub.ReadingProgress.book_format == book_format.upper()).first()
+        if progress:
+            reading_position = {
+                "position": progress.position,
+                "percent": progress.progress_percent,
+                "page_current": progress.page_current,
+                "page_total": progress.page_total,
+            }
     if book_format.lower() == "epub" or book_format.lower() == "kepub":
         log.debug("Start [k]epub reader for %d", book_id)
         return render_title_template('read.html', bookid=book_id, title=book.title, bookmark=bookmark,
-                                     book_format=book_format)
+                                     book_format=book_format, reading_position=reading_position)
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
-        return render_title_template('readpdf.html', pdffile=book_id, title=book.title)
+        return render_title_template('readpdf.html', pdffile=book_id, title=book.title,
+                                     reading_position=reading_position)
     elif book_format.lower() == "txt":
         log.debug("Start txt reader for %d", book_id)
-        return render_title_template('readtxt.html', txtfile=book_id, title=book.title)
+        return render_title_template('readtxt.html', txtfile=book_id, title=book.title,
+                                     reading_position=reading_position)
     elif book_format.lower() in ["djvu", "djv"]:
         log.debug("Start djvu reader for %d", book_id)
         return render_title_template('readdjvu.html', djvufile=book_id, title=book.title,
@@ -2436,6 +2511,40 @@ def read_book(book_id, book_format):
         flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
               category="error")
         return redirect(url_for("web.index"))
+
+
+# ---- R214 子项 A：书籍详情元数据呈现判定（判定不进模板，便于单测）----
+from cps.reading_insight.difficulty import resolve_difficulty
+
+
+def _pubdate_is_import_date(pubdate, timestamp):
+    """判定「伪出版日」：pubdate 与入藏 timestamp 相差 ≤1 天视为导入时间。
+
+    Why: Calibre 在 OPF 没有 dc:date 时会把导入时间填进 books.pubdate，详情页
+         因此把「入库日」当「出版日」展示（QA §四）。这类日期不是出版信息，
+         页面改显示「导入于 …」，不伪造出版日（R214 元数据不伪造原则）。
+    """
+    if not pubdate or not timestamp:
+        return False
+    try:
+        delta = (pubdate.replace(tzinfo=None) - timestamp.replace(tzinfo=None)).total_seconds()
+    except (AttributeError, TypeError, ValueError):
+        return False
+    return abs(delta) <= 86400
+
+
+def _shelf_names_for_book(shelf_ids):
+    """把书架 id 列表换成书架名列表（难度阶②级兜底要吃名称）。
+
+    Why: `ub.BookShelf.shelf` 是 `Column(Integer, ForeignKey('shelf.id'))`——外键整数列，
+         不是 Shelf 关系对象。详情页把书所属书架直接攒成 id 列表（模板按 id 判
+         「已加入书架」，形制不能改），拿它 `.name` 必然 AttributeError→整页 500。
+         名称单独查一次，也避免按书架数逐行 lazy load 出 N+1。
+    """
+    if not shelf_ids:
+        return []
+    return [name for (name,) in ub.session.query(ub.Shelf.name)
+            .filter(ub.Shelf.id.in_(shelf_ids)).all()]
 
 
 @web.route("/book/<int:book_id>")
@@ -2473,6 +2582,13 @@ def show_book(book_id):
         for media_format in entry.data:
             if media_format.format.lower() in constants.EXTENSIONS_AUDIO:
                 entry.audio_entries.append(media_format.format.lower())
+
+        # R214 子项 A：伪出版日判定 + 难度阶标签（四级兜底，与 R213 共用解析器）
+        entry.pubdate_is_import_date = _pubdate_is_import_date(entry.pubdate, entry.timestamp)
+        entry.difficulty = resolve_difficulty(
+            tag_names=[t.name for t in entry.tags],
+            shelf_names=_shelf_names_for_book(book_in_shelves),
+            series_name=entry.series[0].name if entry.series else "")
 
         return render_title_template('detail.html',
                                      entry=entry,
