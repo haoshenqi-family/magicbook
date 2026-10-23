@@ -2380,6 +2380,65 @@ def profile():
 # ###################################Show single book ##################################################################
 
 
+def recent_reading(user_id, limit=6):
+    """首页「继续阅读」取数（R213-B / MB-17）。
+
+    Why 不直接 order_by 后 limit：`reading_progress` 里可能残留已读完的书与被
+    删除的书，先截断再过滤会让列表出现空位。这里按 limit 的 3 倍取候选再过滤，
+    过滤后不足 limit 就少显示几张卡，不补位。
+
+    Why 返回 dict 而不是 ORM 行：模板要的是「书名 + 封面 + 37/125」，
+    拼装放在这里，避免模板里再 join 书库。
+    """
+    if not user_id:
+        return []
+    try:
+        rows = ub.session.query(ub.ReadingProgress).filter(
+            ub.ReadingProgress.user_id == int(user_id)).order_by(
+            ub.ReadingProgress.last_read_at.desc()).limit(max(limit, 1) * 3).all()
+    except Exception as e:
+        log.warning("recent_reading query failed: %s", e)
+        return []
+    if not rows:
+        return []
+
+    book_ids = [r.book_id for r in rows]
+    # 一次查出已读完集合，避免逐本查 ReadBook
+    finished = set()
+    try:
+        for read_book in ub.session.query(ub.ReadBook).filter(
+                ub.ReadBook.user_id == int(user_id),
+                ub.ReadBook.book_id.in_(book_ids),
+                ub.ReadBook.read_status == ub.ReadBook.STATUS_FINISHED).all():
+            finished.add(read_book.book_id)
+    except Exception as e:
+        log.warning("recent_reading read-status lookup failed: %s", e)
+
+    entries = []
+    for row in rows:
+        if len(entries) >= limit:
+            break
+        if row.book_id in finished:
+            continue
+        try:
+            book = calibre_db.get_filtered_book(row.book_id)
+        except Exception:
+            book = None
+        # 书被删或当前用户无权看：静默跳过，不进列表也不报错
+        if not book:
+            continue
+        entries.append({
+            "book": book,
+            "format": row.book_format,
+            "position": row.position,
+            "percent": row.progress_percent,
+            "page_current": row.page_current,
+            "page_total": row.page_total,
+            "last_read_at": row.last_read_at,
+        })
+    return entries
+
+
 @web.route("/read/<int:book_id>/<book_format>")
 @login_required_if_no_ano
 @viewer_required
@@ -2400,10 +2459,24 @@ def read_book(book_id, book_format):
         bookmark = ub.session.query(ub.Bookmark).filter(and_(ub.Bookmark.user_id == int(current_user.id),
                                                              ub.Bookmark.book_id == book_id,
                                                              ub.Bookmark.format == book_format.upper())).first()
+    # 账号级阅读位置（R213-B）：EPUB 恢复位置用；服务端优先于浏览器 localStorage
+    reading_position = None
+    if current_user.is_authenticated:
+        progress = ub.session.query(ub.ReadingProgress).filter(
+            ub.ReadingProgress.user_id == int(current_user.id),
+            ub.ReadingProgress.book_id == book_id,
+            ub.ReadingProgress.book_format == book_format.upper()).first()
+        if progress:
+            reading_position = {
+                "position": progress.position,
+                "percent": progress.progress_percent,
+                "page_current": progress.page_current,
+                "page_total": progress.page_total,
+            }
     if book_format.lower() == "epub" or book_format.lower() == "kepub":
         log.debug("Start [k]epub reader for %d", book_id)
         return render_title_template('read.html', bookid=book_id, title=book.title, bookmark=bookmark,
-                                     book_format=book_format)
+                                     book_format=book_format, reading_position=reading_position)
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
         return render_title_template('readpdf.html', pdffile=book_id, title=book.title)
