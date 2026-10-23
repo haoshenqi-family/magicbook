@@ -41,7 +41,7 @@ except ImportError as e:
         OAuthConsumerMixin = BaseException
         oauth_support = False
 from sqlalchemy import create_engine, exc, exists, event, text
-from sqlalchemy import Column, ForeignKey
+from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy import String, Integer, SmallInteger, Boolean, DateTime, Float, JSON
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql.expression import func
@@ -422,6 +422,47 @@ class ReadBook(Base):
     last_modified = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     last_time_started_reading = Column(DateTime, nullable=True)
     times_started_reading = Column(Integer, default=0, nullable=False)
+
+
+class ReadingProgress(Base):
+    """账号级阅读位置（R213 / MB-17）。
+
+    Why 独立成表，而不是给 ReadBook 加列：
+    1. `ReadBook.read_status` 只回答「读没读完」，被书库过滤、render_read_books、
+       Kobo 同步多处读写；加列会把「读没读完」和「读到哪」两件事绑死。
+    2. 位置在 Kobo 侧已有自己的结构（`KoboReadingState.current_bookmark`），那是
+       Kobo 协议的私有字段，网页端写进去会让设备端读到脏位置。
+    3. `ReadBook.last_time_started_reading` 只由 Kobo 通道写入（cps/kobo.py），网页
+       读者永远是空值，不能当「最近阅读」用。
+
+    因此网页阅读器的位置单独落本表：`(user_id, book_id, book_format)` 唯一，
+    只服务阅读器恢复位置与首页「继续阅读」，不参与「已读」判定。
+    """
+
+    __tablename__ = 'reading_progress'
+    __table_args__ = (
+        UniqueConstraint('user_id', 'book_id', 'book_format',
+                         name='uq_reading_progress_user_book_fmt'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True)
+    book_id = Column(Integer, nullable=False, index=True)
+    book_format = Column(String(16), nullable=False, default='EPUB')
+    # EPUB：CFI；其余格式留空或存页码/字符偏移（R213-B 首版只落 EPUB）
+    position = Column(String(512), nullable=True)
+    progress_percent = Column(Float, nullable=True)
+    page_current = Column(Integer, nullable=True)
+    page_total = Column(Integer, nullable=True)
+    # 排序键：首页「继续阅读」按它倒序；与 updated_at 分开是刻意的——
+    # 进度字段未变（同一页反复开合）时 last_read_at 也要推进，否则列表顺序会失真
+    last_read_at = Column(DateTime, nullable=False,
+                          default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return '<ReadingProgress u%d b%d %s>' % (self.user_id, self.book_id, self.book_format)
 
 
 class Bookmark(Base):

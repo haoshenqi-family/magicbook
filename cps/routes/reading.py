@@ -13,9 +13,13 @@ from cps.web import (
     whole_book_translation_service,
     whole_book_tts_service,
 )
+from .. import ub
 from ..admin import admin_required
+from ..cw_login import current_user
 from ..render_template import render_title_template
 from ..usermanagement import user_login_required
+from datetime import datetime
+from datetime import timezone
 from flask import jsonify
 from flask import request
 from flask_babel import gettext as _
@@ -475,3 +479,96 @@ def reading_word_detail():
     # 缓存 miss 时 moon-well 现场生成（一次 LLM 调用），30s 覆盖慢响应
     return _moonwell_proxy("/vocabulary/detail/" + quote(word, safe=""), None, 30,
                            "reading word detail", method="GET")
+
+
+# ── 账号级阅读位置（R213-B / PJM MB-17） ────────────────────────────────────────
+# Why 落 magicbook 本地库而不是 moon-well：位置是阅读器自身状态，读写都在本进程，
+# 且 moon-well 已有自己的学习侧进度（SRS/计划）语义，混在一起会让两侧口径互相拉扯。
+# 与 `ub.ReadBook` 的分工：它只回答「读没读完」，本表只回答「读到哪」（见 ub.ReadingProgress）。
+
+_READING_PROGRESS_FORMATS = {"EPUB", "KEPUB", "PDF", "TXT", "CBR", "CBZ"}
+_READING_PROGRESS_POSITION_MAX = 512  # 与 ub.ReadingProgress.position 列宽一致
+
+
+def _progress_int(payload, key, upper=None):
+    """取正整数；非法值返回 None（不是 0——0 会把「未上报」误当成「第 0 页」）。"""
+    raw = payload.get(key)
+    if raw is None or raw == "":
+        return None
+    try:
+        value = int(float(raw))
+    except (TypeError, ValueError):
+        return None
+    if value < 0 or (upper is not None and value > upper):
+        return None
+    return value
+
+
+@web.route("/ajax/reading-progress", methods=["POST"])
+@user_login_required
+def reading_progress():
+    """记录当前用户的阅读位置（EPUB 的 CFI + 页码 + 百分比）。
+
+    Why 静默容忍脏数据而不是报错弹窗：进度不是关键路径，为它打断阅读不值当；
+    但**失败必须可查**——返回 4xx + JSON，前端只 console.warn 不弹窗，
+    否则「进度丢了」永远查不出是没上报还是被拒。
+    """
+    # 兼容两条前端通路：fetch+JSON（常规）与表单编码（旧浏览器/pagehide 兜底）
+    payload = request.get_json(silent=True)
+    if payload is None:
+        payload = request.form
+    if not hasattr(payload, "get"):
+        return jsonify({"success": False, "message": "invalid payload"}), 400
+
+    book_id = _progress_int(payload, "book_id")
+    if not book_id:
+        return jsonify({"success": False, "message": "book_id must be a positive integer"}), 400
+
+    book_format = str(payload.get("format") or "").strip().upper()
+    if book_format not in _READING_PROGRESS_FORMATS:
+        return jsonify({"success": False,
+                        "message": "format must be one of %s" % sorted(_READING_PROGRESS_FORMATS)}), 400
+
+    position = payload.get("position")
+    if position is not None:
+        position = str(position).strip() or None
+    if position and len(position) > _READING_PROGRESS_POSITION_MAX:
+        position = position[:_READING_PROGRESS_POSITION_MAX]
+
+    percent = payload.get("percent")
+    progress_percent = None
+    if percent is not None and percent != "":
+        try:
+            progress_percent = float(percent)
+        except (TypeError, ValueError):
+            progress_percent = None
+        if progress_percent is not None:
+            # 夹取而不是拒绝：epub.js 在书结构异常时会算出越界百分比，
+            # 拒绝它等于让整条记录丢掉，夹到 0–100 仍能给出正确的相对位置
+            progress_percent = max(0.0, min(100.0, progress_percent))
+
+    page_current = _progress_int(payload, "page_current")
+    page_total = _progress_int(payload, "page_total")
+    if page_current is not None and page_total is not None and page_current > page_total:
+        page_current = page_total
+
+    now = datetime.now(timezone.utc)
+    row = ub.session.query(ub.ReadingProgress).filter(
+        ub.ReadingProgress.user_id == int(current_user.id),
+        ub.ReadingProgress.book_id == book_id,
+        ub.ReadingProgress.book_format == book_format).first()
+    if row is None:
+        row = ub.ReadingProgress(user_id=int(current_user.id), book_id=book_id,
+                                 book_format=book_format)
+        ub.session.add(row)
+    row.position = position
+    row.progress_percent = progress_percent
+    row.page_current = page_current
+    row.page_total = page_total
+    # 同一页反复开合时进度字段不变，但「最近阅读」语义要求时间推进
+    row.last_read_at = now
+    ub.session_commit("Reading progress user %s book %s %s" %
+                      (current_user.id, book_id, book_format))
+    return jsonify({"success": True,
+                    "percent": progress_percent,
+                    "last_read_at": now.isoformat()})

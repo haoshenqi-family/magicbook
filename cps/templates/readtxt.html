@@ -22,6 +22,17 @@
         <script>
             "use strict";
         </script>
+        {# R213-B：账号级阅读位置——TXT 阅读器此前没有任何进度记忆，本次一并接上 #}
+        {% if current_user.is_authenticated %}
+        <script type="text/javascript">
+            window.calibre = {
+                bookId: {{ txtfile }},
+                bookFormat: "TXT",
+                readerPosition: {{ (reading_position or {})|tojson }},
+            };
+        </script>
+        <script src="{{ url_for('static', filename='js/reading/reader-progress.js') }}"></script>
+        {% endif %}
         <script src="{{ url_for('static', filename='js/reading/txt_reader.js') }}"></script>
     </head>
     <body>

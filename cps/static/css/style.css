@@ -485,3 +485,114 @@ body > div.container-fluid > div.row-fluid > div.col-sm-2::-webkit-scrollbar {
 body > div.container-fluid  {
   padding-right: 0px;
 }
+
+/* ============================================================
+   R213-A 首页导航与外壳（PJM MB-16）
+   ============================================================ */
+
+/* ── 1. 「创建书架」900px 视口裁切修复 ─────────────────────────
+   Why：侧栏 .navigation 无滚动容器，书架一多整列超过视口高度，底部的
+   「创建书架」被推出屏幕且无法滚动到达（QA §三.2）。给导航列一个
+   「视口高减顶栏」的上限 + 纵向滚动即可，不改变任何视觉样式。 */
+@media (min-width: 768px) {
+  .navigation {
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+}
+
+/* ── 2. 排序 chips：文字标签 + 窄屏抽屉 ──────────────────────
+   chips 的 .chip-label 在 index.html 内；窄屏（<768px）整排收进
+   Bootstrap collapse 抽屉，由「筛选与排序」按钮开合。桌面端强制
+   展开（collapse 类默认隐藏内容，媒体查询覆盖回 block）。 */
+.filter-chips .chip-label { margin-left: 4px; }
+.filter-toggle { margin-bottom: 10px; }
+@media (min-width: 768px) {
+  .filter-chips.collapse {
+    display: block;
+    height: auto;
+    visibility: visible;
+  }
+  .filter-chips.collapsing { height: auto; }
+}
+@media (max-width: 767px) {
+  /* 抽屉态：竖排、整行宽，触控友好 */
+  .filter-chips .btn {
+    display: block;
+    width: 100%;
+    margin-bottom: 6px;
+    text-align: left;
+  }
+}
+
+/* ── 3. 卡片格式徽标（EPUB / PDF / 音频） ────────────────────
+   定位在封面图左下角的小胶囊；.img 需相对定位作锚点。 */
+.book .cover .img,
+.random-books .cover .img { position: relative; }
+
+.cover-badges {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  pointer-events: none; /* 不挡封面点击 */
+}
+
+.cover-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  line-height: 1.5;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+}
+
+.cover-badge-audio { background: rgba(69, 178, 157, 0.9); }
+
+/* ── 4. 移动端底部导航（书架 / 学习 / 我的） ─────────────────
+   仅 xs 显示（模板里自带 visible-xs）；固定底栏三列等分，正文在
+   窄屏下补 padding 以免最后一行内容被栏遮住。 */
+@media (max-width: 767px) {
+  body { padding-bottom: 54px; }
+}
+
+.mb-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1030; /* 与顶栏同级，始终可达 */
+  display: flex;
+  background: #f8f8f8;
+  border-top: 1px solid #ddd;
+}
+
+.mb-bottom-item {
+  flex: 1;
+  padding: 8px 0 6px;
+  text-align: center;
+  color: #777;
+  text-decoration: none;
+  font-size: 18px;
+}
+
+.mb-bottom-item .mb-bottom-label {
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mb-bottom-item.active,
+.mb-bottom-item:hover,
+.mb-bottom-item:focus {
+  color: #45b29d;
+  text-decoration: none;
+}

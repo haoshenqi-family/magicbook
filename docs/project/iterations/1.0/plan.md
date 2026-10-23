@@ -20,6 +20,10 @@
 | MAGICBOOK-5 R149 神奇树屋合集拆分 28 本 | 任务 | [idea mPh6cT4k](https://haoshenqi.pingcode.com/ship/ideas/mPh6cT4k) | [r149-mth-collection-split/](./r149-mth-collection-split/)（收尾清单） | 拆分+导入已完成（2026-10-10，28 册在库）；剩标签/书架/合集处置/归档 |
 | MAGICBOOK-6 R186 B6 判据③整本批次真机回归验收 | 任务 | （idea In progress） | — | 等用户真机验收，不在本轮设计范围 |
 | MAGICBOOK-10 R211 [缺陷] OIDC 自助注册默认授予管理员权限 | 缺陷 | [MAGICBOOK-218（idea）](https://haoshenqi.pingcode.com/ship/ideas/) | [r211-oidc-admin-role/lld.md](./r211-oidc-admin-role/lld.md) | **已开发待验收**（2026-10-23，worktree `../magicbook-r211-oidc-admin-role`，分支 `fix/r211-oidc-admin-role`；P0 单独先上线） |
+| MB-12 R213 首页信息架构（汇总项） | 用户故事 | [MAGICBOOK-220](https://haoshenqi.pingcode.com/ship/ideas/) | [r213-home-ia/](./r213-home-ia/)（HLD/LLD/AC） | **R213-B 已开发待验收**（2026-10-23）；A/C 未开工 |
+| MB-16 R213-A 导航与外壳：侧边栏分组 / chips 文字 / 卡片徽标 / 搜索合并 / 移动底部导航 | 任务 | 同上 | [r213-home-ia/lld.md](./r213-home-ia/lld.md) §5–§6 | 未开工；待拍板：侧边栏四组判定依据 + 「系统」组内容（HLD §7.1） |
+| MB-17 R213-B 继续阅读：`reading_progress` 表 + 进度回传 + 首页模块 | 任务 | 同上 | [r213-home-ia/lld.md](./r213-home-ia/lld.md) §1–§3 | **已开发待验收**（2026-10-23，worktree `../magicbook-r213-home-ia`，分支 `feat/r213-home-ia`；12 项新增测试 + 18 项受影响用例全绿） |
+| MB-18 R213-C 今日计划 + 分级推荐：新 `/home` 路由与首屏组装 | 任务 | 同上 | [r213-home-ia/hld.md](./r213-home-ia/hld.md) §3.4 / §7、[lld.md](./r213-home-ia/lld.md) §4 | 未开工（依赖 A/B 合入）；口径已定：难度阶按书架名 `阶N`、写作待办走 `writing/history` 计数、`/home` 为登录后默认落点 |
 
 ## 版本
 
@@ -29,3 +33,4 @@
 
 - moon-well 侧不单独建迭代：作为后端跟随本项目，跨仓同源以 R 编号互链（R171/R172/R175/R118 均已交付上线）。
 - R167 缺独立 L3（交付时未建）；是否补记由第二轮讨论定，不阻塞验收。
+- **需求基线缺口（2026-10-23 发现）**：R211–R216 六条体验需求只落了台账 + PingCode，模块需求基线未建；R213 已补 `docs/product/library/requirements.md`，其余五条随各自设计阶段补齐，不静默滞留。

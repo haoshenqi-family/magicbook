@@ -74,6 +74,14 @@ $(document).ready(function() {
     $("#content").load($("#readmain").data('load'), function(textStr) {
         $(this).height($(this).parent().height()*0.95);
         $(this).text(isHardWrappedText(textStr) ? reflowHardWrappedText(textStr) : textStr);
+        // R213-B：文本进入 DOM 后 scrollWidth 才有效，分页与恢复都必须在这一步之后
+        homeLeft = $(this).offset().left;
+        pageCount = Math.max(1, Math.ceil(this.scrollWidth / pageWidth));
+        var _srv = (window.calibre && window.calibre.readerPosition) || {};
+        if (_srv.page_current) {
+            goToPage(_srv.page_current);
+        }
+        reportProgress(); // 首屏位置（恢复页）入库
     });
     //keybind
     $(document).keydown(function(event){
@@ -118,20 +126,44 @@ $(document).ready(function() {
     //page animate
     var origwidth = $("#content")[0].getBoundingClientRect().width;
     var gap = 20;
+    // R213-B：账号级阅读位置。TXT 此前没有进度记忆，本次为首次接入——
+    // 页码口径 = 内容相对初始位置的偏移 / 每页位移，与服务端 page_current 同单位。
+    var pageWidth = origwidth + gap;
+    var homeLeft = null; // 第 1 页时 content 的文档坐标（不一定是 0）
+    var pageCount = 1;
+    function currentPage() {
+        var left = $("#content").offset().left;
+        if (homeLeft === null) homeLeft = left;
+        var idx = Math.round((homeLeft - left) / pageWidth);
+        return Math.max(1, Math.min(pageCount, idx + 1));
+    }
+    function reportProgress() {
+        if (!window.ReaderProgress) return;
+        window.ReaderProgress.update({
+            page: currentPage(),
+            total: pageCount,
+            percent: pageCount > 1 ? Math.round(currentPage() / pageCount * 10000) / 100 : null,
+        });
+    }
+    function goToPage(page) {
+        if (page < 1 || page > pageCount) return;
+        if (homeLeft === null) homeLeft = $("#content").offset().left;
+        $("#content").offset({left: homeLeft - (page - 1) * pageWidth});
+    }
     function prevPage() {
-        if($("#content").offset().left > 0) {
+        var page = currentPage();
+        if (page <= 1) {
             return;
         }
-        leftoff = $("#content").offset().left;
-        leftoff = leftoff+origwidth+gap;
-        $("#content").offset({left:leftoff});
+        goToPage(page - 1);
+        reportProgress();
     }
     function nextPage() {
-        leftoff = $("#content").offset().left;
-        leftoff = leftoff-origwidth-gap;
-        if (leftoff + $("#content")[0].scrollWidth < 0) {
+        var page = currentPage();
+        if (page >= pageCount) {
             return;
         }
-        $("#content").offset({left:leftoff});
+        goToPage(page + 1);
+        reportProgress();
     }
 });

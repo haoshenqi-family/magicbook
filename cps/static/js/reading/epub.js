@@ -174,8 +174,23 @@ var reader;
                 // 因此恢复必须两级：先按 spine 序号 display（整数路径不走 CFI Range，
                 // 无此雷）安全落位，再用 cfiSafeForCurrentDocument 校验通过的 CFI 做
                 // 章内精调；校验不过则丢弃保存的位置，绝不让可疑 CFI 进入显示队列。
+                // R213-B：位置来源优先级 = 服务端（账号级、跨设备）> localStorage（本机兜底）。
+                // Why 不是简单二选一：老账号在服务端还没有记录，第一次进阅读器时服务端为空，
+                // 此时仍要用本地位置，并由 relocated 的首次上报自然完成回填（不写迁移脚本）。
+                var _savedPos = null;
                 try {
-                    var _savedPos = localStorage.getItem(position_key);
+                    var _srv = (window.calibre && window.calibre.readerPosition) || {};
+                    if (_srv && _srv.position) {
+                        _savedPos = JSON.stringify({
+                            cfi: _srv.position,
+                            percentage: typeof _srv.percent === "number" ? _srv.percent / 100 : undefined,
+                        });
+                    }
+                } catch (eSrv) {}
+                if (!_savedPos) {
+                    _savedPos = localStorage.getItem(position_key);
+                }
+                try {
                     if (_savedPos) {
                         try {
                             var _posObj = JSON.parse(_savedPos);
@@ -238,6 +253,21 @@ var reader;
                             position_key,
                             JSON.stringify(posObj)
                         );
+                    } catch (e) {}
+
+                    // R213-B：同时上报账号级位置（跨设备可见）。节流与卸载补发在
+                    // reader-progress.js 内，这里只负责把「当前真实位置」交出去。
+                    // 页码口径直接复用上面 locations 的 current/total —— 与阅读器顶部
+                    // 显示的 37/125 必须同源，否则首页卡片与阅读器会显示两个页码。
+                    try {
+                        if (window.ReaderProgress) {
+                            window.ReaderProgress.update({
+                                position: cfi,
+                                percent: percentage,
+                                page: total > 0 ? current : undefined,
+                                total: total > 0 ? total : undefined,
+                            });
+                        }
                     } catch (e) {}
                 });
                 reader.rendition.reportLocation();
