@@ -57,6 +57,22 @@ TED/博客类书的内容是**一段连续原声**（`ted-audio/<slug>.aac`）�
 - 口径修订（R213，2026-10-23）：本节旧文「进度经 moon-well book 模块上报恢复」与实况不符——网页阅读器此前**没有**任何服务端位置，靠 epub.js 写 localStorage（设备级，换浏览器即丢）；`ub.ReadBook` 只有「未读/在读/读完」三态且 `last_time_started_reading` 仅 Kobo 通道写入。账号级位置自 R213 起由本表端点承载，与 moon-well 无关。
 - 用户手写批注仍走 moon-well reading 段落批注接口（未变）。
 
+### 4. 账号级 UI 偏好代理（`cps/routes/preferences.py`，R216）
+
+引导已读与阅读主题存在 moon-well `user_ui_settings`（跨设备一致）；本仓只做鉴权转发。后端契约权威：moon-well R207 LLD（`docs/project/iterations/2026-10-ui-prefs/lld.md`，该模块暂无 L2）。
+
+| magicbook 端点 | moon-well 端点 | 方法 | 超时 | 说明 |
+| --- | --- | --- | --- | --- |
+| `/ajax/ui-settings` | `/user/ui-settings` | GET | 8s | 读 `{onboardingSeen, onboardingSeenAt, readerTheme, updatedAt}`；未配置用户返回出厂视图（`false` / `null`），服务端不懒建行 |
+| `/ajax/ui-settings/onboarding/close` | `/user/ui-settings/onboarding/close` | POST | 8s | 置账号级「引导已结束」，幂等：已 true 再调用不改首次时间 |
+| `/ajax/ui-settings/reader-theme` | `/user/ui-settings/reader-theme` | POST | 8s | `{"theme":"darkTheme"}`；**代理层先按 5 个内置 key 白名单挡非法值 → 400**，不把脏值送上游成 500 |
+
+- 三条全部 `@user_login_required`，带当前用户 JWT；401 / 上游 500 / 不可达 503 原样透传。
+- `customTheme`（自定义颜色）**不在契约内**：只存浏览器 `localStorage`，任何一端都不落库。
+- 消费侧失败口径：`GET` 读不到时引导**不自动弹**（fail closed）、主题保留本机值；`POST` 失败必须界面可见，不伪装成已保存。
+- 页面路由：`GET /me` 渲染偏好页；`POST /me/preferences` 是本站原生表单（只写 `locale` 与 `default_language`，不代理 moon-well）。
+- 阅读难度沿用既有端点：`GET /ajax/reading-settings`、`POST /ajax/reading-settings/hard-level`（见 vocabulary L2）。
+
 ## 调用方契约
 
 - 依赖：moon-well（vocabulary/system/tts/reading/book）；失败语义沿用各后端契约（业务错误 HTTP 500 + `Result.code`）。
@@ -71,4 +87,6 @@ TED/博客类书的内容是**一段连续原声**（`ted-audio/<slug>.aac`）�
 ## L3 与历史设计
 
 - [阅读单词学习规格](../reading-vocabulary.md)（跨 reading / vocabulary 的静态实现说明，L3 性质）
+- [阅读主题账号同步](../reading/features/reader-theme-sync.md)（R216：5 个内置主题跨设备、自定义仅本机、竞态口径）
+- [引导导览](../learning/features/onboarding.md)（R216：账号级只自动邀请一次的状态机与失败口径）
 - 历史设计（`docs/project/_legacy/feat/`）：[整本翻译设计](../../project/_legacy/feat/whole-book-translation/design/whole-book-translation-design.md) · [课级音频 LLD](../../project/_legacy/feat/nce-audio/design/lld.md)

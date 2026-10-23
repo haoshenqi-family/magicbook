@@ -9,6 +9,7 @@
 - **朗读**：段落文字转语音朗读；同一段落重听零等待（音频按段落长期保留，不清理）。**跟伴读说「读这一段」**也行（R170）：AI 伴读合成好之后播放器直接取现成音频，同一次朗读只扣 1 积分、重复播放不再扣（再让 AI 读一遍算新的一次）；伴读发起的朗读没有书籍上下文，属临时音频，保留 7 天后自动清理。**整本连播**：标题栏「▶」从当前阅读位置起按顺序逐段朗读整本书——听一段自动接下一段、章末自动翻章续听、随时暂停/继续/停止，正在读的段落高亮且视图自动跟随；没听过的段落首次合成稍等几秒，听过的永久缓存秒开。**整本预生成**（管理员）：书详情页可提前把整本书的朗读音频逐段合成好，之后所有读者首听即秒开；批次页实时看进度、可随时停止或重试。重试会把「卡住没动」的批次原地接着跑（已合成的段不重复花钱、进度不清零），批次也能在书详情页再次点击时自动续跑。
 - **整页 / 整本翻译**：当前页批量翻译；整本书翻译在书库发起，阅读器内查看进度。
 - **新概念课级音频**：新概念英语书配套课级音频播放页（课文原文 + 音频同步）。
+- **阅读主题**：浅色/深色/羊皮纸/琥珀/纯黑 5 个内置主题保存在账号里，换设备打开阅读器自动跟随；自定义颜色只留在本机，不同步。主题也可在个人页 `/me` 直接选。
 
 ## 谁在用
 
@@ -17,4 +18,5 @@
 ## 深入阅读
 
 - L2 接口说明：[reading/interface.md](../reading/interface.md)（代理端点映射；后端契约权威在 moon-well）
+- L3 实现说明：[阅读主题账号同步](../reading/features/reader-theme-sync.md)
 - 历史设计（`docs/project/_legacy/feat/`）：[词汇测试前端与代理](../../project/_legacy/feat/vocab-size-test/design/vocab-size-test-lld.md) · [引导导览](../../project/_legacy/feat/onboarding-tour/design/onboarding-tour.md) · [课级音频](../../project/_legacy/feat/nce-audio/design/lld.md) · [语言切换](../../project/_legacy/feat/language-i18n/design/language-i18n.md) · [整本连播](../../project/_legacy/feat/whole-book-listening/design/whole-book-listening-design.md)

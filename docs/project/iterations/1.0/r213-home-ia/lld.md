@@ -3,7 +3,7 @@
 > 状态：**A（非分组部分）与 B 已开发待验收 / A 侧边栏分组与 C 未定稿**（2026-10-23；A 已实现 chips 文字标签、卡片格式徽标、搜索合并、移动底部导航、创建书架裁切修复，**侧边栏四组分组按用户要求暂缓**等拍板；C 依赖 A/B 合入）
 > 迭代：1.0 · PJM 工作项 [MB-12](https://haoshenqi.pingcode.com/pjm/workitems/cc_nhJnW) 及拆出的 A/B/C 三个任务（MB-16/17/18） · Ship 需求 MAGICBOOK-220
 > 实现落点：worktree `../magicbook-r213-home-ia`，分支 `feat/r213-home-ia`（A/B/C 共用一树，按同编号互斥纪律）
-> 上游：[hld.md](./hld.md)（方案选型与被否方案）· 需求基线 [`product/library/requirements.md`](../../../product/library/requirements.md)
+> 上游：[hld.md](./hld.md)（方案选型与被否方案）· 需求基线 [`product/library/requirements.md`](../../../../product/library/requirements.md)
 > 本文档只管「怎么实现」。§1–§3 与子项 B 相关，§4–§8 分别对应 A/C。
 
 ## 1. 数据模型：`reading_progress`（子项 B）

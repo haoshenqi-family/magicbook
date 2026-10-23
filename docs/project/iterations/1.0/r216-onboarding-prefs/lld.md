@@ -1,6 +1,6 @@
 # R216 引导收敛 + /me 偏好页 + 难度入口前置 + 成就占位 + 伙伴 IP 风险登记 · LLD
 
-> 状态：已定稿，开发中（2026-10-23）
+> 状态：已定稿，已开发待验收（2026-10-23；六条交付实现 + 无头验收完成，未 push）
 > 工作项：PingCode MB-15 / Ship MAGICBOOK-223（R216）· 关联 R109（引导）· R208（账号级偏好范式）· QA 报告 §六/§七
 > 跨仓：moon-well R207（账号级 UI 偏好存储与契约主责）· magicbook R216（本仓）
 > 迭代：magicbook 1.0 · 设计文档路径 `docs/project/iterations/1.0/r216-onboarding-prefs/`
@@ -178,7 +178,7 @@
 6. 成就页锁态可见 tier 色彩 + 锁标，不再像坏图。
 7. 伙伴页文案能回答「伙伴是什么、会不会改变 AI 角色」。
 
-## 9. 文档回填（交付四问）
+## 9. 文档回填（交付四问 · 2026-10-23 已落地）
 
 - L1：`docs/product/readme/readme.md`（快速开始 + /me/引导行为）、`readme/companion.md`（伙伴定义）、`readme/library.md`（首页难度入口）。
 - L2：`docs/product/reading/interface.md` 增补三条 UI 设置代理映射；moon-well 侧 L2 由其 R207 工作项维护。

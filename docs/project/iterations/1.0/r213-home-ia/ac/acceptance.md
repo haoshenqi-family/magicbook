@@ -1,7 +1,7 @@
 # AC — R213 首页信息架构（三子项验收标准）
 
 > 状态：草案（2026-10-23），随 HLD/LLD 定稿后逐条勾选
-> 关联：[hld.md](../hld.md) · [lld.md](../lld.md) · 需求基线 [`product/library/requirements.md`](../../../../product/library/requirements.md)
+> 关联：[hld.md](../hld.md) · [lld.md](../lld.md) · 需求基线 [`product/library/requirements.md`](../../../../../product/library/requirements.md)
 > 回归视口：桌面 1440×900 · 移动 390×844（对应 QA 报告 §三 / §八 截图重拍对比）
 
 ## A · 导航与外壳
