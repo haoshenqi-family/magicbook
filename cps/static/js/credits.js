@@ -16,6 +16,7 @@
 
     var pollTimer = null;
     var countdownTimer = null;
+    var promoCountdownTimer = null;
     var consecutiveErrors = 0;
     var currentOrder = null; // precreate 成功前不赋值，避免失败后残留半初始化订单
 
@@ -92,6 +93,35 @@
         });
     }
 
+    // ---------- R205：活动角标 / 划线原价 / 倒计时 ----------
+    // Why 一律用服务端给的 promotionEndTimeEpochMs 而不是解析时间字符串:
+    // 浏览器按本地时区解析「2026-12-31 23:59:59」会换算出偏差，非东八区用户会看到「活动已结束」而实际仍在进行。
+    function formatPromotionRemain(ms) {
+        if (ms <= 0) { return '活动已结束'; }
+        var totalMinutes = Math.floor(ms / 60000);
+        var days = Math.floor(totalMinutes / 1440);
+        var hours = Math.floor((totalMinutes % 1440) / 60);
+        var minutes = totalMinutes % 60;
+        if (days > 0) { return '活动剩 ' + days + ' 天 ' + hours + ' 小时'; }
+        if (hours > 0) { return '活动剩 ' + hours + ' 小时 ' + minutes + ' 分'; }
+        return '活动剩 ' + minutes + ' 分';
+    }
+
+    function refreshPromotionCountdown() {
+        $('.pkg-promo').each(function () {
+            var endMs = parseInt($(this).attr('data-promo-end'), 10);
+            if (isNaN(endMs)) { return; }
+            $(this).text(formatPromotionRemain(endMs - Date.now()));
+        });
+    }
+
+    // 每 60 秒刷新一次即可：文案粒度到「分」，秒级刷新只是白烧 CPU
+    function startPromotionCountdown() {
+        refreshPromotionCountdown();
+        if (promoCountdownTimer) { clearInterval(promoCountdownTimer); }
+        promoCountdownTimer = setInterval(refreshPromotionCountdown, 60000);
+    }
+
     function renderPackages(packages) {
         // Why: adminOnly 测试档仅管理员可见（moon-well 无角色概念，前端过滤 + 入口隐藏）
         var visible = packages.filter(function (pkg) {
@@ -103,15 +133,29 @@
             return;
         }
         visible.forEach(function (pkg) {
+            var onPromotion = pkg.multiplier > 1;
             var card = $('<div>').addClass('credit-package-card');
-            card.append($('<div>').addClass('pkg-name').text(pkg.title));
+            var nameRow = $('<div>').addClass('pkg-name').text(pkg.title);
+            if (onPromotion) {
+                nameRow.append($('<span>').addClass('pkg-badge').text('内测 ×' + pkg.multiplier));
+            }
+            card.append(nameRow);
+            if (onPromotion && pkg.baseTitle) {
+                card.append($('<div>').addClass('pkg-base').text('原到账 ' + pkg.baseTitle));
+            }
             card.append($('<div>').addClass('pkg-price').text(formatMoney(pkg.price)));
             card.append($('<div>').addClass('pkg-desc').text(pkg.description || ''));
+            if (onPromotion && pkg.promotionEndTimeEpochMs) {
+                card.append($('<div>').addClass('pkg-promo')
+                    .attr('data-promo-end', String(pkg.promotionEndTimeEpochMs))
+                    .text(formatPromotionRemain(pkg.promotionEndTimeEpochMs - Date.now())));
+            }
             card.append($('<button>').addClass('btn btn-primary btn-sm pkg-buy-btn')
                 .attr('data-package-id', pkg.id)
                 .text('Recharge Now'));
             container.append(card);
         });
+        startPromotionCountdown();
     }
 
     function loadPackages() {
@@ -377,8 +421,8 @@
     // R51：充值详情弹窗——订单号/账单号（支付宝交易号）/档位/支付金额/支付方式/支付时间
     var RECHARGE_DETAIL_FIELDS = [
         ['orderNo', '订单号'], ['transactionId', '账单号'], ['packageTitle', '充值档位'],
-        ['credits', '积分'], ['amount', '支付金额（元）'], ['payType', '支付方式'],
-        ['payTime', '支付时间']
+        ['credits', '积分'], ['multiplier', '倍率'], ['amount', '支付金额（元）'],
+        ['payType', '支付方式'], ['payTime', '支付时间']
     ];
     function showRechargeDetail(detailJson) {
         var data;
@@ -441,6 +485,86 @@
         });
     }
 
+    // ---------- R205：管理员发布倍率活动 ----------
+    // Why 表单值直接原样提交（不做时区换算）: 管理员填的就是东八区墙上时间，
+    // moon-well 用显式 Asia/Shanghai 的 Clock 解释它；前端一旦按浏览器时区换算，
+    // 一个在 UTC 时区办公的管理员发布的「10-24 00:00」会提前 8 小时生效。
+    var PROMOTION_DEFAULT_END = '2026-12-31T23:59:59';
+
+    function pad2(value) {
+        return String(value).padStart(2, '0');
+    }
+
+    function localInputValue(date) {
+        return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate()) +
+            'T' + pad2(date.getHours()) + ':' + pad2(date.getMinutes()) + ':' + pad2(date.getSeconds());
+    }
+
+    function fillPromotionDefaults() {
+        if (!$('#credit-promo-start').val()) {
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            $('#credit-promo-start').val(localInputValue(today));
+        }
+        if (!$('#credit-promo-end').val()) {
+            $('#credit-promo-end').val(PROMOTION_DEFAULT_END);
+        }
+    }
+
+    function renderPromotions(list) {
+        var tbody = $('#credit-promo-rows').empty();
+        if (!list || !list.length) {
+            tbody.html('<tr><td colspan="4" class="text-muted">暂无活动记录。</td></tr>');
+            return;
+        }
+        list.forEach(function (p) {
+            var row = $('<tr>');
+            // 服务端已按东八区格式化，直接展示；不要在浏览器里再 new Date() 一遍
+            row.append($('<td>').text(p.startTime || '-'));
+            row.append($('<td>').text(p.endTime || '-'));
+            row.append($('<td>').text('×' + p.multiplier));
+            row.append($('<td>').text(p.statusText || '-'));
+            tbody.append(row);
+        });
+    }
+
+    function loadPromotions() {
+        if (!IS_ADMIN) { return; }
+        ajax('/ajax/credit/admin-promotion-list', 'POST', {}).then(function (response) {
+            renderPromotions(unwrap(response) || []);
+        }).catch(function (error) {
+            $('#credit-promo-rows').html('<tr><td colspan="4" class="text-danger">活动列表加载失败：' +
+                $('<span>').text(error.message).html() + '</td></tr>');
+        });
+    }
+
+    function submitPromotion() {
+        var start = $('#credit-promo-start').val();
+        var end = $('#credit-promo-end').val();
+        var multiplier = parseInt($('#credit-promo-multiplier').val(), 10);
+        if (!start || !end || !multiplier) { return; }
+        // Why 二次确认：活动发布后不可编辑/撤销（用户拍板），配错只能改库
+        var summary = '倍率 ×' + multiplier + '，' + start.replace('T', ' ') + ' ~ ' +
+            end.replace('T', ' ') + '（东八区）';
+        if (!window.confirm('发布后不可修改或撤销，确认发布活动？\n' + summary)) {
+            return;
+        }
+        $.ajax({
+            url: '/ajax/credit/admin-promotion-create', method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ startTime: start, endTime: end, multiplier: multiplier })
+        }).done(function () {
+            window.alert('活动已发布。');
+            loadPromotions();
+            // 活动即刻影响档位展示与下单倍率，必须刷新卡片，否则管理员会以为没生效
+            loadPackages();
+        }).fail(function (xhr) {
+            var msg = '发布失败';
+            try { msg = (JSON.parse(xhr.responseText).message) || msg; } catch (err) { /* ignore */ }
+            window.alert(msg);
+        });
+    }
+
     function resetConsumePage() {
         consumePageNo = 1;
         consumeTotal = 0;
@@ -454,6 +578,15 @@
 
         $('#credit-consume-apply').on('click', resetConsumePage);
         $('#credit-consume-apply').on('click', loadConsumeDetail);
+        // R205：管理员活动发布（入口仅管理员可见；moon-well 白名单二次校验）
+        if (IS_ADMIN) {
+            fillPromotionDefaults();
+            loadPromotions();
+            $('#credit-promo-form').on('submit', function (e) {
+                e.preventDefault();
+                submitPromotion();
+            });
+        }
         // R54：管理员积分调整（入口仅管理员可见；moon-well 白名单二次校验）
         $('#credit-admin-adjust-form').on('submit', function (e) {
             e.preventDefault();

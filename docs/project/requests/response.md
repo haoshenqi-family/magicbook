@@ -29,6 +29,7 @@
 - `response-archive/response-R175.md`：R175（2026-10-15；2026-10-16 R188 写入触发轮转搬移，窗口转入 R178 起）
 - `response-archive/response-R178.md`：R178 moon-well 防腐层迁出 web.py（B1，架构评审波 2）（2026-10-15；2026-10-16 R189 写入触发轮转搬移）
 - `response-archive/response-R179.md`：R179 架构评审 B2 尝试（撤销回基线，留存重做清单）（2026-10-15；2026-10-19 R130 写入触发轮转搬移）
+- `response-archive/response-R130.md`：原文件标 R130 节、正文实为 R190 回应（LLM 队列监控面板四区块）（2026-10-23 R209 写入触发轮转搬移，原样搬移不改写）
 - `response-archive/response-R180.md`：R180 B2 前置小修两项（2026-10-21 R190 写入触发轮转搬移）
 - `response-archive/response-R130.md`：R130 LLM 队列监控面板（承接 moon-well R118 契约、扩展 R126 /llm-tasks），2026-10-21 R191 写入触发轮转
 - `response-archive/response-R181.md`：R181 架构评审波 3 · B2 小步重做完成：web.py 蓝图分域拆分（2026-10-21 台账合并时轮转搬移）
@@ -115,20 +116,6 @@
 - **验证**：`node --check`；全量 **590 passed**（merge 后在 develop 新基线复跑同数）。
 - **B4 剩余**：判据②「阅读器全功能真机回归」与③「R172/R173 不回退」需线上整站验收；A/P 段（位置恢复 / 生词台账 / 书签）还可再拆 `reader-location` / `reader-vocabulary`，但 <1,000 已满足——是否继续由用户定夺，故台账标「判据①达成」而非「B4 完成」。
 - **台账**：MAGICBOOK-2 已更新；worktree `../magicbook-arch-b5` 分支 `refactor/r183-epub-modules` 驻留待验收。冲突记录：无新增；moon-well `local/*` 六条暂存删除仍未处置，r189 仍无法 merge。
-
-## 2026-10-19（R130 LLM 队列监控面板：四区块实现）
-
-### R190（用户：恢复历史写作任务、改完文稿后没有可点的「提交 AI」按钮，按钮显示「两稿已完成」）
-
-- **根因（不是渲染缺陷）**：R168 的设计规则是「每任务初稿 + 修订稿两稿封顶」——moon-well 第三稿返回 `50513`，前端 `refreshSubmitButton` 在 `lastDraftNo >= 2` 时主动 `disabled`。用户恢复的正是已完成两稿的历史任务，所以编辑框能改、按钮不能点。用户拍板**放开两稿上限**（不是改成只读回看）。
-- **前端改动**：`learning-writing.js` 删除 `done` 分支与 disable，交过稿后统一「提交修订稿」且始终可点（在途锁仍由 `busy()` 管）；提交后状态行统一为「第 N 稿已批改，可在上面改完再提交」；历史状态改为「已交第 N 稿 · 可继续修订」；一键续写固定指向最近一次写作并带稿状态（不再挑「<2 稿」）。模板按钮改「继续上次的写作」，批改面板提示补「修订次数不限」。
-- **i18n**：`scripts/generate_i18n_seed.py` 追加 `Draft {{n}} reviewed · can keep revising`；`messages.po` 新增 3 条译文并 `pybabel compile` 重编 `.mo`。旧「两稿已完成」词条保留为未引用项（运行时不取）。
-- **测试**：`pytest tests/test_learning_proxy.py tests/test_learning_pages_static.py tests/test_i18n_seed_contract.py` → **90 passed**；新增静态守卫 `test_writing_workshop_never_caps_draft_submissions`（禁止 `btn.disabled = done` / `lastDraftNo >= 2` / 「两稿已完成」回流）。
-- **文档**：L1 `docs/product/readme/learning.md` 改为「修订次数不限」；LLD 落 `docs/project/iterations/2026-10-writing-unlimited/writing-unlimited/lld.md`（状态：开发中）。
-- **收尾**：分支 `fix/r190-writing-unlimited`，merge 本地 `develop` **`67e8409e`**；合并并行 R130 后（merge `977636ee`）按用户指令 push `develop`，fnOS 构建 **END OK** + 部署 **SUCCESS**，容器 `Up (healthy)`；线上抽查 `https://magicbook.haoyuhang.top/static/js/learning-writing.js` 已无 `btn.disabled = done`、含 `can keep revising`（新状态机已生效）。worktree `../magicbook-r190-writing-unlimited` 留待验收后删除。跨仓依赖 moon-well R192（`revise` 稿号顺延）已于同一时段部署成功（`8dc8690`，active slot=blue）。
-- **发布态全量闸门**：`pytest tests/` → **622 passed / 13 failed**。13 个失败全部在 `test_metadata_outbound.py`（`shutdown(cancel_futures)` 需 Python 3.9+，本机 3.8）与 `test_reading_tts_service.py`（`book file is unavailable` 缺本机书库 fixture），已在干净 `origin/develop` 基线（`d85ba8ba`）复现 **13 failed / 15 passed**，与本轮写作改动无关；本机无仓库要求的 `.venv`，故用系统 Python 3.8 跑，正式判据以 CI/容器环境为准。本轮改动的三个测试文件 **90 passed**。
-- **总结**：requests.md 占号 R190；合并 origin/develop 时并行 R130 已轮转 R179，本条写入使窗口达 11，按「写入即检查」再搬最早一节 R180 至 `response-archive/response-R180.md` 并登记索引；冲突记录：与 R130 的 po/response 改动按并集合并，无撞号。
-- **复测 503 说明（2026-10-21 15:40）**：用户提交修订稿收到 `learning b1: /learning/writing/revise service unavailable`。根因是回填文档的 push 触发第二次部署，moon-well 旧容器 graceful shutdown 中断了在途 revise（15:40:38），代理按连接异常返回 503。服务稳定后 moon-well 端已用系统身份端到端复验 generate → submit(1) → revise(2) → revise(3) 全部成功；前端无需改动，用户重试即可，历史草稿与批改均未丢失。该次确为部署停机窗口；**15:43 起的复发是另一因**——代理 90s 小于后端 LLM 150s 预算，见 R191。
 
 ## 2026-10-21（R191：写作批改 503 复发——代理预算小于后端 LLM 预算）
 
@@ -285,3 +272,16 @@
 - **台账与驻留**：requests.md 占号 R208（chore 占号 + 两笔 feat + 一笔 docs，见 git log）；worktree `../magicbook-banner-manage`（分支 `feat/r208-banner-manage`，merge commit `9be68d29`）驻留待验收，验收通过后 `git worktree remove` + `git branch -d`。
 - **构建与未验（如实）**：push `9be68d29` 已触发 fnOS 构建（magicbook 侧构建核验未做，本机无 fnOS 免密通道）；moon-well 侧后端已由 R203/R204 会话实测构建上线（build-sha=0593f5a 含 R203）。**真机验收点**：齿轮开合与勾选保存即时生效、刷新与跨设备一致、另一设备改动被对账、全不勾出引导卡且可回管理、保存失败报错可见、移动端抽屉可用、story 卡可勾选。
 - **总结**：requests.md 占号 R208；本条为回应。窗口：写入前 10 节，归档 R188 后 10 节合规。冲突记录：R206 撞号（伙伴前端）+ 台账条目遗失，均已登记。
+
+## 2026-10-23（R209：积分内测活动 + 充值倍率机制——充值页代理与前端）
+
+### R209（承接 moon-well R205；用户：「增加一个内测活动，当前积分获取率*10……仅管理员可以发布活动」）
+
+- **本仓职责**：moon-well 负责倍率解析、下单快照、注册赠送；magicbook 只做「代理 + 展示 + 管理员发布入口」，不参与任何积分计算（数字一律由服务端给，前端不拼接）。
+- **代理路由（`cps/routes/credit.py`）**：新增 `/ajax/credit/admin-promotion-create`、`/ajax/credit/admin-promotion-list`，均 `@user_login_required` + `current_user.role_admin()`，形态与既有 `/ajax/credit/admin-adjust` 一致；非管理员直接 403（前端入口本来也不渲染，这是第二道闸；moon-well 还有白名单第三道）。
+- **档位卡片（`cps/static/js/credits.js` + `cps/templates/credits.html`）**：`multiplier > 1` 时加「内测 ×N」红标、`baseTitle` 划线（文案「原到账 …」）、倒计时（`promotionEndTimeEpochMs - Date.now()` 换算「剩 N 天/小时/分」，60 秒刷新）。**为什么不用时间字符串**：`new Date('2026-12-31 23:59:59')` 按浏览器本地时区解析，UTC 环境的用户会差 8 小时看到「活动已结束」。
+- **管理员面板**：同一 `role_admin()` 面板内新增发布表单（`datetime-local` 起止 + 倍率 1–100，默认起=今天零时、止=2026-12-31 23:59:59）与活动列表（起/止/倍率/状态）。提交前 `confirm` 明示「发布后不可修改或撤销」——活动不可变是用户拍板的口径，配错只能由 DBA 改库，所以必须让人在动手前看清。
+- **时区约定**：`datetime-local` 的值**原样提交**，不做客户端换算；moon-well 用显式 `Asia/Shanghai` 的 Clock 解释。这样「管理员填的 10-24 00:00」在任何办公地时区下都指北京时间的 10-24 00:00。
+- **验证**：`python -c "ast.parse"`（路由语法）、`node --check cps/static/js/credits.js`、模板元素 id 与 JS 选择器逐一对照（`credit-promo-form/start/end/multiplier/rows` 全命中）。真机验收清单：活动期角标与倒计时、无活动时角标消失且标题回 1,000、普通用户直接 POST 代理路由返回 403、发布重叠活动弹出后端文案且不落库。
+- **窗口**：本条写入使回应节数达 11，按「写入即检查」把最早一节（原文件标 `## 2026-10-19（R130 …）`、正文实为 R190 回应）原样搬至 `response-archive/response-R130.md` 并登记索引，窗口回 10；只搬移不改写，节标题的错误沿用原文并在归档头注记。冲突记录：无撞号（moon-well R205 / 本仓 R209 各自唯一）。
+- **驻留**：worktree `../magicbook-credit-promotion`（分支 `feat/r209-credit-promotion`）待验收，验收通过后 `worktree remove` + `branch -d`；未 push。
