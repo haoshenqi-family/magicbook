@@ -23,7 +23,7 @@
 | MB-11 R212 [体验] 入口层：登录页价值主张、新账号语言跟随浏览器、语言入口前置 | 用户故事 | — | 无 | 打开（2026-10-23 PingCode） |
 | MB-12 R213 [体验] 首页信息架构：继续阅读/今日计划/分级推荐 + 侧边栏分组 + 移动端底部导航 | 用户故事 | MAGICBOOK-220（Planned） | `r213-home-ia/`（设计文档当前在 worktree `../magicbook-r213-home-ia` 分支 `feat/r213-home-ia`，未合回） | 打开；子任务 MB-16 / MB-17（进行中）/ MB-18 |
 | MB-13 R214 [体验] 书籍详情：简介/目录/难度/试读 + 整本任务代价面板 + 元数据修正 | 用户故事 | MAGICBOOK-221 | [r214-book-detail/](./r214-book-detail/)（HLD/LLD/AC **定稿** 2026-10-23） | **开发中**（2026-10-23 起，worktree `../magicbook-r214-book-detail`，分支 `feat/r214-book-detail`；子项 A 先行） |
-| MB-14 R215 [体验] 阅读器与 AI 伴读面板：控件可见性、面板可停靠、状态反馈、翻译重排 | 用户故事 | — | 无 | 打开（2026-10-23 PingCode） |
+| MB-14 R215 [体验] 阅读器与 AI 伴读面板：控件可见性、面板可停靠、状态反馈、翻译重排 | 用户故事 | [MAGICBOOK-222](https://haoshenqi.pingcode.com/ship/ideas/b4haUEuv) | [r215-reader-ai-panel/](./r215-reader-ai-panel/)（HLD/LLD/AC **定稿** 2026-10-23） | **开发中**（2026-10-23 起，worktree `../magicbook-r215-reader-ai-panel`，分支 `feat/r215-reader-ai-panel`；全量 727 tests 绿，待真机验收） |
 | MB-15 R216 [体验] 引导收敛 + /me 偏好页 + 难度入口前置 + 成就占位 + 伙伴 IP 风险登记 | 用户故事 | — | 无 | 打开（2026-10-23 PingCode） |
 
 ## 版本

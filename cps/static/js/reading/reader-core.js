@@ -33,11 +33,18 @@
 
     // 注入 iframe 的按钮/译文样式：用 currentColor 跟随阅读主题
     var READER_TOOLS_STYLE = [
-        '.reading-para-btn{display:inline-block;margin-left:6px;padding:0 2px;font-size:.8em;line-height:1;opacity:0;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit}',
+        // R215：桌面图标提到 24px（1.5em 跟随字号），但工具条整体改成绝对定位悬浮，
+        // 不再作为行内 span 占正文宽度（否则 4×24px 会把段落末行挤出额外折行）。
+        '.reading-para-tools{position:relative;display:inline-block;width:0;height:0;line-height:0;vertical-align:baseline}',
+        '.reading-para-toolbar{position:absolute;right:0;bottom:0;display:flex;align-items:center;gap:2px;padding:2px 4px;border-radius:8px;background:rgba(127,127,127,.16);box-shadow:0 2px 8px rgba(0,0,0,.12);opacity:0;pointer-events:none;transition:opacity .15s;white-space:nowrap}',
+        'p:hover>.reading-para-tools>.reading-para-toolbar,li:hover>.reading-para-tools>.reading-para-toolbar,blockquote:hover>.reading-para-tools>.reading-para-toolbar,h1:hover>.reading-para-tools>.reading-para-toolbar,h2:hover>.reading-para-tools>.reading-para-toolbar,h3:hover>.reading-para-tools>.reading-para-toolbar,h4:hover>.reading-para-tools>.reading-para-toolbar,h5:hover>.reading-para-tools>.reading-para-toolbar,h6:hover>.reading-para-tools>.reading-para-toolbar,div:hover>.reading-para-tools>.reading-para-toolbar{opacity:.96;pointer-events:auto}',
+        '.reading-para-btn{display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 3px;font-size:1.5em;line-height:1;opacity:1;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit}',
         '.reading-para-btn:hover{opacity:1}',
         '.reading-para-btn.is-loading,.reading-para-btn.is-playing{opacity:.85}',
-        'p:hover>.reading-para-btn,li:hover>.reading-para-btn,blockquote:hover>.reading-para-btn,h1:hover>.reading-para-btn,h2:hover>.reading-para-btn,h3:hover>.reading-para-btn,h4:hover>.reading-para-btn,h5:hover>.reading-para-btn,h6:hover>.reading-para-btn,div:hover>.reading-para-btn{opacity:.5}',
-        '@media (hover:none){.reading-para-btn{opacity:.35}}',
+        '.reading-para-menu-btn{display:none;position:absolute;right:0;bottom:0;width:44px;height:44px;align-items:center;justify-content:center;font-size:22px;line-height:1;opacity:.6;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit;background:rgba(127,127,127,.16);border-radius:8px}',
+        '.reading-para-menu-btn::after{content:"⋯"}',
+        '.reading-para-selected{outline:2px solid rgba(74,144,217,.55);outline-offset:2px;background:rgba(74,144,217,.06);border-radius:2px}',
+        '@media (hover:none){.reading-para-toolbar{display:none}.reading-para-menu-btn{display:flex}}',
         '.reading-tts-btn::before{content:"▶"}',
         '.reading-tts-btn.is-loading::before{content:"⟳"}',
         '.reading-tts-btn.is-playing::before{content:"■"}',
@@ -47,9 +54,6 @@
         '.reading-annotation-btn::before{content:"✎"}',
         '.reading-companion-btn::before{content:"✨"}',
         '.reading-companion-btn.is-loading::before{content:"⟳"}',
-        '.reading-translation{margin:6px 0 14px;font-size:.92em;line-height:1.5;color:inherit;opacity:.72;border-left:2px solid currentColor;padding-left:10px}',
-        '.reading-translation.is-loading{opacity:.4;font-style:italic}',
-        '.reading-translation.is-error{cursor:pointer;color:#c0392b;opacity:.9;font-style:italic;border-left-color:#c0392b}',
         '.reading-tts-speaking{background:rgba(255,193,7,.24);box-shadow:inset 3px 0 0 rgba(255,152,0,.85)}'
     ].join('');
 

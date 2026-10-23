@@ -4466,15 +4466,15 @@ msgid ""
 "Cached: {cached}\n"
 "Newly published: {published}\n"
 "\n"
-"Translations are generated in the background paragraph by paragraph and "
-"appear automatically while reading."
+"Translations are generated in the background paragraph by paragraph; turn "
+"on Translation mode and click a paragraph to read them."
 msgstr ""
 "整本翻译已提交\n"
 "总段落：{total}\n"
 "已缓存：{cached}\n"
 "新发布：{published}\n"
 "\n"
-"译文会在后台逐段生成，完成后阅读时自动显示。"
+"译文会在后台逐段生成；开启翻译模式后点击段落即可查看。"
 
 msgid ""
 "Words harder than this level are marked as unknown while reading. "
@@ -5793,3 +5793,51 @@ msgstr "保存"
 
 msgid "Close"
 msgstr "关闭"
+
+msgid "Translation"
+msgstr "翻译"
+
+msgid "Translation mode"
+msgstr "翻译模式"
+
+msgid "Read aloud"
+msgstr "朗读"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "More"
+msgstr "更多"
+
+msgid "Paragraph tools"
+msgstr "段落工具"
+
+msgid "Click a paragraph to see its translation"
+msgstr "点击正文段落查看译文"
+
+msgid "Translation mode enabled: click a paragraph to see its translation"
+msgstr "翻译模式已开启：点击段落查看译文"
+
+msgid "Translation mode disabled"
+msgstr "翻译模式已关闭"
+
+msgid "Translation is unavailable for this book"
+msgstr "本书暂不可翻译"
+
+msgid "Translation failed, retry later"
+msgstr "翻译失败，请稍后重试"
+
+msgid "The selected paragraph is no longer on this page"
+msgstr "该段已不在当前页"
+
+msgid "Ask about this chapter..."
+msgstr "询问本章内容…"
+
+msgid "Ask about this text..."
+msgstr "询问本文…"
+
+msgid "Rename"
+msgstr "重命名"
+
+msgid "Memory"
+msgstr "记忆"

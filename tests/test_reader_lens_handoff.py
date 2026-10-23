@@ -60,7 +60,8 @@ def test_highlight_defers_page_level_but_page_report_still_runs():
 def test_paragraph_translate_button_not_gated():
     """段落「译」按钮不门控：magiclens 的段落/整页翻译仍是规划 P1，没有等价实现。"""
     source = _source()
-    assert "if (!el.querySelector(':scope > .reading-translate-btn'))" in source
+    # R215：四个按钮收进 .reading-para-toolbar（绝对定位悬浮），仍按类名注入
+    assert "createParaButton(doc, 'reading-translate-btn'" in source
     assert "lensOwns" not in source.split("function injectParagraphTools(content) {", 1)[1] \
         .split("\n    }", 1)[0]
 
@@ -69,6 +70,6 @@ def test_non_taken_over_tools_stay_injected():
     """朗读/批注/伴读按钮与整页「译」「整本译」不受探测影响。"""
     source = _source()
     for cls in ("reading-tts-btn", "reading-annotation-btn", "reading-companion-btn"):
-        assert ("if (!el.querySelector(':scope > .%s'))" % cls) in source
+        assert ("createParaButton(doc, '%s'" % cls) in source
     assert "getElementById('immersive-translate')" in source
     assert "getElementById('whole-book-translate')" in source

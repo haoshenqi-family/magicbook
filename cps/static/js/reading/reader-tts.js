@@ -61,59 +61,129 @@
     var paragraphSpeechText = function (el) { return RC.paragraphSpeechText(el); };
     var injectReaderToolsStyle = function (doc) { RC.injectToolsStyle(doc); };
 
+    // --- R215：触屏段尾菜单 ---
+    // Why 用外层 document.body 承载菜单：iframe 内节点会被分页列裁切，且触屏菜单
+    // 需要脱离正文流；坐标换算沿用批注弹层（reader-annotations.js）的 iframe 偏移做法。
+    var paragraphMenu = null;
+
+    function closeParagraphMenu() {
+        if (!paragraphMenu) return;
+        paragraphMenu.remove();
+        paragraphMenu = null;
+        document.removeEventListener('mousedown', onParagraphMenuOutside, true);
+        document.removeEventListener('keydown', onParagraphMenuKeydown, true);
+    }
+
+    function onParagraphMenuOutside(event) {
+        if (paragraphMenu && !paragraphMenu.contains(event.target)) closeParagraphMenu();
+    }
+
+    function onParagraphMenuKeydown(event) {
+        if (event.key === 'Escape') closeParagraphMenu();
+    }
+
+    function openParagraphMenu(el, menuBtn) {
+        closeParagraphMenu();
+        var rect = menuBtn.getBoundingClientRect();
+        var frame = menuBtn.ownerDocument.defaultView && menuBtn.ownerDocument.defaultView.frameElement;
+        if (frame) {
+            var frameRect = frame.getBoundingClientRect();
+            rect = {top: rect.top + frameRect.top, bottom: rect.bottom + frameRect.top,
+                left: rect.left + frameRect.left, width: rect.width, height: rect.height};
+        }
+        var menu = document.createElement('div');
+        menu.className = 'reading-para-menu';
+        [
+            {label: mbT('Read this paragraph aloud'), target: '.reading-para-toolbar .reading-tts-btn'},
+            {label: mbT('Translate this paragraph (click again to undo)'), target: '.reading-para-toolbar .reading-translate-btn'},
+            {label: mbT('Annotate this paragraph'), target: '.reading-para-toolbar .reading-annotation-btn'},
+            {label: mbT('AI companion annotation'), target: '.reading-para-toolbar .reading-companion-btn'}
+        ].forEach(function (action) {
+            var target = el.querySelector(action.target);
+            if (!target) return;
+            var item = document.createElement('button');
+            item.type = 'button';
+            item.textContent = action.label;
+            item.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                closeParagraphMenu();
+                // 直接触发隐藏的 span：朗读/翻译/批注/AI 的实现与桌面完全同源
+                target.click();
+            });
+            menu.appendChild(item);
+        });
+        document.body.appendChild(menu);
+        var bounds = menu.getBoundingClientRect();
+        var top = rect.bottom + 8;
+        var left = rect.left;
+        if (top + bounds.height > window.innerHeight) top = Math.max(8, rect.top - bounds.height - 8);
+        left = Math.min(Math.max(8, left), window.innerWidth - bounds.width - 8);
+        menu.style.top = top + 'px';
+        menu.style.left = left + 'px';
+        paragraphMenu = menu;
+        document.addEventListener('mousedown', onParagraphMenuOutside, true);
+        document.addEventListener('keydown', onParagraphMenuKeydown, true);
+    }
+
     // --- 朗读/翻译按钮注入 ---
+    function createParaButton(doc, className, title, onActivate) {
+        var btn = doc.createElement('span');
+        btn.className = 'reading-para-btn ' + className;
+        btn.title = title;
+        btn.setAttribute('aria-label', title);
+        btn.addEventListener('click', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            onActivate(btn);
+        });
+        return btn;
+    }
+
     function injectParagraphTools(content) {
         var doc = content.document;
         if (!doc || !doc.body) return;
         injectReaderToolsStyle(doc);
         collectParagraphElements(doc).forEach(function (el) {
-            if (!el.querySelector(':scope > .reading-tts-btn')) {
-                var ttsBtn = doc.createElement('span');
-                ttsBtn.className = 'reading-para-btn reading-tts-btn';
-                ttsBtn.title = mbT('Read this paragraph aloud');
-                ttsBtn.addEventListener('click', function (ev) {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    speakParagraph(el, ttsBtn);
-                });
-                el.appendChild(ttsBtn);
-            }
+            if (el.querySelector(':scope > .reading-para-tools')) return;
+
+            // R215：工具条不再作为 4 个行内 span 占正文宽度（24px 放大后会把
+            // 末行挤出额外折行）。外层锚点是 0×0 行内块，工具条绝对定位在
+            // 段落末尾上方，hover 才显形——彻底脱离正文流。
+            var tools = doc.createElement('span');
+            tools.className = 'reading-para-tools';
+            var bar = doc.createElement('span');
+            bar.className = 'reading-para-toolbar';
+
+            bar.appendChild(createParaButton(doc, 'reading-tts-btn',
+                mbT('Read this paragraph aloud'), function (btn) { speakParagraph(el, btn); }));
             // 段落「译」按钮**不受 R141/R143 下线影响**：magiclens 的「段落整页翻译」
             // 至今仍是规划 P1（其 README 当前状态表），没有等价实现，属「未重复」项，
             // 因此保留在阅读器内提供——R141 初版把它一起收掉是边界划错，R143 恢复。
-            if (!el.querySelector(':scope > .reading-translate-btn')) {
-                var trBtn = doc.createElement('span');
-                trBtn.className = 'reading-para-btn reading-translate-btn';
-                trBtn.title = mbT('Translate this paragraph (click again to undo)');
-                trBtn.addEventListener('click', function (ev) {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    RI.translateParagraph(el, trBtn);
-                });
-                el.appendChild(trBtn);
-            }
-            if (!el.querySelector(':scope > .reading-annotation-btn')) {
-                var noteBtn = doc.createElement('span');
-                noteBtn.className = 'reading-para-btn reading-annotation-btn';
-                noteBtn.title = mbT('Annotate this paragraph');
-                noteBtn.addEventListener('click', function (ev) {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    AN.openPopover(el, noteBtn);
-                });
-                el.appendChild(noteBtn);
-            }
-            if (!el.querySelector(':scope > .reading-companion-btn')) {
-                var aiBtn = doc.createElement('span');
-                aiBtn.className = 'reading-para-btn reading-companion-btn';
-                aiBtn.title = mbT('AI companion annotation');
-                aiBtn.addEventListener('click', function (ev) {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    AN.openPopover(el, aiBtn);
-                });
-                el.appendChild(aiBtn);
-            }
+            bar.appendChild(createParaButton(doc, 'reading-translate-btn',
+                mbT('Translate this paragraph (click again to undo)'), function (btn) { RI.translateParagraph(el, btn); }));
+            bar.appendChild(createParaButton(doc, 'reading-annotation-btn',
+                mbT('Annotate this paragraph'), function (btn) { AN.openPopover(el, btn); }));
+            bar.appendChild(createParaButton(doc, 'reading-companion-btn',
+                mbT('AI companion annotation'), function (btn) { AN.openPopover(el, btn); }));
+            tools.appendChild(bar);
+
+            // 触屏只露一个 44px「⋯」，菜单里再展开四个动作
+            var menuBtn = doc.createElement('span');
+            menuBtn.className = 'reading-para-menu-btn';
+            menuBtn.setAttribute('role', 'button');
+            menuBtn.setAttribute('tabindex', '0');
+            menuBtn.setAttribute('aria-label', mbT('Paragraph tools'));
+            menuBtn.title = mbT('Paragraph tools');
+            // 字形走 CSS ::after：textContent 会混进 paragraphSpeechText，
+            // 污染翻译/TTS 的段落缓存键
+            menuBtn.addEventListener('click', function (ev) {
+                ev.preventDefault();
+                ev.stopPropagation();
+                openParagraphMenu(el, menuBtn);
+            });
+            tools.appendChild(menuBtn);
+            el.appendChild(tools);
         });
     }
 
@@ -261,23 +331,31 @@
     // #tts-book（▶/❚❚）与 #tts-book-stop（■）是整本 TTS 连播与 TED 原声伴听**共用**的
     // 同一对按钮：两种播放状态机互斥（任一时刻只有一个非空），故渲染逻辑共用，
     // 只把状态对象作为参数传入（R172 复用 R157 的按钮与文案，避免重造一套 UI）。
+    // R215：顶栏工具改成「图标 + 文字标签」后，状态只能写内层 .tb-icon；
+    // 直接写 btn.textContent 会把「朗读」标签一并抹掉。
+    function setToolIcon(btn, text) {
+        var icon = btn && btn.querySelector('.tb-icon');
+        if (icon) icon.textContent = text;
+        else if (btn) btn.textContent = text;
+    }
+
     function ttsButtonsRender(st) {
         var btn = document.getElementById('tts-book');
         var stopBtn = document.getElementById('tts-book-stop');
         if (!btn) return;
         if (!st) {
-            btn.textContent = '▶';
+            setToolIcon(btn, '▶');
             btn.title = mbT('Listen to this book');
             btn.classList.remove('active');
             if (stopBtn) stopBtn.style.display = 'none';
             return;
         }
         btn.classList.add('active');
-        btn.textContent = st.paused ? '▶' : '❚❚';
+        setToolIcon(btn, st.paused ? '▶' : '❚❚');
         btn.title = mbT(st.paused ? 'Resume reading aloud' : 'Pause reading aloud');
         if (stopBtn) {
             stopBtn.style.display = '';
-            stopBtn.textContent = '■';
+            setToolIcon(stopBtn, '■');
             stopBtn.title = mbT('Stop reading aloud');
         }
     }
