@@ -22,7 +22,7 @@
 | MAGICBOOK-10 R211 [缺陷] OIDC 自助注册默认授予管理员权限 | 缺陷 | [MAGICBOOK-218（idea）](https://haoshenqi.pingcode.com/ship/ideas/) | [r211-oidc-admin-role/lld.md](./r211-oidc-admin-role/lld.md) | **已开发待验收**（2026-10-23，worktree `../magicbook-r211-oidc-admin-role`，分支 `fix/r211-oidc-admin-role`；P0 单独先上线） |
 | MB-11 R212 [体验] 入口层：登录页价值主张、新账号语言跟随浏览器、语言入口前置 | 用户故事 | — | 无 | 打开（2026-10-23 PingCode） |
 | MB-12 R213 首页信息架构（汇总项） | 用户故事 | [MAGICBOOK-220](https://haoshenqi.pingcode.com/ship/ideas/) | [r213-home-ia/](./r213-home-ia/)（HLD/LLD/AC） | **R213-B 已开发待验收**（2026-10-23）；A/C 未开工 |
-| MB-13 R214 [体验] 书籍详情：简介/目录/难度/试读 + 整本任务代价面板 + 元数据修正 | 用户故事 | MAGICBOOK-221 | [r214-book-detail/](./r214-book-detail/)（HLD/LLD/AC **定稿** 2026-10-23） | **子项 A 已合入 develop**（c4a98e54）待验收；**子项 B 开发中**（worktree `../magicbook-r214-book-detail`，分支 `feat/r214-book-detail`） |
+| MB-13 R214 [体验] 书籍详情：简介/目录/难度/试读 + 整本任务代价面板 + 元数据修正 | 用户故事 | MAGICBOOK-221 | [r214-book-detail/](./r214-book-detail/)（HLD/LLD/AC **定稿** 2026-10-23） | **A 已上线**（push 040b627b）；**B 开发完成**（f10fd755+3a52c102，develop 合并待主检出并行暂存落地）；**C 待开发**（moon-well R207 费率回传已就绪）。worktree `../magicbook-r214-book-detail`，分支 `feat/r214-book-detail` |
 | MB-14 R215 [体验] 阅读器与 AI 伴读面板：控件可见性、面板可停靠、状态反馈、翻译重排 | 用户故事 | — | 无 | 打开（2026-10-23 PingCode） |
 | MB-15 R216 [体验] 引导收敛 + /me 偏好页 + 难度入口前置 + 成就占位 + 伙伴 IP 风险登记 | 用户故事 | — | 无 | 打开（2026-10-23 PingCode） |
 | MB-16 R213-A 导航与外壳：侧边栏分组 / chips 文字 / 卡片徽标 / 搜索合并 / 移动底部导航 | 任务 | 同上 | [r213-home-ia/lld.md](./r213-home-ia/lld.md) §5–§6 | 未开工；待拍板：侧边栏四组判定依据 + 「系统」组内容（HLD §7.1） |

@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）· 子项 A 已合入 develop 待验收（c4a98e54，未 push）**，子项 B/C 待开发；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）；子项 B **开发完成**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，测试 38+17 全绿；develop 合并待主检出并行会话暂存落地后执行）；子项 C 待开发（费率回传端点 moon-well R207 **已实现**，见 §11）；拍板⑦：AI 简介无「重新生成」按钮
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
 
@@ -223,6 +223,6 @@ python3 scripts/backfill_languages.py --apply --ids 337,336
 ## 11. 未决（不阻塞开工）
 
 1. 存量语言补正的执行范围（dry-run 出来后请你确认）。
-2. moon-well R207 占号后，两侧 L2 契约文档互链（magicbook `docs/product/library/interface.md` + moon-well 对应接口文档）。
+2. ~~moon-well R207 占号~~ **已落地（2026-10-23）**：`POST /book/ai/ability/book-intro`（按正文入参，不吃 bookId）+ `GET /credit/billing`（费率回传）已实现并合入 moon-well develop（`f89c9ff`+`2433c65`）。**设计修正**：book-intro 不进 `perCall` 白名单——能力调用走 `callForTask` 任务路径按 token 计量，`perCall` 只覆盖交互路径，原「perCall 加 book-intro:1」会造出假费率，已回正（详见 moon-well requests R207）。两侧 L2 契约文档互链待 C 收尾时补。
 
 > 已拍板关闭：AI 简介不提供「重新生成」按钮（2026-10-23 拍板⑦）；简介长度 120–200 字、模型取 moon-well `book-intro` 默认。
