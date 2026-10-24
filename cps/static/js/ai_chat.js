@@ -218,13 +218,17 @@
       var rect = button.getBoundingClientRect();
       startX = event.clientX; startY = event.clientY;
       originX = rect.left; originY = rect.top; moved = false;
-      button.setPointerCapture(event.pointerId);
+      // 不能在 pointerdown 就捕获：捕获会把后续 click 重定向到 wrap，
+      // FAB 与气泡的 click 全部失效；捕获延迟到真正开始拖动时设置。
     });
     button.addEventListener("pointermove", function (event) {
-      if (!button.hasPointerCapture(event.pointerId)) return;
+      if (!(event.buttons & 1)) return; // 未按住左键的移动（含悬停）不拖拽
       var dx = event.clientX - startX, dy = event.clientY - startY;
-      if (!moved && Math.hypot(dx, dy) < 6) return;
-      moved = true;
+      if (!moved) {
+        if (Math.hypot(dx, dy) < 6) return;
+        moved = true;
+        button.setPointerCapture(event.pointerId);
+      }
       var x = Math.max(0, Math.min(window.innerWidth - button.offsetWidth, originX + dx));
       var y = Math.max(0, Math.min(window.innerHeight - button.offsetHeight, originY + dy));
       button.style.left = x + "px"; button.style.top = y + "px";

@@ -82,6 +82,16 @@ def test_AI面板FAB标签状态与覆盖式生命周期():
     assert "reader:panel-open" not in js and "reader:panel-close" not in js
 
 
+def test_FAB拖拽捕获延迟到拖动开始():
+    """R223 回归守卫：wrap 统一接收 pointerdown 后，pointerdown 即 setPointerCapture
+    会把 click 重定向到 wrap——点 FAB 开不了抽屉、点气泡无反应（真机实测）。"""
+    js = _read("cps/static/js/ai_chat.js")
+    down = js.split('button.addEventListener("pointerdown"', 1)[1].split('pointermove"', 1)[0]
+    assert "setPointerCapture" not in down, "pointerdown 即捕获会吞掉 FAB/气泡的 click"
+    move = js.split('button.addEventListener("pointermove"', 1)[1].split('pointerup"', 1)[0]
+    assert "setPointerCapture" in move and "moved = true" in move, "捕获必须延迟到拖动开始"
+
+
 def test_思考中先于页面上下文():
     js = _read("cps/static/js/ai_chat.js")
     body = js.split("function sendMessage()", 1)[1].split("function streamChat", 1)[0]
