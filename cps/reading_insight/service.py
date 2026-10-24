@@ -196,10 +196,10 @@ UPPER_BOUND_FACTOR = 1.1
 COVERAGE_CHUNK = 200
 
 _DURATION_SPEC = {
-    # kind: (模型属性名, 单位计数字段, 进度已完成字段)
-    "translate": ("TranslationJob", "published_count", "completed_count"),
-    "tts": ("ReadingTtsJob", "done_count", "done_count"),
-    "wordDetail": ("WordDetailJob", "published_words", "covered_words"),
+    # kind: (单位计数字段, 进度已完成字段)
+    "translate": ("published_count", "completed_count"),
+    "tts": ("done_count", "done_count"),
+    "wordDetail": ("published_words", "covered_words"),
 }
 
 
@@ -250,7 +250,7 @@ def _history_rate(kind):
     """
     models = _job_models()
     model = models[kind]
-    unit_field = _DURATION_SPEC[kind][1]
+    unit_field = _DURATION_SPEC[kind][0]
     rows = (ub.session.query(model)
             .filter(model.status == "COMPLETED")
             .order_by(model.created_at.desc())
@@ -378,7 +378,7 @@ def active_jobs(book_id, book_format):
         if job is None:
             snapshot[kind] = None
             continue
-        total_field, done_field = ("total_count", _DURATION_SPEC[kind][2])
+        total_field, done_field = ("total_count", _DURATION_SPEC[kind][1])
         if kind == "wordDetail":
             total_field = "target_words"
         snapshot[kind] = {"jobId": job.id, "status": job.status,
