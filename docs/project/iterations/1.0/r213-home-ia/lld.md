@@ -184,6 +184,23 @@ def level_of_shelf(name):  # 解析不出 → None
 
 **测试**：`tests/test_adv_search_read_status.py` 7 例（三态条件互不相同、unread 必须走 NOT EXISTS、旧值兼容、模板与 .mo 词条守卫）。测试环境无 calibre 库、跑不起 `/advsearch` 渲染，故界面断言落在模板源码 + 已编译译文上。
 
+#### 6.1.1 上线后缺陷：「在读」返回空集（2026-10-23 报告 / 2026-10-24 修复）
+
+上面四态化的设计缺陷：`ReadBook.STATUS_IN_PROGRESS` 这个常量**只有 Kobo 同步会写**
+（`kobo.py:801`），网页阅读器只写 `reading_progress`、从不写 `book_read_link`。
+生产库实测 `status=2` 共 **0 行**，于是「在读」是空集。查询侧无罪
+（`generate_linked_query` 的 join 正确）。
+
+修复：`POST /ajax/reading-progress` 在 upsert 位置的同时把 `ReadBook` 标成
+`IN_PROGRESS`（无记录则建行、`UNREAD` 则升级、`FINISHED` **不回退**）。三条边界：
+只在 POST 写不在 GET 写（防预取误标）；不碰 `times_started_reading` /
+`last_time_started_reading`（Kobo 设备统计字段）；不自建 `KoboReadingState`
+（`kobo.get_or_create_reading_state` 会自动补）。历史数据回填 SQL 见
+`fix-in-progress-status.md` §5。
+
+> 教训：**模型里有这个常量 ≠ 数据里有这个值**。上界面选项前必须多问一句
+> 「谁写它、多久写一次、现在有多少行」。
+
 ## 7. 异常与边界
 
 | 场景 | 行为 |
