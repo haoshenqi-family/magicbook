@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；子项 C 待开发（费率回传端点 moon-well R207 **已实现**，见 §11）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -22,6 +22,7 @@
 | 改 | `cps/epub.py`（:84-94, :114） | `dc:language` 读全（多语言列表） |
 | 新增 | `scripts/backfill_languages.py` | 存量语言补正（dry-run 默认） |
 | 新增 | `tests/test_book_detail_r214.py` | 单测 + 守卫 + 反向变异 |
+| 新增 | `tests/test_whole_book_estimate.py` | 估算分支单测（覆盖率/耗时/积分/降级） |
 | 新增 | `tests/test_epub_languages.py` | 多语言导入回归 |
 | 改 | `cps/static/css/…`（对应 detail 样式文件） | 「已在书架」芯片、双语徽标、AI 简介标注 |
 
@@ -105,16 +106,33 @@ def parse(path) -> dict:
 ```json
 {"success": true, "result": {
   "kind": "translate",
-  "units": {"chapters": 12, "paragraphs": 3160, "chars": 210000, "englishWords": 29455},
+  "units": {"chapters": 12, "paragraphs": 3160, "chars": 210000, "englishWords": 29455,
+            "billable": 2987},
   "mutatesOriginal": false,
-  "coverage": {"known": true, "cached": 2841, "total": 3160},
-  "duration": {"basis": "history", "samples": 7, "seconds": 8640},
-  "credits": {"known": true, "estimated": 1180, "upperBound": 1310, "rate": {"per1kToken": 10, "charsPerCredit": 1000}}
+  "coverage": {"known": true, "cached": 2841, "total": 2987},
+  "duration": {"known": true, "basis": "history", "samples": 7, "seconds": 8640},
+  "credits": {"known": true, "estimated": 1180, "upperBound": 1310, "rate": {"per1kToken": 10}},
+  "activeJobs": {"translate": {"jobId": "…", "status": "RUNNING", "total": 2987, "done": 1200},
+                 "tts": null, "wordDetail": null}
 }}
 ```
 
 `coverage` 分支：朗读固定 `{"known": false, "reason": "tts-cache-not-batchable"}`；
 `credits.known=false / reason="rate-unavailable"` 当 moon-well 费率端点不可用（前端显示字符/token 量，不显示猜测数字）。
+TTS 关闭计费时给专属 `reason="tts-not-billed"`，不与「费率不可得」混为一谈。
+
+**实现修正（2026-10-24，C 轮落地时）**
+
+| 项 | 设计 | 落地 | 原因 |
+| --- | --- | --- | --- |
+| `units.billable` | 无 | 新增 | 翻译/朗读台账的 item 都按 `text_hash` 唯一（`TranslationJobItem` 的 unique 字典、`ReadingTtsJobItem` 的 `uq(job_id,text_hash)`）。拿全书段落数当工作量会把重复段算两遍，耗时与积分一起虚高；`paragraphs` 保留书目真实段数，`billable` 才是本次真实单位 |
+| `activeJobs` | 无（§7.5 只说「show_book 注入快照」） | 估算响应与 `show_book` 共用 `active_jobs()` | 页面初始进度态需要一个服务端承载字段；让估算与首屏用同一函数，两条路径的 `total/done` 口径不会分叉 |
+| `duration.known` | 隐含有值 | 显式 known/reason | 详解没有经过实测的常量（LLD §5.2 只给了翻译 10s/段、朗读 3s/段），无样本时宁可不给数字，也不编一个 |
+| `credits.rate` | 同时回传 `per1kToken` 与 `charsPerCredit` | 只回传本条链路用到的那一个 | 翻译不按字符计费、朗读不按 token 计费，一起给会让前端误配 |
+| 详解覆盖率 | 「走 preview」 | 直接分批调 cached-check | `preview()` 内部会重抽一遍正文（估算已抽过），而它的 `notWordLike` 只在预览页有解释位；面板只要 cached/total |
+
+`coverage.known=false` 时 `credits.reason="full-text-upper-bound"`：积分按全书去重后的
+字符算，前端据此把这一行标成上界而不是「预计」。
 
 ### 4.4 复用既有端点
 
@@ -147,9 +165,10 @@ def _rate_per_unit(model, status_done):  # 翻译 / 朗读各一张台账
     return statistics.median(samples) if len(samples) >= 3 else None
 ```
 
-- `units(job)`：翻译取 `published_count`（本次真正发了多少段），朗读取 `done_count`。
+- `units(job)`：翻译取 `published_count`（本次真正发了多少段），朗读取 `done_count`，详解取 `published_words`。
 - 量级过滤：只用「单位数 ≥ 30」的批次，避免 3 段的小批次把中位数带偏。
 - 常量兜底（并在 UI 注明「按常量估算」）：翻译 `10.0 s/段`（依据 `reading_translation/service.py:22` 注释「moon-well 顺序执行器 ~1 段/10s」），朗读 `3.0 s/段`（0.8s 间隔 + 合成延迟；该常数**必须标注为估算**，R142 实测最长段 78.6s 说明方差极大）。
+- **详解没有常量兜底**：没有任何一条实测能支撑「秒/词」，样本不足时 `duration.known=false`，面板写「暂无实测样本」——编一个数字比不给数字更糟。
 - 返回 `samples` 数量，UI 显示「基于最近 N 个批次」。
 
 ### 5.3 积分（粗算）
