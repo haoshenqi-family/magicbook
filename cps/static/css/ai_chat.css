@@ -10,8 +10,9 @@
   background: #4285f4; color: #fff; border: none; cursor: pointer;
   font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   display: flex; align-items: center; justify-content: center;
-  transition: transform 0.2s;
+  transition: transform 0.2s; touch-action: none; cursor: grab;
 }
+#ai-companion-fab:active { cursor: grabbing; }
 #ai-companion-fab:hover { transform: scale(1.08); }
 
 /* ============ R206 伙伴头像 + 动效（idle 呼吸 / thinking 起伏 / sleep 打盹） ============ */
