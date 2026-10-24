@@ -100,7 +100,7 @@
         function setPending(kind) {
             var $card = cardOf(kind);
             $card.find('.wb-units, .wb-coverage, .wb-duration, .wb-credits').text(t('loading'));
-            $card.find('.wb-note').text('');
+            $card.find('.wb-note').removeClass('text-danger').text('');
         }
 
         function render(kind) {
@@ -111,7 +111,8 @@
             }
             if (data.error) {
                 $card.find('.wb-units, .wb-coverage, .wb-duration, .wb-credits').text('—');
-                $card.find('.wb-note').text(data.error);
+                // 失败要看得见：灰色说明句与「暂无数据」长得一样，红字才不会被人当成没数据。
+                $card.find('.wb-note').addClass('text-danger').text(data.error);
                 updateStart(kind);
                 return;
             }
@@ -178,7 +179,7 @@
             $card.find('.wb-credits').text(creditsText);
 
             var active = (data.activeJobs || {})[kind];
-            $card.find('.wb-note').text(active
+            $card.find('.wb-note').removeClass('text-danger').text(active
                 ? t('active', {done: fmtNum(active.done), total: fmtNum(active.total)})
                 : '');
             updateStart(kind);
