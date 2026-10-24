@@ -6,7 +6,7 @@
 
 阅读器页（EPUB/PDF/TXT）与阅读相关代理、NCE 音频播放。词汇判定/详解/测试的后端语义不在本模块（见 vocabulary L2 接口说明与 moon-well）。
 
-> R215（MB-14）为纯前端交互改造：翻译译文改为右侧译文栏、AI 面板改为桌面半屏停靠/移动底部抽屉；**不新增、不修改任何 moon-well 契约**。实现与边界见 [translation-rail L3](features/translation-rail.md) 与 [companion-panel L3](features/companion-panel.md)。
+> R215（MB-14）为纯前端交互改造：AI 面板恢复覆盖式抽屉、段尾工具放大并保持段内；翻译恢复段落下方内联显示（2026-10-23 验收回滚，接受重分页）。**不新增、不修改任何 moon-well 契约**。AI 面板实现与边界见 [companion-panel L3](features/companion-panel.md)。
 
 ## 子功能概要
 
@@ -16,7 +16,7 @@
 | --- | --- | --- | --- |
 | `POST /ajax/reading-vocabulary` | `POST /vocabulary/reading/analyze` | 15s | 生词判定（容忍 moon-well 重启后 ES 首连慢响应）；epub.js 仍每页上送（喂阅读事件流 + AI 伴读生词上下文），仅波浪线标注下线 |
 | `POST /ajax/reading-translate` | `POST /vocabulary/reading/translate` | 20s | 划词/选区翻译（**R141 起阅读器内置气泡已下线、本端点暂无调用方**；magiclens 直连 moon-well 不走此代理） |
-| `POST /ajax/reading-translate-batch` | `POST /vocabulary/reading/translate-batch` | 20s | 段落批量翻译。R215 起前端只按「单个选中段」调用，译文渲染到右侧译文栏；端点形制与请求体不变 |
+| `POST /ajax/reading-translate-batch` | `POST /vocabulary/reading/translate-batch` | 20s | 段落批量翻译 |
 | `GET /ajax/reading-translate-all`（+ `/progress`） | 复用 translate-batch 链路 | — | 整页批量翻译与进度轮询 |
 | `POST /ajax/reading-translate-book*`（`/status` `/cancel` `/retry`） | system LLM 任务队列（`/llm/task/*`）+ 完成事件写段落缓存 | — | 整本翻译：发起/进度/取消/重试 |
 | `POST /ajax/reading-word-detail` | `GET /vocabulary/detail/{word}` | 120s | 单词详解（R124 对齐 magiclens v0.4.0；**R141 起内置「详」面板入口随气泡下线、本端点暂无调用方**） |

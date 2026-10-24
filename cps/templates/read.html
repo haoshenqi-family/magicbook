@@ -63,7 +63,7 @@
 	            <span id="chapter-title"></span>
 	        </div>
 	        <div id="title-controls">
-	            <a id="immersive-translate" class="tb-tool" title="{{_('Translation mode')}}" aria-pressed="false"><span class="tb-icon">译</span><span class="tb-label">{{_('Translation')}}</span></a>
+	            <a id="immersive-translate" class="tb-tool" title="{{_('Translate this page (click again to hide)')}}" aria-pressed="false"><span class="tb-icon">译</span><span class="tb-label">{{_('Translation')}}</span></a>
 	        {% if current_user.role_admin() %}<a id="whole-book-translate" class="tb-tool tb-secondary" title="{{_('Translate this book')}}"><span class="tb-icon">整</span><span class="tb-label">{{_('Translate this book')}}</span></a>{% endif %}
 	        <a id="tts-book" class="tb-tool" title="{{_('Read aloud')}}"><span class="tb-icon">▶</span><span class="tb-label">{{_('Read aloud')}}</span></a>
 	        <a id="tts-book-stop" class="tb-tool" style="display:none" title="{{_('Stop')}}"><span class="tb-icon">■</span><span class="tb-label">{{_('Stop')}}</span></a>
@@ -89,14 +89,6 @@
     {# 顶栏「更多」菜单必须挂在 #main 之外：移动端 #main 带 transform + overflow:hidden，
        会为 position:fixed 造出包含块并裁切菜单 #}
     <div id="title-more-menu" class="title-more-menu" hidden></div>
-    <aside id="translation-rail" class="translation-rail" hidden aria-label="{{_('Translation')}}">
-        <header class="translation-rail-header">
-            <span class="translation-rail-title">{{_('Translation')}}</span>
-            <button id="translation-rail-close" type="button" aria-label="{{_('Close')}}">×</button>
-        </header>
-        <div id="translation-rail-source" class="translation-rail-source"></div>
-        <div id="translation-rail-body" class="translation-rail-body"></div>
-    </aside>
     <div class="modal md-effect-1" id="settings-modal">
         <div class="md-content">
             <h3>{{_('Settings')}}</h3>

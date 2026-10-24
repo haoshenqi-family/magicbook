@@ -310,10 +310,6 @@ body.onboarding-active.onb-step-ai #ai-companion-fab {
   opacity: 1;
 }
 
-body[data-side-panel="translation"] #onb-help {
-  display: none;
-}
-
 /* ---------------- 窄屏 ---------------- */
 
 @media (max-width: 767px) {

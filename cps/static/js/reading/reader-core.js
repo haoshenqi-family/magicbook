@@ -33,17 +33,23 @@
 
     // 注入 iframe 的按钮/译文样式：用 currentColor 跟随阅读主题
     var READER_TOOLS_STYLE = [
-        // R215：桌面图标提到 24px（1.5em 跟随字号），工具条保持在段落尾部行内——
-        // 绝对定位浮层会压字（用户验收否决），这里只做行内放大。
+        // R215：桌面图标保持 24px 触达盒，但字形按各自 em 宽度微调——
+        // 「译」「▶」是满幅字形，1.5em 会明显大于 ✎/✨（用户验收嫌不和谐）。
         '.reading-para-tools{display:inline-flex;align-items:center;vertical-align:middle;margin-left:6px;line-height:1;white-space:nowrap}',
         '.reading-para-toolbar{display:inline-flex;align-items:center;gap:2px;opacity:0;pointer-events:none;transition:opacity .15s}',
         'p:hover>.reading-para-tools>.reading-para-toolbar,li:hover>.reading-para-tools>.reading-para-toolbar,blockquote:hover>.reading-para-tools>.reading-para-toolbar,h1:hover>.reading-para-tools>.reading-para-toolbar,h2:hover>.reading-para-tools>.reading-para-toolbar,h3:hover>.reading-para-tools>.reading-para-toolbar,h4:hover>.reading-para-tools>.reading-para-toolbar,h5:hover>.reading-para-tools>.reading-para-toolbar,h6:hover>.reading-para-tools>.reading-para-toolbar,div:hover>.reading-para-tools>.reading-para-toolbar{opacity:.95;pointer-events:auto}',
-        '.reading-para-btn{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0;font-size:1.5em;line-height:1;opacity:1;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit}',
+        '.reading-para-btn{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0;font-size:1em;line-height:1;opacity:1;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit}',
+        '.reading-tts-btn{font-size:.95em}',
+        '.reading-translate-btn{font-size:.9em;font-weight:600}',
+        '.reading-annotation-btn{font-size:1.15em}',
+        '.reading-companion-btn{font-size:1.05em}',
         '.reading-para-btn:hover{opacity:1}',
         '.reading-para-btn.is-loading,.reading-para-btn.is-playing{opacity:.85}',
         '.reading-para-menu-btn{display:none;width:44px;height:44px;margin:-10px 0;align-items:center;justify-content:center;font-size:22px;line-height:1;opacity:.62;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit}',
         '.reading-para-menu-btn::after{content:"⋯"}',
-        '.reading-para-selected{outline:2px solid rgba(74,144,217,.55);outline-offset:2px;background:rgba(74,144,217,.06);border-radius:2px}',
+        '.reading-translation{margin:6px 0 14px;font-size:.92em;line-height:1.5;color:inherit;opacity:.72;border-left:2px solid currentColor;padding-left:10px}',
+        '.reading-translation.is-loading{opacity:.4;font-style:italic}',
+        '.reading-translation.is-error{cursor:pointer;color:#c0392b;opacity:.9;font-style:italic;border-left-color:#c0392b}',
         '@media (hover:none){.reading-para-toolbar{display:none}.reading-para-menu-btn{display:inline-flex}}',
         '.reading-tts-btn::before{content:"▶"}',
         '.reading-tts-btn.is-loading::before{content:"⟳"}',
