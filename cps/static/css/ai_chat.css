@@ -12,7 +12,9 @@
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.2s;
   overflow: visible;
+  touch-action: none; cursor: grab;
 }
+#ai-companion-fab:active { cursor: grabbing; }
 #ai-companion-fab:hover { transform: scale(1.08); }
 /* R215：头像不是按钮语义——白圈 + 浅色头像看起来像 spinner。
    加品牌色外环 + 常驻「AI 伴读」文字标签，移动端首次打开后收起。 */

@@ -89,6 +89,7 @@
       if ($("#ai-companion-drawer").hasClass("open")) closeDrawer();
       else openDrawer();
     });
+    initBuddyFabDrag();
     $("#ai-companion-close").on("click", closeDrawer);
     $("#ai-chat-send").on("click", sendMessage);
     $("#ai-chat-new").on("click", newConversation);
@@ -164,17 +165,64 @@
         try { list = unwrap(raw) || []; } catch (e) { return; }
         var equipped = null;
         (list || []).forEach(function (b) { if (b.equipped) { equipped = b; } });
-        if (!equipped || !equipped.imageUrl) { return; }
+        var imageUrl = equipped && (equipped.fullImageUrl || equipped.imageUrl);
+        if (!imageUrl) { return; }
         var probe = new Image();
         probe.onload = function () {
-          $("#ai-companion-fab-img").attr("src", equipped.imageUrl);
+          $("#ai-companion-fab-img").attr("src", imageUrl);
           $("#ai-companion-fab").addClass("has-buddy");
           startFabIdle();
         };
         probe.onerror = function () { /* 图片未就绪：保留文字兜底 */ };
-        probe.src = equipped.imageUrl;
+        probe.src = imageUrl;
       })
       .fail(function () { /* 代理不可达：静默保留文字兜底 */ });
+  }
+
+  // Keep the floating buddy reachable on small screens and remember its position per browser.
+  function initBuddyFabDrag() {
+    var button = document.getElementById("ai-companion-fab");
+    if (!button || !window.PointerEvent) return;
+    var key = "calibre.ai.buddy.position";
+    var saved;
+    try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { saved = null; }
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      button.style.left = saved.x + "px";
+      button.style.top = saved.y + "px";
+      button.style.right = "auto";
+      button.style.bottom = "auto";
+    }
+    var startX, startY, originX, originY, moved = false;
+    button.addEventListener("pointerdown", function (event) {
+      if (event.button !== 0) return;
+      var rect = button.getBoundingClientRect();
+      startX = event.clientX; startY = event.clientY;
+      originX = rect.left; originY = rect.top; moved = false;
+      button.setPointerCapture(event.pointerId);
+    });
+    button.addEventListener("pointermove", function (event) {
+      if (!button.hasPointerCapture(event.pointerId)) return;
+      var dx = event.clientX - startX, dy = event.clientY - startY;
+      if (!moved && Math.hypot(dx, dy) < 6) return;
+      moved = true;
+      var x = Math.max(0, Math.min(window.innerWidth - button.offsetWidth, originX + dx));
+      var y = Math.max(0, Math.min(window.innerHeight - button.offsetHeight, originY + dy));
+      button.style.left = x + "px"; button.style.top = y + "px";
+      button.style.right = "auto"; button.style.bottom = "auto";
+    });
+    button.addEventListener("pointerup", function (event) {
+      if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
+      if (moved) {
+        event.preventDefault();
+        var rect = button.getBoundingClientRect();
+        try { localStorage.setItem(key, JSON.stringify({ x: rect.left, y: rect.top })); } catch (e) {}
+        button.dataset.dragged = "1";
+        setTimeout(function () { delete button.dataset.dragged; }, 0);
+      }
+    });
+    button.addEventListener("click", function (event) {
+      if (button.dataset.dragged) { event.stopImmediatePropagation(); event.preventDefault(); }
+    }, true);
   }
 
   function startFabIdle() {
