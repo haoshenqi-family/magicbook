@@ -147,8 +147,8 @@ msgid "Invalid Restricted Column"
 msgstr "无效的限制栏目"
 
 #: cps/admin.py:604 cps/admin.py:1903
-msgid "Calibre-Web configuration updated"
-msgstr "Calibre-Web 配置已更新"
+msgid "magicbook configuration updated"
+msgstr "magicbook 配置已更新"
 
 #: cps/admin.py:616
 msgid "Do you really want to delete the Kobo Token?"
@@ -754,20 +754,20 @@ msgid "Send to eReader"
 msgstr "发送到电子阅读器"
 
 #: cps/helper.py:105 cps/helper.py:125 cps/helper.py:235
-msgid "This Email has been sent via Calibre-Web."
-msgstr "此邮件已经通过 Calibre-Web 发送。"
+msgid "This Email has been sent via magicbook."
+msgstr "此邮件已经通过 magicbook 发送。"
 
 #: cps/helper.py:123
-msgid "Calibre-Web Test Email"
-msgstr "Calibre-Web 测试邮件"
+msgid "magicbook Test Email"
+msgstr "magicbook 测试邮件"
 
 #: cps/helper.py:124
 msgid "Test Email"
 msgstr "测试邮件"
 
 #: cps/helper.py:141
-msgid "Get Started with Calibre-Web"
-msgstr "开启 Calibre-Web 之旅"
+msgid "Get Started with magicbook"
+msgstr "开启 magicbook 之旅"
 
 #: cps/helper.py:146
 #, python-format
@@ -1207,8 +1207,8 @@ msgid "Read Status = '%(status)s'"
 msgstr "阅读状态 = '%(status)s'"
 
 #: cps/search.py:365
-msgid "Error on search for custom columns, please restart Calibre-Web"
-msgstr "搜索自定义栏目时出错，请重启 Calibre-Web"
+msgid "Error on search for custom columns, please restart magicbook"
+msgstr "搜索自定义栏目时出错，请重启 magicbook"
 
 #: cps/search.py:384 cps/search.py:416 cps/templates/layout.html:57
 msgid "Advanced Search"
@@ -2967,8 +2967,8 @@ msgid "List"
 msgstr "列表"
 
 #: cps/templates/http_error.html:34
-msgid "Calibre-Web Instance is unconfigured, please contact your administrator"
-msgstr "Calibre-Web 实例未配置，请联系您的管理员"
+msgid "magicbook Instance is unconfigured, please contact your administrator"
+msgstr "magicbook 实例未配置，请联系您的管理员"
 
 #: cps/templates/http_error.html:44
 msgid "Create Issue"
@@ -3135,12 +3135,12 @@ msgid "Log in with Magic Link"
 msgstr "通过魔法链接登录"
 
 #: cps/templates/logviewer.html:6
-msgid "Show Calibre-Web Log: "
-msgstr "显示 Calibre-Web 日志： "
+msgid "Show magicbook Log: "
+msgstr "显示 magicbook 日志： "
 
 #: cps/templates/logviewer.html:8
-msgid "Calibre-Web Log: "
-msgstr "Calibre-Web 日志: "
+msgid "magicbook Log: "
+msgstr "magicbook 日志: "
 
 #: cps/templates/logviewer.html:8
 msgid "Stream output, can't be displayed"
@@ -3151,8 +3151,8 @@ msgid "Show Access Log: "
 msgstr "显示访问日志： "
 
 #: cps/templates/logviewer.html:18
-msgid "Download Calibre-Web Log"
-msgstr "下载 Calibre-Web 日志"
+msgid "Download magicbook Log"
+msgstr "下载 magicbook 日志"
 
 #: cps/templates/logviewer.html:21
 msgid "Download Access Log"
@@ -3229,8 +3229,8 @@ msgid "Ok"
 msgstr "完成"
 
 #: cps/templates/osd.xml:5
-msgid "Calibre-Web eBook Catalog"
-msgstr "Caliebre-Web 电子书路径"
+msgid "magicbook eBook Catalog"
+msgstr "magicbook 电子书目录"
 
 #: cps/templates/read.html:7
 msgid "epub Reader"

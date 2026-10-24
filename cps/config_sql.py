@@ -78,7 +78,9 @@ class _Settings(_Base):
     config_certfile = Column(String)
     config_keyfile = Column(String)
     config_trustedhosts = Column(String, default='')
-    config_calibre_web_title = Column(String, default='Calibre-Web')
+    # R212：站内品牌字样收敛为 magicbook（上游默认值会直接出现在顶栏 wordmark 与 <title>）。
+    # 运行态可在「管理 → 界面设置」覆盖，本默认值只决定新库首启观感。
+    config_calibre_web_title = Column(String, default='magicbook')
     config_books_per_page = Column(Integer, default=60)
     config_random_books = Column(Integer, default=4)
     config_authors_max = Column(Integer, default=0)

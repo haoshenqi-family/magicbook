@@ -155,3 +155,73 @@ def test_recent_reading_skips_finished_and_missing(app, admin_client, clean_prog
 def test_recent_reading_empty_when_no_progress(app):
     from cps import web as web_mod
     assert web_mod.recent_reading(99999, limit=6) == []
+
+
+# ---------------------------------------------------------------------------
+# 阅读状态同步（2026-10-24 缺陷修复）
+#
+# 背景：网页阅读器此前只写位置不写状态，`book_read_link.read_status` 里
+# `STATUS_IN_PROGRESS` 全库 0 行（只有 Kobo 同步会写），导致高级搜索的
+# 「在读」返回空集。现在由进度上报端点负责把书标成在读。
+# ---------------------------------------------------------------------------
+@pytest.fixture
+def clean_link(app):
+    """只清理本组用例造出来的 book_read_link 行，不动其他用例的书。"""
+    ids = (9001, 9002, 9003)
+
+    def _wipe():
+        try:
+            ub.session.query(ub.ReadBook).filter(
+                ub.ReadBook.book_id.in_(ids)).delete(synchronize_session=False)
+            ub.session.commit()
+        except Exception:
+            ub.session.rollback()
+    _wipe()
+    yield
+    _wipe()
+
+
+def test_report_marks_book_in_progress(admin_client, clean_progress, clean_link):
+    """打开即算在读：哪怕 percent=0、停在第 1 页也要落状态。"""
+    resp = _post(admin_client, {"book_id": 9001, "format": "EPUB",
+                                "percent": 0, "page_current": 1, "page_total": 125})
+    assert resp.status_code == 200
+
+    row = ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == 9001).one()
+    assert row.read_status == ub.ReadBook.STATUS_IN_PROGRESS, \
+        "上报进度后书未被标成在读——搜索「在读」仍会是空集"
+
+
+def test_report_upgrades_unread_to_in_progress(admin_client, clean_progress, clean_link):
+    """已有 UNREAD(0) 记录的书，上报后升级为 IN_PROGRESS(2)。"""
+    _post(admin_client, {"book_id": 9002, "format": "EPUB"})
+    row = ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == 9002).one()
+    row.read_status = ub.ReadBook.STATUS_UNREAD
+    ub.session.commit()
+
+    _post(admin_client, {"book_id": 9002, "format": "EPUB", "page_current": 5})
+    row = ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == 9002).one()
+    assert row.read_status == ub.ReadBook.STATUS_IN_PROGRESS
+
+
+def test_report_does_not_downgrade_finished(admin_client, clean_progress, clean_link):
+    """已读完的书回看，状态保持 FINISHED——完成标记是用户的显式决定。"""
+    _post(admin_client, {"book_id": 9003, "format": "EPUB"})
+    row = ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == 9003).one()
+    row.read_status = ub.ReadBook.STATUS_FINISHED
+    ub.session.commit()
+
+    _post(admin_client, {"book_id": 9003, "format": "EPUB", "percent": 3, "page_current": 2})
+    row = ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == 9003).one()
+    assert row.read_status == ub.ReadBook.STATUS_FINISHED, \
+        "已读完的书被网页阅读降级回在读了"
+
+
+def test_report_does_not_touch_kobo_counters(admin_client, clean_progress, clean_link):
+    """网页阅读不能污染 Kobo 的阅读统计字段。"""
+    _post(admin_client, {"book_id": 9001, "format": "EPUB", "page_current": 3})
+    _post(admin_client, {"book_id": 9001, "format": "EPUB", "page_current": 9})
+
+    row = ub.session.query(ub.ReadBook).filter(ub.ReadBook.book_id == 9001).one()
+    assert row.times_started_reading == 0, "网页阅读不该累加 Kobo 的「打开次数」"
+    assert row.last_time_started_reading is None, "网页阅读不该写 Kobo 的「上次开始阅读时间」"

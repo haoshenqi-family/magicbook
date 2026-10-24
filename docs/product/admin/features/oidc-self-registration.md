@@ -18,7 +18,7 @@
 `callback()` 里三处身份路径的处理差异是本次修复的核心：
 
 1. **OIDC subject 命中**（老用户再次登录）→ 直接登录，**不动 role**。
-2. **email 精确命中既有本地账号**（存量 Calibre-Web 账号首次走 OIDC）→ 只补 `oidc_issuer` / `oidc_subject`，**保留其本地角色与书库权限**。
+2. **email 精确命中既有本地账号**（存量本地账号首次走 OIDC）→ 只补 `oidc_issuer` / `oidc_subject`，**保留其本地角色与书库权限**。
 3. **都没命中**（自助注册新账号）→ `role=resolve_new_user_role()`。
 
 因此「手动赋予的管理员」不会因为再次登录被覆盖：第 1、2 条路径都不写 role；第 3 条只发生在建号那一刻。
