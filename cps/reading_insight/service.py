@@ -251,10 +251,17 @@ def _history_rate(kind):
     models = _job_models()
     model = models[kind]
     unit_field = _DURATION_SPEC[kind][0]
-    rows = (ub.session.query(model)
-            .filter(model.status == "COMPLETED")
-            .order_by(model.created_at.desc())
-            .limit(DURATION_SAMPLE_LIMIT).all())
+    try:
+        rows = (ub.session.query(model)
+                .filter(model.status == "COMPLETED")
+                .order_by(model.created_at.desc())
+                .limit(DURATION_SAMPLE_LIMIT).all())
+    except Exception as error:
+        # Why 不冒泡：这是「样本」不是「结论」——台账查不到（表缺失/库忙）只该退化成
+        # 「没有实测样本」，不该让整个估算 500。R214 验收实测：一条后台查询把面板打死，
+        # 管理员看到的是「估算失败 500」，而不是「耗时按常量估算」。
+        log.warning("whole-book estimate: history sampling failed for %s: %s", kind, error)
+        return None, 0
     samples = []
     for row in rows:
         units = int(getattr(row, unit_field) or 0)
@@ -369,12 +376,19 @@ def active_jobs(book_id, book_format):
     models = _job_models()
     snapshot = {}
     for kind, model in models.items():
-        job = (ub.session.query(model)
-               .filter(model.user_id == user_id,
-                       model.book_id == int(book_id),
-                       model.book_fingerprint == fingerprint,
-                       model.status.in_(ACTIVE_STATUSES))
-               .order_by(model.created_at.desc()).first())
+        try:
+            job = (ub.session.query(model)
+                   .filter(model.user_id == user_id,
+                           model.book_id == int(book_id),
+                           model.book_fingerprint == fingerprint,
+                           model.status.in_(ACTIVE_STATUSES))
+                   .order_by(model.created_at.desc()).first())
+        except Exception as error:
+            # 同 _history_rate：活跃快照是「锦上添花」，查不到就当没有，
+            # 不能因为它把「代价面板」整块打成 500。
+            log.warning("whole-book estimate: active job lookup failed for %s: %s", kind, error)
+            snapshot[kind] = None
+            continue
         if job is None:
             snapshot[kind] = None
             continue
