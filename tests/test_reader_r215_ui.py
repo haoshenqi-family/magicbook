@@ -92,6 +92,24 @@ def test_FAB拖拽捕获延迟到拖动开始():
     assert "setPointerCapture" in move and "moved = true" in move, "捕获必须延迟到拖动开始"
 
 
+def test_朗读气泡播放中变为停止():
+    """R223 验收反馈：气泡点一次起播后无法停止。
+
+    状态唯一源必须是顶栏 #tts-book（active）/ #tts-book-stop（display），
+    播放中点击走停止按钮而不是再次转发 ▶（▶ 在播放中是暂停，不能停）。
+    """
+    js = _read("cps/static/js/ai_chat.js")
+    assert "function readingAloudActive()" in js and "#tts-book-stop" in js
+    dispatch = js.split("function dispatchBubbleAction", 1)[1].split("function renderBubbles", 1)[0]
+    assert 'id === "tts-book" && readingAloudActive()' in dispatch, "播放中未走停止分支"
+    assert "stopBtn.click()" in dispatch, "播放中点击必须触发停止"
+    sync = js.split("function syncTtsBubble", 1)[1].split("function dispatchBubbleAction", 1)[0]
+    assert '"■"' in sync and '"▶"' in sync, "气泡未在播放/停止两态间切换图标"
+    assert 'classList.toggle("is-playing"' in sync, "播放态样式未切换"
+    css = _read("cps/static/css/ai_chat.css")
+    assert ".ai-bubble.is-playing" in css, "停止态缺少视觉区分"
+
+
 def test_思考中先于页面上下文():
     js = _read("cps/static/js/ai_chat.js")
     body = js.split("function sendMessage()", 1)[1].split("function streamChat", 1)[0]

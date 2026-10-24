@@ -283,10 +283,41 @@
     if (wrap) wrap.classList.remove("bubbles-open");
   }
 
+  // 朗读气泡是「播放/停止」双态，而非只有起播。状态唯一源是顶栏按钮：
+  // 阅读器 ttsButtonsRender 在播放中给 #tts-book 加 active 并显示 #tts-book-stop，
+  // 起播、暂停、自然播完、点停止都会更新它——不另建一份本地状态，避免与播放器漂移。
+  function readingAloudActive() {
+    var tool = document.getElementById("tts-book");
+    var stopBtn = document.getElementById("tts-book-stop");
+    if (!tool) return false;
+    return tool.classList.contains("active")
+      || !!(stopBtn && stopBtn.style.display !== "none");
+  }
+
+  function syncTtsBubble() {
+    var bubble = document.querySelector('.ai-bubble[data-action="tts-book"]');
+    if (!bubble) return;
+    var playing = readingAloudActive();
+    var icon = bubble.querySelector(".ai-bubble-icon");
+    var tip = bubble.querySelector(".ai-bubble-tip");
+    bubble.classList.toggle("is-playing", playing);
+    if (icon) icon.textContent = playing ? "■" : (BUBBLE_ICONS["tts-book"] || "▶");
+    var label = playing ? (window.mbT ? mbT("Stop reading aloud") : "Stop reading aloud")
+                        : (window.mbT ? mbT("Read aloud") : "Read aloud");
+    if (tip) tip.textContent = label;
+    bubble.setAttribute("aria-label", label);
+    bubble.title = label;
+  }
+
   function dispatchBubbleAction(id) {
     if (id === "chat") {
       $("#ai-companion-fab").trigger("click");
       return;
+    }
+    // 朗读中直接停止：顶栏的 ▶ 在播放时是「暂停」，用户要的是一键停掉。
+    if (id === "tts-book" && readingAloudActive()) {
+      var stopBtn = document.getElementById("tts-book-stop");
+      if (stopBtn) { stopBtn.click(); return; }
     }
     var tool = document.getElementById(id);
     if (tool) { tool.click(); return; }
@@ -312,6 +343,7 @@
       tip.textContent = labels[id] || id;
       bubble.appendChild(tip);
       var icon = document.createElement("span");
+      icon.className = "ai-bubble-icon";
       icon.textContent = BUBBLE_ICONS[id] || "•";
       bubble.appendChild(icon);
       bubble.addEventListener("click", function (event) {
@@ -321,6 +353,7 @@
       });
       host.appendChild(bubble);
     });
+    syncTtsBubble();
   }
 
   function openBubbles() {
@@ -349,6 +382,7 @@
         bubble.style.setProperty("--by", Math.round(-Math.sin(angle) * 74) + "px");
       });
       wrap.classList.toggle("bubbles-left", inward > 0);
+      syncTtsBubble();
     }
     wrap.classList.add("bubbles-open");
   }
@@ -379,6 +413,8 @@
         closeBubbles();
       }
     });
+    // 播放状态由阅读器更新，气泡只在开启期间巡检；离开阅读页无 #tts-book 时为空转。
+    setInterval(syncTtsBubble, 250);
   }
 
   function startFabIdle() {

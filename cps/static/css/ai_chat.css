@@ -56,6 +56,11 @@
   transition-delay: 0s;
 }
 #ai-companion-bubbles .ai-bubble:hover { transform: translate(var(--bx), var(--by)) scale(1.12); background: #f0f6ff; }
+/* R223：朗读中的气泡切换为「停止」态，用红色 ■ 明确可停，避免用户误以为只能起播。 */
+#ai-companion-bubbles .ai-bubble.is-playing {
+  background: #fff1f0; border-color: #ffccc7; color: #cf1322;
+}
+#ai-companion-bubbles .ai-bubble.is-playing:hover { background: #ffe7e5; }
 #ai-companion-bubbles .ai-bubble .ai-bubble-tip {
   position: absolute; right: 46px; top: 50%; transform: translateY(-50%);
   background: rgba(32,33,36,0.92); color: #fff; font-size: 11px; line-height: 1;
