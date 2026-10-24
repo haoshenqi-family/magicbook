@@ -4439,6 +4439,9 @@ msgid ""
 "rating."
 msgstr "按作者 / 系列 / 出版社 / 语言 / 评分多条件组合过滤时用这里。"
 
+msgid "Select user..."
+msgstr "选择用户..."
+
 msgid "User ID"
 msgstr "用户 ID"
 

@@ -94,6 +94,7 @@
 - **验证**：`python -c "ast.parse"`（路由语法）、`node --check cps/static/js/credits.js`、模板元素 id 与 JS 选择器逐一对照（`credit-promo-form/start/end/multiplier/rows` 全命中）。真机验收清单：活动期角标与倒计时、无活动时角标消失且标题回 1,000、普通用户直接 POST 代理路由返回 403、发布重叠活动弹出后端文案且不落库。
 - **窗口**：本条写入使回应节数达 11，按「写入即检查」把最早一节（原文件标 `## 2026-10-19（R130 …）`、正文实为 R190 回应）原样搬至 `response-archive/response-R130.md` 并登记索引，窗口回 10；只搬移不改写，节标题的错误沿用原文并在归档头注记。冲突记录：无撞号（moon-well R205 / 本仓 R209 各自唯一）。
 - **驻留**：worktree `../magicbook-credit-promotion`（分支 `feat/r209-credit-promotion`）待验收，验收通过后 `worktree remove` + `branch -d`；未 push。
+- **验收期微调（2026-10-24，用户两条意见，原 worktree 续作）**：① 档位划线文案去掉「原到账」前缀——「原到账 50万 积分」改为「50万 积分」，划线 + 灰色已表达原价语义，`baseTitle` 服务端文案原样展示；② 管理员调整目标用户从手填 ID 改为**下拉选择**——userId 与本站账号不同源（moon-well `app_user`），手填极易打错人。配套：新增代理 `/ajax/credit/admin-users`（`role_admin()` 门禁同 admin-adjust，moon-well 白名单三道闸），新占位符「Select user...」补中文翻译并重编译 `.mo`；JS 下拉标签 `#id 昵称 (email)`，加载失败 alert 可见、禁止静默退化回手填。测试：`test_credit_consume.py` 10 例 + `test_i18n_seed_contract.py` 5 例全绿（新增转发/403/下拉结构与文案断言）。moon-well 侧同轮加 `POST /credit/admin/users`（见其 R205 LLD §10）。
 ## 2026-10-23（R210：伙伴图片未生效的定性与 MinIO 入口切换的 CSP 侧——源清单收敛单点、过渡双源）
 
 ### R210（用户：「伙伴的图片似乎没有起作用」→「我知道了，我的网络会拦截 https://home.haoshenqi.top:9001。minio地址改为 https://minio.haoshenqi.top，只是入口不同，后端一样」）
