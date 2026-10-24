@@ -653,6 +653,26 @@ def migrate_Database(_session):
     migrate_registration_table(engine, _session)
     migrate_user_session_table(engine, _session)
     migrate_oidc_user_columns(engine)
+    migrate_home_landing_config(engine)
+
+
+def migrate_home_landing_config(engine):
+    """给既有库补 `settings.config_home_landing`（R213-C / MB-18）。
+
+    Why 必须单独 ALTER：`_Settings` 是「一行配置表」，新增列对**新建库**由
+    create_all 带出，而既有库不会因为模型多了一列就自动长出来；缺列时
+    `config.config_home_landing` 的读取会直接 OperationalError，**整站每个
+    请求都读配置**，等于全站 500——所以迁移必须在这里补，而不是靠默认值兜底。
+
+    How：与 `migrate_oidc_user_columns` 同款「查 inspector 再 ALTER」；
+    `DEFAULT 1` 让存量库保持既有观感以外的默认行为（落新首页），
+    管理员可在「管理 → 编辑配置」里取消勾选回退到 `/`。
+    """
+    inspector = __import__('sqlalchemy').inspect(engine)
+    columns = {column['name'] for column in inspector.get_columns('settings')}
+    if 'config_home_landing' not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE settings ADD COLUMN config_home_landing BOOLEAN DEFAULT 1"))
 
 
 def migrate_oidc_user_columns(engine):

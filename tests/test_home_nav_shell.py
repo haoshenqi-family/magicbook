@@ -36,10 +36,18 @@ def test_sort_chips_collapse_into_drawer_on_mobile():
 
 
 def test_cover_format_badges_present():
+    """R213-C 起卡片主体搬进共享宏：徽标断言落在宏上，index.html 只保留调用。
+
+    Why 改断言位置而不是删断言：徽标是 R213-A 的验收项，它现在只有一份实现
+    （`partials/_book_card.html`）——断言必须跟着实现走，否则「index.html 里搜
+    不到徽标」会被误判成徽标丢了。
+    """
     html = (_TEMPLATES / "index.html").read_text(encoding="utf-8")
-    assert "cover-badge-format" in html, "主格式徽标（EPUB/PDF）缺失"
-    assert "cover-badge-audio" in html, "音频徽标缺失"
-    assert "main_format" in html
+    card = (_TEMPLATES / "partials" / "_book_card.html").read_text(encoding="utf-8")
+    assert "_book_card.html" in html, "index.html 没有复用共享卡片宏"
+    assert "cover-badge-format" in card, "主格式徽标（EPUB/PDF）缺失"
+    assert "cover-badge-audio" in card, "音频徽标缺失"
+    assert "main_format" in card
     css = _CSS.read_text(encoding="utf-8")
     assert ".cover-badge" in css
 

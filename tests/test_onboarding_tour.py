@@ -248,9 +248,14 @@ def test_browse_step_anchors_exist_in_templates():
         assert anchor in src, "{0} 已从 layout 消失，需同步 onboarding.js".format(anchor)
 
     # index.html 同时服务首页（discover）与各浏览页；封面与排序条是导览锚点
+    # R213-C：书卡主体搬进 `partials/_book_card.html`（index 与 /home 共用），
+    # 故「卡片外层 class」这个锚点要在宏里找；排序条仍在 index.html 自己身上。
     with open(os.path.join(TEMPLATE_DIR, "index.html"), encoding="utf-8") as fh:
         src = fh.read()
-    for anchor in ('class="col-sm-3 col-lg-2 col-xs-6 book session', 'class="filterheader'):
+    with open(os.path.join(TEMPLATE_DIR, "partials", "_book_card.html"), encoding="utf-8") as fh:
+        card_src = fh.read()
+    assert 'class="col-sm-3 col-lg-2 col-xs-6 book session' in card_src
+    for anchor in ('class="filterheader',):
         assert anchor in src
 
     with open(os.path.join(TEMPLATE_DIR, "detail.html"), encoding="utf-8") as fh:

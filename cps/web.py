@@ -57,6 +57,7 @@ from .helper import check_valid_domain, check_email, check_username, \
     edit_book_read_status, valid_password
 from .pagination import Pagination
 from .redirect import get_redirect_location
+from .landing import landing_endpoint
 from .cw_babel import get_available_locale, get_available_translations
 from .usermanagement import login_required_if_no_ano
 from .kobo_sync_status import remove_synced_book
@@ -2173,7 +2174,7 @@ def register():
     if not config.config_public_reg:
         abort(404)
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if not config.get_mail_server_configured():
         flash(_("Oops! Email server is not configured, please contact your administrator."), category="error")
         return render_title_template('register.html', title=_("Register"), page="register")
@@ -2186,13 +2187,14 @@ def handle_login_user(user, remember, message, category):
     login_user(user, remember=remember)
     flash(message, category=category)
     [limiter.limiter.clear(limit.limit, *limit.request_args) for limit in limiter.current_limits]
-    return redirect(get_redirect_location(request.form.get('next', None), "web.index"))
+    # R213-C：表单没带 next 时落到站点配置的默认落点（/home 或原 / 发现页）
+    return redirect(get_redirect_location(request.form.get('next', None), landing_endpoint()))
 
 
 def render_login(username="", password=""):
-    next_url = request.args.get('next', default=url_for("web.index"), type=str)
+    next_url = request.args.get('next', default=url_for(landing_endpoint()), type=str)
     if url_for("web.logout") == next_url:
-        next_url = url_for("web.index")
+        next_url = url_for(landing_endpoint())
     oidc_enabled = current_app.config.get("AUTHENTIK_OIDC_ENABLED", False)
     # 邀请制注册入口：链接由 .env 的 AUTHENTIK_ENROLLMENT_INVITE_URL 注入（Authentik
     # 邀请默认 30 天过期，轮换时只改环境变量并重启，不动代码）；未配置则不渲染
@@ -2213,7 +2215,7 @@ def render_login(username="", password=""):
 @web.route('/login', methods=['GET'])
 def login():
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
         log.error(u"Cannot activate LDAP authentication")
         flash(_(u"Cannot activate LDAP authentication"), category="error")
@@ -2227,7 +2229,7 @@ def login_post():
     form = request.form.to_dict()
     username = strip_whitespaces(form.get('username', "")).lower().replace("\n","").replace("\r","")
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
         log.error(u"Cannot activate LDAP authentication")
         flash(_(u"Cannot activate LDAP authentication"), category="error")

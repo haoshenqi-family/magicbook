@@ -1803,6 +1803,8 @@ def _configuration_update_helper():
                             and config.config_login_type == constants.LOGIN_LDAP)
         _config_checkbox_int(to_save, "config_public_reg")
         _config_checkbox_int(to_save, "config_register_email")
+        # R213-C：登录/回站落点开关（取消勾选即回退到原 / 发现页，不需要发版）
+        _config_checkbox(to_save, "config_home_landing")
         reboot_required |= _config_checkbox_int(to_save, "config_kobo_sync")
         _config_int(to_save, "config_external_port")
         _config_checkbox_int(to_save, "config_kobo_proxy")
