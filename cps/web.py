@@ -22,6 +22,7 @@ import os
 import json
 import re
 import threading
+import time
 import uuid
 import mimetypes
 import chardet  # dependency of requests
@@ -869,6 +870,39 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
     return _moonwell_client.proxy(path, payload, timeout, label, binary=binary,
                                   method=method, system_identity=system_identity,
                                   bearer_token=bearer_token)
+
+
+# R214 C：整本任务代价面板的费率缓存（LLD §5.3）。
+# Why 5 分钟：面板切三个 tab 会连拉三次估算，费率是 Nacos 热调常量却要跨公网一次；
+# 单一真源留在 moon-well（R207），本仓不镜像常量——镜像必然漂移。
+_CREDIT_BILLING_TTL_SECONDS = 300
+_credit_billing_cache = {"fetched_at": 0.0, "rates": None}
+
+
+def _credit_billing_rates():
+    """取 moon-well /credit/billing 的费率；不可用回 None（面板据此显「费率暂不可得」）。"""
+    now = time.time()
+    if (_credit_billing_cache["rates"] is not None
+            and now - _credit_billing_cache["fetched_at"] < _CREDIT_BILLING_TTL_SECONDS):
+        return _credit_billing_cache["rates"]
+    response = _moonwell_proxy("/credit/billing", None, 10, "credit billing", method="GET")
+    if not isinstance(response, tuple) or len(response) < 2:
+        return None
+    body, status = response[0], response[1]
+    if status < 200 or status >= 300:
+        log.warning("credit billing unavailable: HTTP %s", status)
+        return None
+    try:
+        data = json.loads(body)
+    except (TypeError, ValueError):
+        log.warning("credit billing returned unreadable response")
+        return None
+    rates = data.get("result") if isinstance(data, dict) else None
+    if not isinstance(rates, dict):
+        return None
+    _credit_billing_cache["rates"] = rates
+    _credit_billing_cache["fetched_at"] = now
+    return rates
 
 
 def _moonwell_refresh_session_token():
@@ -2610,6 +2644,17 @@ def show_book(book_id):
                         ai_summary["generatedAt"]).strftime("%Y-%m-%d")
             except Exception as error:
                 entry.insight_error = str(error)
+
+        # R214 C：三种整本链路的活跃批次快照（LLD §7.5）——页面直接进进度态，
+        # 不再显示「开始」按一个已经在跑的批次。查询失败只让快照为空，不拦详情页。
+        # 仅管理员查：整本能力本就是 admin 专属，非管理员多查三张表没有收益。
+        entry.whole_book_active = {}
+        if current_user.role_admin() and entry.insight_format:
+            try:
+                from cps.reading_insight.service import active_jobs
+                entry.whole_book_active = active_jobs(book_id, entry.insight_format)
+            except Exception as error:
+                log.warning("whole-book active job lookup failed for book %s: %s", book_id, error)
 
         return render_title_template('detail.html',
                                      entry=entry,

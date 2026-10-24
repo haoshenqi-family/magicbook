@@ -5,7 +5,10 @@ import zipfile
 from flask import jsonify
 from flask import request
 
+from cps.web import _credit_billing_rates
 from cps.web import _llm_task_admin_gate
+from cps.web import _whole_book_closures
+from cps.web import _word_detail_closures
 from cps.web import web
 from ..reading_insight import service as insight_service
 from ..usermanagement import user_login_required
@@ -47,4 +50,38 @@ def book_summary():
         return jsonify({"success": True, "result": result})
     except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
         # 透传上游 message（LLD §8）：失败在区块内红字显示，不静默变「暂无简介」。
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/whole-book-estimate", methods=["POST"])
+@user_login_required
+def whole_book_estimate():
+    """整本任务代价估算（LLD §4.3）：**只读**，绝不建批次、不 publish、不写缓存。
+
+    Why 闭包在路由层造：lookup / check 都要在请求线程内定格 moon-well 令牌快照，
+    service 因此不认识 HTTP（与整本翻译 start 同一形制）。
+    Why 仍要 admin 门禁：三个整本入口本就管理员专属（R214 拍板①），
+    面板只是它们的调用方，不能变成绕过门禁的旁路。
+    """
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    try:
+        book_id = int(payload.get("book_id"))
+        book_format = str(payload.get("book_format") or "epub").lower()
+        kind = str(payload.get("kind") or "translate")
+        lookup = check = None
+        if kind == "translate":
+            _, lookup = _whole_book_closures()
+        elif kind == "wordDetail":
+            # 只取 check：预览路径没有 publish 能力（R176 的结构约束）。
+            check, _ = _word_detail_closures()
+        elif kind != "tts":
+            raise ValueError("unsupported estimate kind: %s" % kind)
+        result = insight_service.estimate(book_id, book_format, kind,
+                                          lookup=lookup, check=check,
+                                          rates=_credit_billing_rates())
+        return jsonify({"success": True, "result": result})
+    except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
         return jsonify({"success": False, "message": str(error)}), 400
