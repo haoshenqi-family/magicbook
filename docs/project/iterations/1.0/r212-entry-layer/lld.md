@@ -7,7 +7,7 @@
 MB-11 待办第 1 项：authentik 的 logo 与登录页背景仍是官方默认。用户 2026-10-23 三项拍板：
 
 1. 素材托管走 **MinIO `brand/` 前缀**（不新建静态服务、不从 magicbook 直链）；
-2. 主标识取**圆章版**「雪鸮立旧书 + 魔杖一点光」；
+2. 主标识取**圆章版**「雪鸮立旧书 + 魔杖一点光」（当日即被用户否决，见 §7 第 6 条）；
 3. magicbook 本轮只改到**「改名 + 挂徽章 + favicon」**一层，不动配色与布局（登录页换皮与整站 HP 化明确不做）。
 
 视觉延续站内既有语言：伙伴引导文案已是「一只雪鸮正在等新读者」（`messages.po`），雪鸮即家族吉祥物；**不使用**霍格沃茨校徽、闪电 H 字标或任何电影原图。
@@ -21,7 +21,7 @@ MB-11 待办第 1 项：authentik 的 logo 与登录页背景仍是官方默认�
 
 **同一枚圆章、两份产物**，由 `haoshenqi-family/vibe_images/build_brand_assets.py` 一次性生成（源图 = AI 生成的圆章与背景；圆章无水印，背景裁掉右下角「Qoder AI生成」水印条）。改标识只改源图 + 重跑脚本，两份产物不手改。
 
-产物尺寸：MinIO `logo.png` 256px/106KB、`favicon.png` 64px/9KB、`login-bg.jpg` 1792×972/**178KB**；站内 `logo.png` 128px/30KB（顶栏实显 26px，留 5x 余量）、`favicon.png` 64px/9KB。
+产物尺寸：MinIO `logo.png` 256px/106KB、`favicon.png` 64px/9KB、`login-bg.jpg` 1792×972/**178KB**；站内 `logo.png` 128px/30KB（顶栏实显 26px，留 5x 余量）、`favicon.png` 64px/9KB。（**部分已被取代**：2026-10-24 晚主标识换源，本节 logo/favicon 尺寸为圆章时代值，现值见 §7 第 6 条；`login-bg.jpg` 仍是现值。）
 
 **背景做过一次压暗**（整图 ×0.72 + 中上带再压）：authentik 的 flow 标题是**无阴影白字**，落点正在这张图的亮窗上——headless Chrome 去掉 mock 里误加的 `text-shadow` 复测，对比度不足。压暗比给 brand 挂 `branding_custom_css` 更省事，也不会把「素材问题」伪装成「样式覆盖问题」。
 
@@ -64,6 +64,8 @@ MB-11 待办第 1 项：authentik 的 logo 与登录页背景仍是官方默认�
 5. **已完成**：现网核验（headless Chrome 真页面截图）——`--ak-flow-background` 与 `branding_logo`/`branding_favicon` 均指向新对象，圆章与背景实际渲染正确、白卡对比度足够。
 
 **顺带查清的一处非本轮缺陷**：登录按钮文案仍是英文「Log in」（真人中文浏览器实测，非探针假象）。它**不在**任何配置面里——2025.10 的 `authentik_flows_flow` 无 `submit_button_text` 列、`authentik_flows_flowstagebinding` 无 `label` 列（均实测 schema），R162 的「表单文案中文化」覆盖的是 prompt 的 label/placeholder，不含提交按钮。要改只能动上游前端包，另立条目，不夹进本轮。
+
+6. **已完成（2026-10-24 晚）主标识换源**：用户否决猫头鹰圆章（「有点儿奇怪」），两稿 AI 候选后由用户**自供新 master**：`magicbook/brand/magicbook.png`（黑底 lockup——金椭圆环＋书写魔杖＋光迹＋环下 "Magic Book" 字标）。生成器随之改方章管线，两条实测结论决定不能裁圆、不能黑转透明：源图环是**椭圆**且杖尖**穿出环外**（任何同时含环底与杖尖的圆都会切掉杖尖或扫进字标）；皮革封面暗部亮度 p25=13 与黑底 10-12 **同直方图区间**（键控必在封面打孔）。派生：lockup 章 → `brand/logo.png` 244×256/87KB（authentik 卡片），emblem 章（字标行以上、含杖尖，字标顶行 y=877 由行金跨度实测）→ `brand/favicon.png` 64px/7KB 与站内 128px/23KB＋64px；顶栏 `.brand-mark` 加 `border-radius: 20%` 把黑方章收成徽章形（headless mocks 直角/圆角对照定档）。**对象 key 未变 → authentik 侧零改库零重启**，匿名 GET 实测新字节数（88614/6906）、真页截图 lockup 渲染卡顶；`login-bg.jpg` sha256 换源前后一致（背景零改动）。守卫测试 5 passed。**站内部分待 push 生效**。
 
 ## 8. 风险登记
 
