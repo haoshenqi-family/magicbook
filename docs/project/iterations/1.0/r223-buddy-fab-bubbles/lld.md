@@ -1,6 +1,6 @@
 # LLD — R223 Buddy 悬浮球化（透明头像 + hover 径向快捷气泡）
 
-> 状态：已开发待验收（2026-10-24，worktree `../magicbook-buddy`，分支 `feat/r206-buddy`）
+> 状态：已上线待验收（2026-10-24；真机缺陷修复 `ebf4cec4` 已部署，Chrome 全链路复验通过）
 
 ## 1. 需求与范围
 
@@ -46,7 +46,16 @@
 
 ## 5. 边界与已知取舍
 
+### 5.1 真机验收缺陷记录（2026-10-24，已修）
+
+- `pointerdown` 即对 wrap `setPointerCapture` 会把后续 `click` 重定向到 wrap，FAB 开抽屉
+  与气泡动作全部失效（拖拽吸附正常，故静态测试不暴露）。修法：捕获延迟到 move 超过
+  6px 拖动阈值时设置；`pointermove` 加 `event.buttons & 1` 守卫防悬停误拖。
+- hover 悬浮菜单的空隙问题：FAB 与气泡间有约 26px 空隙，`mouseleave` 立即关闭会让
+  气泡点不到——350ms 延迟关闭 + 重进取消（悬浮菜单标准做法）。
+
 - 触屏无 hover：移动端 FAB 点击仍开抽屉；气泡在移动端同样渲染但主要服务桌面 hover，后续如需移动端长按展开再迭代。
 - 气泡动作「转发 click」依赖顶栏工具节点存在；若未来改工具 id，`dispatchBubbleAction` 的白名单需同步。
 - 服务端不强制「chat 必须在 selected 里」：前端渲染恒定注入 chat，POST 即使不含 chat 也不会产生无对话入口的 UI（chat 由 `renderBubbles` 固定插入）。
 - 数量口径：用户原话「4-5 个」，服务端按 4–5 校验；2–3 个不落库。
+- 展开方向自适应以 FAB 吸附后的几何位置判定（clearRadius 94px），极端小窗口未逐档验证。

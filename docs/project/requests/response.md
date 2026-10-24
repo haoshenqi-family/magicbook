@@ -293,3 +293,13 @@
   本次实现 → 同 LLD，状态「已开发待验收」。R220 LLD 状态行回填「已上线」。
 - **驻留**：worktree `../magicbook-buddy`（分支 `feat/r206-buddy`，与 R220 同分支续作），
   push 后保留待用户验收。
+- **真机验收缺陷与修复（2026-10-24 推送后 Chrome 实测）**：气泡点击与 FAB 点击全无反应。
+  根因：`initBuddyFabDrag` 在 `pointerdown` 即对 wrap `setPointerCapture`，捕获把后续
+  `click` 重定向到 wrap——阅读页原有「pointerdown 在按钮上 → click 由按钮收」的链路被
+  打断，抽屉与气泡动作全部失效（吸附本身正常，故拖拽不暴露）。修法：捕获延迟到真正
+  拖动（move 超过 6px 阈值）时设置，`pointermove` 加 `event.buttons & 1` 守卫防悬停误拖；
+  守卫测试 `test_FAB拖拽捕获延迟到拖动开始`。修后 `ebf4cec4` 推送部署，Chrome 线上
+  全链路复验通过：① 首页 4 默认气泡、左缘向右展开 + tooltip 翻边、贴边不越界；
+  ② 「对话」气泡开抽屉、FAB 本体 toggle 关抽屉；③ `/buddy` 勾「每日学习」保存后首页
+  5 气泡生效、还原默认后 4 气泡；④ 阅读页气泡转发顶栏工具双向验证（沉浸翻译开关
+  两轮、书签图标空↔实）；⑤ CDP 真实鼠标拖拽吸附左/右缘 + 刷新保持；⑥ 控制台 0 error。
