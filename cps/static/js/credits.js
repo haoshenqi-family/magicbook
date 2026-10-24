@@ -141,7 +141,7 @@
             }
             card.append(nameRow);
             if (onPromotion && pkg.baseTitle) {
-                card.append($('<div>').addClass('pkg-base').text('原到账 ' + pkg.baseTitle));
+                card.append($('<div>').addClass('pkg-base').text(pkg.baseTitle));
             }
             card.append($('<div>').addClass('pkg-price').text(formatMoney(pkg.price)));
             card.append($('<div>').addClass('pkg-desc').text(pkg.description || ''));
@@ -538,6 +538,28 @@
         });
     }
 
+    // R205 验收微调：目标用户改成下拉选择。userId 与 magicbook 本地账号不同源，
+    // 手填极易打到别人头上；选项直接取 moon-well /credit/admin/users 同源数据。
+    function renderAdminUserOptions(users) {
+        var select = $('#credit-admin-user').empty();
+        select.append($('<option>').attr('value', '').text('Select user...'));
+        (users || []).forEach(function (user) {
+            var label = '#' + user.userId + ' ' + (user.nickname || user.username || '') +
+                (user.email ? ' (' + user.email + ')' : '');
+            select.append($('<option>').attr('value', String(user.userId)).text(label));
+        });
+    }
+
+    function loadAdminUserOptions() {
+        if (!IS_ADMIN) { return; }
+        ajax('/ajax/credit/admin-users', 'POST', {}).then(function (response) {
+            renderAdminUserOptions(unwrap(response) || []);
+        }).catch(function (error) {
+            // 下拉加载失败必须可见：静默退化成手填会重新打开打错人的口子
+            window.alert('用户列表加载失败：' + error.message + '。请刷新页面重试，不要手填用户ID。');
+        });
+    }
+
     function submitPromotion() {
         var start = $('#credit-promo-start').val();
         var end = $('#credit-promo-end').val();
@@ -582,6 +604,7 @@
         if (IS_ADMIN) {
             fillPromotionDefaults();
             loadPromotions();
+            loadAdminUserOptions();
             $('#credit-promo-form').on('submit', function (e) {
                 e.preventDefault();
                 submitPromotion();

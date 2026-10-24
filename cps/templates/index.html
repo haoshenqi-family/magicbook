@@ -1,71 +1,15 @@
-{% import 'image.html' as image %}
+{% from 'partials/_book_card.html' import book_card %}
 {% extends "layout.html" %}
 {% block body %}
+{% if page == 'newest' %}
+  {% include 'difficulty_entry.html' %}
+{% endif %}
 {% if current_user.show_detail_random() and page != "discover" %}
 <div class="discover random-books">
   <h2 class="random-books">{{_('Discover (Random Books)')}}</h2>
   <div class="row display-flex">
-   {% for entry in random %}
-    <div class="col-sm-3 col-lg-2 col-xs-6 book session" id="books_rand">
-      <div class="cover">
-          <a href="{{ url_for('web.show_book', book_id=entry.Books.id) }}" {% if simple==false %}data-toggle="modal" data-target="#bookDetailsModal" data-remote="false"{% endif %}>
-              <span class="img" title="{{ entry.Books.title }}">
-                {{ image.book_cover(entry.Books) }}
-                {% if entry[2] == True %}<span class="badge read glyphicon glyphicon-ok"></span>{% endif %}
-                {# R213-A：卡片格式徽标——主文本格式 + 音频标记。时长/缓存状态在 #}
-                {# moon-well，列表页同步拉会 N 打它的接口，留异步接（见 HLD §5） #}
-                <span class="cover-badges">
-                  {% set _fmt = entry.Books.data|main_format %}
-                  {% if _fmt %}<span class="cover-badge cover-badge-format">{{ _fmt }}</span>{% endif %}
-                  {% if entry.Books.data|music %}<span class="cover-badge cover-badge-audio"><span class="glyphicon glyphicon-music"></span> {{_('Audio')}}</span>{% endif %}
-                </span>
-              </span>
-          </a>
-      </div>
-      <div class="meta">
-        <a href="{{ url_for('web.show_book', book_id=entry.Books.id) }}" {% if simple==false %}data-toggle="modal" data-target="#bookDetailsModal" data-remote="false"{% endif %}>
-          <p title="{{entry.Books.title}}" class="title">{{entry.Books.title|shortentitle}}</p>
-        </a>
-        <p class="author">
-          {% for author in entry.Books.authors %}
-            {% if loop.index > g.config_authors_max and g.config_authors_max != 0 %}
-              {% if not loop.first %}
-                <span class="author-hidden-divider">&amp;</span>
-			  {% endif %}
-              <a class="author-name author-hidden" href="{{url_for('web.books_list', data='author', sort_param='stored', book_id=author.id) }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
-              {% if loop.last %}
-                <a href="#" class="author-expand" data-authors-max="{{g.config_authors_max}}" data-collapse-caption="({{_('reduce')}})">(...)</a>
-              {% endif %}
-            {% else %}
-              {% if not loop.first %}
-                <span>&amp;</span>
-              {% endif %}
-              <a class="author-name" href="{{url_for('web.books_list',  data='author', sort_param='stored', book_id=author.id) }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
-            {% endif %}
-          {% endfor %}
-        </p>
-        {% if entry.Books.series.__len__() > 0 %}
-        <p class="series">
-          <a href="{{url_for('web.books_list', data='series', sort_param='stored', book_id=entry.Books.series[0].id )}}">
-            {{entry.Books.series[0].name}}
-          </a>
-          ({{entry.Books.series_index|formatfloat(2)}})
-        </p>
-        {% endif %}
-        {% if entry.Books.ratings.__len__() > 0 %}
-        <div class="rating">
-          {% for number in range((entry.Books.ratings[0].rating/2)|int(2)) %}
-            <span class="glyphicon glyphicon-star good"></span>
-            {% if loop.last and loop.index < 5 %}
-              {% for numer in range(5 - loop.index) %}
-                <span class="glyphicon glyphicon-star-empty"></span>
-              {% endfor %}
-            {% endif %}
-          {% endfor %}
-        </div>
-        {% endif %}
-      </div>
-    </div>
+    {% for entry in random %}
+    {{ book_card(entry.Books, entry[2] == True, True, 'books_rand', simple == false) }}
     {% endfor %}
   </div>
 </div>
@@ -101,66 +45,9 @@
   <div class="row display-flex">
     {% if entries[0] %}
     {% for entry in entries %}
-    <div class="col-sm-3 col-lg-2 col-xs-6 book session" id="books">
-      <div class="cover">
-          <a href="{{ url_for('web.show_book', book_id=entry.Books.id) }}" {% if simple==false %}data-toggle="modal" data-target="#bookDetailsModal" data-remote="false"{% endif %}>
-            <span class="img" title="{{ entry.Books.title }}">
-              {{ image.book_cover(entry.Books) }}
-              {% if entry[2] == True %}<span class="badge read glyphicon glyphicon-ok"></span>{% endif %}
-            </span>
-          </a>
-      </div>
-      <div class="meta">
-        <a href="{{ url_for('web.show_book', book_id=entry.Books.id) }}" {% if simple==false %}data-toggle="modal" data-target="#bookDetailsModal" data-remote="false"{% endif %}>
-          <p title="{{ entry.Books.title }}" class="title">{{entry.Books.title|shortentitle}}</p>
-        </a>
-        <p class="author">
-          {% for author in entry.Books.authors %}
-            {% if loop.index > g.config_authors_max and g.config_authors_max != 0 %}
-              {% if not loop.first %}
-                <span class="author-hidden-divider">&amp;</span>
-			  {% endif %}
-              <a class="author-name author-hidden" href="{{url_for('web.books_list', data='author', book_id=author.id, sort_param='stored') }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
-              {% if loop.last %}
-                <a href="#" class="author-expand" data-authors-max="{{g.config_authors_max}}" data-collapse-caption="({{_('reduce')}})">(...)</a>
-              {% endif %}
-            {% else %}
-              {% if not loop.first %}
-                <span>&amp;</span>
-              {% endif %}
-              <a class="author-name" href="{{url_for('web.books_list', data='author', book_id=author.id, sort_param='stored') }}">{{author.name.replace('|',',')|shortentitle(30)}}</a>
-            {% endif %}
-          {% endfor %}
-          {% if entry.Books.data|music %}
-            <span class="glyphicon glyphicon-music"></span>
-          {% endif %}
-        </p>
-        {% if entry.Books.series.__len__() > 0 %}
-        <p class="series">
-        {% if page != "series" %}
-          <a href="{{url_for('web.books_list', data='series', sort_param='stored', book_id=entry.Books.series[0].id )}}">
-            {{entry.Books.series[0].name}}
-          </a>
-        {% else %}
-            <span>{{entry.Books.series[0].name}}</span>
-        {% endif %}
-          ({{entry.Books.series_index|formatfloat(2)}})
-        </p>
-        {% endif %}
-        {% if entry.Books.ratings.__len__() > 0 %}
-        <div class="rating">
-          {% for number in range((entry.Books.ratings[0].rating/2)|int(2)) %}
-            <span class="glyphicon glyphicon-star good"></span>
-            {% if loop.last and loop.index < 5 %}
-              {% for numer in range(5 - loop.index) %}
-                <span class="glyphicon glyphicon-star-empty"></span>
-              {% endfor %}
-            {% endif %}
-          {% endfor %}
-        </div>
-        {% endif %}
-      </div>
-    </div>
+    {# R213-C：卡片主体抽到 partials/_book_card.html（与首页共用一张卡，
+       差异走宏参数：列表区不带格式徽标、带音乐图标、series 页系列名用纯文本） #}
+    {{ book_card(entry.Books, entry[2] == True, False, 'books', simple == false, music_icon=True, series_plain=(page == 'series')) }}
     {% endfor %}
   {% endif %}
   </div>

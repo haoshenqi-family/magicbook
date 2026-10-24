@@ -139,7 +139,7 @@
     {% endif %}
     </div>
     <div class="col-sm-12">
-      <div id="user_submit" class="btn btn-default">{{_('Save')}}</div>
+      <button type="submit" id="user_submit" class="btn btn-default">{{_('Save')}}</button>
       {% if not profile %}
         <div class="btn btn-default" data-back="{{ url_for('admin.admin') }}" id="back">{{_('Cancel')}}</div>
       {% endif %}

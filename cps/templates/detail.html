@@ -84,18 +84,18 @@
                        role_viewer()；三个整本入口保持管理员专属（R214 拍板①）。 #}
                     {% if entry.reader_list and current_user.role_viewer() %}
                         {% if 'epub' in entry.reader_list or 'kepub' in entry.reader_list %}
-                            {% if current_user.role_admin() %}<button type="button" class="btn btn-primary" id="whole-book-translate"
-                                    data-book-id="{{ entry.id }}" data-book-format="{% if 'epub' in entry.reader_list %}epub{% else %}kepub{% endif %}"
-                                    data-csrf-token="{{ csrf_token() }}">整本翻译</button>{% endif %}
-                            {% if current_user.role_admin() %}<button type="button" class="btn btn-default" id="whole-book-tts"
-                                    data-book-id="{{ entry.id }}"
-                                    data-book-format="{{ entry.data[0].format|lower}}"
-                                    data-csrf-token="{{ csrf_token() }}">整本朗读</button>{% endif %}
-                            {# 全文单词详解(R176)：整本翻译/整本朗读之后的第三个整本能力。
-                               做成链接而不是按钮——它是两步式页面(只读预览→确认入队),
-                               点一下就下单会把最贵的调用藏在一次 click 里。 #}
-                            {% if current_user.role_admin() %}<a class="btn btn-default"
-                                    href="{{ url_for('web.word_detail_batch_page', book_id=entry.id, book_format=('epub' if 'epub' in entry.reader_list else 'kepub')) }}">全文单词详解</a>{% endif %}
+                            {# R214 子项 C：三个整本入口合并为一个「整本任务」入口（LLD §6）。
+                               原来并列时「整本翻译」是 primary、另外两个是 default——最便宜的
+                               链路被包装成主操作。面板先给量/覆盖率/耗时/积分，再由管理员决定。
+                               门禁不变：整本能力全部管理员专属（R214 拍板①）。
+
+                               Why `not is_xhr`：书目列表里点书卡走的是 XHR 片段（detail.html
+                               改 extends fragment.html），片段的 block js 整个不下发 ⇒ 面板骨架
+                               与 JS 都不在，按钮点了只会落到 Bootstrap 的 data-api 空转（验收实测：
+                               在「书籍详情」弹层里点它，页面被套进另一个弹层）。整本任务只在
+                               完整详情页提供；弹层里的读者要么关掉弹层进详情页，要么用列表操作。 #}
+                            {% if current_user.role_admin() and not is_xhr %}<button type="button"
+                                    class="btn btn-default" id="whole-book-panel-open">整本任务</button>{% endif %}
                         {% endif %}
                         <div class="btn-group" role="group">
                             {% if entry.reader_list|length > 1 %}
@@ -319,7 +319,7 @@
                                 <input id="archived_cb" data-checked="{{ _('Restore from archive') }}"
                                        data-unchecked="{{ _('Add to archive') }}" type="checkbox"
                                        {% if entry.is_archived %}checked{% endif %}>
-                                <span data-toggle="tooltip" title="{{_('Mark Book as archived or not, to hide it in Calibre-Web and delete it from Kobo Reader')}}">{{ _('Archive') }}</span>
+                                <span data-toggle="tooltip" title="{{_('Mark Book as archived or not, to hide it in magicbook and delete it from Kobo Reader')}}">{{ _('Archive') }}</span>
                             </label>
                         </form>
                         </p>
@@ -328,10 +328,69 @@
             {% endif %}
 
 
-            {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
-                <div class="comments">
-                    <h3 id="decription">{{ _('Description:') }}</h3>
+            {# R214 B：内容速览——简介三级回退（书目简介 > AI 生成 > 暂无简介指向目录/试读）
+               + 目录 + 首章试读。AI 简介带「由 AI 生成」标注（拍板④）；已生成即定稿、
+               无「重新生成」按钮（拍板⑦）；生成按钮仅管理员（拍板①同源）。 #}
+            {% if entry.insight_error %}
+                <div class="alert alert-warning book-insight-error">内容速览解析失败：{{ entry.insight_error }}</div>
+            {% endif %}
+
+            <div class="comments">
+                <h3 id="decription">{{ _('Description:') }}</h3>
+                {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
                     {{ entry.comments[0].text|clean_string|safe }}
+                {% elif entry.insight and entry.insight.get('aiSummary') %}
+                    <div class="ai-summary">
+                        <div class="ai-summary-text">{{ entry.insight.aiSummary.text|safe }}</div>
+                        <p class="ai-summary-note text-muted"><small>由 AI 生成{% if entry.insight.aiSummary.model %} · {{ entry.insight.aiSummary.model }}{% endif %}{% if entry.insight.aiSummary.generatedAtText %} · {{ entry.insight.aiSummary.generatedAtText }}{% endif %}</small></p>
+                    </div>
+                {% else %}
+                    <p class="no-description text-muted">暂无简介。可先看下方「目录」与「首章试读」判断是否合口味。</p>
+                    {% if current_user.role_admin() and entry.insight_format %}
+                        <button type="button" class="btn btn-sm btn-default" id="generate-book-summary"
+                                data-book-id="{{ entry.id }}" data-book-format="{{ entry.insight_format }}"
+                                data-csrf-token="{{ csrf_token() }}"
+                                data-idle-label="生成简介" data-busy-label="生成中…">生成简介</button>
+                        <div id="book-summary-error" class="text-danger"></div>
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            {% if entry.insight and entry.insight.chapters %}
+                <div class="book-toc">
+                    <h3>目录 <small class="text-muted">共 {{ entry.insight.chapters|length }} 章 · {{ entry.insight.paragraphCount }} 段</small></h3>
+                    <ol class="toc-list">
+                        {% for ch in entry.insight.chapters %}
+                            <li class="toc-item{% if loop.index > 8 %} toc-extra{% endif %}"
+                                {% if loop.index > 8 %}hidden{% endif %}
+                                style="padding-left: {{ (ch.level - 1) * 16 }}px">
+                                <a href="javascript:void(0)" class="toc-toggle" data-target="toc-p{{ loop.index }}">{{ ch.title }}</a>
+                                <span class="text-muted small">（{{ ch.paragraphCount }} 段）</span>
+                                {% if ch.firstParagraph %}
+                                    <p class="toc-first-paragraph text-muted" id="toc-p{{ loop.index }}" hidden>{{ ch.firstParagraph }}</p>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ol>
+                    {% if entry.insight.chapters|length > 8 %}
+                        <button type="button" class="btn btn-sm btn-default" id="toc-expand"
+                                data-expanded="0"
+                                data-label-collapsed="展开全部（{{ entry.insight.chapters|length }} 章）"
+                                data-label-expanded="收起">展开全部（{{ entry.insight.chapters|length }} 章）</button>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if entry.insight and entry.insight.excerpt %}
+                <div class="book-preview">
+                    <h3>首章试读</h3>
+                    <div class="preview-body">
+                        {% for ex in entry.insight.excerpt %}
+                            <p class="preview-chapter-title"><strong>{{ ex.chapter }}</strong></p>
+                            <p class="preview-text">{{ ex.text }}</p>
+                        {% endfor %}
+                    </div>
+                    <a class="btn btn-primary" href="{{ url_for('web.read_book', book_id=entry.id, book_format=entry.insight_format or 'epub') }}">继续阅读</a>
                 </div>
             {% endif %}
 
@@ -421,48 +480,14 @@
     </a>
 </script>
 <script src="{{ url_for('static', filename='js/details.js') }}"></script>
+<script src="{{ url_for('static', filename='js/book-insight.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
-<script type="text/javascript">
-    $(function () {
-        $('#whole-book-translate').on('click', function () {
-            var button = $(this);
-            if (!window.confirm('开始/补齐整本翻译？\n\n已有译文的段落只查缓存不重复消耗，缺失段落才会真正翻译。')) return;
-            button.prop('disabled', true).text('提交中…');
-            $.ajax({url: '{{ url_for("web.reading_translate_book") }}', method: 'POST',
-                contentType: 'application/json', headers: {'X-CSRFToken': button.data('csrf-token')},
-                // R75 后续：恒带 force，语义同阅读器入口（见 epub.js）。
-                data: JSON.stringify({book_id: button.data('book-id'), book_format: button.data('book-format'), force: true})
-            }).done(function (result) {
-                // 译文不是同步返回：任务由 moon-well 后台逐段执行并写入缓存，
-                // 阅读时自动回读；此处只报批次规模，进度经 status 接口查询。
-                alert('整本翻译已提交\n总段落：' + (result.totalCount || 0) +
-                    '\n已缓存：' + (result.cachedCount || 0) +
-                    '\n新发布：' + (result.publishedCount || 0) +
-                    '\n\n译文会在后台逐段生成，完成后阅读时自动显示。');
-            }).fail(function (xhr) {
-                alert((xhr.responseJSON && xhr.responseJSON.message) || '整本翻译提交失败');
-            }).always(function () { button.prop('disabled', false).text('整本翻译'); });
-        });
-
-        // 整本朗读(TTS 预生成,R166):受理后 daemon 逐段合成进 moon-well 永久缓存,
-        // 完成后阅读器连播/单段朗读毫秒级命中。预估积分为全 miss 上限,已缓存段自动跳过不重复计费。
-        $('#whole-book-tts').on('click', function () {
-            var button = $(this);
-            if (!window.confirm('开始整本朗读预生成？\n\n已有音频的段落自动跳过、不重复计费;\n仅未合成段落按发起者计费(每 1000 字符 1 积分)。\n完成后听书零等待。')) return;
-            button.prop('disabled', true).text('提交中…');
-            $.ajax({url: '{{ url_for("web.reading_tts_book_start") }}', method: 'POST',
-                contentType: 'application/json', headers: {'X-CSRFToken': button.data('csrf-token')},
-                data: JSON.stringify({book_id: button.data('book-id'), book_format: button.data('book-format')})
-            }).done(function (result) {
-                alert('整本朗读已受理\n书名:' + (result.bookName || '') +
-                    '\n总段落:' + (result.total || 0) +
-                    '\n音色:' + (result.voice || '默认(选角未启用)') +
-                    '\n\n后台逐段合成中,完成后听书零等待。积分消耗以流水为准。');
-            }).fail(function (xhr) {
-                alert((xhr.responseJSON && xhr.responseJSON.message) || '整本朗读提交失败');
-            }).always(function () { button.prop('disabled', false).text('整本朗读'); });
-        });
-    });
-</script>
+{# R214 C：整本任务代价面板 + 进度条（partial 自带文案与端点 data-*）。
+   整段只在管理员可见：三个整本入口本就是 admin 专属（拍板①），
+   非管理员连模态骨架和 JS 都没必要下发。 #}
+{% if current_user.role_admin() %}
+{% include 'partials/whole_book_panel.html' %}
+<script src="{{ url_for('static', filename='js/whole-book-panel.js') }}"></script>
+{% endif %}
 
 {% endblock %}

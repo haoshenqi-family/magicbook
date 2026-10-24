@@ -22,6 +22,7 @@ import os
 import json
 import re
 import threading
+import time
 import uuid
 import mimetypes
 import chardet  # dependency of requests
@@ -56,7 +57,8 @@ from .helper import check_valid_domain, check_email, check_username, \
     edit_book_read_status, valid_password
 from .pagination import Pagination
 from .redirect import get_redirect_location
-from .cw_babel import get_available_locale
+from .landing import landing_endpoint
+from .cw_babel import get_available_locale, get_available_translations
 from .usermanagement import login_required_if_no_ano
 from .kobo_sync_status import remove_synced_book
 from .render_template import render_title_template
@@ -141,12 +143,9 @@ def add_security_headers(resp):
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"
     csp += " data:"
-    # 伙伴头像（R206）是 moon-well 下发的 MinIO 匿名直读直链，浏览器跨源取图；未放行时
-    # <img> 被 img-src 拦，而 ai_chat.js 用 new Image() 预载探测——失败即静默保留「AI」
-    # 文字兜底，故障在页面上不可见，故必须显式放行（同 R181 media-src 的踩坑口径）。
-    # 沿用其窄面做法：只在悬浮按钮真正出现的阅读页与 /buddy 花名册页放行。
-    if request.endpoint in ("web.read_book", "web.buddy_page"):
-        csp += " " + " ".join(MINIO_PUBLIC_ORIGINS)
+    # 伙伴头像（R206）原走 moon-well 下发的 MinIO 直链，img-src 曾按 HTML 页放行；
+    # R220 验收发现个别浏览器扩展会拦跨站图片子资源（ERR_BLOCKED_BY_CLIENT），
+    # 前端已全部改走同源代理 /ajax/buddy/image，img-src 收窄回 'self' + data:。
     if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
         csp += " *"
     if request.endpoint == "web.read_book":
@@ -869,6 +868,39 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
     return _moonwell_client.proxy(path, payload, timeout, label, binary=binary,
                                   method=method, system_identity=system_identity,
                                   bearer_token=bearer_token)
+
+
+# R214 C：整本任务代价面板的费率缓存（LLD §5.3）。
+# Why 5 分钟：面板切三个 tab 会连拉三次估算，费率是 Nacos 热调常量却要跨公网一次；
+# 单一真源留在 moon-well（R207），本仓不镜像常量——镜像必然漂移。
+_CREDIT_BILLING_TTL_SECONDS = 300
+_credit_billing_cache = {"fetched_at": 0.0, "rates": None}
+
+
+def _credit_billing_rates():
+    """取 moon-well /credit/billing 的费率；不可用回 None（面板据此显「费率暂不可得」）。"""
+    now = time.time()
+    if (_credit_billing_cache["rates"] is not None
+            and now - _credit_billing_cache["fetched_at"] < _CREDIT_BILLING_TTL_SECONDS):
+        return _credit_billing_cache["rates"]
+    response = _moonwell_proxy("/credit/billing", None, 10, "credit billing", method="GET")
+    if not isinstance(response, tuple) or len(response) < 2:
+        return None
+    body, status = response[0], response[1]
+    if status < 200 or status >= 300:
+        log.warning("credit billing unavailable: HTTP %s", status)
+        return None
+    try:
+        data = json.loads(body)
+    except (TypeError, ValueError):
+        log.warning("credit billing returned unreadable response")
+        return None
+    rates = data.get("result") if isinstance(data, dict) else None
+    if not isinstance(rates, dict):
+        return None
+    _credit_billing_cache["rates"] = rates
+    _credit_billing_cache["fetched_at"] = now
+    return rates
 
 
 def _moonwell_refresh_session_token():
@@ -2142,7 +2174,7 @@ def register():
     if not config.config_public_reg:
         abort(404)
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if not config.get_mail_server_configured():
         flash(_("Oops! Email server is not configured, please contact your administrator."), category="error")
         return render_title_template('register.html', title=_("Register"), page="register")
@@ -2155,13 +2187,14 @@ def handle_login_user(user, remember, message, category):
     login_user(user, remember=remember)
     flash(message, category=category)
     [limiter.limiter.clear(limit.limit, *limit.request_args) for limit in limiter.current_limits]
-    return redirect(get_redirect_location(request.form.get('next', None), "web.index"))
+    # R213-C：表单没带 next 时落到站点配置的默认落点（/home 或原 / 发现页）
+    return redirect(get_redirect_location(request.form.get('next', None), landing_endpoint()))
 
 
 def render_login(username="", password=""):
-    next_url = request.args.get('next', default=url_for("web.index"), type=str)
+    next_url = request.args.get('next', default=url_for(landing_endpoint()), type=str)
     if url_for("web.logout") == next_url:
-        next_url = url_for("web.index")
+        next_url = url_for(landing_endpoint())
     oidc_enabled = current_app.config.get("AUTHENTIK_OIDC_ENABLED", False)
     # 邀请制注册入口：链接由 .env 的 AUTHENTIK_ENROLLMENT_INVITE_URL 注入（Authentik
     # 邀请默认 30 天过期，轮换时只改环境变量并重启，不动代码）；未配置则不渲染
@@ -2187,7 +2220,7 @@ def render_login(username="", password=""):
 @web.route('/login', methods=['GET'])
 def login():
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
         log.error(u"Cannot activate LDAP authentication")
         flash(_(u"Cannot activate LDAP authentication"), category="error")
@@ -2201,7 +2234,7 @@ def login_post():
     form = request.form.to_dict()
     username = strip_whitespaces(form.get('username', "")).lower().replace("\n","").replace("\r","")
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
         log.error(u"Cannot activate LDAP authentication")
         flash(_(u"Cannot activate LDAP authentication"), category="error")
@@ -2289,97 +2322,63 @@ def logout():
 
 
 # ################################### Users own configuration #########################################################
-def change_profile(kobo_support, local_oauth_check, oauth_status, translations, languages):
-    to_save = request.form.to_dict()
-    current_user.random_books = 0
-    try:
-        if current_user.role_passwd() or current_user.role_admin():
-            if to_save.get("password", "") != "":
-                current_user.password = generate_password_hash(valid_password(to_save.get("password")))
-        if to_save.get("kindle_mail", current_user.kindle_mail) != current_user.kindle_mail:
-            current_user.kindle_mail = valid_email(to_save.get("kindle_mail"))
-        new_email = valid_email(to_save.get("email", current_user.email))
-        if not new_email:
-            raise Exception(_("Email can't be empty and has to be a valid Email"))
-        if new_email != current_user.email:
-            current_user.email = check_email(new_email)
-        if current_user.role_admin():
-            if to_save.get("name", current_user.name) != current_user.name:
-                # Query username, if not existing, change
-                current_user.name = check_username(to_save.get("name"))
-        current_user.random_books = 1 if to_save.get("show_random") == "on" else 0
-        current_user.default_language = to_save.get("default_language", "all")
-        current_user.locale = to_save.get("locale", "en")
-        old_state = current_user.kobo_only_shelves_sync
-        # 1 -> 0: nothing has to be done
-        # 0 -> 1: all synced books have to be added to archived books, + currently synced shelfs which
-        # don't have to be synced have to be removed (added to Shelf archive)
-        current_user.kobo_only_shelves_sync = int(to_save.get("kobo_only_shelves_sync") == "on") or 0
-        if old_state == 0 and current_user.kobo_only_shelves_sync == 1:
-            kobo_sync_status.update_on_sync_shelfs(current_user.id)
-
-    except Exception as ex:
-        flash(str(ex), category="error")
-        return render_title_template("user_edit.html",
-                                     content=current_user,
-                                     config=config,
-                                     translations=translations,
-                                     profile=1,
-                                     languages=languages,
-                                     title=_("%(name)s's Profile", name=current_user.name),
-                                     page="me",
-                                     kobo_support=kobo_support,
-                                     registered_oauth=local_oauth_check,
-                                     oauth_status=oauth_status)
-
-    val = 0
-    for key, __ in to_save.items():
-        if key.startswith('show'):
-            val += int(key[5:])
-    current_user.sidebar_view = val
-    if to_save.get("Show_detail_random"):
-        current_user.sidebar_view += constants.DETAIL_RANDOM
-
-    try:
-        ub.session.commit()
-        flash(_("Success! Profile Updated"), category="success")
-        log.debug("Profile updated")
-    except IntegrityError:
-        ub.session.rollback()
-        flash(_("Oops! An account already exists for this Email."), category="error")
-        log.debug("Found an existing account for this Email")
-    except OperationalError as e:
-        ub.session.rollback()
-        log.error("Database error: %s", e)
-        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
-
-
-@web.route("/me", methods=["GET", "POST"])
+@web.route("/me", methods=["GET"])
 @user_login_required
 def profile():
+    """R216 偏好页：语言 / 阅读难度 / 阅读主题 / 伙伴。
+
+    Why 不再复用 user_edit.html：后者与管理员编辑用户共用，且旧的 change_profile
+    是全量覆盖——删掉 Kindle/侧栏勾选后，缺省字段会把 random_books、locale、
+    sidebar_view 一并重置。偏好保存改走 /me/preferences 的局部更新。
+    """
     languages = calibre_db.speaking_language()
     translations = get_available_locale()
-    kobo_support = feature_support['kobo'] and config.config_kobo_sync
+    settings, settings_error = _moonwell_settings_fetch()
     if feature_support['oauth'] and config.config_login_type == 2:
         oauth_status = get_oauth_status()
         local_oauth_check = oauth_check
     else:
         oauth_status = None
         local_oauth_check = {}
-
-    if request.method == "POST":
-        change_profile(kobo_support, local_oauth_check, oauth_status, translations, languages)
-    return render_title_template("user_edit.html",
+    return render_title_template("me.html",
                                  translations=translations,
                                  profile=1,
                                  languages=languages,
                                  content=current_user,
-                                 config=config,
-                                 kobo_support=kobo_support,
+                                 settings=settings,
+                                 settings_error=settings_error,
                                  title=_("%(name)s's Profile", name=current_user.name),
                                  page="me",
                                  registered_oauth=local_oauth_check,
                                  oauth_status=oauth_status)
+
+
+@web.route("/me/preferences", methods=["POST"])
+@user_login_required
+def update_preferences():
+    """只更新界面语言与书籍语言，不触碰其他用户字段（R216）。"""
+    locale = request.form.get("locale", current_user.locale or "en")
+    book_language = request.form.get("default_language", current_user.default_language or "all")
+
+    if locale not in get_available_translations():
+        flash(_("Invalid language"), category="error")
+        return redirect(url_for("web.profile"))
+    valid_book_languages = {lang.lang_code for lang in calibre_db.speaking_language()}
+    if book_language != "all" and book_language not in valid_book_languages:
+        flash(_("Invalid language"), category="error")
+        return redirect(url_for("web.profile"))
+
+    try:
+        current_user.locale = locale
+        current_user.default_language = book_language
+        ub.session.commit()
+        flash(_("Success! Profile Updated"), category="success")
+        log.debug("Preferences updated")
+    except OperationalError as e:
+        ub.session.rollback()
+        log.error("Database error: %s", e)
+        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
+    return redirect(url_for("web.profile"))
 
 
 # ###################################Show single book ##################################################################
@@ -2538,6 +2537,20 @@ def _pubdate_is_import_date(pubdate, timestamp):
     return abs(delta) <= 86400
 
 
+def _shelf_names_for_book(shelf_ids):
+    """把书架 id 列表换成书架名列表（难度阶②级兜底要吃名称）。
+
+    Why: `ub.BookShelf.shelf` 是 `Column(Integer, ForeignKey('shelf.id'))`——外键整数列，
+         不是 Shelf 关系对象。详情页把书所属书架直接攒成 id 列表（模板按 id 判
+         「已加入书架」，形制不能改），拿它 `.name` 必然 AttributeError→整页 500。
+         名称单独查一次，也避免按书架数逐行 lazy load 出 N+1。
+    """
+    if not shelf_ids:
+        return []
+    return [name for (name,) in ub.session.query(ub.Shelf.name)
+            .filter(ub.Shelf.id.in_(shelf_ids)).all()]
+
+
 @web.route("/book/<int:book_id>")
 @login_required_if_no_ano
 def show_book(book_id):
@@ -2578,8 +2591,40 @@ def show_book(book_id):
         entry.pubdate_is_import_date = _pubdate_is_import_date(entry.pubdate, entry.timestamp)
         entry.difficulty = resolve_difficulty(
             tag_names=[t.name for t in entry.tags],
-            shelf_names=[s.name for s in book_in_shelves],
+            shelf_names=_shelf_names_for_book(book_in_shelves),
             series_name=entry.series[0].name if entry.series else "")
+
+        # R214 B：内容速览——一次解析缓存（book_insight），供简介/目录/试读三区块
+        # 与后续代价面板共用同一份量。解析失败不拖垮详情页，区块内显示错误原文
+        # （LLD §8 禁止静默降级），故兜 Exception 而非只兜 ValueError。
+        entry.insight = None
+        entry.insight_error = None
+        entry.insight_format = ("epub" if "epub" in entry.reader_list
+                                else "kepub" if "kepub" in entry.reader_list else "")
+        if entry.insight_format:
+            try:
+                # 延迟导入：reading_insight.service 的 generate_summary 反向引用 web，
+                # 模块级互引会成环（routes/book_detail.py 同因）。
+                from cps.reading_insight.service import get_or_build
+                entry.insight = get_or_build(book_id, entry.insight_format)
+                ai_summary = (entry.insight or {}).get("aiSummary")
+                if ai_summary and ai_summary.get("generatedAt"):
+                    from datetime import datetime
+                    ai_summary["generatedAtText"] = datetime.fromtimestamp(
+                        ai_summary["generatedAt"]).strftime("%Y-%m-%d")
+            except Exception as error:
+                entry.insight_error = str(error)
+
+        # R214 C：三种整本链路的活跃批次快照（LLD §7.5）——页面直接进进度态，
+        # 不再显示「开始」按一个已经在跑的批次。查询失败只让快照为空，不拦详情页。
+        # 仅管理员查：整本能力本就是 admin 专属，非管理员多查三张表没有收益。
+        entry.whole_book_active = {}
+        if current_user.role_admin() and entry.insight_format:
+            try:
+                from cps.reading_insight.service import active_jobs
+                entry.whole_book_active = active_jobs(book_id, entry.insight_format)
+            except Exception as error:
+                log.warning("whole-book active job lookup failed for book %s: %s", book_id, error)
 
         return render_title_template('detail.html',
                                      entry=entry,

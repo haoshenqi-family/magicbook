@@ -69,7 +69,7 @@
   }
 
   function storageKey() {
-    return "calibre.ai.conv." + BOOK_ID;
+    return "calibre.ai.conv." + (BOOK_ID || "site");
   }
 
   /** moon-well Result 包装解包：{success, result, message} → result（失败时抛错）。 */
@@ -85,7 +85,11 @@
     BOOK_ID = info.id;
     BOOK_META = window.AICompanionBookMeta || {};
 
-    $("#ai-companion-fab").on("click", toggleDrawer);
+    $("#ai-companion-fab").on("click", function () {
+      if ($("#ai-companion-drawer").hasClass("open")) closeDrawer();
+      else openDrawer();
+    });
+    initBuddyFabDrag();
     $("#ai-companion-close").on("click", closeDrawer);
     $("#ai-chat-send").on("click", sendMessage);
     $("#ai-chat-new").on("click", newConversation);
@@ -108,26 +112,60 @@
       if ($("#ai-companion-drawer").hasClass("open")) closeDrawer();
     });
 
+    applyFormatPlaceholder();
+    initFabLabel();
     loadConversations();
     loadBuddyFab();
   }
 
-  function toggleDrawer() {
-    $("#ai-companion-drawer").toggleClass("open");
-    if ($("#ai-companion-drawer").hasClass("open") && $("#ai-memory-panel").hasClass("open")) {
-      loadMemoryPanel();
-    }
+  function markFabLabelSeen() {
+    try { localStorage.setItem("calibre.ai.fabLabelSeen", "1"); } catch (e) {}
+    $("#ai-companion-fab").addClass("fab-label-seen");
   }
+
+  function initFabLabel() {
+    try {
+      if (localStorage.getItem("calibre.ai.fabLabelSeen") === "1") {
+        $("#ai-companion-fab").addClass("fab-label-seen");
+      }
+    } catch (e) {}
+  }
+
+  function applyFormatPlaceholder() {
+    var fmt = window.AICompanion && window.AICompanion.detectFormat
+      ? window.AICompanion.detectFormat()
+      : "epub";
+    var key = fmt === "pdf" ? "Ask about the current page..."
+      : (fmt === "txt" ? "Ask about this text..."
+      : (fmt === "site" ? "Ask about this page..." : "Ask about this chapter..."));
+    $("#ai-chat-input").attr("placeholder", mbT(key));
+  }
+
+  // R215 验收回滚（2026-10-23）：AI 面板恢复为覆盖式抽屉——
+  // 桌面 420px 右侧浮层、移动全屏；不再缩正文、不再与译文栏互斥。
+  function openDrawer() {
+    $("#ai-companion-drawer").addClass("open");
+    markFabLabelSeen();
+    if ($("#ai-memory-panel").hasClass("open")) loadMemoryPanel();
+  }
+
   function closeDrawer() {
     $("#ai-companion-drawer").removeClass("open");
   }
 
   // ------------------------------------------------------------------
   // R206 伙伴头像：把 AI 悬浮按钮换成当前装备伙伴头像（MinIO 匿名直读）。
+  // R220 验收现场：个别浏览器扩展会拦跨站图片子资源（ERR_BLOCKED_BY_CLIENT），
+  //   页内直连 MinIO 全裂图；改走本站同源代理 /ajax/buddy/image（登录可读）。
   // Why 先探测再切换：图片可能尚未上传到 MinIO（资产上传在部署期），直接设 src
   //   会裂图；用 new Image() 预载成功才加 has-buddy，失败/未装备一律保留「AI」文字兜底。
   // ------------------------------------------------------------------
   var fabIdleTimer = null;
+  function buddyImageProxyUrl(url) {
+    if (!url) { return ""; }
+    return "/ajax/buddy/image?src=" + encodeURIComponent(url);
+  }
+
   function loadBuddyFab() {
     $.getJSON("/ajax/buddy/catalog")
       .then(function (raw) {
@@ -135,17 +173,81 @@
         try { list = unwrap(raw) || []; } catch (e) { return; }
         var equipped = null;
         (list || []).forEach(function (b) { if (b.equipped) { equipped = b; } });
-        if (!equipped || !equipped.imageUrl) { return; }
+        var imageUrl = equipped && (equipped.fullImageUrl || equipped.imageUrl);
+        var proxiedUrl = buddyImageProxyUrl(imageUrl);
+        if (!proxiedUrl) { return; }
         var probe = new Image();
         probe.onload = function () {
-          $("#ai-companion-fab-img").attr("src", equipped.imageUrl);
+          $("#ai-companion-fab-img").attr("src", proxiedUrl);
           $("#ai-companion-fab").addClass("has-buddy");
           startFabIdle();
         };
         probe.onerror = function () { /* 图片未就绪：保留文字兜底 */ };
-        probe.src = equipped.imageUrl;
+        probe.src = proxiedUrl;
       })
       .fail(function () { /* 代理不可达：静默保留文字兜底 */ });
+  }
+
+  // Keep the floating buddy reachable on small screens and remember its position per browser.
+  function initBuddyFabDrag() {
+    var button = document.getElementById("ai-companion-fab");
+    if (!button || !window.PointerEvent) return;
+    var key = "calibre.ai.buddy.position";
+    var edgeGap = 10;
+    var saved;
+    try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { saved = null; }
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      var initial = snapFabPosition(button, saved.x, saved.y, edgeGap);
+      button.style.left = initial.x + "px";
+      button.style.top = initial.y + "px";
+      button.style.right = "auto";
+      button.style.bottom = "auto";
+    }
+    var startX, startY, originX, originY, moved = false;
+    button.addEventListener("pointerdown", function (event) {
+      if (event.button !== 0) return;
+      button.classList.remove("buddy-snapping");
+      var rect = button.getBoundingClientRect();
+      startX = event.clientX; startY = event.clientY;
+      originX = rect.left; originY = rect.top; moved = false;
+      button.setPointerCapture(event.pointerId);
+    });
+    button.addEventListener("pointermove", function (event) {
+      if (!button.hasPointerCapture(event.pointerId)) return;
+      var dx = event.clientX - startX, dy = event.clientY - startY;
+      if (!moved && Math.hypot(dx, dy) < 6) return;
+      moved = true;
+      var x = Math.max(0, Math.min(window.innerWidth - button.offsetWidth, originX + dx));
+      var y = Math.max(0, Math.min(window.innerHeight - button.offsetHeight, originY + dy));
+      button.style.left = x + "px"; button.style.top = y + "px";
+      button.style.right = "auto"; button.style.bottom = "auto";
+    });
+    button.addEventListener("pointerup", function (event) {
+      if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
+      if (moved) {
+        event.preventDefault();
+        var rect = button.getBoundingClientRect();
+        var snapped = snapFabPosition(button, rect.left, rect.top, edgeGap);
+        button.classList.add("buddy-snapping");
+        button.style.left = snapped.x + "px";
+        button.style.top = snapped.y + "px";
+        try { localStorage.setItem(key, JSON.stringify(snapped)); } catch (e) {}
+        button.dataset.dragged = "1";
+        setTimeout(function () { delete button.dataset.dragged; }, 0);
+      }
+    });
+    button.addEventListener("click", function (event) {
+      if (button.dataset.dragged) { event.stopImmediatePropagation(); event.preventDefault(); }
+    }, true);
+  }
+
+  function snapFabPosition(button, x, y, gap) {
+    var maxX = Math.max(gap, window.innerWidth - button.offsetWidth - gap);
+    var maxY = Math.max(gap, window.innerHeight - button.offsetHeight - gap);
+    return {
+      x: x + button.offsetWidth / 2 < window.innerWidth / 2 ? gap : maxX,
+      y: Math.max(gap, Math.min(maxY, y)),
+    };
   }
 
   function startFabIdle() {
@@ -187,8 +289,7 @@
   // 会话列表（moon-well MySQL 数据源，薄代理透传）
   // ------------------------------------------------------------------
   function loadConversations() {
-    if (!BOOK_ID) return;
-    $.getJSON("/ai/agent/conversations", { bookId: BOOK_ID })
+    $.getJSON("/ai/agent/conversations", BOOK_ID ? { bookId: BOOK_ID } : {})
       .then(function (raw) {
         var convs;
         try { convs = unwrap(raw) || []; } catch (e) { convs = []; }
@@ -201,7 +302,11 @@
           $sel.append($("<option>").val(c.id).text(c.title || mbT('New conversation')));
         });
         var preferred = parseInt(localStorage.getItem(storageKey()) || "", 10);
-        var target = convs.some(function (c) { return c.id === preferred; }) ? preferred : convs[0].id;
+        var scoped = convs.filter(function (c) {
+          return BOOK_ID ? c.bookId === BOOK_ID : (!c.bookId || c.bookId === 0);
+        });
+        var visible = scoped.length ? scoped : convs;
+        var target = visible.some(function (c) { return c.id === preferred; }) ? preferred : visible[0].id;
         selectConversation(target);
       })
       .fail(function (xhr) {
@@ -378,32 +483,67 @@
   // ------------------------------------------------------------------
   // 发送 + SSE 分型事件消费
   // ------------------------------------------------------------------
+  var activeThinking = null;
+
+  /**
+   * R215：思考中气泡必须在发送的同一帧出现。
+   * Why：原实现先 await getPageContextAsync() 再进 streamChat，PDF 取页文本慢时
+   * 用户看到的是「点了没反应」的空白期（QA 截图 d1-ai-15s）。气泡、计时器、
+   * FAB 动效都前移到点击同步路径，上下文提取改为带超时的竞速。
+   */
+  function beginThinking() {
+    sending = true;
+    $("#ai-chat-send").prop("disabled", true);
+    $("#ai-companion-fab").addClass("buddy-thinking").removeClass("buddy-sleep");
+    var started = Date.now();
+    var $msg = $('<div class="ai-chat-msg assistant"><span class="ai-chat-typing">' + mbT("Thinking") +
+      ' · <span class="ai-thinking-elapsed">0s</span></span></div>')
+      .appendTo("#ai-chat-messages");
+    scrollMessages();
+    activeThinking = {
+      $msg: $msg,
+      timer: setInterval(function () {
+        var seconds = Math.max(0, Math.floor((Date.now() - started) / 1000));
+        $msg.find(".ai-thinking-elapsed").text(seconds + "s");
+      }, 1000)
+    };
+    return activeThinking;
+  }
+
+  function stopThinking(thinking) {
+    if (!thinking) return;
+    if (thinking.timer) {
+      clearInterval(thinking.timer);
+      thinking.timer = null;
+    }
+    if (activeThinking === thinking) activeThinking = null;
+    $("#ai-companion-fab").removeClass("buddy-thinking");
+  }
+
   function sendMessage() {
     if (sending) return;
     var $input = $("#ai-chat-input");
     var text = $input.val().trim();
-    if (!text || !BOOK_ID) return;
+    if (!text) return;
 
     appendMessage("user", text);
     $input.val("");
 
-    window.AICompanion.getPageContextAsync().then(function (pageCtx) {
-      streamChat(text, pageCtx);
+    // 同步出「思考中 · 0s」；页面上下文最多等 1200ms，超时按空上下文继续发送
+    var thinking = beginThinking();
+    var contextPromise = window.AICompanion && window.AICompanion.getPageContextAsync
+      ? window.AICompanion.getPageContextAsync().catch(function () { return ""; })
+      : Promise.resolve("");
+    var timeout = new Promise(function (resolve) {
+      setTimeout(function () { resolve(""); }, 1200);
+    });
+    Promise.race([contextPromise, timeout]).then(function (pageCtx) {
+      streamChat(text, pageCtx, thinking);
     });
   }
 
-  function streamChat(message, pageContext) {
-    sending = true;
-    $("#ai-chat-send").prop("disabled", true);
-    // R206 伙伴动效：请求在途 → FAB 进入 thinking（起伏），醒着别打盹
-    $("#ai-companion-fab").addClass("buddy-thinking").removeClass("buddy-sleep");
-
-    // 首个 delta 到达前的等待反馈（R87：零工具场景整段生成期间 stream 静默，
-    // tool 芯片也不会出现——动效占位让「没反应」变成「思考中」）
-    var $msg = $('<div class="ai-chat-msg assistant"><span class="ai-chat-typing">' + mbT("Thinking") +
-      '<span class="dot">·</span><span class="dot">·</span><span class="dot">·</span></span></div>')
-      .appendTo("#ai-chat-messages");
-    scrollMessages();
+  function streamChat(message, pageContext, thinking) {
+    var $msg = thinking.$msg;
     var fullText = "";
     var conversationIdFromFinal = null;
 
@@ -418,7 +558,7 @@
         conversationId: currentConversationId,
         message: message,
         bookId: BOOK_ID,
-        bookTitle: BOOK_META.title,
+        bookTitle: BOOK_META.title || document.title,
         authors: BOOK_META.authors || [],
         chapter: typeof companion.getChapter === "function" ? (companion.getChapter() || "") : "",
         pageText: pageContext,
@@ -469,6 +609,8 @@
         var obj = null;
         try { obj = JSON.parse(payloadText); } catch (e) { return; }
         var type = eventName || (obj.type || (obj.delta ? "delta" : null));
+        // 首个真实事件到达即停表；气泡本身由 delta 覆盖、由 final/error 收尾
+        if (type) stopThinking(thinking);
 
         switch (type) {
           case "delta":
@@ -515,6 +657,7 @@
     });
 
     function finishMessage(errMsg) {
+      stopThinking(thinking);
       if (errMsg) {
         var prefix = fullText ? "\n" : "";
         fullText += prefix + "⚠ " + errMsg;
@@ -524,8 +667,6 @@
       }
       sending = false;
       $("#ai-chat-send").prop("disabled", false);
-      // R206 伙伴动效：响应收尾 → 退出 thinking，回到 idle 呼吸
-      $("#ai-companion-fab").removeClass("buddy-thinking");
       if (conversationIdFromFinal) {
         var changed = conversationIdFromFinal !== currentConversationId;
         currentConversationId = conversationIdFromFinal;
@@ -546,7 +687,8 @@
   }
 
   function loadMemoryPanel() {
-    loadBookProfile();
+    if (BOOK_ID) loadBookProfile();
+    else $("#ai-memory-profile").empty();
     loadMemories();
   }
 

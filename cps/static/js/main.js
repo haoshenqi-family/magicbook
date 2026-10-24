@@ -566,6 +566,7 @@ $(function() {
             $("#flash_danger").remove();
             $("#flash_success").remove();
             var $modalBody = $(this).find(".modal-body");
+            var $loadError = $(this).find(".book-details-error").hide();
 
             // Prevent static assets from loading multiple times
             var useCache = function(options) {
@@ -578,6 +579,13 @@ $(function() {
                 $modalBody.html(content);
                 preFilters.remove(useCache);
                 $("#back").remove();
+            }).fail(function() {
+                // 服务端报错也要摘掉 preFilter，否则它永久挂在 jQuery 上，污染后续 AJAX。
+                // 失败必须在界面上可见：停在占位符 "..." 会把接口故障伪装成「这本书没详情」，
+                // 用户报回来的永远是「我的书打不开」而不是「详情接口 500」。
+                preFilters.remove(useCache);
+                $modalBody.html("...");
+                $loadError.show();
             });
         })
         .on("hidden.bs.modal", function() {
@@ -692,10 +700,6 @@ $(function() {
                 });
             }
         );
-    });
-
-    $("#user_submit").click(function() {
-        this.closest("form").submit();
     });
 
     function handle_response(data) {

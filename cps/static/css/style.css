@@ -226,6 +226,16 @@ table .bg-dark-danger a { color: #fff; }
   color: #45b29d !important;
 }
 
+/* R212 品牌圆章。Why 负上 margin：Grand Hotel 是 35px 手写体，字形中线明显低于行框中线，
+   直接 vertical-align: middle 会把圆章顶得偏高；此处按 headless Chrome 实测量出的偏移校准。 */
+.navbar-brand .brand-mark {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  margin: -6px 8px 0 0;
+  vertical-align: middle;
+}
+
 .more-stuff {
   margin-top: 20px;
   padding-top: 20px;
@@ -595,4 +605,95 @@ body > div.container-fluid  {
 .mb-bottom-item:focus {
   color: #45b29d;
   text-decoration: none;
+}
+
+/* ---------------- 首页 /home（R213-C / MB-18） ----------------
+   四块纵向排列：继续阅读 / 今日计划 / 分级推荐 / 随机发现。
+   卡片样式复用书库列表的 .book，这里只补模块间距与「继续阅读」的进度条。 */
+
+.home-page {
+  padding: 12px 0 24px;
+}
+
+.home-section {
+  margin-bottom: 28px;
+}
+
+.home-section-title {
+  font-size: 20px;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.home-level-group {
+  margin-bottom: 18px;
+}
+
+.home-level-label {
+  font-size: 15px;
+  color: #45b29d;
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+/* 继续阅读：进度条压在书名下方，卡片高度与书库卡一致 */
+.home-progress {
+  margin-top: 6px;
+}
+
+.home-progress-pages {
+  display: block;
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 4px;
+}
+
+.home-progress-bar {
+  display: block;
+  height: 4px;
+  background: #eee;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.home-progress-bar > span {
+  display: block;
+  height: 100%;
+  background: #45b29d;
+}
+
+/* 今日计划卡 */
+.home-plan-card {
+  background: #f8f8f8;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+
+.home-plan-line {
+  font-size: 16px;
+  margin: 0 0 8px;
+  color: #333;
+}
+
+.home-plan-cell strong {
+  font-size: 20px;
+  color: #45b29d;
+  margin-right: 2px;
+}
+
+.home-plan-sep {
+  margin: 0 10px;
+  color: #bbb;
+}
+
+/* 两块都取不到时的降级文案：不是错误红，而是「暂时」的中性提示 + 仍然可点的链接 */
+.home-plan-degraded {
+  color: #777;
+  font-size: 14px;
+}
+
+.home-plan-link {
+  font-size: 13px;
 }

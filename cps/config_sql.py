@@ -78,7 +78,9 @@ class _Settings(_Base):
     config_certfile = Column(String)
     config_keyfile = Column(String)
     config_trustedhosts = Column(String, default='')
-    config_calibre_web_title = Column(String, default='Calibre-Web')
+    # R212：站内品牌字样收敛为 magicbook（上游默认值会直接出现在顶栏 wordmark 与 <title>）。
+    # 运行态可在「管理 → 界面设置」覆盖，本默认值只决定新库首启观感。
+    config_calibre_web_title = Column(String, default='magicbook')
     config_books_per_page = Column(Integer, default=60)
     config_random_books = Column(Integer, default=4)
     config_authors_max = Column(Integer, default=0)
@@ -98,6 +100,12 @@ class _Settings(_Base):
     config_public_reg = Column(SmallInteger, default=0)
     config_remote_login = Column(Boolean, default=False)
     config_kobo_sync = Column(Boolean, default=False)
+
+    # R213-C（MB-18）：登录/回站后是否直接落 `/home`（新首页）。
+    # Why 默认 True 且保留开关：`/home` 是新信息架构的入口，默认就该走新入口；
+    # 但它是**整站落点**，一旦新首页出问题会挡住所有人，必须留一条「置 False
+    # 即回退到原 `/` 发现页」的退路（回退不需要发版）。
+    config_home_landing = Column(Boolean, default=True)
 
     config_default_role = Column(SmallInteger, default=0)
     config_default_show = Column(SmallInteger, default=constants.ADMIN_USER_SIDEBAR)

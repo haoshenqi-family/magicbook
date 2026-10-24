@@ -34,3 +34,152 @@
 .admin-tools p {
   margin-bottom: 4px;
 }
+
+/* R214 B：内容速览三区块（简介三级回退 / 目录 / 首章试读）。 */
+
+/* AI 简介：标注行弱化在正文之下，不冒充书目自带简介（拍板④） */
+.ai-summary-note {
+  margin: 6px 0 0;
+}
+
+/* 目录：层级缩进由模板按 level 内联输出，这里只管行距与折叠态 */
+.book-toc .toc-list {
+  list-style: none;
+  padding-left: 0;
+  margin-bottom: 8px;
+}
+
+.book-toc .toc-item {
+  padding: 3px 0;
+  border-bottom: 1px dotted #f0f0f0;
+}
+
+.book-toc .toc-toggle {
+  cursor: pointer;
+}
+
+.book-toc .toc-first-paragraph {
+  margin: 4px 0 2px;
+  font-size: 12px;
+}
+
+/* 首章试读：超高淡出遮罩，明示「还有」而不是截断感 */
+.book-preview .preview-body {
+  position: relative;
+  max-height: 420px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.book-preview .preview-body::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #fff);
+  pointer-events: none;
+}
+
+.book-preview .preview-chapter-title {
+  margin: 10px 0 4px;
+}
+
+.book-preview .preview-text {
+  margin: 0 0 8px;
+  line-height: 1.7;
+}
+
+/* ---- R214 子项 C：整本任务代价面板 + 进度条 ---- */
+
+.wb-progress {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  background: #f7f7f9;
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+}
+
+.wb-progress[hidden] {
+  display: none;
+}
+
+.wb-progress-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 8px 16px;
+}
+
+.wb-progress-inner .progress {
+  flex: 1 1 auto;
+  margin-bottom: 0;
+  min-width: 120px;
+}
+
+.wb-progress-title {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.wb-progress-count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #666;
+}
+
+.wb-progress-done .progress-bar {
+  background-color: #449d44;
+}
+
+.wb-content {
+  padding-top: 14px;
+}
+
+.wb-lead {
+  margin-bottom: 12px;
+}
+
+.wb-card .dl-horizontal {
+  margin-bottom: 8px;
+}
+
+.wb-card .dl-horizontal dt {
+  width: 84px;
+  text-align: left;
+  color: #777;
+  font-weight: 500;
+}
+
+.wb-card .dl-horizontal dd {
+  margin-left: 100px;
+  /* 数字用等宽，同一 tab 前后两次估算不会因为字宽跳动 */
+  font-variant-numeric: tabular-nums;
+}
+
+.wb-card .wb-note {
+  margin-bottom: 0;
+  min-height: 20px;
+}
+
+.wb-card .wb-note:empty {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .wb-card .dl-horizontal dt {
+    width: auto;
+  }
+
+  .wb-card .dl-horizontal dd {
+    margin-left: 0;
+  }
+
+  .wb-progress-inner {
+    flex-wrap: wrap;
+  }
+}

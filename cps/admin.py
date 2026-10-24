@@ -605,7 +605,7 @@ def update_view_configuration():
         config.config_default_show |= constants.DETAIL_RANDOM
 
     config.save()
-    flash(_("Calibre-Web configuration updated"), category="success")
+    flash(_("magicbook configuration updated"), category="success")
     log.debug("Calibre-Web configuration updated")
     before_request()
 
@@ -646,10 +646,10 @@ def load_dialogtexts(element_id):
     elif element_id == "db_submit":
         texts["main"] = _('Are you sure you want to change Calibre library location?')
     elif element_id == "admin_refresh_cover_cache":
-        texts["main"] = _('Calibre-Web will search for updated Covers '
+        texts["main"] = _('magicbook will search for updated Covers '
                           'and update Cover Thumbnails, this may take a while?')
     elif element_id == "btnfullsync":
-        texts["main"] = _("Are you sure you want delete Calibre-Web's sync database "
+        texts["main"] = _("Are you sure you want delete magicbook's sync database "
                           "to force a full sync with your Kobo Reader?")
     return json.dumps(texts)
 
@@ -1803,6 +1803,8 @@ def _configuration_update_helper():
                             and config.config_login_type == constants.LOGIN_LDAP)
         _config_checkbox_int(to_save, "config_public_reg")
         _config_checkbox_int(to_save, "config_register_email")
+        # R213-C：登录/回站落点开关（取消勾选即回退到原 / 发现页，不需要发版）
+        _config_checkbox(to_save, "config_home_landing")
         reboot_required |= _config_checkbox_int(to_save, "config_kobo_sync")
         _config_int(to_save, "config_external_port")
         _config_checkbox_int(to_save, "config_kobo_proxy")
@@ -1904,7 +1906,7 @@ def _configuration_result(error_flash=None, reboot=False):
         config.load()
         resp['result'] = [{'type': "danger", 'message': error_flash}]
     else:
-        resp['result'] = [{'type': "success", 'message': _("Calibre-Web configuration updated")}]
+        resp['result'] = [{'type': "success", 'message': _("magicbook configuration updated")}]
     resp['reboot'] = reboot
     resp['config_upload'] = config.config_upload_formats
     return make_response(jsonify(resp))

@@ -15,6 +15,7 @@ from joserfc.jws import JWSRegistry
 from sqlalchemy import func
 from . import ub, log, constants
 from .cw_login import login_user
+from .landing import landing_endpoint
 from .redirect import get_redirect_location
 
 
@@ -142,7 +143,9 @@ def login():
         flash("Authentik OIDC is not configured", "error")
         return redirect(url_for("web.login"))
     redirect_uri = os.getenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI") or url_for("oidc.callback", _external=True)
-    session["oidc_next"] = request.args.get("next") or url_for("web.index")
+    # R213-C：登录入口没带 next 时落站点默认落点（/home 或原 / 发现页）；
+    # 这里存的是完整 URL，callback 直接 302，故用 url_for 而非 endpoint 名。
+    session["oidc_next"] = request.args.get("next") or url_for(landing_endpoint())
     return oauth.authentik.authorize_redirect(redirect_uri)
 
 
@@ -226,7 +229,9 @@ def signup():
         return redirect(url_for("web.login"))
 
     # 注册完成后回到 magicbook 的哪个页面（只允许站内相对路径）
-    session["oidc_next"] = get_redirect_location(request.args.get("next"), "web.index")
+    # R213-C：默认落点跟随站点配置（/home 或原 / 发现页），不再写死 web.index——
+    # 否则「注册即登录」会与本地登录落点不一致（新用户注册完被扔回老首页）。
+    session["oidc_next"] = get_redirect_location(request.args.get("next"), landing_endpoint())
 
     invite_base = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
     parts = urlsplit(invite_base)
@@ -292,4 +297,5 @@ def callback():
         except Exception as exc:
             log.warning("moon-well token exchange error: %s", exc)
 
-    return redirect(session.pop("oidc_next", url_for("web.index")))
+    # R213-C：oidc_next 丢失时也走站点默认落点（同样受 config_home_landing 控制）
+    return redirect(session.pop("oidc_next", url_for(landing_endpoint())))

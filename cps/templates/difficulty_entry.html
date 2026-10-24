@@ -1,0 +1,21 @@
+{# R216 首页阅读难度入口（R213 /home 可直接复用）：
+   当前档位异步取；读不到只显示「点此设置」，不显示假值。
+   脚本用 defer 的纯原生 JS，复用方无需在自己的 block js 里再挂一次。 #}
+<div class="difficulty-entry" id="difficulty-entry"
+     data-settings-url="{{ url_for('web.reading_settings_get') }}"
+     data-label-default="{{_('default')}}"
+     data-label-fallback="{{_('Tap to set')}}">
+  <span class="difficulty-entry-label text-muted">{{_('Reading difficulty')}}</span>
+  <span class="difficulty-entry-value" id="difficulty-entry-value"
+        aria-live="polite">{{_('Loading...')}}</span>
+  <a class="difficulty-entry-link" id="difficulty-entry-link"
+     href="{{ url_for('web.profile') }}#difficulty">{{_('Change')}}</a>
+</div>
+<style>
+  /* 只补布局；颜色一律来自 bootstrap 与宿主主题（UI 纪律：不新造卡片） */
+  .difficulty-entry { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; }
+  .difficulty-entry-label { font-size: 12px; letter-spacing: .3px; }
+  .difficulty-entry-value { font-weight: 600; }
+  .difficulty-entry-link { margin-left: auto; }
+</style>
+<script src="{{ url_for('static', filename='js/difficulty_entry.js') }}" defer></script>

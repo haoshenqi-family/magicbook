@@ -3,7 +3,7 @@
 > R211（2026-10-23）建立；同日按用户拍板口径**定稿**——「默认都是普通用户，管理员用户由我手动赋予」。
 > 缺陷背景与修复清单见 [lld.md](../../../project/iterations/1.0/r211-oidc-admin-role/lld.md)。
 > R217（2026-10-23）新增「注册后自动回 magicbook」——注册链路从「停在 Authentik」改为「自动回站且已是登录态」，见 [§ 注册后自动回站](#注册后自动回站r217)。
-> 相关：L1 [`admin.md`](../readme/admin.md)、工作流 [`oidc-login.md`](../../kb/instructions/workflows/oidc-login.md)。
+> 相关：L1 [`admin.md`](../../readme/admin.md)、工作流 [`oidc-login.md`](../../../kb/instructions/workflows/oidc-login.md)。
 
 ## 实现方式
 
@@ -19,7 +19,7 @@
 `callback()` 里三处身份路径的处理差异是本次修复的核心：
 
 1. **OIDC subject 命中**（老用户再次登录）→ 直接登录，**不动 role**。
-2. **email 精确命中既有本地账号**（存量 Calibre-Web 账号首次走 OIDC）→ 只补 `oidc_issuer` / `oidc_subject`，**保留其本地角色与书库权限**。
+2. **email 精确命中既有本地账号**（存量本地账号首次走 OIDC）→ 只补 `oidc_issuer` / `oidc_subject`，**保留其本地角色与书库权限**。
 3. **都没命中**（自助注册新账号）→ `role=resolve_new_user_role()`。
 
 因此「手动赋予的管理员」不会因为再次登录被覆盖：第 1、2 条路径都不写 role；第 3 条只发生在建号那一刻。

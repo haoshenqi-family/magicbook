@@ -207,6 +207,21 @@ def credit_admin_adjust():
                            "credit admin adjust")
 
 
+@web.route("/ajax/credit/admin-users", methods=["POST"])
+@user_login_required
+def credit_admin_users():
+    """Proxy the admin target-user options (moon-well POST /credit/admin/users, R205).
+
+    Why a proxy instead of local user table: the adjust payload's userId is
+    moon-well's app_user id, not this site's user id (two stores); populating
+    the dropdown from the same store removes the whole id-mismatch class.
+    Gate 与 admin-adjust 同形态：非管理员 403，moon-well 白名单再校验一次。
+    """
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": "admin only"}), 403
+    return _moonwell_proxy("/credit/admin/users", {}, 10,
+                           "credit admin users")
+
 @web.route("/ajax/credit/admin-promotion-create", methods=["POST"])
 @user_login_required
 def credit_admin_promotion_create():

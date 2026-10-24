@@ -19,6 +19,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/popup.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/reader.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/onboarding.css') }}">
+    {# R216 账号主题同步：head 早载，异步拉取；不阻塞阅读器启动 #}
+    <script src="{{ url_for('static', filename='js/ui-prefs.js') }}"></script>
 </head>
 
 <body>
@@ -50,7 +52,7 @@
           <ol id="notes"></ol>
         </div-->
     </div>
-    <div id="main">
+    <div id="main" class="reader-main">
         <div id="titlebar">
             <div id="opener">
                 <a id="slider" class="icon-menu">Menu</a>
@@ -61,13 +63,14 @@
 	            <span id="chapter-title"></span>
 	        </div>
 	        <div id="title-controls">
-	            <a id="immersive-translate" title="{{_('Translate this page (click again to hide)')}}">译</a>
-	        {% if current_user.role_admin() %}<a id="whole-book-translate" title="{{_('Translate this book')}}">整本译</a>{% endif %}
-	        <a id="tts-book"></a>
-	        <a id="tts-book-stop" style="display:none"></a>
-	        <a id="bookmark" class="icon-bookmark-empty">Bookmark</a>
-	            <a id="setting" class="icon-cog">Settings</a>
-	            <a id="fullscreen" class="icon-resize-full">Fullscreen</a>
+	            <a id="immersive-translate" class="tb-tool" title="{{_('Translate this page (click again to hide)')}}" aria-pressed="false"><span class="tb-icon">译</span><span class="tb-label">{{_('Translation')}}</span></a>
+	        {% if current_user.role_admin() %}<a id="whole-book-translate" class="tb-tool tb-secondary" title="{{_('Translate this book')}}"><span class="tb-icon">整</span><span class="tb-label">{{_('Translate this book')}}</span></a>{% endif %}
+	        <a id="tts-book" class="tb-tool" title="{{_('Read aloud')}}"><span class="tb-icon">▶</span><span class="tb-label">{{_('Read aloud')}}</span></a>
+	        <a id="tts-book-stop" class="tb-tool" style="display:none" title="{{_('Stop')}}"><span class="tb-icon">■</span><span class="tb-label">{{_('Stop')}}</span></a>
+	        <a id="bookmark" class="tb-tool icon-bookmark-empty" title="{{_('Bookmark')}}"><span class="tb-label">{{_('Bookmark')}}</span></a>
+	            <a id="setting" class="tb-tool icon-cog" title="{{_('Settings')}}"><span class="tb-label">{{_('Settings')}}</span></a>
+	            <a id="fullscreen" class="tb-tool icon-resize-full" title="{{_('Fullscreen')}}"><span class="tb-label">{{_('Fullscreen')}}</span></a>
+	            <a id="title-more" class="tb-tool tb-more" title="{{_('More')}}" aria-expanded="false"><span class="tb-icon">…</span><span class="tb-label">{{_('More')}}</span></a>
 	        </div>
 	    </div>
 
@@ -83,6 +86,9 @@
             <img src="{{ url_for('static', filename='img/loader.gif') }}">
         </div>
     </div>
+    {# 顶栏「更多」菜单必须挂在 #main 之外：移动端 #main 带 transform + overflow:hidden，
+       会为 position:fixed 造出包含块并裁切菜单 #}
+    <div id="title-more-menu" class="title-more-menu" hidden></div>
     <div class="modal md-effect-1" id="settings-modal">
         <div class="md-content">
             <h3>{{_('Settings')}}</h3>
@@ -90,15 +96,15 @@
                 {{_('Choose a theme below:')}}<br />
 
           <!-- Hardcoded a tick in the light theme button because it is the "default" theme. Need to find a way to do this dynamically on startup-->
-                <button type="button" id="lightTheme" class="lightTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="lightTheme" class="lightTheme" onclick="selectTheme(this.id, true)"><span
                         id="lightSelected">✓</span>{{_('Light')}}</button>
-                <button type="button" id="darkTheme" class="darkTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="darkTheme" class="darkTheme" onclick="selectTheme(this.id, true)"><span
                         id="darkSelected"> </span>{{_('Dark')}}</button>
-                <button type="button" id="sepiaTheme" class="sepiaTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="sepiaTheme" class="sepiaTheme" onclick="selectTheme(this.id, true)"><span
                         id="sepiaSelected"> </span>{{_('Sepia')}}</button>
-                <button type="button" id="amberTheme" class="amberTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="amberTheme" class="amberTheme" onclick="selectTheme(this.id, true)"><span
                         id="amberSelected"> </span>{{_('Amber')}}</button>
-                <button type="button" id="blackTheme" class="blackTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="blackTheme" class="blackTheme" onclick="selectTheme(this.id, true)"><span
                         id="blackSelected"> </span>{{_('Black')}}</button>
 
           <!-- Custom theme: color input + pickr -->
@@ -233,7 +239,39 @@
             },
         };
 
-        function selectTheme (id) {
+        var BUILTIN_THEMES = ["lightTheme", "darkTheme", "sepiaTheme", "amberTheme", "blackTheme"];
+
+        // R216：用户主动点内置主题时同步到账号；失败不回滚本机主题，只 toast 提示。
+        function syncThemeToAccount(id) {
+            var tokenInput = document.querySelector("input[name='csrf_token']");
+            fetch((window.__mbBasePath || "") + "/ajax/ui-settings/reader-theme", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": tokenInput ? tokenInput.value : ""
+                },
+                body: JSON.stringify({theme: id})
+            }).then(function (response) {
+                return response.text().then(function (text) {
+                    var data = null;
+                    try { data = text ? JSON.parse(text) : null; } catch (e) { /* 非 JSON */ }
+                    if (!response.ok || !data || data.success !== true) {
+                        throw new Error((data && data.message) || ("HTTP " + response.status));
+                    }
+                });
+            }).catch(function () {
+                var message = window.mbT ? window.mbT("Theme could not be synced to your account")
+                                          : "Theme could not be synced to your account";
+                if (window.ReaderCore && window.ReaderCore.toast) {
+                    window.ReaderCore.toast(message);
+                } else if (window.console && console.warn) {
+                    console.warn(message);
+                }
+            });
+        }
+
+        function selectTheme (id, sync) {
             let tickSpans = document.getElementById("themes").querySelectorAll("span");
             tickSpans.forEach(function (tickSpan) {
                try {
@@ -253,6 +291,11 @@
 
             // Saving theme to local storage
             localStorage.setItem("calibre.reader.theme", id);
+
+            if (sync === true && BUILTIN_THEMES.indexOf(id) >= 0) {
+                window.__mbReaderThemePicked = true;
+                syncThemeToAccount(id);
+            }
 
             // If selecting custom theme, ensure epubjs theme is registered with chosen bg color
             if (id === "customTheme") {
@@ -441,6 +484,8 @@
           try {
             localStorage.setItem("calibre.reader.theme", "customTheme");
           } catch (e) {}
+          // R216：自定义主题只留本机；标记用户已手选，晚到的账号主题不得覆盖
+          window.__mbReaderThemePicked = true;
           // Clear ticks and set custom tick
           var tickSpans = document
             .getElementById("themes")
@@ -542,6 +587,8 @@
       {# R183（架构评审 B4 批次 1）：横切原语（toast/CSRF 自愈/段落口径）必须先于 epub.js——
          epub.js 顶层就取 window.ReaderCore 与 PARAGRAPH_SELECTOR 常量 #}
       <script src="{{ url_for('static', filename='js/reading/reader-core.js') }}"></script>
+      {# R215：顶栏窄屏折叠/「更多」菜单。无跨模块别名、无 init，载入即绑定 #}
+      <script src="{{ url_for('static', filename='js/reading/reader-toolbar.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/reader-word-detail.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/reader-annotations.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/reader-selection.js') }}"></script>

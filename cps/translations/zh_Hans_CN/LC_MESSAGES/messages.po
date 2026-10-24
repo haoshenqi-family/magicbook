@@ -147,8 +147,8 @@ msgid "Invalid Restricted Column"
 msgstr "无效的限制栏目"
 
 #: cps/admin.py:604 cps/admin.py:1903
-msgid "Calibre-Web configuration updated"
-msgstr "Calibre-Web 配置已更新"
+msgid "magicbook configuration updated"
+msgstr "magicbook 配置已更新"
 
 #: cps/admin.py:616
 msgid "Do you really want to delete the Kobo Token?"
@@ -754,20 +754,20 @@ msgid "Send to eReader"
 msgstr "发送到电子阅读器"
 
 #: cps/helper.py:105 cps/helper.py:125 cps/helper.py:235
-msgid "This Email has been sent via Calibre-Web."
-msgstr "此邮件已经通过 Calibre-Web 发送。"
+msgid "This Email has been sent via magicbook."
+msgstr "此邮件已经通过 magicbook 发送。"
 
 #: cps/helper.py:123
-msgid "Calibre-Web Test Email"
-msgstr "Calibre-Web 测试邮件"
+msgid "magicbook Test Email"
+msgstr "magicbook 测试邮件"
 
 #: cps/helper.py:124
 msgid "Test Email"
 msgstr "测试邮件"
 
 #: cps/helper.py:141
-msgid "Get Started with Calibre-Web"
-msgstr "开启 Calibre-Web 之旅"
+msgid "Get Started with magicbook"
+msgstr "开启 magicbook 之旅"
 
 #: cps/helper.py:146
 #, python-format
@@ -1207,8 +1207,8 @@ msgid "Read Status = '%(status)s'"
 msgstr "阅读状态 = '%(status)s'"
 
 #: cps/search.py:365
-msgid "Error on search for custom columns, please restart Calibre-Web"
-msgstr "搜索自定义栏目时出错，请重启 Calibre-Web"
+msgid "Error on search for custom columns, please restart magicbook"
+msgstr "搜索自定义栏目时出错，请重启 magicbook"
 
 #: cps/search.py:384 cps/search.py:416 cps/templates/layout.html:57
 msgid "Advanced Search"
@@ -2967,8 +2967,8 @@ msgid "List"
 msgstr "列表"
 
 #: cps/templates/http_error.html:34
-msgid "Calibre-Web Instance is unconfigured, please contact your administrator"
-msgstr "Calibre-Web 实例未配置，请联系您的管理员"
+msgid "magicbook Instance is unconfigured, please contact your administrator"
+msgstr "magicbook 实例未配置，请联系您的管理员"
 
 #: cps/templates/http_error.html:44
 msgid "Create Issue"
@@ -3135,12 +3135,12 @@ msgid "Log in with Magic Link"
 msgstr "通过魔法链接登录"
 
 #: cps/templates/logviewer.html:6
-msgid "Show Calibre-Web Log: "
-msgstr "显示 Calibre-Web 日志： "
+msgid "Show magicbook Log: "
+msgstr "显示 magicbook 日志： "
 
 #: cps/templates/logviewer.html:8
-msgid "Calibre-Web Log: "
-msgstr "Calibre-Web 日志: "
+msgid "magicbook Log: "
+msgstr "magicbook 日志: "
 
 #: cps/templates/logviewer.html:8
 msgid "Stream output, can't be displayed"
@@ -3151,8 +3151,8 @@ msgid "Show Access Log: "
 msgstr "显示访问日志： "
 
 #: cps/templates/logviewer.html:18
-msgid "Download Calibre-Web Log"
-msgstr "下载 Calibre-Web 日志"
+msgid "Download magicbook Log"
+msgstr "下载 magicbook 日志"
 
 #: cps/templates/logviewer.html:21
 msgid "Download Access Log"
@@ -3229,8 +3229,8 @@ msgid "Ok"
 msgstr "完成"
 
 #: cps/templates/osd.xml:5
-msgid "Calibre-Web eBook Catalog"
-msgstr "Caliebre-Web 电子书路径"
+msgid "magicbook eBook Catalog"
+msgstr "magicbook 电子书目录"
 
 #: cps/templates/read.html:7
 msgid "epub Reader"
@@ -4056,6 +4056,11 @@ msgstr "以后再说"
 msgid "Learn magicbook in 2 minutes"
 msgstr "花 2 分钟学会 magicbook"
 
+msgid ""
+"Take a quick tour of finding books, shelves, reading and the AI companion — "
+"on the real interface."
+msgstr "快速走一遍找书、书架、阅读和 AI 伴读——就在真实界面上。"
+
 msgid "Learning profile unavailable: "
 msgstr "学情暂不可用："
 
@@ -4433,6 +4438,9 @@ msgid ""
 "Use it to combine filters by author / series / publisher / language / "
 "rating."
 msgstr "按作者 / 系列 / 出版社 / 语言 / 评分多条件组合过滤时用这里。"
+
+msgid "Select user..."
+msgstr "选择用户..."
 
 msgid "User ID"
 msgstr "用户 ID"
@@ -5794,12 +5802,115 @@ msgstr "保存"
 msgid "Close"
 msgstr "关闭"
 
+# R216 /me 偏好页
+msgid "Not set"
+msgstr "未设置"
+
+msgid "Your account is managed by your sign-in provider. Your name and email cannot be changed here."
+msgstr "账号由登录服务管理，姓名与邮箱不能在这里修改。"
+
+msgid "Choose the theme used when you open a book. It is saved to your account and applies on every device; custom colors stay on the device where you pick them."
+msgstr "选择打开书籍时使用的主题。它会保存到账号并在所有设备生效；自定义颜色只留在你挑选它的设备上。"
+
+msgid "Your buddy is the face on the AI reading button. It is appearance only and never changes the AI's role as your English teacher."
+msgstr "伙伴是 AI 伴读按钮上的那张脸，只改变外观，不会改变 AI 作为你的英语老师的角色。"
+
+msgid "Manage buddies"
+msgstr "管理伙伴"
+
+msgid "Choose a theme first."
+msgstr "请先选择一个主题。"
+
+msgid "Could not load your saved theme; showing this device's last choice."
+msgstr "未能读取账号里的主题，当前显示这台设备上次的选择。"
+
+msgid "Theme saved"
+msgstr "主题已保存"
+
+msgid "Theme could not be synced to your account"
+msgstr "主题未能同步到账号"
+
+msgid "Could not load your buddy."
+msgstr "未能加载你的伙伴。"
+
+msgid "No buddy equipped yet."
+msgstr "还没有装备伙伴。"
+
+# R216 首页难度入口 / 成就锁态 / 伙伴文案
+msgid "Reading difficulty"
+msgstr "阅读难度"
+
+msgid "Tap to set"
+msgstr "点此设置"
+
+msgid "Change"
+msgstr "修改"
+
+msgid "Claim one, or equip another you own."
+msgstr "领取一只，或切换到已拥有的其他伙伴。"
+
+msgid "Locked"
+msgstr "未解锁"
+
+msgid "Unlocks with an achievement"
+msgstr "完成成就后解锁"
+
+msgid "Unlocks with credits"
+msgstr "用积分兑换解锁"
+msgid "Translation"
+msgstr "翻译"
+
+msgid "Translation mode"
+msgstr "翻译模式"
+
+msgid "Read aloud"
+msgstr "朗读"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "More"
+msgstr "更多"
+
+msgid "Paragraph tools"
+msgstr "段落工具"
+
+msgid "Click a paragraph to see its translation"
+msgstr "点击正文段落查看译文"
+
+msgid "Translation mode enabled: click a paragraph to see its translation"
+msgstr "翻译模式已开启：点击段落查看译文"
+
+msgid "Translation mode disabled"
+msgstr "翻译模式已关闭"
+
+msgid "Translation is unavailable for this book"
+msgstr "本书暂不可翻译"
+
+msgid "Translation failed, retry later"
+msgstr "翻译失败，请稍后重试"
+
+msgid "The selected paragraph is no longer on this page"
+msgstr "该段已不在当前页"
+
+msgid "Ask about this chapter..."
+msgstr "询问本章内容…"
+
+msgid "Ask about this text..."
+msgstr "询问本文…"
+
+msgid "Ask about this page..."
+msgstr "就本页内容提问…"
+
+msgid "Rename"
+msgstr "重命名"
+
+msgid "Memory"
+msgstr "记忆"
+
 #: R213-A 排序 chips 文字标签 / 卡片徽标 / 移动底部导航（2026-10-23）
 msgid "Filter and Sort"
 msgstr "筛选与排序"
-
-msgid "Downloads"
-msgstr "下载量"
 
 msgid "Newest"
 msgstr "最新"
@@ -5836,3 +5947,50 @@ msgstr "学习"
 
 msgid "Mobile Navigation"
 msgstr "移动端导航"
+
+#: R213-A 高级搜索「阅读状态」四态化（2026-10-23）：旧译「任何/空/确认/没有」
+#: 是 Any/Empty/Yes/No 的直译，中文语境里无法理解，且「空」与「没有」同义。
+msgid "Reading Status"
+msgstr "阅读状态"
+
+msgid "Unread"
+msgstr "未读"
+
+msgid "In progress"
+msgstr "在读"
+
+msgid "Not finished"
+msgstr "未读完"
+
+msgid "Set to yes"
+msgstr "是"
+
+msgid "Set to no"
+msgstr "否"
+
+msgid "Filtering on the custom read column (yes/no only)."
+msgstr "按 calibre 自定义阅读列筛选（该列只有「是 / 否」两个值）。"
+
+msgid "Unread: never opened, or marked as unread. In progress: opened but not finished. Read: finished."
+msgstr "未读：从没打开过，或手动标记为未读。在读：打开过但没读完。已读：读到最后一页或标记为已读。"
+
+msgid "Continue Reading"
+msgstr "继续阅读"
+
+msgid "Go to Learning"
+msgstr "去学习页"
+
+msgid "Recommended by level"
+msgstr "按难度阶推荐"
+
+msgid "Words due for review"
+msgstr "词待复习"
+
+msgid "Writing tasks to finish"
+msgstr "篇写作待完成"
+
+msgid "Your daily plan is unavailable right now — open the Learning page"
+msgstr "今日计划暂时取不到 · 去学习页看看"
+
+msgid "Use the new Home page as login landing page"
+msgstr "登录后进入新首页（/home）"

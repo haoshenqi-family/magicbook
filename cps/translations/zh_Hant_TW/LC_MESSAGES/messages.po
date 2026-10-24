@@ -3750,3 +3750,31 @@ msgstr "同步所選書架到 Kobo"
 msgid "Show Read/Unread Section"
 msgstr ""
 
+
+#: R213-A 進階搜尋「閱讀狀態」四態化（2026-10-23）
+msgid "Reading Status"
+msgstr "閱讀狀態"
+
+msgid "Unread"
+msgstr "未讀"
+
+msgid "In progress"
+msgstr "在讀"
+
+msgid "Not finished"
+msgstr "未讀完"
+
+msgid "Not set"
+msgstr "未填寫"
+
+msgid "Set to yes"
+msgstr "是"
+
+msgid "Set to no"
+msgstr "否"
+
+msgid "Filtering on the custom read column (yes/no only)."
+msgstr "按 calibre 自訂閱讀欄篩選（該欄只有「是 / 否」兩個值）。"
+
+msgid "Unread: never opened, or marked as unread. In progress: opened but not finished. Read: finished."
+msgstr "未讀：從沒開啟過，或手動標記為未讀。在讀：開啟過但未讀完。已讀：讀到最後一頁或標記為已讀。"
