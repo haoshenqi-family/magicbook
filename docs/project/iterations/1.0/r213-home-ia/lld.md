@@ -1,6 +1,6 @@
 # LLD — R213 首页信息架构（三子项实现细节）
 
-> 状态：**A（非分组部分）与 B 已上线/已验收；A 的侧边栏分组按用户 2026-10-24 拍板「本迭代不改，下个迭代再说」；C 已开发待验收（2026-10-24）**
+> 状态：**A（非分组部分）已上线；B1–B5 已上线/已验收，B6 总开关已开发待复验；A 的侧边栏分组按用户 2026-10-24 拍板「本迭代不改，下个迭代再说」；C 已开发待验收（2026-10-24）**
 > 迭代：1.0 · PJM 工作项 [MB-12](https://haoshenqi.pingcode.com/pjm/workitems/cc_nhJnW) 及拆出的 A/B/C 三个任务（MB-16/17/18） · Ship 需求 MAGICBOOK-220
 > 实现落点：worktree `../magicbook-r213-home-ia`，分支 `feat/r213-home-ia`（A/B/C 共用一树，按同编号互斥纪律）
 > 上游：[hld.md](./hld.md)（方案选型与被否方案）· 需求基线 [`product/library/requirements.md`](../../../../product/library/requirements.md)
