@@ -1,6 +1,6 @@
 # 入口层换皮 · 品牌资产与字样收敛（magicbook R212 / PJM MB-11）· LLD
 
-**状态**：开发中（本轮覆盖交付项 2「字样收敛」+ 交付项 5 的素材面；交付项 1「价值主张 + 书墙」、3「locale claim 链路」、4「语言入口前置」与「注册后回跳」未做）
+**状态**：已上线（2026-10-24 develop `195ab0d7`，新基线全量 819 passed；本轮覆盖交付项 2 + 交付项 5 的素材面。**R212 整条仍未完成**：交付项 1「价值主张 + 书墙」、3「locale claim 链路」、4「语言入口前置」未做）
 
 ## 1. 承接与拍板
 
@@ -59,7 +59,7 @@ MB-11 待办第 1 项：authentik 的 logo 与登录页背景仍是官方默认�
 
 1. ~~moon-well R209 push 上线~~ **未做**（push 闸门留用户）。现网 `brand/` 匿名读改由脚本手工设置 → **不持久**，见 §8。
 2. **已完成**：三张对象已传 MinIO `magicbook/brand/`，匿名 GET 实测 `logo.png`/`favicon.png`/`login-bg.jpg` 全 **200**，`buddy/` 与 `ted-audio/` 同期回归 200（无过授权、无被抹掉）。
-3. **未做**：magicbook push develop（顶栏徽章、favicon、字样收敛仍只在分支 `feat/r212-brand-assets`）。
+3. **已完成（2026-10-24 08:09）**：magicbook push develop `8842d1c2..195ab0d7` → fnOS `build END OK`、基线推进；线上实测 `<title>magicbook | Login</title>`、顶栏圆章 + Grand Hotel wordmark 渲染正确、`/static/img/brand/{logo,favicon}.png` 双 200。发布闸门：合并新基线后 `pytest tests/` = **819 passed / 0 failed**（首跑 819 同数，合并 ai_chat 那笔后复跑）。
 4. **已完成**：authentik 两条 brand 的 `branding_logo`/`branding_favicon`/`branding_default_flow_background` 已写入（`UPDATE 2`，改前值备份在 fnOS `/root/authentik-brands-backup-20261024-r212.json`）+ `docker compose restart server worker`（server 约 10s 回 healthy）。
 5. **已完成**：现网核验（headless Chrome 真页面截图）——`--ak-flow-background` 与 `branding_logo`/`branding_favicon` 均指向新对象，圆章与背景实际渲染正确、白卡对比度足够。
 
@@ -69,5 +69,5 @@ MB-11 待办第 1 项：authentik 的 logo 与登录页背景仍是官方默认�
 
 - **IP**：认证域 logo/背景是新的对外可见面，随 `docs/product/companion/features/buddy-ip-risk.md` 同一登记处置（内测可接受，公开注册/对外发布前须换原创）。本轮素材为原创构图，未使用电影原图与校徽。
 - **依赖**：authentik 登录页由此依赖 `minio.haoshenqi.top`（群晖 `.10`）。MinIO 不可达时登录**功能不受影响**，仅裂图；刻意不加兜底 CSS——把素材故障伪装成「本来就这样」会让下一次排查从「图没了」变成「样式怪」。
-- **⚠️ 现网策略是手工设的，不持久**：`brand/` 匿名读由 `vibe_images/brand-staging/set_brand_policy.py` 直接写进 MinIO bucket 策略，而该策略由 moon-well 启动时整体重写——**R209 代码 push 上线前，moon-well 任何一次重启都会把 `brand/` 抹掉，认证页三张图立刻 403**（表现为裂图，登录功能不受影响）。恢复＝重跑该脚本，或（正解）push R209。
-- 生产运行态的站点标题仍是 `Calibre-Web`（存在 `app.db` 的 `config_calibre_web_title`），代码默认值改动不影响存量，需在管理界面改或 SQL 更新——属运维写操作，留用户放行。
+- **~~现网策略是手工设的，不持久~~ 已闭合（2026-10-24）**：moon-well R209 上线后策略由代码在启动时写入，在跑槽 `moon-well-blue`（`house.build-sha=3fa0800`）日志实证 `prefixes=[ted-audio/, buddy/, brand/]`。残留风险改述为：**回退 moon-well 到早于 `3fa0800` 的镜像会抹掉 `brand/`**，认证页三图随之 403（登录功能不受影响）。
+- **站点标题已改（2026-10-24）**：`app.db` 的 `settings` 表单行 `config_calibre_web_title` 由 `Calibre-Web` 更新为 `magicbook`（取拉丁文而非中文——顶栏 wordmark 是 Grand Hotel 手写体，无中文字形，中文会掉成默认字体）。该值在应用启动时读入内存，改完当下线上仍吐旧值，由本次部署的重启生效，已实测 `<title>magicbook | Login</title>`。
