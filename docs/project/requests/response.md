@@ -282,7 +282,7 @@
   `response-archive/response-R211.md` 并登记索引，窗口回 10；只搬移不改写。
 - **驻留与闸门**：worktree `../magicbook-r222-book-summary-400`，分支
   `fix/r222-book-summary-400`，基线 `origin/develop` `643eddc8`（含 R222 占号提交），
-  当前驻留待验收。代码修复尚未 merge/push；push `develop` 会触发 fnOS 自动构建部署，
+  实现提交 `b28d9240`，当前驻留待验收。代码修复尚未 merge/push；push `develop` 会触发 fnOS 自动构建部署，
   按用户闸门执行。验收通过后 `worktree remove` + `branch -d`。
 - **总结**：requests.md 条目 222 为已占号需求；本条为回应。冲突记录：无撞号；已有
   `../magicbook-r214-detail-500` 属 R214 子项 A 的独立 worktree，本任务按新编号 R222 另建，
