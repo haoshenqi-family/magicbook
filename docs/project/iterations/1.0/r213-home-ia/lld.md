@@ -201,6 +201,9 @@ def level_of_shelf(name):  # 解析不出 → None
 > 教训：**模型里有这个常量 ≠ 数据里有这个值**。上界面选项前必须多问一句
 > 「谁写它、多久写一次、现在有多少行」。
 
+> 数据库分布（`books` 在 metadata.db、ub 表在 app.db、跨库靠 ATTACH）与读写规矩，
+> 见 [docs/kb/sql/db-schema-map.md](../../../kb/sql/db-schema-map.md)。
+
 ## 7. 异常与边界
 
 | 场景 | 行为 |

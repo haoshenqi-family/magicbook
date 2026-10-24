@@ -141,12 +141,9 @@ def add_security_headers(resp):
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"
     csp += " data:"
-    # 伙伴头像（R206）是 moon-well 下发的 MinIO 匿名直读直链，浏览器跨源取图；未放行时
-    # <img> 被 img-src 拦，而 ai_chat.js 用 new Image() 预载探测——失败即静默保留「AI」
-    # 文字兜底，故障在页面上不可见，故必须显式放行（同 R181 media-src 的踩坑口径）。
-    # R220：Buddy 全站可见，HTML 页面统一放行；二进制/XML/片段端点仍保持窄面。
-    if request.accept_mimetypes.best == "text/html":
-        csp += " " + " ".join(MINIO_PUBLIC_ORIGINS)
+    # 伙伴头像（R206）原走 moon-well 下发的 MinIO 直链，img-src 曾按 HTML 页放行；
+    # R220 验收发现个别浏览器扩展会拦跨站图片子资源（ERR_BLOCKED_BY_CLIENT），
+    # 前端已全部改走同源代理 /ajax/buddy/image，img-src 收窄回 'self' + data:。
     if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
         csp += " *"
     if request.endpoint == "web.read_book":
