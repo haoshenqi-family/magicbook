@@ -109,6 +109,7 @@ def get_sidebar_config(kwargs=None):
 # Returns the template for rendering and includes the instance name
 def render_title_template(*args, **kwargs):
     sidebar, simple = get_sidebar_config(kwargs)
+    kwargs.setdefault('ai_context_title', kwargs.get('title', ''))
     try:
         return render_template(instance=config.config_calibre_web_title, sidebar=sidebar, simple=simple,
                                accept=config.config_upload_formats.split(','),

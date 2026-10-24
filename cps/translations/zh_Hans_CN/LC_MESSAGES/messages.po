@@ -5896,6 +5896,9 @@ msgstr "询问本章内容…"
 msgid "Ask about this text..."
 msgstr "询问本文…"
 
+msgid "Ask about this page..."
+msgstr "就本页内容提问…"
+
 msgid "Rename"
 msgstr "重命名"
 

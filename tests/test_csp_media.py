@@ -27,7 +27,7 @@ def _set_html_desired(config_module, value):
 def make_response_headers(app):
     """Return a callable that runs add_security_headers for a given endpoint."""
 
-    def _run(endpoint_name):
+    def _run(endpoint_name, accept="text/html,application/xhtml+xml"):
         from cps import web
 
         # Simulate a request whose url_rule resolves to the given endpoint.
@@ -38,6 +38,7 @@ def make_response_headers(app):
             # Build a fake rule whose endpoint matches what flask gives us.
             rule = type("Rule", (), {"endpoint": endpoint_name, "methods": {"GET"}, "arguments": {"book_id", "book_format"}})()
             request.url_rule = rule
+            request.environ["HTTP_ACCEPT"] = accept
             # after_request hooks expect a response to decorate
             from flask import make_response
 
@@ -158,7 +159,7 @@ def _img_directive(csp):
 
 @pytest.mark.parametrize("endpoint", ["web.read_book", "web.buddy_page"])
 def test_buddy_image_origin_allowed_where_images_render(app, make_response_headers, endpoint):
-    """伙伴头像走 MinIO 跨源直链，渲染它的两个端点必须放行 img-src（R206/R207/R210）。
+    """伙伴头像走 MinIO 跨源直链，HTML 页面必须放行 img-src（R206/R207/R210/R220）。
 
     这条比 media-src 更难发现：`ai_chat.js` 用 new Image() 预载探测，被 CSP 拦时
     onerror 分支静默保留「AI」文字兜底——页面看起来完全正常，只是换图永不生效。
@@ -178,10 +179,10 @@ def test_buddy_image_origin_allowed_where_images_render(app, make_response_heade
         )
 
 
-def test_buddy_image_origin_not_opened_site_wide(app, make_response_headers):
-    """其余页面维持 img-src 'self' … data:，不放行 MinIO——沿用 R181 的窄面口径。"""
+def test_buddy_image_origin_not_opened_for_non_html(app, make_response_headers):
+    """非 HTML 响应维持 img-src 'self' … data:，不放行 MinIO。"""
     with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):
-        resp = make_response_headers("web.index")
+        resp = make_response_headers("web.index", accept="application/json")
 
     img = _img_directive(resp.headers.get("Content-Security-Policy"))
     assert img, "index page must keep an explicit img-src"

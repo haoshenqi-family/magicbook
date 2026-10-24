@@ -265,6 +265,9 @@
       <script src="{{ url_for('static', filename='js/caliBlur.js') }}"></script>
     {% endif %}
     {% block js %}{% endblock %}
+    {% if current_user.is_authenticated and not current_user.is_anonymous %}
+    {% include 'ai_chat_panel.html' %}
+    {% endif %}
     {# R109 引导模式：必须在 jQuery 之后（onboarding.js 依赖 $），故放在 block js 之后 #}
     {% include 'i18n_seed.html' %}
     {% include 'onboarding_mount.html' %}

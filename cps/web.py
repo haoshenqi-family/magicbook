@@ -144,8 +144,8 @@ def add_security_headers(resp):
     # 伙伴头像（R206）是 moon-well 下发的 MinIO 匿名直读直链，浏览器跨源取图；未放行时
     # <img> 被 img-src 拦，而 ai_chat.js 用 new Image() 预载探测——失败即静默保留「AI」
     # 文字兜底，故障在页面上不可见，故必须显式放行（同 R181 media-src 的踩坑口径）。
-    # 沿用其窄面做法：只在悬浮按钮真正出现的阅读页与 /buddy 花名册页放行。
-    if request.endpoint in ("web.read_book", "web.buddy_page"):
+    # R220：Buddy 全站可见，HTML 页面统一放行；二进制/XML/片段端点仍保持窄面。
+    if request.accept_mimetypes.best == "text/html":
         csp += " " + " ".join(MINIO_PUBLIC_ORIGINS)
     if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
         csp += " *"

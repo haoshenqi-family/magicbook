@@ -69,7 +69,7 @@
   }
 
   function storageKey() {
-    return "calibre.ai.conv." + BOOK_ID;
+    return "calibre.ai.conv." + (BOOK_ID || "site");
   }
 
   /** moon-well Result 包装解包：{success, result, message} → result（失败时抛错）。 */
@@ -136,7 +136,8 @@
       ? window.AICompanion.detectFormat()
       : "epub";
     var key = fmt === "pdf" ? "Ask about the current page..."
-      : (fmt === "txt" ? "Ask about this text..." : "Ask about this chapter...");
+      : (fmt === "txt" ? "Ask about this text..."
+      : (fmt === "site" ? "Ask about this page..." : "Ask about this chapter..."));
     $("#ai-chat-input").attr("placeholder", mbT(key));
   }
 
@@ -184,17 +185,20 @@
     var button = document.getElementById("ai-companion-fab");
     if (!button || !window.PointerEvent) return;
     var key = "calibre.ai.buddy.position";
+    var edgeGap = 10;
     var saved;
     try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { saved = null; }
     if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-      button.style.left = saved.x + "px";
-      button.style.top = saved.y + "px";
+      var initial = snapFabPosition(button, saved.x, saved.y, edgeGap);
+      button.style.left = initial.x + "px";
+      button.style.top = initial.y + "px";
       button.style.right = "auto";
       button.style.bottom = "auto";
     }
     var startX, startY, originX, originY, moved = false;
     button.addEventListener("pointerdown", function (event) {
       if (event.button !== 0) return;
+      button.classList.remove("buddy-snapping");
       var rect = button.getBoundingClientRect();
       startX = event.clientX; startY = event.clientY;
       originX = rect.left; originY = rect.top; moved = false;
@@ -215,7 +219,11 @@
       if (moved) {
         event.preventDefault();
         var rect = button.getBoundingClientRect();
-        try { localStorage.setItem(key, JSON.stringify({ x: rect.left, y: rect.top })); } catch (e) {}
+        var snapped = snapFabPosition(button, rect.left, rect.top, edgeGap);
+        button.classList.add("buddy-snapping");
+        button.style.left = snapped.x + "px";
+        button.style.top = snapped.y + "px";
+        try { localStorage.setItem(key, JSON.stringify(snapped)); } catch (e) {}
         button.dataset.dragged = "1";
         setTimeout(function () { delete button.dataset.dragged; }, 0);
       }
@@ -223,6 +231,15 @@
     button.addEventListener("click", function (event) {
       if (button.dataset.dragged) { event.stopImmediatePropagation(); event.preventDefault(); }
     }, true);
+  }
+
+  function snapFabPosition(button, x, y, gap) {
+    var maxX = Math.max(gap, window.innerWidth - button.offsetWidth - gap);
+    var maxY = Math.max(gap, window.innerHeight - button.offsetHeight - gap);
+    return {
+      x: x + button.offsetWidth / 2 < window.innerWidth / 2 ? gap : maxX,
+      y: Math.max(gap, Math.min(maxY, y)),
+    };
   }
 
   function startFabIdle() {
@@ -264,8 +281,7 @@
   // 会话列表（moon-well MySQL 数据源，薄代理透传）
   // ------------------------------------------------------------------
   function loadConversations() {
-    if (!BOOK_ID) return;
-    $.getJSON("/ai/agent/conversations", { bookId: BOOK_ID })
+    $.getJSON("/ai/agent/conversations", BOOK_ID ? { bookId: BOOK_ID } : {})
       .then(function (raw) {
         var convs;
         try { convs = unwrap(raw) || []; } catch (e) { convs = []; }
@@ -278,7 +294,11 @@
           $sel.append($("<option>").val(c.id).text(c.title || mbT('New conversation')));
         });
         var preferred = parseInt(localStorage.getItem(storageKey()) || "", 10);
-        var target = convs.some(function (c) { return c.id === preferred; }) ? preferred : convs[0].id;
+        var scoped = convs.filter(function (c) {
+          return BOOK_ID ? c.bookId === BOOK_ID : (!c.bookId || c.bookId === 0);
+        });
+        var visible = scoped.length ? scoped : convs;
+        var target = visible.some(function (c) { return c.id === preferred; }) ? preferred : visible[0].id;
         selectConversation(target);
       })
       .fail(function (xhr) {
@@ -496,7 +516,7 @@
     if (sending) return;
     var $input = $("#ai-chat-input");
     var text = $input.val().trim();
-    if (!text || !BOOK_ID) return;
+    if (!text) return;
 
     appendMessage("user", text);
     $input.val("");
@@ -530,7 +550,7 @@
         conversationId: currentConversationId,
         message: message,
         bookId: BOOK_ID,
-        bookTitle: BOOK_META.title,
+        bookTitle: BOOK_META.title || document.title,
         authors: BOOK_META.authors || [],
         chapter: typeof companion.getChapter === "function" ? (companion.getChapter() || "") : "",
         pageText: pageContext,
@@ -659,7 +679,8 @@
   }
 
   function loadMemoryPanel() {
-    loadBookProfile();
+    if (BOOK_ID) loadBookProfile();
+    else $("#ai-memory-profile").empty();
     loadMemories();
   }
 
