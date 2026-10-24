@@ -52,8 +52,14 @@ def book_summary():
         book_format = str(payload.get("book_format") or "epub").lower()
         result = insight_service.generate_summary(book_id, book_format)
         return jsonify({"success": True, "result": result})
+    except insight_service.UpstreamServiceError as error:
+        # Why 502 而不是 400：请求本身合法，是 moon-well/Magpie 未能完成生成。
+        # 透传上游 message（LLD §8），同时让浏览器与监控看到依赖故障。
+        log.warning("book summary upstream failed: book=%s status=%s message=%s",
+                    payload.get("book_id"), error.status, error)
+        return jsonify({"success": False, "message": str(error)}), 502
     except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
-        # 透传上游 message（LLD §8）：失败在区块内红字显示，不静默变「暂无简介」。
+        # 仅本地可判定的入参/文件问题才回 400；上游故障由上一分支处理。
         return jsonify({"success": False, "message": str(error)}), 400
 
 

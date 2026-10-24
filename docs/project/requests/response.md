@@ -46,25 +46,10 @@
 - `response-archive/response-R208.md`：R208 每日学习 banner 小功能管理（齿轮抽屉 + 勾选过滤 + 引导卡）——2026-10-24 R213-C 合入 `origin/develop` 后窗口达 11 节（与 R214-C 验收缺陷节并行追加）触发续搬，原样搬移不改写
 - `response-archive/response-R209.md`：R209 积分内测活动 + 充值倍率机制（充值页代理与前端）——2026-10-24 R213-C 与 R217 在 develop 合流后窗口达 11 节触发轮转搬移，原样搬移不改写
 - `response-archive/response-R210.md`：R210 伙伴图片未生效的定性与 MinIO 入口切换的 CSP 侧（源清单收敛单点、过渡双源）——2026-10-24 R213-C / R217 / R221 再次合流后窗口达 11 节触发续搬，原样搬移不改写
+- `response-archive/response-R211.md`：R211 OIDC 自助注册默认授予管理员权限（P0 缺陷修复）——2026-10-24 R222 写入触发轮转搬移，原样搬移不改写
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-## 2026-10-23（R211：OIDC 自助注册默认授予管理员权限——P0 缺陷修复）
-
-### R211（用户：「修复 pingcode magicbook-10」）
-
-- **任务来源**：PingCode 缺陷 [MAGICBOOK-10](https://haoshenqi.pingcode.com/pjm/workitems/ldCa0y89)（新提交 → 处理中），对应台账 R211 / Ship 需求 MAGICBOOK-218。用户 2026-10-23 拍板 P0 单独先上线。
-- **根因（两处常量叠加，不是配置失误）**：`cps/oidc.py` 建号写死 `role=constants.ADMIN_USER_ROLES`；`cps/constants.py:122` 该常量 = 全部角色位去匿名，**含 `ROLE_ADMIN`**。于是任何走「新账号」分支的 OIDC 登录都是超管，与站点「新用户默认角色」配置无关——公开邀请链接 = 人人可拿管理员。同一处建号也不写 `locale`（`ub.py` 兜底 `en`），归 R212 处理，本条不动。
-- **修法（4 项）**：① `cps/oidc.py` 新增 `parse_admin_emails` / `site_default_role` / `resolve_new_user_role`，建号改为按决策函数取角色——白名单命中 → 管理员全权限，否则 → `config_default_role`（生产当前 `0`＝普通读者）；`site_default_role()` 用**函数内延迟导入** `config`，规避 `cps/__init__` 循环导入，配置未初始化时按 `0` 兜底（否则 `role=None` 会让权限判断崩）。② 白名单 env `OIDC_ADMIN_EMAILS`（逗号分隔、大小写与空格不敏感、空项忽略），`.env.example` 补说明。③ 存量排查/降级 CLI `scripts/oidc_admin_audit.py`（stdlib only，只读 SQLite `user`/`settings`，不启动 Flask）。④ 守卫测试 `tests/test_oidc_admin_role.py` 16 条。
-- **三条身份路径的差异（不误伤存量的关键）**：subject 命中 → 直接登录不改 role；email 命中既有本地账号 → 只补 OIDC 绑定、保留本地角色；都不命中才按决策函数建号。因此站长与历史管理员账号都不会因本次修复掉权。
-- **CLI 的安全边界（有意做窄）**：默认 dry-run；`--demote` 必须显式点名 `--ids`/`--emails`，**不支持全量降级**（管理员位批量抹掉只能靠备份回滚）；写库前自动备份 `<db>.r211-bak-<时间戳>`；`OIDC_ADMIN_EMAILS` 白名单账号即便被点名也跳过；站点默认角色若含管理员位直接拒绝执行（目标角色本身不安全）。
-- **验证**：`tests/test_oidc_admin_role.py` 16 条 + `test_oidc.py`/`test_login_invite_link.py` 10 条全绿（开发态，按 AGENTS.md 只跑本次与受影响模块）。**反向变异**：把建号改回 `ADMIN_USER_ROLES` 后 `test_建号处不再直写管理员角色` 实测报红，恢复后转绿。对主检出 `app.db` 只读实跑 CLI：识别 2 个账号 / 1 个管理员 / 0 个 OIDC 账号，默认角色 `0`、白名单空——输出与库内容一致。
-- **文档四问**：能力变了吗 → L1 `docs/product/readme/admin.md` 增「新账号角色」条；契约变了吗 → 对外无接口变化，运维侧新增 env 已写入 `.env.example`；实现/边界变了吗 → 新建 L3 `docs/product/admin/features/oidc-self-registration.md`；本次怎么实现 → LLD `docs/project/iterations/1.0/r211-oidc-admin-role/lld.md`（状态行：开发中）。
-- **上线前必须做的运维动作**（已写入 LLD §4）：生产 `.env` 配 `OIDC_ADMIN_EMAILS=站长邮箱`（不配也不会让现有站长掉权，但配了以后新邮箱注册才仍是管理员）；存量超管按清单确认后再 `--demote --ids`，容器内库路径 `/config/app.db`。
-- **窗口**：本条写入使窗口达 11 个 request，按「写入即检查」把最旧的 R183（B4 epub.js 分域，7 节 78 行）原样搬至 `response-archive/response-R183.md` 并登记索引，窗口回 10；只搬移不改写。
-- **驻留与闸门**：worktree `../magicbook-r211-oidc-admin-role`（分支 `fix/r211-oidc-admin-role`，从 `origin/develop` `2006b6f3` 切出）待验收；**本轮未 push**，push 即触发 fnOS 自动上线，按用户闸门执行。验收通过后 `worktree remove` + `branch -d`。
-- **口径修订（16:1x，用户：「默认都是普通用户，管理员用户由我手动赋予」）**：撤除 `OIDC_ADMIN_EMAILS` 邮箱白名单——不留任何自动提权开关。`resolve_new_user_role()` 改为**无参数**，直接返回站点默认角色并**强制剔除 `ROLE_ADMIN` 位**（默认角色被误配勾了管理员位也只写 warning、不生效，其他权限位照旧尊重配置）。CLI 同步：`demote_target_role()` = 默认角色剔除管理员位，原「默认角色含管理员位即拒绝执行」改为「剔除后执行」；白名单跳过逻辑删除。测试改写为 16 条（新增「误配管理员位强制剔除」「决策函数不接受邮箱参数、模块内无白名单路径」两条正交守卫），仍全绿、反向变异照旧报红。L1/L3/LLD/`.env.example` 同步改写。**上线前不再需要配任何 env**；后台上一条「生产 `.env` 配 `OIDC_ADMIN_EMAILS`」作废，改为「新账号首登后由站长在『用户管理』手动赋管理员」。
 
 ## 2026-10-23（R214：书籍详情——子项 A 阅读入口解禁 + 元数据修正 + 视觉分层）
 
@@ -266,3 +251,39 @@
 - **文档四问**：能力变化 → L1 `docs/product/readme/learning.md`；契约变化 → L2 `docs/product/learning/interface.md`；实现与边界 → L3 `docs/product/learning/features/speaking-voice-first.md`；本次实现 → `docs/project/iterations/1.0/r221-speaking-voice/lld.md`。需求基线已追加 R221，迭代 plan 增 MB-19 工作项。
 - **驻留与边界（如实）**：worktree `../magicbook-r221-speaking-voice`，分支 `feat/r221-speaking-voice`；语音优先功能已合入 develop，CSP 验收缺陷修复提交后合并并推送 develop 触发自动上线，worktree 保留待真机验收。尚未完成真人登录态录音、自动播放、历史回放验收。
 - **总结**：requests.md 条目 221 为已占号需求；本条为回应。冲突记录：原误占 R212，已迁移 R221；R210 已放弃，不推送。
+
+## 2026-10-24（R222：R214 验收缺陷——生成书籍简介 400，上游 Magpie 403 被误报）
+
+### R222（用户：贴出 `POST https://magicbook.haoshenqi.top/ajax/book-summary 400 (Bad Request)`，「修复这个问题」）
+
+- **任务定位**：缺陷，挂 R214 子项 B / PJM MB-13 / Ship MAGICBOOK-221；不做无主修复。
+- **证据链（先查 ES 再读码）**：ES `app-log-moon-well` 在 18:33–18:36 连续记录
+  `Magpie call failed: HTTP 403`，同 trace 的 `/book/ai/ability/book-intro` 响应为 500；
+  Magpie 容器日志同一时段拒绝 `POST /v1/chat/completions from 172.28.0.1: not on the allow list`。
+  moon-well 在 `moon-well_moon-well-net`（172.29.0.2），Magpie 在 `magpie_default`（172.28.0.2），
+  跨网段请求到宿主端口时以 bridge 网关 `172.28.0.1` 为源地址，而 Magpie `allowIPs` 只有
+  `192.0.0.0/8`。因此 400 是两层误报叠加，不是书籍入参/文件问题。
+- **应用修复**：`cps/reading_insight/service.py` 新增 `UpstreamServiceError`（携带上游状态码），
+  `_unwrap_result()` 对非 2xx / `success:false` / 不可解析 / 空正文统一抛该异常；
+  `/ajax/book-summary` 新增 502 分支并记录上游状态与 message，本地入参/文件错误仍为 400。
+  `cps/static/js/book-insight.js` 原本已展示 `data.message`，无需改前端。
+- **运行修复**：fnOS `/app/magpie/config/magpie/settings.json` 备份为
+  `settings.json.bak-r222-20261024-184438`（600），`allowIPs` 增加 `172.28.0.0/16`；
+  `docker compose restart magpie` 后 healthcheck rc=0。未使用 `0.0.0.0/0`，未改端口绑定。
+- **验证**：`tests/test_book_detail_r222.py` 四条（上游 500→502 且 message 保留 / 成功仍 200 /
+  上游 302 不得当成功 / 非法 book_id 仍 400）+ `test_book_insight.py` +
+  `test_book_detail_r214.py`，共 **49 passed**。
+  真实链路：从 `moon-well-green` 容器带 gateway key 请求 Magpie `GET /v1/models` → HTTP 200；
+  Magpie 重启后无新的 allow-list 拒绝。未伪造生产 AI 简介调用（当前会话无管理员 JWT），
+  留给验收时在页面点「生成简介」确认最终 200 与简介落库。
+- **文档四问**：能力不变；契约变化 → `/ajax/book-summary` 失败状态从一律 400 改为上游故障 502；
+  实现/边界 → LLD §14 + §8；AC B5 改为明确要求 502。L1/L2 无需新增条目（用户操作不变）。
+- **窗口**：本条写入后窗口为 11 节，按「写入即检查」把最旧的 **R211** 原样搬至
+  `response-archive/response-R211.md` 并登记索引，窗口回 10；只搬移不改写。
+- **驻留与闸门**：worktree `../magicbook-r222-book-summary-400`，分支
+  `fix/r222-book-summary-400`，基线 `origin/develop` `643eddc8`（含 R222 占号提交），
+  当前驻留待验收。代码修复尚未 merge/push；push `develop` 会触发 fnOS 自动构建部署，
+  按用户闸门执行。验收通过后 `worktree remove` + `branch -d`。
+- **总结**：requests.md 条目 222 为已占号需求；本条为回应。冲突记录：无撞号；已有
+  `../magicbook-r214-detail-500` 属 R214 子项 A 的独立 worktree，本任务按新编号 R222 另建，
+  未改动既有工作树。

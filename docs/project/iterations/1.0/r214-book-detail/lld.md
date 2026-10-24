@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已修**（§14，上游故障改 502 + Magpie 白名单）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -98,6 +98,7 @@ def parse(path) -> dict:
 - 出：`{success, result:{text, model, generatedAt}}`；落 `book_insight.ai_summary`。
 - 上游：`POST {moonwell}/book/ai/ability/book-intro`（跨仓 R207），timeout 60s。
 - 失败：**透传上游 message**，前端区块内显示红字；不写 `ai_summary`，不静默变「暂无简介」。
+  状态码按故障所属层区分：本地入参/书籍文件问题 `400`；moon-well/Magpie 未完成生成 `502`（R222）。
 
 ### 4.3 `POST /ajax/whole-book-estimate`（admin）
 
@@ -213,7 +214,7 @@ wordDetail: tokens = targetWords * 4000  ; credits = ceil(tokens / 1000) * per1k
 | insight 解析失败 | 对应区块显示「解析失败：<原因>」，其余区块正常；`last_error` 落库便于排查 |
 | 费率端点不可用 | 积分行显示「费率暂不可得」，仍显示字符/token 量；按钮可点 |
 | 翻译 cache lookup 失败 | 覆盖率显示「缓存命中暂不可得」，**不显示 0** |
-| AI 简介上游失败 | 区块内红字显示上游 message，不冒充「暂无简介」 |
+| AI 简介上游失败 | 区块内红字显示上游 message；HTTP 502（非 400），不冒充「暂无简介」 |
 | 活跃批次查询失败 | 按钮回到「开始」并在控制台留 warn（页面可用） |
 | 详情弹窗 AJAX 非 2xx | 弹窗内显示「加载失败」（`layout.html` 预置节点 + `main.js` `.fail()`），**不停在占位符 `...`**；见 §12 |
 
@@ -313,3 +314,34 @@ jQuery 上污染后续所有 AJAX。
 HTML 解析器把属性名统一小写（`data-t-start-worddetail`），而 JS 侧 `t('start-' + kind)`
 用的是 camelCase ⇒ 详解 tab 的主按钮文案是空字符串。**修法**：模板属性名写全小写，
 JS 侧 `String(kind).toLowerCase()`。守卫：`test_start_label_keys_are_lowercase`。
+
+## 14. 子项 B 验收缺陷：生成简介返回 400（2026-10-24，R222，`fix/r222-book-summary-400`）
+
+**现象**：管理员点「生成简介」，浏览器 Console 报
+`POST https://magicbook.haoshenqi.top/ajax/book-summary 400 (Bad Request)`。
+
+**根因分两层**：
+
+1. **应用层误报**：`service._unwrap_result()` 把 moon-well 的任意失败统一抛成 `ValueError`，
+   `/ajax/book-summary` 又与入参错误共用同一 `except`，因此上游 HTTP 500 被改写成 HTTP 400。
+2. **运行层真实故障**：moon-well 调 Magpie 的来源是 Docker bridge 地址 `172.28.0.1`，但
+   Magpie `settings.json` 的 `allowIPs` 只有 `192.0.0.0/8`。Magpie 返回 403，moon-well
+   包装为 500（`Magpie call failed: HTTP 403`），magicbook 再误报为 400。
+
+**修法**：
+
+- 新增 `UpstreamServiceError` 携带上游状态码；`/ajax/book-summary` 对上游故障返回 **502**，
+  本地入参/文件问题仍返回 400，message 原样透传。
+- Magpie `allowIPs` 增加 `172.28.0.0/16`（只覆盖该 bridge，不放开任意来源），
+  修改前备份 `settings.json`，重启后 `magpie healthcheck` 为 0。
+
+**证据**：
+
+- 修改前日志：ES `app-log-moon-well` 在 18:33–18:36 连续记录
+  `Magpie call failed: HTTP 403`，对应 `/book/ai/ability/book-intro` 返回 500；
+  Magpie 同步记录 `refused POST /v1/chat/completions from 172.28.0.1: not on the allow list`。
+- 修改后从 `moon-well-green` 容器带 gateway key 请求 `GET /v1/models`：HTTP 200；
+  Magpie 不再以 allow-list 拒绝该来源，重启后的日志只有缺失 key 的预期 401（探针未带 key
+  那次）与 Qoder 登录态过期的既有噪音，无新的 403。
+- 回归：`tests/test_book_detail_r222.py`（502 / 成功 / 3xx 非成功 / 400 四分支）+
+  `tests/test_book_insight.py` + `tests/test_book_detail_r214.py` 共 49 passed。

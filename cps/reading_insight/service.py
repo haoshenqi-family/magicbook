@@ -20,6 +20,14 @@ log = logger.create()
 SCHEMA_VERSION = 1
 
 
+class UpstreamServiceError(ValueError):
+    """moon-well 未能完成调用；保留状态码供路由区分客户端错误与服务端故障。"""
+
+    def __init__(self, message, status=None):
+        super().__init__(message)
+        self.status = status
+
+
 def _ensure_tables():
     # 懒建（reading_job/service_base.py:73 同款）：app.db 由运行环境持有，不进版本库。
     bind = ub.session.get_bind()
@@ -115,22 +123,27 @@ def _save_ai_summary(book_id, book_format, ai_summary):
 
 
 def _unwrap_result(response, label):
-    """解 moon-well Result 包装取 result；失败抛带上游原文案的 ValueError。
+    """解 moon-well Result 包装取 result；失败抛带上游原文案的 UpstreamServiceError。
 
     与 web._word_detail_unwrap 同一形态契约（三元组响应、透传 message）——
     接口故障若被降级成「没生成出来」，页面就把故障显示成「暂无简介」，
     用户报回来的永远是错误结论（LLD §8：禁止静默降级）。
+
+    Why 独立异常类型：上游失败不是客户端参数错误。路由若统一按 ValueError
+    回 400，浏览器会把一次 moon-well/Magpie 故障记成「坏请求」，既误导用户，
+    也让监控无法区分入参问题与服务依赖故障。
     """
     if not isinstance(response, tuple) or len(response) < 2:
-        raise ValueError("%s service unavailable" % label)
+        raise UpstreamServiceError("%s service unavailable" % label)
     body, status = response[0], response[1]
     try:
         data = json.loads(body)
     except (TypeError, ValueError):
-        raise ValueError("%s returned unreadable response" % label)
+        raise UpstreamServiceError("%s returned unreadable response" % label, status)
     message = data.get("message") if isinstance(data, dict) else None
-    if status >= 400 or (isinstance(data, dict) and data.get("success") is False):
-        raise ValueError(message or "%s failed (HTTP %s)" % (label, status))
+    if not 200 <= status < 300 or (isinstance(data, dict) and data.get("success") is False):
+        raise UpstreamServiceError(
+            message or "%s failed (HTTP %s)" % (label, status), status)
     result = data.get("result") if isinstance(data, dict) else None
     return result or {}
 
@@ -161,7 +174,7 @@ def generate_summary(book_id, book_format):
     result = _unwrap_result(response, "book-intro")
     text = (result.get("content") or result.get("text") or "").strip()
     if not text:
-        raise ValueError("book-intro returned empty content")
+        raise UpstreamServiceError("book-intro returned empty content")
     ai_summary = {
         "text": text,
         "model": result.get("model") or "",
