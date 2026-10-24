@@ -5122,6 +5122,36 @@ msgstr "用英文打出你要说的话"
 msgid "Upgraded phrasings"
 msgstr "升级表达"
 
+msgid "Play voice message"
+msgstr "播放语音消息"
+
+msgid "Show text"
+msgstr "显示文字"
+
+msgid "Hide text"
+msgstr "收起文字"
+
+msgid "Voice playback failed"
+msgstr "语音播放失败"
+
+msgid "Tap to speak"
+msgstr "点击说话"
+
+msgid "Your words will appear here after recording"
+msgstr "录音转写会显示在这里，可修改后发送"
+
+msgid "Review your transcript before sending"
+msgstr "发送前请确认转写内容"
+
+msgid "Record again"
+msgstr "重新录音"
+
+msgid "Type instead"
+msgstr "改为打字"
+
+msgid "Use voice instead"
+msgstr "改用语音"
+
 msgid "WPM"
 msgstr "词/分"
 

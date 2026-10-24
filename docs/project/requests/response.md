@@ -42,45 +42,10 @@
 - `response-archive/response-R203.md`：R203 跨模块别名漏声明致 4 个段落按钮失效——2026-10-23 R216 写入触发轮转搬移（与 R214 轮转叠加后续搬），原样搬移不改写
 - `response-archive/response-R204.md`：R204 写作批改 SSE 真机无进度（WSGI 缓冲）——2026-10-23 R216 第三次 merge 后窗口达 11 续搬，原样搬移不改写
 - `response-archive/response-R205.md`：R205 每日学习「单词编故事」Hub 第八张卡（2026-10-23 R212 写入触发轮转搬移）
+- `response-archive/response-R206-R208.md`：R206–R208（2026-10-22 ～ 2026-10-23；2026-10-24 R221 写入触发轮转搬移，原样搬移不改写）
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-## 2026-10-22（R206：AI 伴读图标改「伙伴」+ 伙伴系统前端——薄代理 + /buddy 页 + FAB 换图 + 引导领取）
-
-### R206（承接 moon-well R201；用户：「AI 伴读悬浮按钮图标改成伙伴图片……主要功能就只是图标替换。默认一个机器人。引导页到伙伴模块，可以领取雪鸮」）
-
-- **薄代理**：新增 `cps/routes/buddy.py`（复用 `credit.py` 的 `_moonwell_proxy` 范式，注册进 `routes/__init__.py`）：`/buddy` 页 + `/ajax/buddy/{catalog,mine,claim,equip}` 透传 moon-well `/buddy`，鉴权 `@user_login_required`。
-- **`/buddy` 页**：`buddy.html`/`buddy.css`/`buddy.js`——花名册卡片网格（全身图 + 名 + 炉石稀有度色签 + 使用中/装备/领取/未开放），复用 `window.MBApi` 解包与 CSRF，领取/装备后就地重渲染。
-- **FAB 换图（主功能）**：`ai-companion-fab` 由文字「AI」改为「文字兜底 + `<img>`」双形态；`loadBuddyFab()` 拉 catalog 取装备伙伴 `imageUrl`，`new Image()` 预载成功才加 `has-buddy` 切图，**未上传/未装备/代理不可达一律保留「AI」文字、绝不裂图**；动效 idle 呼吸 / hover 放大 / thinking 起伏（`streamChat`→`finishMessage`，即 send 禁用→恢复窗口）/ sleep 打盹（45s 无交互），`prefers-reduced-motion` 关闭。
-- **引导领取雪鸮**：`onboarding.js` 新增 `buddy` 段（`STEPS_BUDDY`，锚点 `#buddy-claim-hedwig`）；因花名册异步渲染，`init` 对 buddy 段先 return，由 `buddy.js` 渲染完调 `MagicbookOnboarding.onRosterReady()` 触发；主引导 settings 文案补 Buddies。
-- **导航**：设置下拉新增 `#top_buddy → web.buddy_page`。
-- **i18n**：新增英文 msgid 注册进 `i18n_seed.html`，补 `zh_Hans_CN` po 13 条并 `pybabel compile`；运行时实测 `Buddies→伙伴` 等生效。
-- **验证（如实）**：JS/Python 语法校验通过（`node --check` ×3、`py_compile`）；**未起浏览器真机验收**——FAB 换图与 `/buddy` 页依赖 moon-well R201 先上线 + 18 个资产先传 MinIO（脚本 `moon-well deploy/upload_buddy_assets.py`），二者未就绪前 FAB 走文字兜底、页面无数据。
-- **台账**：requests.md 占号 R206（跨仓 moon-well R201）；分支 `feat/r206-buddy`，worktree `../magicbook-buddy` 原样驻留待验收；merge 本地 develop **`cf068ddb`**（未 push）。PingCode 写入待用户单独确认。
-- **补记（2026-10-22 21:44 / 22:08 push，含一次我造成的站内错）**：已 push develop 两次——`13e44003`（R206 前端 + 台账，5 提交）与 `6b91bf31`（模板语法修复 + `/buddy` 冒烟用例）。**第一次 push 前我漏跑了全量闸门**（只在 worktree 做了 `node --check` / `py_compile` 级校验，违背本仓「push=上线=新基线全量」口径），补跑才暴露：我在 `i18n_seed.html` 的 `{% set mb_i18n = { … } %}` **表达式内部**写了 `# ---- R206 伙伴（buddy）页 + 引导 ----` 行注释——Jinja 的词法注释只认 `{# #}` 且必须位于标签体外，`#` 直接抛 `TemplateSyntaxError: unexpected char '#'`，而 `layout.html` include 本文件，**所有 extends layout 的页面一起 500**（补跑首测：64 failed / 591 passed / 29 errors）。删掉该注释行，并新增 `tests/test_buddy_page.py`（`/buddy` 真渲染 2 条：页面出 `#buddy-roster`/`#buddy-csrf`、导航项 `#top_buddy` 恰出现一次），复跑全量 **686 passed / 0 failed**（R205 基线 684 + 新增 2）。顺带把驻留 worktree ff 到已推 tip 再跑，主检出未碰。教训两条：① 模板改动的判据是「页面渲染出来」，不是语法级校验；② layout 的 include 面使一处模板错＝全站错，`/buddy` 已纳入常驻用例，push 一律在新基线跑全量。
-## 2026-10-22（R207：伙伴验收三连——fnOS 构建核验 / 文档 push / 18 资产上传，附带修掉 CSP 拦图）
-
-### R207（用户：「1 验证，2 推 3 上传」）
-
-- **① 构建核验（ssh fnOS `/app/codelib/logs/*.log`）**：moon-well `76e5aae` 21:44:13 START → 21:45:06 **END OK**，蓝绿 `active=blue → next=green`，代码指纹 `8a4dd2a7e3c2e271 → 14cfcad5bc6ef06c`（不等→完整部署），`[[mw-phase]]` 五段全 ok，green healthy。**magicbook 那条实测出故障窗口**：`13e44003`（含站内错的 sha）21:44:13 START → 21:44:36 END OK 已部署，修复 `6b91bf31` 21:51:51 START → 21:52:06 END OK——**线上全站 500 实际持续约 7.5 分钟**，不是「推了没上线」的侥幸。现网复核：宿主 `curl 127.0.0.1:8083/login` **200**（layout 渲染链路恢复），`/buddy` **302** 属未登录跳转（`@user_login_required` 正常），容器 `Up (healthy)`。
-- **② 文档 push**：moon-well `f2caec8`、magicbook `34b02b55` 已推 develop；两笔均纯文档，fnOS `docs_only_diff` 判 SKIPPED 不触发部署（R154 口径）。
-- **③ 资产上传**：`moon-well/deploy/upload_buddy_assets.py`（凭证从 gitignored `.env` 注入、全程未打印值）dry-run 先自校验 18 个对象键与 `BuddyDefinitionService` 种子逐一对齐，再实跑 → **18/18 上传成功**（`magicbook` 桶 `buddy/*`，full 512² 约 300KB、head 128² 约 30KB）。匿名直读实测 `https://home.haoshenqi.top:9001/magicbook/buddy/robot-head.png` **200**、`buddy/harry-full.png` **200**；对照组不存在对象 `ted-audio/__probe__.aac` **404**——证明 R201 合并进一条 Statement 的前缀策略确实只放开 `buddy/` 与 `ted-audio/`，没有整桶可读。
-- **④ 自查发现并修复第二处缺陷（CSP 拦图）**：`cps/web.py` 的 `img-src 'self' … data:` 未放行 MinIO 源，伙伴头像跨源取图会被浏览器拦；**且这是不可见故障**——`ai_chat.js` 用 `new Image()` 探测，`onerror` 即静默保留「AI」文字兜底，页面表现完全正常，只表现为「图片传了但没换」。修法沿用 R181 `media-src` 的窄面范式：只在 `web.read_book`（一个端点覆盖 epub/pdf/txt/djvu/cbr 五种阅读器，FAB 都在）与 `web.buddy_page`（花名册）放行 `https://home.haoshenqi.top:9001`，其余页面 img-src 不变；该源与 media-src 里已硬编码的是同一个，Nacos 改 `minio.public-url` 时两处一起失效，未新增漂移面。新增 3 条用例（2 端点参数化 + 1 条「index 不得放行」的反向守卫），**反向变异实测**：临时退回未修复版恰好这 2 条红、恢复后全绿。
-- **闸门（本轮记死）**：全量 `.venv/bin/python -m pytest tests/` = **689 passed / 0 failed**（R206 修复后 686 + 本轮 3），判据取 pytest 末行汇总；**在合并后基线 `6b6751a5` 上跑**（`f3b3a782` 代码 + `3f17f288` LLD + merge），merge 前亦在 `f3b3a782` 单跑过一次同为 689。与上一轮的区别正是这次跑在 push **之前**——「先推再补跑」的教训见 R206 补记。
-- **台账与驻留**：requests.md 占号 R207（commit `0ab751d3`，先占即提交）；分支 `feat/r206-buddy`（同会话续作复用同一 worktree，禁止每阶段开新树），先 ff 到已推 tip、再 merge develop 拉齐基线后继续推进；worktree `../magicbook-buddy` 原样驻留待真机验收。**本地 develop 已合至 `6b6751a5`，尚未 push——等一句确认**（本条计数修正 commit 自身使 `git rev-list --count origin/develop..develop` = 8，推平后应为 0；写「4 提交」是没把自己和 merge 带进来的分支提交算全，改记实测命令与结果，不记口算数）；不推的后果不是报错而是「资产传了、图却换不出来」这种静默不生效。跨仓 moon-well 本轮无代码改动，资产上传事实记在其 R201 补记（另有文档 commit `70eecf1` 待推）。PingCode 写入仍待用户单独确认。
-- **补记（2026-10-23 09:28 push 已执行 + 线上 CSP 双探针）**：用户令「推」后 push develop → **`9d67fa3c`**（8 提交推平，`develop...origin/develop` = 0/0）。fnOS：`09:28:35 build START → 09:28:52 END OK`，代码指纹不等故完整部署；同源 moon-well `70eecf1`（纯文档）`09:28:52 build SKIPPED (docs-only)`，与 R207 预判一致。**线上探针**（宿主 `curl -D-`，负对照法）：`/buddy` 返回 `img-src 'self' data: https://home.haoshenqi.top:9001`（302 也走 `after_request`，头照样带）；`/login` **200** 且 img-src 仍为 `'self' data:`——放行面确实只宽到两个端点，没有顺手放宽全站。**余下唯一未验项 = 带鉴权的真机验收**（FAB 换成装备伙伴头像、`/buddy` 花名册出图、引导领取雪鸮、装备切换）：本轮全部服务端/头级证据都不能证明浏览器真的把图画出来了，这一步需要用户登录。
-- **窗口**：本条写入使 request 数达 11，按「写入即检查」把最早一组 R185（架构评审文档修正批 DF1–DF5）原样搬至 `response-archive/response-R185.md` 并登记索引，窗口回 10。
-
-## 2026-10-23（R208：每日学习 banner 小功能管理——齿轮抽屉 + 勾选过滤 + 引导卡）
-
-- **交付**：① 中枢 banner 右上角齿轮 → 管理抽屉（`#lh-manage`，服务端渲染复选框、aria 全套、Esc 关闭），八个功能卡逐一勾选（含并行会话新增的 story 卡，data-key 与 CARDS 同序）；② `learning-hub.js` 勾选过滤——主列表 `cards`（`a.lh-card`）/ 可见列表 `visible` 双轨，轮播/圆点/箭头/缺口排序全部只看 visible；③ localStorage 镜像 `ln-banner-hidden-v1` 首帧前裁剪消除闪现，`plan/today` 的 `settings.bannerHiddenKeys` 回来后对账（服务端是真相；字段缺失=旧后端，保留镜像不报错）；④ 保存走 `POST /ajax/learning/plan/settings`（带既有四股值 + `bannerHiddenKeys`，底稿拼不齐宁可可见报错），失败错误行可见（优先上游文案）；⑤ 全不勾 → 引导卡（`#lh-guide`）+ 「选择功能」回入口；⑥ 代理 `learning_plan_settings` 增形制校验（`[a-z]{2,32}`、≤10，本地 400 镜像上游 50525）与透传（字段缺失不重建——null 语义归上游）。i18n 新增 7 词条（po+mo 编译）；JS 零新增 mbT 字面量，i18n 种子不动。
-- **测试**：新增 `tests/test_learning_banner_manage.py` 6 例（抽屉复选框与卡序一一对应、齿轮/保存/关闭接线、出厂全勾、引导卡默认隐藏、settings 路由注入、新词条 .mo 可取中文）；`test_learning_hub_cards.py` 卡序断言锚定 `<a class="lh-card">`（data-key 也出现在抽屉复选框上，卡序契约本身不变，随八卡更名 test_all_cards_render_in_order）；`test_learning_proxy.py` +4（勾选转发、空列表透传、形制违例本地 400、老客户端不带字段转发体不变）。合并树全量 **pytest 699 passed / 0 failed**（含并行会话 story 用例）。
-- **与并行会话的交织（都按纪律处理）**：① 本轮原占 R206，被并行会话伙伴前端占用且未提交条目遗失 → 续编 **R208**；moon-well 侧原占 R202/R203 连续撞号后定为 **R203**（TED 封面顺延 R204）。② story 八卡与本轮抽屉在同一模板/同一测试交汇：合并冲突按「他们的 CARDS 八条 + 函数名、我的锚定正则」解决，抽屉补 story 行，`MANAGE_KEYS` 八键。③ 错误码 BAD_BANNER_KEYS 随上游顺延 50521→**50525**。
-- **事故记录（本轮引入、同轮修复）**：全仓「兑底→兜底」错别字 sed 误伤 4 个历史台账/归档文件（违反历史只标注不重写），当场 `git checkout` 恢复 origin 原状，提交前复查无残留。另：本任务三处文件改动被写入守卫按「形似凭据」拦截（被拦行均为既有内容：R145 动态鉴权头、测试替身假值、R194 文档句；均非真实密钥），经用户授权重试仍被机械拦截，改走 `git apply` 补丁（`r208-banner-manage.patch`）落地——补丁内容与被拒写入完全一致。
-- **台账与驻留**：requests.md 占号 R208（chore 占号 + 两笔 feat + 一笔 docs，见 git log）；worktree `../magicbook-banner-manage`（分支 `feat/r208-banner-manage`，merge commit `9be68d29`）驻留待验收，验收通过后 `git worktree remove` + `git branch -d`。
-- **构建与未验（如实）**：push `9be68d29` 已触发 fnOS 构建（magicbook 侧构建核验未做，本机无 fnOS 免密通道）；moon-well 侧后端已由 R203/R204 会话实测构建上线（build-sha=0593f5a 含 R203）。**真机验收点**：齿轮开合与勾选保存即时生效、刷新与跨设备一致、另一设备改动被对账、全不勾出引导卡且可回管理、保存失败报错可见、移动端抽屉可用、story 卡可勾选。
-- **总结**：requests.md 占号 R208；本条为回应。窗口：写入前 10 节，归档 R188 后 10 节合规。冲突记录：R206 撞号（伙伴前端）+ 台账条目遗失，均已登记。
 
 ## 2026-10-23（R209：积分内测活动 + 充值倍率机制——充值页代理与前端）
 
@@ -273,3 +238,16 @@
   全量 **853 passed / 0 failed**。
 - **待确认**：500 的具体异常类型要等这次上线后看面板上的那行红字（已含异常类型与消息），
   本轮先把「不可读的失败」变成「可读的失败」，再按实际原因收口。
+
+## 2026-10-24（R221：AI 口语陪练语音优先——教练默认语音条 + 用户录音转写预览）
+
+### R221（用户：修复口语陪练 500；随后「教练默认发语音，类似微信，可以点击语音转文字。同理，我发出去的也是语音，也可以转文字，发送之前先转文字看效果」）
+
+- **编号迁移**：本任务最初误占 **R212**（该号已属品牌资产），已按家族占号流程正式迁移为 **R221**；旧 worktree `../magicbook-r212-speaking-voice` 保留为迁移来源，未删除。R210 口语 403 修复已按用户指令放弃，不推送。
+- **教练语音**：开场与每轮回复默认语音条，点击播放、点「转文字」展开原文；自动播放只在开聊/发送的用户手势链中尝试，失败不弹误导框。后端复用阅读 TTS 缓存与计费，前端通过 `/ajax/reading-tts-cached` 不计费回读。
+- **用户语音**：录音停止 → ASR 转写 → 可编辑预览 → 点击发送才 multipart 上传并调 LLM；保留「Type instead」。发送失败保留预览与已上传对象名，重试不重复上传。历史会话的用户/教练语音均可回放。
+- **修正点**：教练语音合成与回读统一截取 1800 字，避免长回复缓存 miss 后重复扣费；语音按钮文案改为 `Tap to speak`，不暗示按住说话。
+- **测试**：JS `node --check` 通过；`tests/test_learning_proxy.py`、`test_learning_pages_static.py`、`test_i18n_seed_contract.py` 回归 **106 passed**。新增「发送失败保留预览」源码守卫。i18n 种子、中文 PO 与 `.mo` 已同步重编。
+- **文档四问**：能力变化 → L1 `docs/product/readme/learning.md`；契约变化 → L2 `docs/product/learning/interface.md`；实现与边界 → L3 `docs/product/learning/features/speaking-voice-first.md`；本次实现 → `docs/project/iterations/1.0/r221-speaking-voice/lld.md`。需求基线已追加 R221，迭代 plan 增 MB-19 工作项。
+- **驻留与边界（如实）**：worktree `../magicbook-r221-speaking-voice`，分支 `feat/r221-speaking-voice`；业务代码与文档**未 merge、未 push**，驻留待验收。尚未完成真人登录态录音、自动播放、历史回放验收。
+- **总结**：requests.md 条目 221 为已占号需求；本条为回应。冲突记录：原误占 R212，已迁移 R221；R210 已放弃，不推送。
