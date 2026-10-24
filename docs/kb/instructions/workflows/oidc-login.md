@@ -42,7 +42,7 @@ https://account.haoshenqi.top/application/o/authorize/?
    │  ② 从 AUTHENTIK_ENROLLMENT_INVITE_URL 解析出 itoken
    │  ③ 把授权 URL 的 path+query 编码成 next，拼成邀请 flow URL
    ▼
-https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=..&next=%2Fapplication%2Fo%2Fauthorize%2F%3F..
+https://account.haoshenqi.top/if/flow/invitation-enrollment/?query=itoken%3D<pk>%26next%3D...
    │  用户填账号建号（末位 UserLoginStage 建立 Authentik 登录态）
    ▼  flow 完成 → 302 到 next（相对路径的 authorize）
 https://account.haoshenqi.top/application/o/authorize/?client_id=..&state=..&nonce=..&redirect_uri=..
@@ -62,7 +62,9 @@ magicbook 首页（**已是登录态**，无需再点一次「Log in」）
   「已登录 → 签发 code → 回调」，magicbook 侧 `callback()` 零改动，
   建号/绑号/角色判定不分叉。
 - **itoken 从既有 env 解析**，不新增 `AUTHENTIK_ENROLLMENT_INVITE_TOKEN`；
-  轮换邀请只改 `AUTHENTIK_ENROLLMENT_INVITE_URL` 一处。
+  轮换邀请只改 `AUTHENTIK_ENROLLMENT_INVITE_URL` 一处。R219 起生成链接只输出
+  外层 `?query=itoken%3D<pk>%26next%3D...`；旧顶层 `?itoken=` / `?token=`
+  仅为存量 env 兼容读取，不再生成。
 - **注册完成后回 magicbook 的哪个页面**可由 `/oidc/signup?next=...` 指定，
   但只允许站内相对路径（开放重定向防护）。
 - **`AUTHENTIK_ENROLLMENT_INVITE_URL` 未配置** → 登录页不渲染注册入口。

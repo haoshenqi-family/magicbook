@@ -1,6 +1,9 @@
 # LLD：注册后自动回 magicbook（R217）
 
 > 状态：已开发，待验收
+> **R219 已取代邀请 URL 外形**：本文 §3.1/§3.2 中顶层 `?itoken=` 是 R217 当时的实现；
+> 2026-10-23 起现行输出改为嵌套 `?query=itoken%3D<pk>`，旧形式只做兼容读取。
+> 以下历史设计与实测记录保留，不改写。
 > 关联台账：R217（`docs/project/requests/requests.md` 第 217 条）
 > 关联需求：MAGICBOOK-11（R212 入口层）的延伸——注册链路的落点与登录态衔接
 > 相关实现说明：[`docs/product/admin/features/oidc-self-registration.md`](../../../../product/admin/features/oidc-self-registration.md)
@@ -45,7 +48,7 @@ GET /oidc/signup          ← 新端点（magicbook 侧）
    │  3. 把授权 URL 的 path+query 编码为 next
    │  4. 拼上 Authentik 邀请 flow 的 itoken
    ▼
-account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=..&next=%2Fapplication%2Fo%2Fauthorize%2F%3F..
+account.haoshenqi.top/if/flow/invitation-enrollment/?query=itoken%3D<pk>%26next%3D...
    │  用户填账号 → 建号 → UserLoginStage 建立 Authentik 登录态
    ▼  flow 完成，_flow_done() 取 session 里的 next（相对路径）→ 302
 account.haoshenqi.top/application/o/authorize/?client_id=..&state=..&redirect_uri=..&nonce=..
@@ -71,8 +74,9 @@ magicbook 侧 `callback()` 逻辑完全复用，无需改动——**建号/绑�
 **PKCE**：`create_authorization_url` 在 `client.code_challenge_method` 存在时自动带
 `code_challenge`；`code_verifier` 随 state 存 session，回调时由 authlib 自动带上。
 
-**itoken 从哪来**：`AUTHENTIK_ENROLLMENT_INVITE_URL` 现有形态是
-`https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=<uuid>`。
+**itoken 从哪来**：`AUTHENTIK_ENROLLMENT_INVITE_URL` 现行形态是
+`https://account.haoshenqi.top/if/flow/invitation-enrollment/?query=itoken%3D<pk>`
+（R217 当时曾用顶层 `?itoken=<uuid>`，R219 已更正；旧形式仅兼容读取）。
 新增 `AUTHENTIK_ENROLLMENT_INVITE_TOKEN`（纯 uuid）更干净，但为避免**双份配置漂移**，
 本次**从既有 URL 里解析 itoken**，不新增 env 变量——轮换仍只改一个地方。
 

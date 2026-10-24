@@ -22,8 +22,8 @@
         <script>
             "use strict";
         </script>
-        {# R213-B：账号级阅读位置——TXT 阅读器此前没有任何进度记忆，本次一并接上 #}
-        {% if current_user.is_authenticated %}
+        {# R213-B：账号级阅读位置——总开关关闭时回到改造前，不加载采集器、不注入位置 #}
+        {% if current_user.is_authenticated and reading_progress_enabled %}
         <script type="text/javascript">
             window.calibre = {
                 bookId: {{ txtfile }},

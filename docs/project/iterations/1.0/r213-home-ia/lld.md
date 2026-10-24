@@ -254,7 +254,7 @@ def level_of_shelf(name):  # 解析不出 → None
 | 开关 | 位置 | 默认 | 作用 |
 | --- | --- | --- | --- |
 | `config_home_landing` | 站点配置（boolean） | **`true`（2026-10-23 拍板：`/home` 直接作为登录后默认落点）** | 登录/回站后落 `/home`；置 `false` 即回退到原 `/` 发现页 |
-| `reading_progress_enabled` | 站点配置（boolean） | `true` | 总开关；关＝不写不读，回退 localStorage |
+| `config_reading_progress_enabled` | 站点配置（boolean） | `true` | 总开关；关＝端点不写 `ReadingProgress`/`ReadBook`，EPUB/PDF/TXT 不加载采集器、不恢复服务端位置（EPUB 回退 localStorage，PDF/TXT 回到改造前） |
 | `home_recent_limit` | 常量 | 6 | 继续阅读条数 |
 | `home_level_picks` | 常量 | 6 | 每难度阶推荐本数 |
 

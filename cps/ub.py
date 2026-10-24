@@ -654,6 +654,7 @@ def migrate_Database(_session):
     migrate_user_session_table(engine, _session)
     migrate_oidc_user_columns(engine)
     migrate_home_landing_config(engine)
+    migrate_reading_progress_config(engine)
 
 
 def migrate_home_landing_config(engine):
@@ -673,6 +674,22 @@ def migrate_home_landing_config(engine):
     if 'config_home_landing' not in columns:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE settings ADD COLUMN config_home_landing BOOLEAN DEFAULT 1"))
+
+
+def migrate_reading_progress_config(engine):
+    """给既有库补 `settings.config_reading_progress_enabled`（R213-B）。
+
+    Why：`_Settings` 新增列只对新建库生效，存量库缺列时每次配置加载都会抛
+    OperationalError，整站不可用。默认值必须为 1，保持既有账号级阅读位置行为。
+    How：与 `migrate_home_landing_config` 同款 inspector + ALTER，可重复执行。
+    """
+    inspector = __import__('sqlalchemy').inspect(engine)
+    columns = {column['name'] for column in inspector.get_columns('settings')}
+    if 'config_reading_progress_enabled' not in columns:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "ALTER TABLE settings ADD COLUMN "
+                "config_reading_progress_enabled BOOLEAN DEFAULT 1"))
 
 
 def migrate_oidc_user_columns(engine):

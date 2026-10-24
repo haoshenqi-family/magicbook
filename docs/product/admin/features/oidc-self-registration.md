@@ -61,7 +61,7 @@ magicbook 首页（已登录）
 | --- | --- | --- |
 | `next` 指向**同域 authorize**（`/application/o/authorize/?...`），不是 magicbook callback | Authentik 的 `_flow_done()` 硬性拒绝绝对 `next`（`is_url_absolute` 判 netloc）；authorize 与 flow 同域，可写成相对路径 | 指向 authorize 后由 Authentik 负责「已登录→签发 code→回调」，magicbook 侧 `callback()` **零改动**——建号/绑号/角色判定不分叉 |
 | `state` / `nonce` / `code_verifier` 存 magicbook 的 Flask session | 复用 authlib 的 `create_authorization_url()` + `save_authorize_data()`，与既有 `/oidc/login` 路径一致 | 回调时 `authorize_access_token()` 凭 `state` 取回并校验 nonce，无需另建存储 |
-| itoken 从既有 `AUTHENTIK_ENROLLMENT_INVITE_URL` **解析**，不新增 env 变量 | 解析 query 取 `itoken`（兼容 `token` key） | 避免「invite URL 与 invite token 两份配置各自漂移」，轮换仍只改一个地方 |
+| itoken 从既有 `AUTHENTIK_ENROLLMENT_INVITE_URL` **解析**，不新增 env 变量 | 优先解析嵌套 `?query=itoken%3D<pk>`，兼容旧顶层 `itoken` / `token` key；生成时只输出嵌套形式 | 避免「invite URL 与 invite token 两份配置各自漂移」，轮换仍只改一个地方；旧形式仅兼容读取 |
 | 「注册完回 magicbook 哪个页面」走 `get_redirect_location(next, "web.index")` | 复用 `cps/redirect.py` 的 url_map 白名单校验 | 开放重定向防护；用户可控部分只限站内相对路径 |
 
 ### 边界条件

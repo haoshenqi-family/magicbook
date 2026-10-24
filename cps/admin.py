@@ -1805,6 +1805,8 @@ def _configuration_update_helper():
         _config_checkbox_int(to_save, "config_register_email")
         # R213-C：登录/回站落点开关（取消勾选即回退到原 / 发现页，不需要发版）
         _config_checkbox(to_save, "config_home_landing")
+        # R213-B：账号级阅读位置总开关；关闭即退回阅读器本地恢复
+        _config_checkbox(to_save, "config_reading_progress_enabled")
         reboot_required |= _config_checkbox_int(to_save, "config_kobo_sync")
         _config_int(to_save, "config_external_port")
         _config_checkbox_int(to_save, "config_kobo_proxy")

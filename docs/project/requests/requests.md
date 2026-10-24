@@ -214,7 +214,7 @@
 
 218. **R214 子项 A 验收缺陷：在书架里的书详情页 500，读不了书**（占号 2026-10-23，待回填）
 
-219. **注册入口失效：authentik 邀请链接形式变更（老式 ?itoken= 被判 Invalid invite），生产 .env 已改嵌套 ?query=itoken%3D 并配可复用邀请**（占号 2026-10-23，待回填）
+219. **注册入口失效：authentik 邀请链接形式变更（老式 ?itoken= 被判 Invalid invite），生产 .env 已改嵌套 ?query=itoken%3D 并配可复用邀请**（占号 2026-10-23）：状态 **已开发待验收**（2026-10-24）。`cps/oidc.py` 优先解析嵌套 `?query=itoken%3D...`，兼容旧顶层 `itoken`/`token`；`/oidc/signup` 只生成外层 `query`（内部 `itoken` + `next`）。守卫 `tests/test_oidc_signup.py` 已覆盖嵌套解析、旧格式兼容、冲突优先级、token alias 与生成形制；生产 `.env` 与真机注册需验收时复核。
 
 220. **Buddy 从 AI 伴读升级为全站助手**：用户原话——「让伙伴也出现在其他所有页面，每个页面都把当前页面的知识附着到AI的上下文当中。让buddy 成为真正的网站助手。」范围：`layout.html` 全站挂载现有 Buddy 抽屉；非阅读页走 moon-well 既有 `bookId=null` web 场景提示词；发送时采集当前页面可见文本（剔除导航/脚本/面板自身）；站点会话与书籍会话分离；CSP 对 HTML 响应放行 MinIO 头像源，非 HTML 保持窄面。状态：开发中。
 
@@ -224,4 +224,4 @@
 
 223. **Buddy 悬浮球化：透明头像 + hover 径向快捷气泡（/buddy 可配置）**（占号 2026-10-24）：用户原话——「把伙伴的AI伴读文字去掉，文字仅悬浮展示即可，蓝边框也去掉」「伙伴的背景也搞成透明的，文字悬浮也去掉，改为悬浮的时候弹出几个（4-5个，在伙伴页面可以设置，默认右上角的 翻译，朗读，书签等功能）功能气泡。类似Iphone 悬浮球。」范围：FAB 头像态透明化（去背景/边框/阴影/文字标签）、hover 弹出 4–5 个径向快捷气泡（chat 固定 + `/buddy` 页 chip 可配置，默认 翻译/朗读/书签 + 对话）、`GET/POST /ajax/buddy/quick-actions`（`view_settings['buddy']['quickActions']`）、气泡展开方向按 FAB 吸附位置自适应（iPhone 悬浮球同款）。　设计：`docs/project/iterations/1.0/r223-buddy-fab-bubbles/lld.md`。　状态：**已开发待验收**（2026-10-24，worktree `../magicbook-buddy`，分支 `feat/r206-buddy`；发布态全量 906 passed；push 闸门留用户）。
 
-224. **本轮测试修复未完成项收口：R212 入口层、R219 邀请注册、R213-B 进度开关、R214-C 估算 500**（占号 2026-10-24，待回填）
+224. **本轮测试修复未完成项收口：R212 入口层、R219 邀请注册、R213-B 进度开关、R214-C 估算 500**（占号 2026-10-24）：状态 **已完成代码收口，待真机验收**。本轮在 worktree `../magicbook-r224-close-out`（分支 `feat/r224-close-out`）补齐 R219 嵌套邀请链接、R212 交付项 1/3/4、R213-B/B6 进度总开关及三格式下线路径；R214-C 核实 `cps/reading_insight/service.py` 与 `origin/develop` 一致，估算 500 的修复已在 develop（`42ddfb19`/`b28d9240`），但生产异常类型因 ES 401 未取得证据。R213-A 侧边栏分组仍按拍板留到下一迭代。**未 push**。

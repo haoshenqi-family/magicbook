@@ -1,7 +1,27 @@
 {% extends "layout.html" %}
+{% from 'image.html' import book_cover %}
 {% block body %}
-<div class="well col-sm-6 col-sm-offset-2">
-  <h2 style="margin-top: 0">{{_('Login')}}</h2>
+<div class="login-entry col-sm-9 col-sm-offset-1">
+  <section class="login-intro" id="login-value-proposition">
+    <p class="login-kicker">{{_('Your private reading room')}}</p>
+    <h1>{{_('Read deeper. Learn while you read.')}}</h1>
+    <p class="login-lead">
+      {{_('A personal library with instant translation, vocabulary help, and an AI reading companion — all in one quiet place.')}}
+    </p>
+    {% if login_books %}
+    <div class="login-book-wall" id="login-book-wall" aria-label="{{_('Books in the library')}}">
+      {% for book in login_books[:4] %}
+      <a class="login-book-cover" href="{{ url_for('web.login', next=next_url) }}"
+         title="{{ book.title }}" aria-label="{{ book.title }}">
+        {{ book_cover(book) }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+<div class="well col-sm-6 col-sm-offset-2" id="login-panel">
+  <h2 style="margin-top: 0">{{_('Sign in to your library')}}</h2>
   {% if authentik_oidc_enabled %}
     {# 统一账户体系：Authentik 启用后隐藏本地密码表单，仅保留 OIDC 登录 #}
     <p class="text-muted">{{_('Sign in')}}</p>

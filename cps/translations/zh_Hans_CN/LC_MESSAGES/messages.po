@@ -6036,3 +6036,22 @@ msgstr "至少选择 4 个动作"
 
 msgid "Chat"
 msgstr "对话"
+
+#: R212 登录页价值主张与书墙（2026-10-24）
+msgid "Your private reading room"
+msgstr "你的私人书房"
+
+msgid "Read deeper. Learn while you read."
+msgstr "读得更深，在阅读中学习。"
+
+msgid "A personal library with instant translation, vocabulary help, and an AI reading companion — all in one quiet place."
+msgstr "一座私人图书馆，集即时翻译、词汇帮助与 AI 阅读伙伴于一体，安放于一隅静好。"
+
+msgid "Books in the library"
+msgstr "馆藏图书"
+
+msgid "Sign in to your library"
+msgstr "登录你的书房"
+
+msgid "Remember reading position across devices"
+msgstr "跨设备记住阅读位置"

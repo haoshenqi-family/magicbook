@@ -2211,11 +2211,24 @@ def render_login(username="", password=""):
     # 「OIDC 授权」串成一条链，用户注册完自动回站且已是登录态（不再需要二次点击）。
     # 仍以 invite_url 是否配置为开关：未配置 → 不渲染注册入口（沿用 R103 语义）。
     signup_url = url_for("oidc.signup", next=next_url) if invite_url else ""
+    # R212：游客先看到「这里有什么」，再看登录表单。复用首页随机发现的
+    # common_filters（归档/受限书不会漏出）；书库未配置或查询失败时安静隐藏书墙，
+    # 不用一张灰图占住登录入口。关闭匿名浏览时不取书：封面端点会重定向登录，
+    # 提前取数既会产生破图，也会在未授权页面泄露书名。
+    login_books = []
+    if config.config_anonbrowse:
+        try:
+            from .routes.home import random_discover_books
+
+            login_books = random_discover_books(limit=4)
+        except Exception as exc:
+            log.warning("login: book wall unavailable: %s", exc)
     return render_title_template('login.html',
                                  title=_("Login"),
                                  next_url=next_url,
                                  username=username,
                                  password=password,
+                                 login_books=login_books,
                                  oauth_check=oauth_check,
                                  authentik_oidc_enabled=oidc_enabled,
                                  authentik_invite_url=invite_url,
@@ -2366,19 +2379,27 @@ def profile():
 def update_preferences():
     """只更新界面语言与书籍语言，不触碰其他用户字段（R216）。"""
     locale = request.form.get("locale", current_user.locale or "en")
-    book_language = request.form.get("default_language", current_user.default_language or "all")
 
     if locale not in get_available_translations():
         flash(_("Invalid language"), category="error")
         return redirect(url_for("web.profile"))
-    valid_book_languages = {lang.lang_code for lang in calibre_db.speaking_language()}
-    if book_language != "all" and book_language not in valid_book_languages:
-        flash(_("Invalid language"), category="error")
-        return redirect(url_for("web.profile"))
+
+    # R212 顶栏语言菜单只提交 locale。`default_language` 是 /me 表单的书籍
+    # 过滤条件，不能因为顶栏没有提交它就被重置；只有字段显式出现时才校验并
+    # 更新。这样即使账号里保留的语言已从书库消失，切换界面语言仍可成功。
+    update_book_language = "default_language" in request.form
+    book_language = None
+    if update_book_language:
+        book_language = request.form.get("default_language")
+        valid_book_languages = {lang.lang_code for lang in calibre_db.speaking_language()}
+        if book_language != "all" and book_language not in valid_book_languages:
+            flash(_("Invalid language"), category="error")
+            return redirect(url_for("web.profile"))
 
     try:
         current_user.locale = locale
-        current_user.default_language = book_language
+        if update_book_language:
+            current_user.default_language = book_language
         ub.session.commit()
         flash(_("Success! Profile Updated"), category="success")
         log.debug("Preferences updated")
@@ -2473,7 +2494,7 @@ def read_book(book_id, book_format):
                                                              ub.Bookmark.format == book_format.upper())).first()
     # 账号级阅读位置（R213-B）：EPUB 恢复位置用；服务端优先于浏览器 localStorage
     reading_position = None
-    if current_user.is_authenticated:
+    if current_user.is_authenticated and config.config_reading_progress_enabled:
         progress = ub.session.query(ub.ReadingProgress).filter(
             ub.ReadingProgress.user_id == int(current_user.id),
             ub.ReadingProgress.book_id == book_id,
@@ -2485,18 +2506,22 @@ def read_book(book_id, book_format):
                 "page_current": progress.page_current,
                 "page_total": progress.page_total,
             }
+    progress_enabled = bool(config.config_reading_progress_enabled)
     if book_format.lower() == "epub" or book_format.lower() == "kepub":
         log.debug("Start [k]epub reader for %d", book_id)
         return render_title_template('read.html', bookid=book_id, title=book.title, bookmark=bookmark,
-                                     book_format=book_format, reading_position=reading_position)
+                                     book_format=book_format, reading_position=reading_position,
+                                     reading_progress_enabled=progress_enabled)
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
         return render_title_template('readpdf.html', pdffile=book_id, title=book.title,
-                                     reading_position=reading_position)
+                                     reading_position=reading_position,
+                                     reading_progress_enabled=progress_enabled)
     elif book_format.lower() == "txt":
         log.debug("Start txt reader for %d", book_id)
         return render_title_template('readtxt.html', txtfile=book_id, title=book.title,
-                                     reading_position=reading_position)
+                                     reading_position=reading_position,
+                                     reading_progress_enabled=progress_enabled)
     elif book_format.lower() in ["djvu", "djv"]:
         log.debug("Start djvu reader for %d", book_id)
         return render_title_template('readdjvu.html', djvufile=book_id, title=book.title,

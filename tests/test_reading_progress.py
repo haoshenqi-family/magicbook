@@ -14,6 +14,7 @@ Why 直接测 `recent_reading` 而不是走首页：/home 属 R213-C（MB-18）�
 """
 
 import pytest
+from sqlalchemy import text
 
 from cps import ub
 
@@ -108,6 +109,87 @@ def test_anonymous_report_rejected(client, clean_progress):
     resp = client.post("/ajax/reading-progress", json={"book_id": 6, "format": "EPUB"})
     assert resp.status_code in (302, 401, 403)
     assert ub.session.query(ub.ReadingProgress).count() == 0
+
+
+def test_disabled_report_writes_neither_progress_nor_read_state(
+        app, admin_client, clean_progress, clean_link, monkeypatch):
+    """B6 kill switch：关闭时端点仍回 2xx（旧页面不该弹错），但绝不写库。"""
+    monkeypatch.setattr("cps.config.config_reading_progress_enabled", False,
+                        raising=False)
+    resp = _post(admin_client, {"book_id": 9001, "format": "EPUB",
+                                "position": "epubcfi(/6/4!/4/2)", "percent": 12,
+                                "page_current": 3, "page_total": 100})
+    assert resp.status_code == 200
+    assert resp.get_json() == {"success": True, "disabled": True}
+    assert ub.session.query(ub.ReadingProgress).filter_by(book_id=9001).count() == 0
+    assert ub.session.query(ub.ReadBook).filter_by(book_id=9001).count() == 0
+
+
+def test_reading_progress_config_migration_is_idempotent(app):
+    """存量库补列必须可重复执行；第二次不应再 ALTER 或抛 duplicate column。"""
+    engine = ub.session.get_bind()
+    ub.migrate_reading_progress_config(engine)
+    ub.migrate_reading_progress_config(engine)
+    columns = {column["name"] for column in
+               __import__("sqlalchemy").inspect(engine).get_columns("settings")}
+    assert "config_reading_progress_enabled" in columns
+
+
+def test_reading_progress_config_migration_adds_missing_column(tmp_path):
+    """在真正的旧 schema 上验证 ALTER，而不是依赖测试库已含新列。"""
+    from sqlalchemy import create_engine, inspect, text
+
+    engine = create_engine("sqlite:///%s" % (tmp_path / "legacy.db"))
+    try:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "CREATE TABLE settings ("
+                "id INTEGER PRIMARY KEY, config_home_landing BOOLEAN DEFAULT 1)"))
+            connection.execute(text("INSERT INTO settings (id) VALUES (1)"))
+
+        ub.migrate_reading_progress_config(engine)
+
+        columns = {column["name"] for column in inspect(engine).get_columns("settings")}
+        assert "config_reading_progress_enabled" in columns
+        with engine.connect() as connection:
+            assert connection.execute(text(
+                "SELECT config_reading_progress_enabled FROM settings")).scalar() in (1, True)
+    finally:
+        engine.dispose()
+
+
+def test_admin_can_disable_reading_progress(app, admin_client, monkeypatch):
+    """管理页取消勾选必须真的落成 False，而不是只改内存或只渲染复选框。"""
+    from cps import config as cw_config
+    from cps.config_sql import _Settings
+
+    config_row = ub.session.query(_Settings).first()
+    snapshot = {column.name: getattr(config_row, column.name)
+                for column in _Settings.__table__.columns}
+    try:
+        cw_config.config_reading_progress_enabled = True
+        rv = admin_client.post("/admin/ajaxconfig",
+                               data={"config_password_min_length": "8"},
+                               headers={"X-Requested-With": "XMLHttpRequest"})
+        assert rv.status_code == 200
+        assert cw_config.config_reading_progress_enabled is False
+        stored = ub.session.execute(text(
+            "SELECT config_reading_progress_enabled FROM settings LIMIT 1")).scalar()
+        assert stored in (0, False)
+    finally:
+        # 该端点对缺失复选框一律按 False 处理，POST 会连带改掉大量设置。
+        # 恢复整行而不是只恢复被测开关，避免污染后续用例。
+        ub.session.rollback()
+        config_row = ub.session.query(_Settings).first()
+        for key, value in snapshot.items():
+            setattr(config_row, key, value)
+        ub.session.commit()
+        # ConfigSQL.load() 复用 `_settings` 对象；不清缓存会把本次 POST 写入的
+        # False 再读回内存，数据库恢复也无法解除后续用例的 kill switch。
+        cw_config._settings = None
+        cw_config.load()
+        assert cw_config.config_reading_progress_enabled is True
+        assert cw_config.config_read_column == snapshot["config_read_column"]
 
 
 class _FakeBook:

@@ -520,6 +520,10 @@ def reading_progress():
         payload = request.form
     if not hasattr(payload, "get"):
         return jsonify({"success": False, "message": "invalid payload"}), 400
+    # Kill switch：关闭时保留旧阅读器的本地位置能力，但服务端绝不写库
+    # （包括 ReadBook 的在读状态）。仍返回 2xx，避免旧缓存页面反复重试/弹错。
+    if not config.config_reading_progress_enabled:
+        return jsonify({"success": True, "disabled": True})
 
     book_id = _progress_int(payload, "book_id")
     if not book_id:

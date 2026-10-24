@@ -47,8 +47,9 @@ See https://github.com/adobe-type-tools/cmap-resources
         PDFViewerApplicationOptions.set('sidebarViewOnLoad', 0);
         PDFViewerApplicationOptions.set('imageResourcesPath', "{{ url_for('static', filename='css/images/') }}");
         PDFViewerApplicationOptions.set('workerSrc', "{{ url_for('static', filename='js/libs/pdf.worker.js') }}");
-        // R213-B：服务端记录的上次页码 → #page=N 片段，viewer 打开即落位
-        PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf') }}{% if reading_position and reading_position.page_current %}#page={{ reading_position.page_current }}{% endif %}")
+        // R213-B：服务端记录的上次页码 → #page=N 片段，viewer 打开即落位。
+        // 总开关关闭时不拼片段，回到 pdf.js 自身的默认打开行为。
+        PDFViewerApplicationOptions.set('defaultUrl',"{{ url_for('web.serve_book', book_id=pdffile, book_format='pdf') }}{% if reading_progress_enabled and reading_position and reading_position.page_current %}#page={{ reading_position.page_current }}{% endif %}")
     });
     </script>
 
@@ -529,6 +530,7 @@ See https://github.com/adobe-type-tools/cmap-resources
     <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>
     {# R213-B：账号级阅读位置——reader-progress 提供采集/节流，下面内联脚本负责 #}
     {# PDF 阅读器专有的「取当前页 + 恢复页」装配（viewer.js 是 vendored 文件不动它） #}
+    {% if reading_progress_enabled %}
     <script src="{{ url_for('static', filename='js/reading/reader-progress.js') }}"></script>
     {% if current_user.is_authenticated %}
     <script type="text/javascript">
@@ -570,6 +572,7 @@ See https://github.com/adobe-type-tools/cmap-resources
         if (window.PDFViewerApplication) setTimeout(hook, 1000);
     })();
     </script>
+    {% endif %}
     {% endif %}
   </body>
 </html>

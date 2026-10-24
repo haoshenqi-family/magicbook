@@ -25,22 +25,20 @@
 
 ## B · 继续阅读
 
-> B 段证据位置：交付 `0dccef16` / `420a6c48`（已上线），MB-17 用户 2026-10-23 真机确认「继续阅读可以了」；
+> B 段证据位置：交付 `0dccef16` / `420a6c48`（已上线），MB-17 B1–B5 用户 2026-10-23 真机确认「继续阅读可以了」；
 > 守卫 `tests/test_reading_progress.py`、`tests/test_reading_progress_wiring.py`。
 >
-> ⚠ **B6 待核（2026-10-24 发现）**：仓库内查无 `reading_progress_enabled` 这个开关——`grep` 在 `cps/`、
-> `tests/` 里都没有命中，`_Settings`（`cps/config_sql.py`）也没有对应列。也就是说「关闭即回退到 epub.js
-> 本地位置」这条**根本没做过 kill switch**，进度上报是常开的。B6 因此**不勾**，且本次不擅自补开关（属 MB-17
-> 范围，不是 R213-C）：留给 MB-17 结项时确认是「补开关」还是「把判据改成『上报失败不阻塞阅读』」。
-> 注：B2–B5 的守卫（唯一约束 / csrf / percent 夹取 / 书被删跳过）在 `test_reading_progress.py` 里确有对应用例
-> （`test_report_creates_and_upserts`、`test_invalid_payload_rejected`、`test_percent_clamped`、
-> `test_recent_reading_skips_finished_and_missing`），但这不改变它们归属 MB-17 结项轮次勾选的口径。
+> 🔧 **B6 已补开发（2026-10-24）**：总开关名统一为 `config_reading_progress_enabled`（`_Settings` 列 + 存量库迁移 +
+> 管理页复选框）。关闭后端点返回 `{success: true, disabled: true}` 且不写 `ReadingProgress` / `ReadBook`；
+> EPUB/PDF/TXT 均不加载采集器、不注入服务端位置，EPUB 回退 localStorage、PDF 不拼 `#page`、TXT 回到改造前行为。
+> 自动化守卫已绿，B6 勾选仍归 MB-17 复验轮次，**待真机确认关闭后无库写入**。
 - [ ] **B1** GIVEN 用户读到 37/125 页退出 WHEN 次日从任意设备登录 THEN 首页「继续阅读」第一张卡显示该书与 `37/125`，一步点击回到原位（≤3 步满足需求验收②）
 - [ ] **B2** GIVEN 同一用户同一本书 WHEN 上报两次进度 THEN `reading_progress` 只有一行（唯一约束生效），`last_read_at` 取最新
 - [ ] **B3** GIVEN 进度上报缺少/错误 `csrf_token` WHEN 提交 THEN 返回 4xx 且库中无新增行（守卫）
 - [ ] **B4** GIVEN `percent` 传 150 或 -5 WHEN 上报 THEN 落库被夹到 0–100（守卫）
 - [ ] **B5** GIVEN 书已被删除 WHEN 加载首页 THEN 继续阅读不显示该书，页面不报 500（守卫）
-- [ ] **B6** GIVEN 关闭 `reading_progress_enabled` WHEN 阅读 THEN 行为回到改造前（epub.js 本地位置），无任何库写入
+- [ ] **B6** GIVEN 关闭 `config_reading_progress_enabled` WHEN 阅读 THEN 行为回到改造前（epub.js 本地位置），无任何库写入
+  - 开发态已补齐：`test_disabled_report_writes_neither_progress_nor_read_state`、`test_reading_progress_config_migration_is_idempotent`、`test_admin_can_disable_reading_progress`、`test_reading_progress_wiring.py` 三格式下线守卫；**真机验收待执行**
 
 ## C · 今日计划 + 分级推荐
 

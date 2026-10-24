@@ -2,7 +2,7 @@ import base64
 import json
 import os
 import requests
-from urllib.parse import quote, urljoin, urlsplit, urlunsplit
+from urllib.parse import parse_qs, urlencode, urljoin, urlsplit, urlunsplit
 
 from authlib.integrations.flask_client import OAuth
 from authlib.integrations.flask_client.apps import FlaskOAuth2App
@@ -17,6 +17,7 @@ from . import ub, log, constants
 from .cw_login import login_user
 from .landing import landing_endpoint
 from .redirect import get_redirect_location
+from .cw_babel import get_available_translations
 
 
 class AuthentikOAuth2App(FlaskOAuth2App):
@@ -118,6 +119,72 @@ def resolve_new_user_role():
     return site_default_role()
 
 
+def _normalize_locale(value):
+    """把 OIDC claim / Accept-Language 归一成本站实际存在的 gettext locale。
+
+    Why：Authentik 常见 claim 是 ``zh-CN`` 或 ``zh-Hans-CN``，而本站翻译目录
+    与 ``user.locale`` 使用的是 ``zh_Hans_CN``。直接落库会让 Babel 找不到翻译，
+    界面静默退回英文；直接接受任意 claim 又可能写入不存在的目录。
+    How：先按 Babel 规范化，再以完整 locale → 语言+地区 → 语言+文字 → 语言
+    逐级回退。只接受 ``cps/translations`` 里真实存在的 locale，失败返回 None。
+    """
+    from babel import Locale
+    from babel.core import UnknownLocaleError
+
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        locale = Locale.parse(raw.replace("-", "_"))
+    except (UnknownLocaleError, ValueError):
+        return None
+
+    candidates = []
+    if locale.language and locale.script and locale.territory:
+        candidates.append("{0}_{1}_{2}".format(
+            locale.language, locale.script, locale.territory))
+    if locale.language and locale.territory:
+        candidates.append("{0}_{1}".format(locale.language, locale.territory))
+    if locale.language and locale.script:
+        candidates.append("{0}_{1}".format(locale.language, locale.script))
+    if locale.language:
+        candidates.append(locale.language)
+    try:
+        available = get_available_translations()
+    except (RuntimeError, KeyError):
+        # 纯函数层（无 app 上下文）不依赖 Flask-Babel；生产请求内会在下面
+        # 按真实翻译目录过滤，避免写入不存在的 locale。
+        return candidates[0] if candidates else None
+    for candidate in candidates:
+        if candidate in available:
+            return candidate
+    return None
+
+
+def new_user_locale(claims):
+    """新账号初始 locale：Authentik locale claim > Accept-Language > 站点默认值。
+
+    Why 只用于新建账号：已有账号的语言是用户显式偏好，不能在每次 OIDC 登录时
+    被浏览器头覆盖。Accept-Language 使用 Werkzeug 的 quality 排序结果，避免自己
+    解析 q 值；claim 不允许时继续看浏览器，而不是强行写英文。
+    """
+    from . import config
+
+    claim_locale = _normalize_locale((claims or {}).get("locale"))
+    if claim_locale:
+        return claim_locale
+
+    preferred = []
+    for value in request.accept_languages.values():
+        normalized = _normalize_locale(value)
+        if normalized and normalized not in preferred:
+            preferred.append(normalized)
+    if preferred:
+        return preferred[0]
+
+    return _normalize_locale(getattr(config, "config_default_locale", None)) or "en"
+
+
 def init_oidc(app):
     issuer = os.getenv("AUTHENTIK_ISSUER", "").rstrip("/")
     client_id = os.getenv("AUTHENTIK_MAGICBOOK_CLIENT_ID", "")
@@ -153,20 +220,31 @@ def _invite_token():
     """从 ``AUTHENTIK_ENROLLMENT_INVITE_URL`` 解析出邀请 token（itoken）。
 
     Why：沿用既有配置而不新增 env 变量——避免「invite URL 与 invite token 两份
-        配置各自漂移」，轮换时仍只改一个地方。该变量当前形态是
-        ``https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=<uuid>``。
-    How：解析 query 取 ``itoken``；兼容「token」与「?token=」两种 key。
-        解析不出返回 None（调用方据此关闭注册入口，不静默跳坏链接）。
+        配置各自漂移」，轮换时仍只改一个地方。Authentik 只解析外层 ``query``
+        参数的整段值，因此当前正确形态是
+        ``.../?query=itoken%3D<uuid>``；同时兼容老式顶层 ``?itoken=<uuid>``，
+        避免升级瞬间把既有部署的注册入口关掉。
+    How：先解析外层 ``query`` 里的嵌套 query，再回退解析顶层 query；两种位置
+        都兼容 ``itoken`` / ``token`` 两种 key。解析不出返回 None（调用方据此
+        关闭注册入口，不静默跳坏链接）。
     """
     raw = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
     if not raw:
         return None
-    query = urlsplit(raw).query
-    for pair in query.split("&"):
-        if not pair:
-            continue
-        key, _, value = pair.partition("=")
-        if key in ("itoken", "token") and value:
+
+    outer_query = parse_qs(urlsplit(raw).query, keep_blank_values=True)
+    nested_queries = outer_query.get("query") or []
+    for nested_query in nested_queries:
+        nested = parse_qs(nested_query, keep_blank_values=True)
+        for key in ("itoken", "token"):
+            value = (nested.get(key) or [""])[0].strip()
+            if value:
+                return value
+
+    # 向后兼容 R103 以来的顶层 query；Authentik 新版本不再读取这一层。
+    for key in ("itoken", "token"):
+        value = (outer_query.get(key) or [""])[0].strip()
+        if value:
             return value
     return None
 
@@ -236,9 +314,11 @@ def signup():
     invite_base = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
     parts = urlsplit(invite_base)
     flow_path = parts.path or "/if/flow/invitation-enrollment/"
-    # next 用 quote 编码：Authentik 前端把整个地址栏 query 原样透传给 executor，
-    # 不编码会让 next 里的 & 提前截断
-    flow_query = "itoken={0}&next={1}".format(quote(invite_token, safe=""), quote(target, safe=""))
+    # Authentik executor 只解析外层 query 参数的整段值：
+    # get_params = QueryDict(request.GET.get("query", ""))。因此 itoken 与 next
+    # 必须先组成内层 query，再整体作为外层 query 参数编码（否则会被判 Invalid invite）。
+    nested_query = urlencode({"itoken": invite_token, "next": target})
+    flow_query = urlencode({"query": nested_query})
     signup_url = urlunsplit((parts.scheme, parts.netloc, flow_path, flow_query, ""))
     log.info("OIDC signup: redirect to invitation enrollment flow (flow=%s)", flow_path)
     return redirect(signup_url)
@@ -268,7 +348,8 @@ def callback():
             # R211：自助注册不再继承管理员权限——一律站点默认角色（已剔除管理员位），
             # 管理员由人在管理后台手动赋予（2026-10-23 用户拍板）。
             user = ub.User(name=username, email=email,
-                          role=resolve_new_user_role())
+                          role=resolve_new_user_role(),
+                          locale=new_user_locale(userinfo))
             ub.session.add(user)
         user.oidc_issuer = issuer
         user.oidc_subject = subject
