@@ -1,6 +1,6 @@
 # R221 AI 口语陪练语音优先 · LLD
 
-> 状态：**开发完成，待真人端到端验收**（2026-10-24）
+> 状态：**验收缺陷已修复，待真人端到端验收**（2026-10-24）
 > 工作项：R221（magicbook 前端与代理）· 跨仓 moon-well R212（后端与存储/契约主责）
 > 迭代：magicbook 1.0 · 设计文档路径 `docs/project/iterations/1.0/r221-speaking-voice/`
 > 编号说明：本任务最初误占 R212（该号已属品牌资产），2026-10-24 已正式迁移为 R221。
@@ -91,6 +91,9 @@ typing
 - 录音对象名只来自上传端点响应；前端不自行拼路径。
 - 回读端点仍由 moon-well 校验用户/会话/对象前缀；magicbook 只透传。
 - 文本与消息内容走 DOM `textContent`，不拼 HTML。
+- 浏览器把 TTS 与录音都转成 `blob:` URL 后交给 `Audio`，因此
+  `/learning/speaking` 的 CSP 需显式给出 `media-src 'self' blob:`；该指令只挂在
+  本页，既不放宽全站 `default-src`，也不携带阅读页的有道 / MinIO 媒体源。
 
 ## 6. 失败与边界
 
@@ -103,6 +106,7 @@ typing
 | 教练 TTS 失败 | 文字与反馈照常；语音播放失败可见 |
 | 自动播放被浏览器拦截 | 静默失败，用户可点击播放 |
 | 旧历史消息 | 无语音字段时按文字气泡渲染 |
+| CSP 未放行 blob: | 接口 200 但媒体加载被拦：控制台报 `Loading media from 'blob:…' violates …`，播放器无声音 |
 
 ## 7. 测试与验收
 
@@ -111,6 +115,9 @@ typing
 - `test_learning_proxy.py`：上传字段、语音元数据白名单、失败保留预览、页面 URL。
 - `test_learning_pages_static.py`：脚本顺序与 URL 注册。
 - `test_i18n_seed_contract.py`：新增词条与中文译文完整。
+- `test_csp_media.py`：口语页端点与真实 `/learning/speaking` 路由均声明
+  `media-src 'self' blob:`，且不得带阅读页外源；无媒体需求的页面仍不产生
+  `media-src`。
 - JS 语法：`node --check cps/static/js/learning-speaking.js` 与 `learning-voice.js`。
 
 **真人验收（未完成）**
@@ -124,6 +131,9 @@ typing
 ## 8. 交付状态与驻留
 
 - worktree：`../magicbook-r221-speaking-voice`，分支 `feat/r221-speaking-voice`。
-- 业务代码与文档提交在本分支，**未 merge、未 push**，驻留待验收。
+- 验收缺陷修复：`/ajax/reading-tts-cached` 正常，但口语页缺少 `media-src`，
+  `blob:` 回退 `default-src` 后被浏览器拦截。`cps/web.py` 仅为
+  `web.learning_speaking_page` 增加 `media-src 'self' blob:`。
+- 修复提交合并并推送 `develop` 后触发自动上线；worktree 驻留待用户真机验收。
 - 旧 `../magicbook-r212-speaking-voice` 为误占号的迁移来源，未删除、未清理。
-- 尚未完成真人登录态录音与播放验收。
+- 自动测试已覆盖 CSP 放行面；真人登录态录音、自动播放与历史回放仍待验收。

@@ -139,6 +139,11 @@ def add_security_headers(resp):
         # 后端同一份，过渡期两源并列）。
         csp += ("; media-src 'self' blob: https://dict.youdao.com"
                 " " + " ".join(MINIO_PUBLIC_ORIGINS))
+    elif request.endpoint == "web.learning_speaking_page":
+        # 口语陪练把 TTS 与用户录音经 fetch 转成 Blob URL 后交给 Audio 播放。
+        # media-src 未显式声明时会回退到不含 blob: 的 default-src，浏览器将
+        # 拦截播放；这里只放行同源与 blob，不携带阅读页的有道 / MinIO 外源。
+        csp += "; media-src 'self' blob:"
     csp += "; img-src 'self'"
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"

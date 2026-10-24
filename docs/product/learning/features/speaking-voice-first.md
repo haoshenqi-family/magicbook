@@ -27,6 +27,10 @@
 - 用户语音请求 `/ajax/learning/speaking/recording/audio`，以 `sessionId` +
   `audioObject` 换二进制；不直接使用 MinIO URL。
 - 同一时刻只保留一个 `Audio` 实例，播放新语音前先暂停旧的；播放结束/失败恢复图标。
+- 教练 TTS 与用户录音都以 `fetch` 取回二进制后经 `URL.createObjectURL(blob)`
+  交给 `Audio` 播放。CSP 必须为 `/learning/speaking` 显式声明
+  `media-src 'self' blob:`；未声明时浏览器回退 `default-src`（不含 `blob:`），
+  会出现接口 200、媒体加载却被 CSP 拦截的「无提示不播放」。
 
 ### 3. 自动播放
 
@@ -49,6 +53,9 @@
   `durationMs/audioObject`。
 - 页面依赖 `learning-voice.js` 的 `onRecording({wav,text,durationMs})` 契约；
   不要在页面里重复实现录音逻辑。
+- CSP 放行面必须保持窄：口语页只需要 `media-src 'self' blob:`，不得为播放
+  顺带放行阅读页的有道发音或 MinIO 源；也不要把 `blob:` 加进全站
+  `default-src`。
 
 ## 失败与降级
 
@@ -61,6 +68,7 @@
 | 教练 TTS 失败 | 教练文字与反馈正常展示；语音播放失败可见 |
 | 缓存回读 miss | 有预备 audioUrl 时不回退，避免重复扣费；仅有 audioUrl 为空时才允许补合成 |
 | 历史录音不可读 | 播放失败提示，不吞成空白消息 |
+| CSP 未放行 blob: | 不表现为空态；开发者工具显示媒体加载被 CSP 拦截，需检查口语页 `media-src` |
 
 ## 测试锚点
 

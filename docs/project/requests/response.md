@@ -261,6 +261,8 @@
 - **用户语音**：录音停止 → ASR 转写 → 可编辑预览 → 点击发送才 multipart 上传并调 LLM；保留「Type instead」。发送失败保留预览与已上传对象名，重试不重复上传。历史会话的用户/教练语音均可回放。
 - **修正点**：教练语音合成与回读统一截取 1800 字，避免长回复缓存 miss 后重复扣费；语音按钮文案改为 `Tap to speak`，不暗示按住说话。
 - **测试**：JS `node --check` 通过；`tests/test_learning_proxy.py`、`test_learning_pages_static.py`、`test_i18n_seed_contract.py` 回归 **106 passed**。新增「发送失败保留预览」源码守卫。i18n 种子、中文 PO 与 `.mo` 已同步重编。
+- **验收缺陷（2026-10-24 续修）**：用户真机验收反馈 `/ajax/reading-tts-cached` 返回正常，但教练与用户语音均无法播放；Chrome 控制台为 `Loading media from 'blob:…' violates ... Content Security Policy`。根因是阅读页已显式放行 `media-src … blob:`，而口语页没有 `media-src`，媒体加载回退到不含 `blob:` 的 `default-src`。修法仅为 `web.learning_speaking_page` 增加 `media-src 'self' blob:`，不改 TTS 接口、不放宽全站 `default-src`，也不向口语页带入阅读页的有道 / MinIO 外源。
+- **修复回归**：`tests/test_csp_media.py` 新增「口语 endpoint 只允许 self + blob」与「真实 `/learning/speaking` 路由响应头」两条守卫，并保留无媒体页面不得产生 `media-src` 的反向断言。定向四文件 **116 passed**；JS `node --check` 通过；发布态全量 `pytest tests/` **903 passed / 0 failed**。
 - **文档四问**：能力变化 → L1 `docs/product/readme/learning.md`；契约变化 → L2 `docs/product/learning/interface.md`；实现与边界 → L3 `docs/product/learning/features/speaking-voice-first.md`；本次实现 → `docs/project/iterations/1.0/r221-speaking-voice/lld.md`。需求基线已追加 R221，迭代 plan 增 MB-19 工作项。
-- **驻留与边界（如实）**：worktree `../magicbook-r221-speaking-voice`，分支 `feat/r221-speaking-voice`；业务代码与文档**未 merge、未 push**，驻留待验收。尚未完成真人登录态录音、自动播放、历史回放验收。
+- **驻留与边界（如实）**：worktree `../magicbook-r221-speaking-voice`，分支 `feat/r221-speaking-voice`；语音优先功能已合入 develop，CSP 验收缺陷修复提交后合并并推送 develop 触发自动上线，worktree 保留待真机验收。尚未完成真人登录态录音、自动播放、历史回放验收。
 - **总结**：requests.md 条目 221 为已占号需求；本条为回应。冲突记录：原误占 R212，已迁移 R221；R210 已放弃，不推送。
