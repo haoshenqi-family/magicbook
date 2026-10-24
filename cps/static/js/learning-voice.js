@@ -131,28 +131,9 @@
     return Promise.resolve(encodeWav(chunks, rate));
   }
 
-  function transcribeRecording() {
-    var seconds = Math.round((Date.now() - recorder.startedAt) / 1000);
-    if (seconds < 1) return Promise.reject(new Error(mbT('Recording too short')));
-    return recorderStop().then(function (blob) {
-      var form = new FormData();
-      form.append('file', blob, 'recording.wav');
-      return fetch(urls.asrTranscribe, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'X-CSRFToken': MB.csrfToken() },
-        body: form,
-      }).then(function (response) {
-        return response.json().then(function (data) {
-          if (!response.ok || !data || data.success !== true) {
-            throw new Error((data && data.message) || mbT('Something went wrong'));
-          }
-          var text = String(data.result && data.result.text || '').trim();
-          if (!text) throw new Error(mbT('No speech detected'));
-          return text;
-        });
-      });
-    });
+  /** 当前录音是否还在进行（页面可在发送/重录前判断，避免二次停止）。 */
+  function isRecording() {
+    return !!(recorder.ctx || recorder.stream);
   }
 
   function micLabel(btn, text) {
@@ -183,8 +164,8 @@
   }
 
   /**
-   * 挂一个麦克风按钮。状态全在按钮上自更新：语音输入 → 录音中 mm:ss（红底，
-   * 再点停止）→ 转写中…；图标字体缺失时按钮仍有文字，不再是「空白按钮」（R156）。
+   * 挂一个麦克风按钮。状态全在按钮上自更新：录音 → 录音中 mm:ss（红底，再点停止）→
+   * 转写中…。onRecording 回调拿到 {wav, text, durationMs}，由页面决定发送前如何确认。
    *
    * idleLabel 取按钮当前文案而非写死英文：R166 前复位用的是硬编码 'Voice input'，
    * 中文用户录完一次后标签会跳回英文。
@@ -232,12 +213,43 @@
       btn.disabled = true;
       micLabel(btn, mbT('Transcribing…'));
       if (statusNode) esc(statusNode, '');
+      var recordingMs = Math.round(Date.now() - recorder.startedAt);
+      if (recordingMs < 1000) {
+        reset();
+        try {
+          recorderStop().catch(function () { /* 清空过短录音 */ });
+        } catch (e) { /* 没有有效录音块时只需复位 UI */ }
+        window.alert(mbT('Recording too short'));
+        return;
+      }
       // R158：同步段抛错也必须复原按钮——此前 statusNode 未注册时同步 TypeError
       // 让按钮永远停在「转写中…」且无任何提示
+      var wavPromise = recorderStop();
       try {
-        transcribeRecording().then(function (text) {
+        wavPromise.then(function (wav) {
+          var form = new FormData();
+          form.append('file', wav, 'recording.wav');
+          return fetch(urls.asrTranscribe, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': MB.csrfToken() },
+            body: form,
+          }).then(function (response) {
+            return response.json().then(function (data) {
+              if (!response.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) || mbT('Something went wrong'));
+              }
+              var text = String(data.result && data.result.text || '').trim();
+              if (!text) throw new Error(mbT('No speech detected'));
+              return text;
+            });
+          }).then(function (text) {
+            return options.onRecording
+              ? options.onRecording({ wav: wav, text: text, durationMs: recordingMs })
+              : options.onText(text);
+          });
+        }).then(function () {
           reset();
-          options.onText(text);
         }).catch(function (err) {
           reset();
           window.alert(err.message);
@@ -249,5 +261,5 @@
     });
   }
 
-  window.MBLearningVoice = { attach: attach };
+  window.MBLearningVoice = { attach: attach, isRecording: isRecording };
 })();

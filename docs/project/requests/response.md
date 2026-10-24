@@ -45,24 +45,10 @@
 - `response-archive/response-R206-R207.md`：R206 伙伴系统前端 + R207 伙伴验收三连与 CSP 拦图修复——2026-10-24 R213-C 写入触发轮转搬移（搬移前窗口已 11 节），原样搬移不改写
 - `response-archive/response-R208.md`：R208 每日学习 banner 小功能管理（齿轮抽屉 + 勾选过滤 + 引导卡）——2026-10-24 R213-C 合入 `origin/develop` 后窗口达 11 节（与 R214-C 验收缺陷节并行追加）触发续搬，原样搬移不改写
 - `response-archive/response-R209.md`：R209 积分内测活动 + 充值倍率机制（充值页代理与前端）——2026-10-24 R213-C 与 R217 在 develop 合流后窗口达 11 节触发轮转搬移，原样搬移不改写
+- `response-archive/response-R210.md`：R210 伙伴图片未生效的定性与 MinIO 入口切换的 CSP 侧（源清单收敛单点、过渡双源）——2026-10-24 R213-C / R217 / R221 再次合流后窗口达 11 节触发续搬，原样搬移不改写
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-## 2026-10-23（R210：伙伴图片未生效的定性与 MinIO 入口切换的 CSP 侧——源清单收敛单点、过渡双源）
-
-### R210（用户：「伙伴的图片似乎没有起作用」→「我知道了，我的网络会拦截 https://home.haoshenqi.top:9001。minio地址改为 https://minio.haoshenqi.top，只是入口不同，后端一样」）
-
-- **根因**：不是鉴权、不是 CSP 写错，而是**出口入口本身被用户网络拦**。伙伴头像与 TED 原声都按 moon-well 的 `minio.public-url`（现网＝`home.haoshenqi.top:9001`）拼直链，浏览器取不到对象；magicbook 侧 CSP 又硬编码同一源，所以「换入口」天然是两仓联动改动。
-- **入口等价性实测**：同一 TED 对象经两入口 HEAD 得 `Content-Length=10391127`、`ETag=f39b066b…-2` 完全相同；小 PNG 另比 sha256 亦相同 ⇒ 确认「只是入口不同，后端一样」。DNS 侧 `minio.haoshenqi.top`→8.139.5.79（VPS，443 经 lucky 反代），`home.haoshenqi.top`→61.153.123.227（仅 :9001 可达）。
-- **本仓改动**（commit `4944b350`）：`cps/web.py` 新增 `MINIO_PUBLIC_ORIGINS` 单点清单，`media-src`（R181 TED 原声）与 `img-src`（R207 伙伴头像）都由它拼——原先两处各写一遍同一个源，这正是「改基址必然两处同坏」的结构性原因。**过渡期两源并列**：magicbook 先松 CSP，moon-well 再翻配置，避免翻转窗口内 TED 原声与伙伴图同时被拦；待再无任何响应产出旧源，删旧条目单独一笔收窄（注释里写死了这条后续动作，别夹进功能改动）。
-- **测试**：TED 用例改为断言两源并列；伙伴用例改为参数化断言两源；反向守卫加严——`web.index` 不得出现任一 MinIO 源，另加一条「img-src 不得被放宽成通配 / 不得混入无关源」。全量 `.venv/bin/python -m pytest tests/` = **700 passed / 0 failed**（含并行会话 R208 banner 用例与本轮新增）。
-- **排查过程里我的两次探针失误（如实记）**：① 内置浏览器打开 `/buddy` 显示「Failed to load」、`ajax/buddy/catalog` 回 401，我几乎据此判成 buddy 专属缺陷——跑对照组发现**同一会话里 `ajax/achievements-summary|detail|pending` 也全 401**，那只是内置浏览器会话的 moon-well 令牌失效，证据无效；真正可用的是服务端 `mk-` 系统身份直探 `/buddy/catalog`（回 200 且 imageUrl 正常下发）。② 第一次比两入口我用 `curl -m 20` 直接下载，10MB 对象被**我自己的超时**截成 8.69MB，差点报成「两入口内容不一致」；改用 HEAD 比 `Content-Length`/`ETag` 才对。另有一次把「docker logs 里查不到 buddy 请求」当成「前端没发请求」——magicbook 根本不按请求写 stdout（访问日志在 ES），是探针无效而非事实。
-- **跨仓同源**：moon-well R206——`minio.public-url` 三处消费方原为 `@Value` 且全仓无 `@RefreshScope`，配置发布后日志照打 `Refresh keys changed` 却不生效，叠上部署侧「代码指纹相同→跳过重启」，**只改配置会永久卡旧值**；改走仓内既有范式 `@ConfigurationProperties`。
-- **台账与驻留**：requests.md 首占 R209（11:45，commit `0cd89023`），12:51 并行会话在 `26526677`（承接 moon-well R205）里也用了 R209；其记录已入 develop，本方按「后到者让号」续编 **R210**，他们记录一字未动。两轮撞号的共同根因：双方未推分支上的号彼此不可见，「先占即提交」只防已推侧。；分支 `feat/r206-buddy` 复用同一 worktree `../magicbook-buddy`，先 merge `origin/develop` 拉齐基线；worktree 原样驻留待真机验收。**本轮改动尚未 push**（等确认；顺序：先推本仓松 CSP → 再推 moon-well → 最后翻 Nacos 配置）。
-- **发布完成（2026-10-23 13:5x）**：全量 `pytest tests/` = **700 passed / 0 failed**（合并基线，含并行会话 R209 充值前端用例与本轮 CSP 用例）；push `163b9784` → fnOS `13:51:58 START → 13:52:15 END OK`，代码指纹 `221ec91c… → 06ba7c25…` 不等故完整部署、`deploy SUCCESS`。**线上头级验证**：`/buddy` 的 `img-src 'self' data: https://minio.haoshenqi.top https://home.haoshenqi.top:9001`（双源到位、新源在前），反向对照 `/login` 仍是 `'self' data:`（窄面未被放宽）。moon-well 侧随后翻 `minio.public-url`，catalog 已改吐新入口（详见 moon-well R206 补记）。合并时又撞一次：我方条目最终 R210（详见「台账与驻留」）。**余下唯一未验项仍是带鉴权的肉眼验收**——头级证据只能证明「不拦」，不能证明「画出来了」。
-
-- **窗口（重复轮转已作废）**：我方写入时分支窗口仍带着那节标题壳为「2026-10-16（R130…）」、正文实为 `### R190` 的块，我把它另立成 `response-archive/response-R190.md`——但**并行会话早已把同一节并入 `response-R130.md`**（我方自己的索引第 32 行就记着这件事），我那份是重复副本，合并时**删除副本、以 develop 为准**。以 develop 为基追加本条后窗口达 11 条，真正该搬的是最旧的 **R191**，已原样搬至 `response-archive/response-R191.md` 并登记索引，窗口回 10。根因与本轮两次撞号同源：**未推分支上的窗口态与编号都互相不可见**，搬移/占号前必须对 develop 复核。
 
 ## 2026-10-23（R211：OIDC 自助注册默认授予管理员权限——P0 缺陷修复）
 
@@ -265,3 +251,16 @@
 - **AC 与台账回填（本轮实际改动的文件，不是只在回应里说）**：`ac/acceptance.md` 状态行改「A 除分组外已上线 / B 已验收 / C 已开发待验收」，C1–C6 逐条勾选并附判据落点 + 测试名，C2/C3 行内标「真机待 G1」；G2/G3 勾选；G1 保留待真机。**A1 明确不勾**并写明「本迭代不实施，不是缺口」；A2–A7/B1–B5 段首注明证据位置但**不代勾**（勾选归 MB-16/MB-17 结项轮次，代勾等于替别人宣布验收结论）。`plan.md` 回填 MB-12（A 除分组外已上线 / B 已验收 / C 已开发待验收）、MB-16（分组按 2026-10-24 拍板本迭代不改，`Shelf.kind` 留待下迭代）、MB-18（已开发待验收 + 落地清单）。
 - **顺带发现两处文档欠账（已标注、未擅自修）**：① AC **B6** 写的开关 `reading_progress_enabled` 在仓库里**根本不存在**（`cps/`、`tests/`、`_Settings` 均无命中）——R213-B 从未做过 kill switch，进度上报是常开的。按 MB-17 范围处理，留给下轮确认「补开关」还是「改判据」。② 首版我凭印象写了个 `enable_reading_progress`，随即被自己的核查推翻，已在 AC 里改成「查无此开关」的准确表述——这类名字不能猜。
 - **驻留与闸门**：已提交 `f4df325a`，并 merge `origin/develop`（`d1db8268`）拉齐基线，全量重跑后推进 develop 指针（**只推本地 develop，不 push**）。worktree `../magicbook-r213-home-ia`（分支 `feat/r213-home-ia`）保留待真机验收；**push 即触发 fnOS 自动上线，按用户闸门执行**。真机验收重点：G1 两档视口（1440×900 / 390×844）截图比对，以及「今日计划」在 moon-well 正常/不可用两种状态下的表现（C2/C3 的最后一段只能在真机看）。
+
+## 2026-10-24（R221：AI 口语陪练语音优先——教练默认语音条 + 用户录音转写预览）
+
+### R221（用户：修复口语陪练 500；随后「教练默认发语音，类似微信，可以点击语音转文字。同理，我发出去的也是语音，也可以转文字，发送之前先转文字看效果」）
+
+- **编号迁移**：本任务最初误占 **R212**（该号已属品牌资产），已按家族占号流程正式迁移为 **R221**；旧 worktree `../magicbook-r212-speaking-voice` 保留为迁移来源，未删除。R210 口语 403 修复已按用户指令放弃，不推送。
+- **教练语音**：开场与每轮回复默认语音条，点击播放、点「转文字」展开原文；自动播放只在开聊/发送的用户手势链中尝试，失败不弹误导框。后端复用阅读 TTS 缓存与计费，前端通过 `/ajax/reading-tts-cached` 不计费回读。
+- **用户语音**：录音停止 → ASR 转写 → 可编辑预览 → 点击发送才 multipart 上传并调 LLM；保留「Type instead」。发送失败保留预览与已上传对象名，重试不重复上传。历史会话的用户/教练语音均可回放。
+- **修正点**：教练语音合成与回读统一截取 1800 字，避免长回复缓存 miss 后重复扣费；语音按钮文案改为 `Tap to speak`，不暗示按住说话。
+- **测试**：JS `node --check` 通过；`tests/test_learning_proxy.py`、`test_learning_pages_static.py`、`test_i18n_seed_contract.py` 回归 **106 passed**。新增「发送失败保留预览」源码守卫。i18n 种子、中文 PO 与 `.mo` 已同步重编。
+- **文档四问**：能力变化 → L1 `docs/product/readme/learning.md`；契约变化 → L2 `docs/product/learning/interface.md`；实现与边界 → L3 `docs/product/learning/features/speaking-voice-first.md`；本次实现 → `docs/project/iterations/1.0/r221-speaking-voice/lld.md`。需求基线已追加 R221，迭代 plan 增 MB-19 工作项。
+- **驻留与边界（如实）**：worktree `../magicbook-r221-speaking-voice`，分支 `feat/r221-speaking-voice`；业务代码与文档**未 merge、未 push**，驻留待验收。尚未完成真人登录态录音、自动播放、历史回放验收。
+- **总结**：requests.md 条目 221 为已占号需求；本条为回应。冲突记录：原误占 R212，已迁移 R221；R210 已放弃，不推送。

@@ -42,6 +42,10 @@ _LLM_SSE_IDLE_TIMEOUT = 300
 # 编故事实测 10-25s，按写作同档给 120s（JSON 回退用；SSE 走心跳兜底）。
 _STORY_LLM_TIMEOUT = 120
 
+# 口语每轮 LLM 预算 120s，回复后还要同步合成教练语音；90s 会让慢请求在后端仍
+# 成功时先被代理截成 503。210s = 120s LLM + TTS/落库/网络余量，与写作长任务同档。
+_SPEAKING_LLM_TIMEOUT = 210
+
 
 @web.route("/learning", methods=["GET"])
 @user_login_required
@@ -352,15 +356,16 @@ def learning_speaking_session():
     """Proxy speaking session start（场景+教练风格；greeting 同步返回）。"""
     return _b1_proxy("/learning/speaking/session",
                      ("scenario", "scenarioLabel", "coachStyle", "bookId", "bookTitle"),
-                     required=("scenario",), timeout=90)
+                     required=("scenario",), timeout=_SPEAKING_LLM_TIMEOUT)
 
 
 @web.route("/ajax/learning/speaking/message", methods=["POST"])
 @user_login_required
 def learning_speaking_message():
-    """Proxy one speaking turn（用户文本 → coach 回应+分层反馈；LLM 密集）。"""
-    return _b1_proxy("/learning/speaking/message", ("sessionId", "text", "audioUrl"),
-                     required=("sessionId", "text"), timeout=90)
+    """Proxy one speaking turn（用户语音转写文本 → coach 回应+分层反馈）。"""
+    return _b1_proxy("/learning/speaking/message",
+                     ("sessionId", "text", "voice", "audioObject", "durationMs"),
+                     required=("sessionId", "text"), timeout=_SPEAKING_LLM_TIMEOUT)
 
 
 @web.route("/ajax/learning/speaking/report", methods=["POST"])
@@ -368,7 +373,7 @@ def learning_speaking_message():
 def learning_speaking_report():
     """Proxy session report（LLM 解读整场对话）。"""
     return _b1_proxy("/learning/speaking/report", ("sessionId",),
-                     required=("sessionId",), timeout=90)
+                     required=("sessionId",), timeout=_SPEAKING_LLM_TIMEOUT)
 
 
 @web.route("/ajax/learning/speaking/messages", methods=["POST"])
@@ -385,6 +390,39 @@ def learning_speaking_history():
     """Proxy speaking history; ?limit=1..50。"""
     return _moonwell_proxy("/learning/speaking/history", None, 15,
                            "learning speaking history", method="GET")
+
+
+@web.route("/ajax/learning/speaking/recording/upload", methods=["POST"])
+@user_login_required
+def learning_speaking_recording_upload():
+    """保存用户本轮录音（先转写预览，点发送后才上传并进入会话）。"""
+    upload = request.files.get("file")
+    session_id = str(request.form.get("sessionId") or "").strip()
+    if upload is None or not upload.filename:
+        return jsonify({"success": False, "message": "file is required"}), 400
+    if not re.match(r"^\d+$", session_id):
+        return jsonify({"success": False, "message": "sessionId is invalid"}), 400
+    recording = upload.read()
+    if not recording:
+        return jsonify({"success": False, "message": "录音内容为空"}), 400
+    if len(recording) > 10 * 1024 * 1024:
+        return jsonify({"success": False, "message": "录音超过大小上限（10MB）"}), 400
+    filename = upload.filename if "." in upload.filename else "recording.wav"
+    return _moonwell_multipart(
+        "/learning/speaking/recording/upload",
+        recording, filename, 30, "speaking recording upload",
+        fields={"sessionId": session_id})
+
+
+@web.route("/ajax/learning/speaking/recording/audio", methods=["POST"])
+@user_login_required
+def learning_speaking_recording_audio():
+    """按当前用户和会话鉴权回读录音字节。"""
+    body = _b1_payload(("sessionId", "audioObject"), required=("sessionId", "audioObject"))
+    if body is None:
+        return jsonify({"success": False, "message": "invalid request body"}), 400
+    return _moonwell_proxy("/learning/speaking/recording/audio", body, 30,
+                           "speaking recording audio", binary=True)
 
 
 @web.route("/ajax/learning/retell/start", methods=["POST"])

@@ -41,9 +41,23 @@
   .sw-score span { display: block; font-size: 12px; color: #888; }
   .sw-progress { padding: 8px 10px; background: #f2f9ef; border-radius: 4px; }
   .sw-chat { max-height: 380px; overflow-y: auto; margin-bottom: 8px; }
-  .sw-msg { margin-bottom: 10px; }
-  .sw-msg-user { text-align: right; color: #555; }
-  .sw-msg-coach { color: #222; }
+  .sw-msg { margin-bottom: 12px; display: flex; flex-direction: column; align-items: flex-start; }
+  .sw-msg-user { align-items: flex-end; }
+  .sw-msg-coach { align-items: flex-start; }
+  .sw-msg-who { font-size: 12px; color: #999; margin-bottom: 3px; }
+  .sw-voice-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .sw-voice-bubble { border: 0; border-radius: 18px; padding: 8px 14px; color: #fff;
+    background: #4f8fbe; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+  .sw-msg-user .sw-voice-bubble { background: #58b368; }
+  .sw-voice-bubble.sw-playing { box-shadow: 0 0 0 3px rgba(79,143,190,.25); }
+  .sw-msg-transcript { margin-top: 7px; padding: 8px 11px; max-width: min(520px, 90vw);
+    border-radius: 10px; background: #f2f2f2; color: #333; white-space: pre-wrap; }
+  .sw-compose { border-top: 1px solid #eee; padding-top: 10px; }
+  .sw-compose-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+  .sw-compose .sw-mic { min-width: 142px; }
+  .sw-compose .sw-chat-input { min-height: 58px; }
+  .sw-voice-preview { margin-top: 8px; font-size: 13px; color: #666; }
+  .sw-voice-preview-label { display: block; margin-bottom: 3px; }
   .sw-feedback { margin-top: 4px; padding: 6px 10px; background: #f7f7f7; border-radius: 4px; font-size: 13px; }
   .sw-correction { margin: 2px 0; font-size: 13px; }
   .sw-chat-input { flex: 1; min-width: 220px; }
@@ -53,6 +67,7 @@
   .sw-round-table td, .sw-round-table th { padding: 4px 8px; }
   .sw-mic.sw-rec { color: #fff; background: #c62828; border-color: #c62828; }
   .sw-rec-status { color: #c62828; font-size: 13px; }
+  .sw-status-error { color: #c62828; }
   .sw-mic-label { margin-left: 4px; }
   .sw-mic-device { font-size: 12px; }
   .sw-mic-hint { margin-top: 8px; margin-bottom: 0; }

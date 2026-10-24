@@ -194,6 +194,10 @@
     if (!button || !window.PointerEvent) return;
     var key = "calibre.ai.buddy.position";
     var edgeGap = 10;
+    // 头像 img 的原生拖拽会中断 pointer 流；draggable=false 为主，这里兜底旧缓存。
+    button.addEventListener("dragstart", function (event) {
+      event.preventDefault();
+    });
     var saved;
     try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { saved = null; }
     if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {

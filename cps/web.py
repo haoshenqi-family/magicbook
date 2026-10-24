@@ -451,7 +451,7 @@ def _b1_payload(allowed, required=()):
                 return None
             cleaned[key] = value
             continue
-        if key == "addUnknown":
+        if key in ("addUnknown", "voice"):
             if not isinstance(value, bool):
                 return None
             cleaned[key] = value
@@ -907,7 +907,10 @@ def _moonwell_refresh_session_token():
     return _moonwell_client.refresh_session_token()
 
 
-def _moonwell_multipart(path, file_bytes, filename, timeout, label):
+def _moonwell_multipart(path, file_bytes, filename, timeout, label, fields=None):
+    if fields:
+        return _moonwell_client.multipart(path, file_bytes, filename, timeout, label,
+                                          fields=fields)
     return _moonwell_client.multipart(path, file_bytes, filename, timeout, label)
 
 
