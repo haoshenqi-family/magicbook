@@ -9,8 +9,18 @@ from cps.web import (
 from ..render_template import render_title_template
 from ..usermanagement import user_login_required
 from flask import jsonify
+from flask import Response
 from flask import request
 from flask_babel import gettext as _
+import requests as http_requests
+
+
+# R220 验收现场：个别浏览器环境（本机 Chrome 的拦截类扩展）会把跨站图片子资源
+# 直接 ERR_BLOCKED_BY_CLIENT，MinIO 直链在页内全部裂图而 CSP 并未拦截。伙伴头像
+# 属强感知 UI，改走同源代理：只放行 MinIO 公网两个入口下的 /magicbook/buddy/ 前缀，
+# 防滥用（SSRF/开放代理）靠白名单 + 登录 + GET-only。
+_BUDDY_IMAGE_HOSTS = ("https://minio.haoshenqi.top", "https://home.haoshenqi.top:9001")
+_BUDDY_IMAGE_PATH_PREFIX = "/magicbook/buddy/"
 
 
 @web.route("/buddy", methods=["GET"])
@@ -59,3 +69,21 @@ def buddy_equip():
     if not code:
         return jsonify({"success": False, "message": "code is required"}), 400
     return _moonwell_proxy("/buddy/equip", {"code": code}, 10, "buddy equip")
+
+
+@web.route("/ajax/buddy/image", methods=["GET"])
+@user_login_required
+def buddy_image_proxy():
+    """Same-origin proxy for buddy art on MinIO (host whitelist, see note above)."""
+    source = request.args.get("src", "")
+    parsed = http_requests.utils.urlparse(source)
+    base = parsed.scheme + "://" + parsed.netloc
+    if base not in _BUDDY_IMAGE_HOSTS or not parsed.path.startswith(_BUDDY_IMAGE_PATH_PREFIX):
+        return jsonify({"success": False, "message": "invalid buddy image url"}), 400
+    try:
+        upstream = http_requests.get(source, timeout=10)
+    except http_requests.RequestException:
+        return jsonify({"success": False, "message": "buddy image upstream unreachable"}), 502
+    if upstream.status_code != 200:
+        return jsonify({"success": False, "message": "buddy image upstream error"}), upstream.status_code
+    return Response(upstream.content, mimetype=upstream.headers.get("Content-Type", "image/png"))

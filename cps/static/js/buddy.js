@@ -33,7 +33,9 @@
 
       var img = document.createElement("img");
       img.className = "buddy-avatar";
-      img.src = b.fullImageUrl || b.imageUrl || "";
+      img.src = (b.fullImageUrl || b.imageUrl)
+        ? "/ajax/buddy/image?src=" + encodeURIComponent(b.fullImageUrl || b.imageUrl)
+        : "";
       img.alt = b.name;
       img.onerror = function () { img.style.visibility = "hidden"; };
       card.appendChild(img);

@@ -207,7 +207,7 @@
       if (equipped.imageUrl || equipped.fullImageUrl) {
         var img = document.createElement("img");
         img.className = "me-buddy-avatar";
-        img.src = equipped.imageUrl || equipped.fullImageUrl;
+        img.src = "/ajax/buddy/image?src=" + encodeURIComponent(equipped.imageUrl || equipped.fullImageUrl);
         img.alt = equipped.name || "";
         img.onerror = function () { img.style.visibility = "hidden"; };
         body.appendChild(img);

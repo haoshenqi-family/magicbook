@@ -155,10 +155,17 @@
 
   // ------------------------------------------------------------------
   // R206 伙伴头像：把 AI 悬浮按钮换成当前装备伙伴头像（MinIO 匿名直读）。
+  // R220 验收现场：个别浏览器扩展会拦跨站图片子资源（ERR_BLOCKED_BY_CLIENT），
+  //   页内直连 MinIO 全裂图；改走本站同源代理 /ajax/buddy/image（登录可读）。
   // Why 先探测再切换：图片可能尚未上传到 MinIO（资产上传在部署期），直接设 src
   //   会裂图；用 new Image() 预载成功才加 has-buddy，失败/未装备一律保留「AI」文字兜底。
   // ------------------------------------------------------------------
   var fabIdleTimer = null;
+  function buddyImageProxyUrl(url) {
+    if (!url) { return ""; }
+    return "/ajax/buddy/image?src=" + encodeURIComponent(url);
+  }
+
   function loadBuddyFab() {
     $.getJSON("/ajax/buddy/catalog")
       .then(function (raw) {
@@ -167,15 +174,16 @@
         var equipped = null;
         (list || []).forEach(function (b) { if (b.equipped) { equipped = b; } });
         var imageUrl = equipped && (equipped.fullImageUrl || equipped.imageUrl);
-        if (!imageUrl) { return; }
+        var proxiedUrl = buddyImageProxyUrl(imageUrl);
+        if (!proxiedUrl) { return; }
         var probe = new Image();
         probe.onload = function () {
-          $("#ai-companion-fab-img").attr("src", imageUrl);
+          $("#ai-companion-fab-img").attr("src", proxiedUrl);
           $("#ai-companion-fab").addClass("has-buddy");
           startFabIdle();
         };
         probe.onerror = function () { /* 图片未就绪：保留文字兜底 */ };
-        probe.src = imageUrl;
+        probe.src = proxiedUrl;
       })
       .fail(function () { /* 代理不可达：静默保留文字兜底 */ });
   }
