@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已修**（§14，上游故障改 502 + Magpie 白名单）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -345,3 +345,8 @@ JS 侧 `String(kind).toLowerCase()`。守卫：`test_start_label_keys_are_lowerc
   那次）与 Qoder 登录态过期的既有噪音，无新的 403。
 - 回归：`tests/test_book_detail_r222.py`（502 / 成功 / 3xx 非成功 / 400 四分支）+
   `tests/test_book_insight.py` + `tests/test_book_detail_r214.py` 共 49 passed。
+- 上线：`a2056ec5` 推送 `origin/develop` 后，fnOS 链于 19:07 构建并部署成功；
+  运行镜像 label `house.build-sha=a2056ec5`，容器 `healthy`；首页稳定返回登录跳转 302。
+  Magpie 文件为 `65532:65532`（settings 700、备份 600），healthcheck rc=0；
+  moon-well/magicbook 近 20 分钟无新的 allow-list 拒绝或 book-intro 403。
+  最终「生成简介」200 与简介落库仍需管理员登录页面验收。
