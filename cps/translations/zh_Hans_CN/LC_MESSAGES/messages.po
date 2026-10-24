@@ -6024,3 +6024,15 @@ msgstr "今日计划暂时取不到 · 去学习页看看"
 
 msgid "Use the new Home page as login landing page"
 msgstr "登录后进入新首页（/home）"
+
+msgid "Buddy quick actions"
+msgstr "伙伴悬浮球快捷动作"
+
+msgid "Pick what pops up around the buddy on hover (2-5). The chat bubble always stays."
+msgstr "选择悬停伙伴时弹出的动作（2-5 个）。「对话」气泡固定保留。"
+
+msgid "Pick at least 4 actions"
+msgstr "至少选择 4 个动作"
+
+msgid "Chat"
+msgstr "对话"

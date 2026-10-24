@@ -4,12 +4,16 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ai_chat.css') }}">
 <div id="ai-companion-root">
   {# R206 伙伴图标：默认显示「AI」文字兜底（MinIO 未就绪/未装备伙伴时），
-     拉到当前装备伙伴头像后切图为图片。img 载入成功才加 has-buddy，避免裂图。 #}
-  <button id="ai-companion-fab" title="{{_('AI Companion')}}" aria-label="{{_('AI Companion')}}">
-    <span id="ai-companion-fab-text">AI</span>
-    <img id="ai-companion-fab-img" alt="" draggable="false">
-    <span id="ai-companion-fab-label">{{_('AI Companion')}}</span>
-  </button>
+     拉到当前装备伙伴头像后切图为图片。img 载入成功才加 has-buddy，避免裂图。
+     R223：文字标签取消，hover 弹出径向快捷气泡（类 iPhone 悬浮球），动作集
+     在 /buddy 配置（4-5 个）；「对话」气泡由 JS 动态插入并保持在最内圈。 #}
+  <div id="ai-companion-fab-wrap">
+    <div id="ai-companion-bubbles" aria-hidden="true"></div>
+    <button id="ai-companion-fab" title="{{_('AI Companion')}}" aria-label="{{_('AI Companion')}}">
+      <span id="ai-companion-fab-text">AI</span>
+      <img id="ai-companion-fab-img" alt="" draggable="false">
+    </button>
+  </div>
   <div id="ai-companion-drawer">
     <header>
       <h3>{{_('AI Reading Companion')}}</h3>

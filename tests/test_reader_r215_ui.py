@@ -63,7 +63,10 @@ def test_AI面板恢复覆盖式抽屉():
     assert "height: 55vh" not in css, "移动端仍是底部 55vh 抽屉（应回滚为全屏）"
     assert "width: 50vw" not in css, "桌面仍是 50vw 停靠（应回滚）"
     assert "width: 100vw; max-width: 100vw; height: 100vh" in css, "移动端未恢复全屏"
-    assert "#ai-companion-fab-label" in css, "FAB 文字标签缺失"
+    assert "#ai-companion-fab-label" not in css, "R223 后 FAB 文字标签应已删除"
+    assert "#ai-companion-fab-wrap" in css, "FAB 定位包裹层缺失"
+    assert "#ai-companion-bubbles" in css, "R223 气泡容器缺失"
+    assert ".ai-bubble" in css, "R223 hover 快捷气泡样式缺失"
     reader_css = _read("cps/static/css/reader.css")
     assert 'body[data-side-panel="ai"]' not in reader_css, "AI 面板不应再参与正文缩宽"
     assert 'body[data-side-panel="translation"] #main' not in reader_css, \

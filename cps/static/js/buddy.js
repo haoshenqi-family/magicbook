@@ -122,5 +122,77 @@
   document.addEventListener("DOMContentLoaded", function () {
     $("buddy-retry").addEventListener("click", load);
     load();
+    initQuickActions();
   });
+
+  // ------------------------------------------------------------------
+  // R223 悬浮球快捷动作配置：勾选 2-5 个（chat 固定占位不可取消），
+  // 保存后全站 FAB hover 气泡按此渲染。
+  // ------------------------------------------------------------------
+  var qaSelected = [];
+
+  function initQuickActions() {
+    fetch("/ajax/buddy/quick-actions", { credentials: "same-origin" })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (data) {
+        var payload = unwrap(data) || {};
+        renderQuickActions(payload.available || [], payload.selected || []);
+      })
+      .catch(function () { renderQuickActions([], []); });
+    $("buddy-qa-save").addEventListener("click", saveQuickActions);
+  }
+
+  function renderQuickActions(available, selected) {
+    qaSelected = selected.slice();
+    var root = $("buddy-quick-actions");
+    root.innerHTML = "";
+    available.forEach(function (a) {
+      var isChat = a.id === "chat";
+      var on = qaSelected.indexOf(a.id) !== -1 || isChat;
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "buddy-qa-chip" + (on ? " on" : "");
+      chip.textContent = a.label + (isChat ? " ★" : "");
+      chip.dataset.id = a.id;
+      chip.addEventListener("click", function () {
+        if (isChat) return;
+        var idx = qaSelected.indexOf(a.id);
+        if (idx !== -1) { qaSelected.splice(idx, 1); }
+        else if (qaSelected.length < 5) { qaSelected.push(a.id); }
+        syncQuickActionChips();
+      });
+      root.appendChild(chip);
+    });
+    syncQuickActionChips();
+  }
+
+  function syncQuickActionChips() {
+    var root = $("buddy-quick-actions");
+    Array.prototype.forEach.call(root.children, function (chip) {
+      var on = chip.dataset.id === "chat" || qaSelected.indexOf(chip.dataset.id) !== -1;
+      chip.classList.toggle("on", on);
+    });
+    $("buddy-qa-state").textContent = "";
+  }
+
+  function saveQuickActions() {
+    if (qaSelected.indexOf("chat") === -1) { qaSelected.unshift("chat"); }
+    if (qaSelected.length < 4) {
+      $("buddy-qa-state").textContent = mbT("Pick at least 4 actions");
+      return;
+    }
+    fetch("/ajax/buddy/quick-actions", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", "X-CSRFToken": csrf() },
+      body: JSON.stringify({ selected: qaSelected.slice(0, 5) }),
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (data) {
+        $("buddy-qa-state").textContent = data && data.success
+          ? mbT("Saved")
+          : ((data && data.message) || mbT("Operation failed"));
+      })
+      .catch(function () { $("buddy-qa-state").textContent = mbT("Operation failed"); });
+  }
 })();

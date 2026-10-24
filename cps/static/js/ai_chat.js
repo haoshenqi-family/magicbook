@@ -114,6 +114,7 @@
 
     applyFormatPlaceholder();
     initFabLabel();
+    initBubbles();
     loadConversations();
     loadBuddyFab();
   }
@@ -146,6 +147,7 @@
   function openDrawer() {
     $("#ai-companion-drawer").addClass("open");
     markFabLabelSeen();
+    closeBubbles();
     if ($("#ai-memory-panel").hasClass("open")) loadMemoryPanel();
   }
 
@@ -190,7 +192,8 @@
 
   // Keep the floating buddy reachable on small screens and remember its position per browser.
   function initBuddyFabDrag() {
-    var button = document.getElementById("ai-companion-fab");
+    // R223 定位/拖拽迁到 wrap：按钮本体透明化后仍需一块固定命中区。
+    var button = document.getElementById("ai-companion-fab-wrap");
     if (!button || !window.PointerEvent) return;
     var key = "calibre.ai.buddy.position";
     var edgeGap = 10;
@@ -211,6 +214,7 @@
     button.addEventListener("pointerdown", function (event) {
       if (event.button !== 0) return;
       button.classList.remove("buddy-snapping");
+      closeBubbles();
       var rect = button.getBoundingClientRect();
       startX = event.clientX; startY = event.clientY;
       originX = rect.left; originY = rect.top; moved = false;
@@ -252,6 +256,125 @@
       x: x + button.offsetWidth / 2 < window.innerWidth / 2 ? gap : maxX,
       y: Math.max(gap, Math.min(maxY, y)),
     };
+  }
+
+  // ------------------------------------------------------------------
+  // R223 hover 快捷气泡（类 iPhone 悬浮球）：动作集 /buddy 可配置；
+  // 阅读页动作直接转发到顶栏同 ID 工具（原节点监听仍生效），站点页为导航；
+  // 「对话」恒在最内圈，点击即开抽屉。配置加载失败回落默认四项。
+  // 展开方向按 FAB 吸附位置自适应（iPhone 悬浮球同款）：朝屏幕内侧展开，
+  // 顶/底边距不足时整体下/上偏，保证气泡不伸出屏幕。
+  // ------------------------------------------------------------------
+  var BUBBLE_ICONS = {
+    chat: "💬", "immersive-translate": "译", "tts-book": "▶",
+    bookmark: "🔖", learning: "🎓", library: "📚", me: "👤",
+  };
+  // 延迟关闭定时器：FAB 与气泡间有空隙，鼠标穿越时会短暂 mouseleave。
+  var bubbleCloseTimer = null;
+
+  function bubbleHost() { return document.getElementById("ai-companion-bubbles"); }
+
+  function closeBubbles() {
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (wrap) wrap.classList.remove("bubbles-open");
+  }
+
+  function dispatchBubbleAction(id) {
+    if (id === "chat") {
+      $("#ai-companion-fab").trigger("click");
+      return;
+    }
+    var tool = document.getElementById(id);
+    if (tool) { tool.click(); return; }
+    var routes = { learning: "/learning", library: "/", me: "/me" };
+    if (routes[id]) { window.location.href = routes[id]; }
+  }
+
+  function renderBubbles(selected, available) {
+    var host = bubbleHost();
+    if (!host) return;
+    host.innerHTML = "";
+    var labels = {};
+    (available || []).forEach(function (a) { labels[a.id] = a.label; });
+    var ordered = ["chat"].concat((selected || []).filter(function (a) { return a !== "chat"; }));
+    ordered.forEach(function (id, i) {
+      var bubble = document.createElement("button");
+      bubble.type = "button";
+      bubble.className = "ai-bubble";
+      bubble.dataset.action = id;
+      bubble.setAttribute("aria-label", labels[id] || id);
+      var tip = document.createElement("span");
+      tip.className = "ai-bubble-tip";
+      tip.textContent = labels[id] || id;
+      bubble.appendChild(tip);
+      var icon = document.createElement("span");
+      icon.textContent = BUBBLE_ICONS[id] || "•";
+      bubble.appendChild(icon);
+      bubble.addEventListener("click", function (event) {
+        event.stopPropagation();
+        closeBubbles();
+        dispatchBubbleAction(id);
+      });
+      host.appendChild(bubble);
+    });
+  }
+
+  function openBubbles() {
+    if (bubbleCloseTimer) { clearTimeout(bubbleCloseTimer); bubbleCloseTimer = null; }
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (!wrap) return;
+    var host = bubbleHost();
+    if (host && host.children.length) {
+      var rect = wrap.getBoundingClientRect();
+      var centerX = rect.left + rect.width / 2;
+      var centerY = rect.top + rect.height / 2;
+      var clearRadius = 94; // 气泡半径 + 展开半径的余量
+      var inward = centerX > window.innerWidth / 2 ? -1 : 1;
+      var vertical = centerY < clearRadius ? -1 : (window.innerHeight - centerY < clearRadius ? 1 : 0);
+      // 顶/底空间不足时往反方向让位。屏幕方向向量 (dx,dy)=(inward,-vertical)；
+      // 气泡位移按 (cos a, -sin a) 存（数学角），故 a = -atan2(dy, dx)。
+      var baseDeg = vertical
+        ? -Math.atan2(-vertical, inward) * 180 / Math.PI
+        : (inward < 0 ? 180 : 0);
+      var spread = vertical ? 90 : 120;
+      var count = host.children.length;
+      Array.prototype.forEach.call(host.children, function (bubble, i) {
+        var off = count > 1 ? (i / (count - 1) - 0.5) * spread : 0;
+        var angle = (baseDeg + off) * Math.PI / 180;
+        bubble.style.setProperty("--bx", Math.round(Math.cos(angle) * 74) + "px");
+        bubble.style.setProperty("--by", Math.round(-Math.sin(angle) * 74) + "px");
+      });
+      wrap.classList.toggle("bubbles-left", inward > 0);
+    }
+    wrap.classList.add("bubbles-open");
+  }
+
+  function initBubbles() {
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (!wrap) return;
+    $.getJSON("/ajax/buddy/quick-actions")
+      .then(function (raw) {
+        var data = unwrap(raw) || {};
+        renderBubbles(data.selected, data.available);
+      })
+      .fail(function () {
+        renderBubbles(["chat", "immersive-translate", "tts-book", "bookmark"], []);
+      });
+    wrap.addEventListener("mouseenter", openBubbles);
+    function scheduleClose() {
+      if (bubbleCloseTimer) clearTimeout(bubbleCloseTimer);
+      bubbleCloseTimer = setTimeout(function () {
+        bubbleCloseTimer = null; closeBubbles();
+      }, 350);
+    }
+    wrap.addEventListener("mouseleave", scheduleClose);
+    wrap.addEventListener("focusin", openBubbles);
+    wrap.addEventListener("focusout", closeBubbles);
+    document.addEventListener("click", function (event) {
+      if (wrap.classList.contains("bubbles-open") && !wrap.contains(event.target)) {
+        closeBubbles();
+      }
+    });
   }
 
   function startFabIdle() {

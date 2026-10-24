@@ -47,30 +47,11 @@
 - `response-archive/response-R209.md`：R209 积分内测活动 + 充值倍率机制（充值页代理与前端）——2026-10-24 R213-C 与 R217 在 develop 合流后窗口达 11 节触发轮转搬移，原样搬移不改写
 - `response-archive/response-R210.md`：R210 伙伴图片未生效的定性与 MinIO 入口切换的 CSP 侧（源清单收敛单点、过渡双源）——2026-10-24 R213-C / R217 / R221 再次合流后窗口达 11 节触发续搬，原样搬移不改写
 - `response-archive/response-R211.md`：R211 OIDC 自助注册默认授予管理员权限（P0 缺陷修复）——2026-10-24 R222 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R214.md`：R214 书籍详情子项 A（阅读入口解禁 + 元数据修正 + 视觉分层，含 B 合流记录）——2026-10-24 R223 写入触发轮转搬移，原样搬移不改写
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
 
-## 2026-10-23（R214：书籍详情——子项 A 阅读入口解禁 + 元数据修正 + 视觉分层）
-
-### R214（用户：「阅读pingcode MB-13。讨论一下怎么修改」→ 六项拍板 → 「1 ok 2 AI 简介暂时不要「重新生成」按钮。3 开始吧」）
-
-- **任务定位**：PingCode [MB-13](https://haoshenqi.pingcode.com/pjm/workitems/Ablr7c9a) / R214「书籍详情：简介/目录/难度/试读 + 整本任务代价面板 + 元数据修正」（Ship MAGICBOOK-221，迭代 1.0）。来源＝首访体验 QA 报告 §四（截图 `a2-book-detail.png`）。代码核查比报告多挖出一条更急的缺陷：`detail.html:80` 一个 `role_viewer() and role_admin()` 合并条件同时包住三个整本入口与「在线阅读」，R211 修完后普通读者详情页**连阅读入口都没有**。
-- **设计定稿**（六项拍板 + 第七项补拍）：① 整本任务仅管理员；② 积分费率由 moon-well 只读回传端点出（跨仓占号 R207，magicbook 不镜像常量）；③ 朗读缓存命中不加批量探针（给全 miss 上限口径）；④ 简介缺失用 AI 生成并标注「由 AI 生成」，管理员触发不自动跑；⑤ 双语按书目自身声明（页面不猜，导入侧 `dc:language` 读全 + 存量补正脚本）；⑥ 难度阶四级兜底（标签 `阶N` > 书架名 `阶N` > 系列映射 > 未分级，与 R213 共用解析器）；⑦ AI 简介**不提供「重新生成」按钮**（已生成即定稿）。三件套落 `docs/project/iterations/1.0/r214-book-detail/{hld,lld,ac/acceptance}.md`，library 需求基线补 R214 条目，plan.md 补 MB-11..15 行。
-- **子项 A 已开发合入**（worktree `../magicbook-r214-book-detail`，分支 `feat/r214-book-detail`，从 `origin/develop` `57101027` 切出）：commit `39f65ac5` 阅读入口解禁（阅读改 `role_viewer()`、整本入口保留 `role_admin()`，栈式解析 Jinja 条件块归属的守卫测试，反向变异可抓）；`fdd95225` 元数据修正（pubdate 与入藏时间差 ≤1 天判「伪出版日」显示「导入于」；`get_epub_info` 读全 `dc:language` 逗号拼接，下游 `edit_book_languages` 形制零改动；`cps/reading_insight/difficulty.py` 四级兜底含书虫系列粗映射（R162 锚点 6级≈阶2–阶3 取上界，tooltip 标注来源）；`scripts/backfill_languages.py` 存量语言对账 dry-run 默认、`--apply` 先备份 metadata.db 不动 EPUB）；`af149941` 视觉分层（已加入书架改 `label shelf-chip` 可移除芯片 + `#template-shelf-remove` 同步，编辑元数据/取消收进「管理员工具」分组，新增 `css/book-detail.css`）。
-- **测试**：`tests/test_book_detail_r214.py` 17 条 + `tests/test_epub_languages.py` 4 条（双语回归，反向变异 `tmp[0]` 报红）+ 受影响模块 `test_book_import.py` 17 条 + 既有守卫 `test_no_duplicate_js_lines` / `test_i18n_seed_contract` 全绿（23 passed 合并口径；开发态按 AGENTS.md 只跑本次与受影响模块）。环境备注：沙箱拦 `pytest-of-*` 的 mkdir，本仓跑测试需 `--basetemp=/tmp/...`（或用 `tempfile.mkdtemp` fixture），非代码问题。
-- **合并**：merge commit **`c4a98e54`** → 本地 develop，**未 push**（push 即触发 fnOS 自动上线，按「push 闸门留用户」惯例等指令）。合并时并行会话暂存的 QA 报告（`docs/project/qa/2026-10-23/`，index 内 `A` 态）被 ort 判为会被覆写拦下——`git stash push -- docs/project/qa` → merge → `stash pop` 往返解决，暂存内容原样恢复、未丢未改。
-- **文档四问**：能力变了吗 → L1 `docs/product/readme/library.md` 增「书籍详情」条（难度标签/双语徽标/导入于/书架芯片/阅读入口）；契约变了吗 → A 无对外接口变化（B/C 的 `/ajax/credit/billing`、`book-intro` 等随子项落）；实现/边界 → L3 与 LLD 并入 r214 目录，LLD 状态行回填「子项 A 已合入待验收」；本次怎么实现 → LLD §1 文件清单逐项兑现。
-- **驻留与闸门**：worktree `../magicbook-r214-book-detail`（分支 `feat/r214-book-detail`）原样驻留——子项 B（简介回退/目录/试读 + insight 缓存）、C（整本任务统一入口 + 代价面板）待续作，属长任务驻留；B/C 与 A 同 worktree 推进（家族纪律一次会话一树）。验收通过且 B/C 收尾后按闸门 `worktree remove` + `branch -d`。
-- **跨仓待办**：moon-well 侧 R207（`GET /credit/billing` 费率回传 + `book-intro` 按正文入参摘要能力，`perCall` 加 `book-intro:1`）尚未占号开工，子项 C 的积分行在它就绪前走「费率暂不可得」分支。
-- **窗口**：本条写入使窗口达 11 个 request，按「写入即检查」把最旧的 **R194**（写作批改 SSE 进度流，15 行）原样搬至 `response-archive/response-R194.md` 并登记索引，窗口回 10；只搬移不改写。
-- **总结**：requests.md 占号 R214（2026-10-23，条目 214）；本条为回应；冲突记录：无撞号（写入前核对 develop 台账，214 空位且无并行占用）。
-- **续（子项 B，同日 18:2x–19:5x）**：内容速览落盘——`f10fd755` book_insight 缓存（models/parser/service）+ `/ajax/book-insight`、`/ajax/book-summary` 两端点（LLD §4.1/§4.2），`3a52c102` 详情页三区块（简介三级回退含「由 AI 生成」标注与生成按钮 admin 门禁、目录前 8 章+展开全部+章名点开首段、首章试读 ≤1200 字淡出遮罩+继续阅读）+ `show_book` 注入 insight/insight_error（失败可见不静默）。解析器为第三份独立实现（不碰两个 job 内核，HLD §3.1 技术债另立收口）；摘录预算 1200 字、大书（解析量 >8MB）不出摘录；`generate_summary` 重建 payload 时保留 aiSummary（拍板⑦无重新生成，丢了拿不回来）。测试：`test_book_insight.py` 8 + `test_book_detail_r214.py` 扩到 21（三级回退顺序/AI 标注防删/生成按钮 admin 门禁/剥注释后无「重新生成」/错误可见）+ `test_epub_languages` 4 + JS/i18n 守卫 + `test_book_import` 17 回归，全绿。守卫教训二则：Jinja 注释里提「重新生成」会误伤字样断言（剥注释再断言）；`_iter_blocks` 栈序倒置让 firstParagraph 取到末段（子节点逆序入栈得文档序）。
-- **续（moon-well R207 跨仓，同段落）**：`POST /book/ai/ability/book-intro`（按正文入参不吃 bookId）+ `GET /credit/billing`（费率回传）已实现合入 moon-well develop（`f89c9ff`+`2433c65`，worktree `../moon-well-r207-book-intro` 驻留）。**设计修正**：原 HLD「perCall 加 book-intro:1」不可行——能力调用走 callForTask 任务路径按 token 计量，perCall 只覆盖交互路径，塞白名单=假费率；book-intro 计费与既有 ability 同口径，若要按次另立需求。
-- **续（闸门与阻塞，如实记录）**：子项 A 已 push 上线（`040b627b`，含并行 R213/R217 合流与 plan/requirements union 解决）；**子项 B 未合 develop**——主检出暂存着并行会话一批 R217 在途改动（`cps/oidc.py`、`cps/web.py`、`login.html`、`plan.md`、`requests.md`、`response.md` 及 r217 lld/测试删除等 13 路径，见 status `M`/`D` 态），`git merge` 判「会被覆写」拒绝；**不代提交、不丢弃**，等该会话落地或用户定夺后执行合并（B 两提交在分支上就绪，合并后 worktree 依旧驻留待验收）。- **续（合流落地，22:4x）**：按你的指令把子项 B 合入 develop——主检出并行暂存（R217 在途 + QA 报告，33 路径）先 `stash` 再合、`stash pop` 还原，**未代提交未丢弃**；
-  分支在工作树里合 `origin/develop`（先追上远端 R215/R218 共 8 笔），四处冲突按两侧并集解决：测试文件两侧各追加一批（26 条并存）、
-  plan 的 MB-13 行把「A 已上线 + R218 已修 + B 已合入」并成一行、MB-14 取远端新版、LLD 状态行同上、response 本文件按时间序拼接。
-  随后分支 push 到 `origin/develop`（**绕开**含 R217 未验收 merge 的本地 develop，避免连带发布）。
 ## 2026-10-23（R216：引导收敛 + /me 偏好页 + 难度入口前置 + 成就锁态 + 伙伴文案 + IP 风险登记）
 
 ### R216（承接 moon-well R208；用户：「阅读 pingcode MB-15。讨论一下怎么修改」→「没问题，确认默认方案，请开始执行」）
@@ -289,3 +270,26 @@
 - **总结**：requests.md 条目 222 为已占号需求；本条为回应。冲突记录：无撞号；已有
   `../magicbook-r214-detail-500` 属 R214 子项 A 的独立 worktree，本任务按新编号 R222 另建，
   未改动既有工作树。
+
+## 2026-10-24（R223：Buddy 悬浮球化——透明头像 + hover 径向快捷气泡，/buddy 可配置）
+
+- **落点**：FAB 结构改 `#ai-companion-fab-wrap`（定位/拖拽/吸附迁 wrap，localStorage 键不变）+
+  按钮本体透明头像态（无头像兜底保留蓝底「AI」文字）；删除「AI 伴读」label 与 hover 浮出规则。
+  hover/focus 弹出 `.ai-bubble` 径向气泡，弹簧曲线展开；展开方向按 FAB 吸附侧自适应
+  （右半屏向左、左半屏向右、贴顶/底时向下/上偏），tooltip 随侧翻边。
+- **配置链**：`GET/POST /ajax/buddy/quick-actions`（`cps/routes/buddy.py`），动作全集
+  chat/翻译/朗读/书签/学习页/书库/我的，服务端校验 4–5 个且白名单去重；`/buddy` 页 chip 选择器
+  （chat 固定不可取消）。存储 `view_settings['buddy']['quickActions']`。label 请求期 gettext
+  （导入期冻结只能拿英文 msgid——code review 修正点；另修正 `flask_login`→`cw_login` 导入，
+  本仓无 flask_login，函数内 import 在测试环境必炸）。
+- **测试**：新增 `test_buddy_page.py` 3 条（GET 全集/默认、POST 持久化、POST 校验不落库）；
+  `test_reader_r215_ui.py` 结构断言随 label 删除同步更新；i18n 契约 5 条全绿（zh po/mo 同步重编，
+  **只编 zh**——全量 `pybabel compile -f` 会因 it.po 历史 placeholder 错误失败并顺手改写全部 locale，
+  已将误编译的其余 locale .mo 恢复）。JS `node --check` 通过。发布态全量 `pytest tests/` =
+  **906 passed / 0 failed**。
+- **文档四问**：能力 → L1 `product/readme/companion.md` 悬浮球条目；契约 → 站内
+  `/ajax/buddy/quick-actions` 新增（记录 LLD）；实现/边界 →
+  `iterations/1.0/r223-buddy-fab-bubbles/lld.md`（含触屏无 hover、工具 id 白名单边界）；
+  本次实现 → 同 LLD，状态「已开发待验收」。R220 LLD 状态行回填「已上线」。
+- **驻留**：worktree `../magicbook-buddy`（分支 `feat/r206-buddy`，与 R220 同分支续作），
+  push 后保留待用户验收。
