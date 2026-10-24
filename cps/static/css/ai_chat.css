@@ -17,19 +17,18 @@
 #ai-companion-fab:active { cursor: grabbing; }
 #ai-companion-fab.buddy-snapping { transition: left 0.22s ease-out, top 0.22s ease-out, transform 0.2s; }
 #ai-companion-fab:hover { transform: scale(1.08); }
-/* R215：头像不是按钮语义——白圈 + 浅色头像看起来像 spinner。
-   加品牌色外环 + 常驻「AI 伴读」文字标签，移动端首次打开后收起。 */
-#ai-companion-fab.has-buddy,
-#ai-companion-fab.has-buddy.fab-label-seen {
-  box-shadow: 0 0 0 3px #4285f4, 0 6px 18px rgba(0,0,0,0.28);
-}
 #ai-companion-fab-label {
   position: absolute; right: 64px; top: 50%; transform: translateY(-50%);
   padding: 5px 10px; border-radius: 999px;
   background: #1a73e8; color: #fff; font-size: 12px; line-height: 1;
   white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,0.22);
   pointer-events: none;
+  /* 「AI 伴读」标签常驻会挡正文；仅悬停/聚焦时浮出。 */
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
 }
+#ai-companion-fab:hover #ai-companion-fab-label,
+#ai-companion-fab:focus-visible #ai-companion-fab-label { opacity: 1; visibility: visible; }
 
 /* ============ R206 伙伴头像 + 动效（idle 呼吸 / thinking 起伏 / sleep 打盹） ============ */
 /* 外圈 hover 缩放走 button transform，内圈动效走 img transform，二者不冲突。 */
@@ -171,7 +170,7 @@
     bottom: 16px; right: 16px;
   }
   #ai-companion-fab-label { right: 56px; font-size: 11px; padding: 4px 8px; }
-  /* 首次打开后收起文字标签；桌面端始终保留 */
+  /* 文字标签改 hover 浮出后，移动端触屏无 hover，保持点击打开后收起的旧语义。 */
   #ai-companion-fab.fab-label-seen #ai-companion-fab-label { display: none; }
 
   /* Slightly more compact header so the conversation dropdown + title fit. */
