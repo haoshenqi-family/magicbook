@@ -45,6 +45,11 @@
 `adv_search_read_status` 里的 `and_(user_id, read_status==2)` 能正常过滤。
 **只要有 status=2 的数据，就一定能查到。**
 
+> 补充事实：`books` 在 `metadata.db`、`book_read_link` 在 `app.db`，是两个文件。
+> 能跨库 join 是因为 `cps/db.py:697-705` 用一个内存 engine **ATTACH 了两个库**
+> （`metadata.db AS calibre`、`app.db AS app_settings`）。手工复刻验证时要用同样的
+> ATTACH，否则会得到 "no such table: books"。
+
 ## 3. 根因
 
 R213-B 把「读到哪」从 `ReadBook` 拆进新表 `reading_progress`——这个拆分是对的
@@ -113,7 +118,7 @@ R213-B 把「读到哪」从 `ReadBook` 拆进新表 `reading_progress`——这
 
 **推荐 A 作为最小可交付，C 作为收敛形态**（回填只有 1 行，等于顺手做完）。
 
-## 5. 回填 SQL（只读演练过，**未执行**）
+## 5. 回填 SQL（**已于 2026-10-24 08:20 执行**）
 
 ```sql
 -- 有网页阅读进度、但 book_read_link 里还没有行的书 → 补建为「在读」
@@ -132,6 +137,17 @@ WHERE NOT EXISTS (
 - 显式把 `last_time_started_reading` 留空、`times_started_reading` 置 0——
   不伪造 Kobo 的阅读统计。
 - 回滚：`DELETE FROM book_read_link WHERE id IN (<本次插入的 id>)`（先备份）。
+
+### 5.1 执行记录（2026-10-24 08:20）
+
+- 备份：`/config/book_read_link-backup-20261024-082032.csv`（执行前 4 行全量导出）
+- 执行结果：**插入 1 行**（`id=5, book_id=145, user_id=3, read_status=2,
+  times_started_reading=0, last_time_started_reading=NULL`）
+- 回填后状态分布：`status=0` ×3、`status=1` ×1、`status=2` ×1
+- 验证（与 `cps/db.py:697-705` 相同的 ATTACH 方式复刻 join）：
+  - 「在读」命中 **1 本：145《Matilda》**（正是用户报告的书）
+  - 「已读」1 本
+  - 145 已**不在**「未读」结果里（互斥生效）
 
 ## 6. 决策（已定，见 §0）
 
