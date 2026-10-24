@@ -414,7 +414,8 @@
       }
     });
     // 播放状态由阅读器更新，气泡只在开启期间巡检；离开阅读页无 #tts-book 时为空转。
-    setInterval(syncTtsBubble, 250);
+    var ttsSyncTimer = setInterval(syncTtsBubble, 250);
+    window.addEventListener("pagehide", function () { clearInterval(ttsSyncTimer); });
   }
 
   function startFabIdle() {
