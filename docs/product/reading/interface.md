@@ -6,6 +6,8 @@
 
 阅读器页（EPUB/PDF/TXT）与阅读相关代理、NCE 音频播放。词汇判定/详解/测试的后端语义不在本模块（见 vocabulary L2 接口说明与 moon-well）。
 
+> R215（MB-14）为纯前端交互改造：AI 面板恢复覆盖式抽屉、段尾工具放大并保持段内；翻译恢复段落下方内联显示（2026-10-23 验收回滚，接受重分页）。**不新增、不修改任何 moon-well 契约**。AI 面板实现与边界见 [companion-panel L3](features/companion-panel.md)。
+
 ## 子功能概要
 
 ### 1. 阅读能力代理（cps/web.py，`/ajax/reading-*`）
@@ -48,7 +50,30 @@ TED/博客类书的内容是**一段连续原声**（`ted-audio/<slug>.aac`）�
 
 ### 3. 阅读进度与批注
 
-进度经 moon-well book 模块上报恢复；用户手写批注走 moon-well reading 段落批注接口。
+| magicbook 端点 | 上游 | 说明 |
+| --- | --- | --- |
+| `POST /ajax/reading-progress` | **无（本仓 app.db）** | 账号级阅读位置（R213 / MB-17）：`{book_id, format, position, percent, page_current, page_total}` → `{success, percent, last_read_at}`；按 `(user_id, book_id, book_format)` upsert，`percent` 夹取到 0–100，`page_current` 不得超过 `page_total`。**唯一不代理 moon-well 的 reading 端点**——位置是阅读器自身状态，读写都在本进程 |
+| 阅读位置恢复 | 同上表 | 阅读器进入时优先级：`reading_progress.position`（账户级，跨设备）→ 浏览器 localStorage（本机兜底）→ 书首 |
+| Kobo 同步位置 | Kobo 通道自有 | `KoboReadingState.current_bookmark`（`progress_percent` / `content_source_progress_percent`），由 `cps/kobo.py` 读写；**网页端不写它**，两套位置互不覆盖 |
+
+- 口径修订（R213，2026-10-23）：本节旧文「进度经 moon-well book 模块上报恢复」与实况不符——网页阅读器此前**没有**任何服务端位置，靠 epub.js 写 localStorage（设备级，换浏览器即丢）；`ub.ReadBook` 只有「未读/在读/读完」三态且 `last_time_started_reading` 仅 Kobo 通道写入。账号级位置自 R213 起由本表端点承载，与 moon-well 无关。
+- 用户手写批注仍走 moon-well reading 段落批注接口（未变）。
+
+### 4. 账号级 UI 偏好代理（`cps/routes/preferences.py`，R216）
+
+引导已读与阅读主题存在 moon-well `user_ui_settings`（跨设备一致）；本仓只做鉴权转发。后端契约权威：moon-well R208 LLD（`docs/project/iterations/2026-10-ui-prefs/lld.md`，该模块暂无 L2）。
+
+| magicbook 端点 | moon-well 端点 | 方法 | 超时 | 说明 |
+| --- | --- | --- | --- | --- |
+| `/ajax/ui-settings` | `/user/ui-settings` | GET | 8s | 读 `{onboardingSeen, onboardingSeenAt, readerTheme, updatedAt}`；未配置用户返回出厂视图（`false` / `null`），服务端不懒建行 |
+| `/ajax/ui-settings/onboarding/close` | `/user/ui-settings/onboarding/close` | POST | 8s | 置账号级「引导已结束」，幂等：已 true 再调用不改首次时间 |
+| `/ajax/ui-settings/reader-theme` | `/user/ui-settings/reader-theme` | POST | 8s | `{"theme":"darkTheme"}`；**代理层先按 5 个内置 key 白名单挡非法值 → 400**，不把脏值送上游成 500 |
+
+- 三条全部 `@user_login_required`，带当前用户 JWT；401 / 上游 500 / 不可达 503 原样透传。
+- `customTheme`（自定义颜色）**不在契约内**：只存浏览器 `localStorage`，任何一端都不落库。
+- 消费侧失败口径：`GET` 读不到时引导**不自动弹**（fail closed）、主题保留本机值；`POST` 失败必须界面可见，不伪装成已保存。
+- 页面路由：`GET /me` 渲染偏好页；`POST /me/preferences` 是本站原生表单（只写 `locale` 与 `default_language`，不代理 moon-well）。
+- 阅读难度沿用既有端点：`GET /ajax/reading-settings`、`POST /ajax/reading-settings/hard-level`（见 vocabulary L2）。
 
 ## 调用方契约
 
@@ -64,4 +89,6 @@ TED/博客类书的内容是**一段连续原声**（`ted-audio/<slug>.aac`）�
 ## L3 与历史设计
 
 - [阅读单词学习规格](../reading-vocabulary.md)（跨 reading / vocabulary 的静态实现说明，L3 性质）
+- [阅读主题账号同步](../reading/features/reader-theme-sync.md)（R216：5 个内置主题跨设备、自定义仅本机、竞态口径）
+- [引导导览](../learning/features/onboarding.md)（R216：账号级只自动邀请一次的状态机与失败口径）
 - 历史设计（`docs/project/_legacy/feat/`）：[整本翻译设计](../../project/_legacy/feat/whole-book-translation/design/whole-book-translation-design.md) · [课级音频 LLD](../../project/_legacy/feat/nce-audio/design/lld.md)

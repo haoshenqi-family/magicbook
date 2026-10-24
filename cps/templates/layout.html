@@ -48,6 +48,9 @@
               <input type="text" class="form-control" id="query" name="query" placeholder="{{_('Search Library')}}" value="{{searchterm}}">
               <span class="input-group-btn">
                 <button type="submit" id="query_submit" class="btn btn-default">{{_('Search')}}</button>
+                {# R213-A：搜索与高级搜索去重为一个入口——高级搜索收进搜索框的 #}
+                {# 输入组（保留 id="advanced_search"，onboarding.js 的引导步骤选中它） #}
+                <a href="{{url_for('search.advanced_search')}}" id="advanced_search" class="btn btn-default" title="{{_('Advanced Search')}}"><span class="glyphicon glyphicon-cog"></span><span class="hidden-sm hidden-xs"> {{_('Advanced Search')}}</span></a>
               </span>
             </div>
           </form>
@@ -55,8 +58,7 @@
         <div class="navbar-collapse collapse">
           {% if current_user.is_authenticated or g.allow_anonymous %}
           <ul class="nav navbar-nav ">
-            <li><a href="{{url_for('search.advanced_search')}}" id="advanced_search"><span class="glyphicon glyphicon-search"></span><span class="hidden-sm"> {{_('Advanced Search')}}</span></a></li>
-            {# R154：每日学习是一级使用入口（每天都要进），与高级搜索平级平铺，
+            {# R154：每日学习是一级使用入口（每天都要进），平铺在左侧主导航。
                不收进 Settings 下拉（用户反馈：藏设置里层级不对）。
                R166：说与写五个面板并入每日学习中枢的功能 banner，一级项随之撤掉 #}
             {% if not current_user.is_anonymous %}
@@ -230,6 +232,9 @@
             <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
             <h4 class="modal-title" id="bookDetailsModalLabel">{{_('Book Details')}}</h4>
           </div>
+          {# 详情加载失败提示（R214 子项 A 验收缺陷）。放在 .modal-body 之外：正文在成功/关闭 #}
+          {# 两条路径上都会被整体重写，放里面会被抹掉。词条复用 po 已有的「加载失败」。 #}
+          <div class="alert alert-danger book-details-error" role="alert" style="display:none">{{_('Failed to load')}}</div>
           <div class="modal-body">...</div>
           <div class="modal-footer">
             <button type="button" id="details_close" class="btn btn-default" data-dismiss="modal">{{_('Close')}}</button>
@@ -263,5 +268,22 @@
     {# R109 引导模式：必须在 jQuery 之后（onboarding.js 依赖 $），故放在 block js 之后 #}
     {% include 'i18n_seed.html' %}
     {% include 'onboarding_mount.html' %}
+    {# R213-A：移动端底部导航（书架 / 学习 / 我的）——窄屏侧栏收进汉堡菜单后， #}
+    {# 三个一级入口要始终可达；仅 xs 显示，桌面端不占地方（见 style.css） #}
+    {% if current_user.is_authenticated or g.allow_anonymous %}
+    <nav class="mb-bottom-nav visible-xs" aria-label="{{_('Mobile Navigation')}}">
+      <a href="{{url_for('web.index')}}" class="mb-bottom-item{% if page in ['index', 'discover', 'hot', 'newest', 'oldest', 'rated', 'author', 'series', 'category', 'publisher', 'language'] %} active{% endif %}">
+        <span class="glyphicon glyphicon-book"></span><span class="mb-bottom-label">{{_('Library')}}</span>
+      </a>
+      {% if not current_user.is_anonymous %}
+      <a href="{{url_for('web.learning_page')}}" class="mb-bottom-item">
+        <span class="glyphicon glyphicon-repeat"></span><span class="mb-bottom-label">{{_('Learning')}}</span>
+      </a>
+      {% endif %}
+      <a href="{% if not current_user.is_anonymous %}{{url_for('web.profile')}}{% else %}{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}{% endif %}" class="mb-bottom-item">
+        <span class="glyphicon glyphicon-user"></span><span class="mb-bottom-label">{% if current_user.is_authenticated %}{{current_user.name}}{% else %}{{_('Login')}}{% endif %}</span>
+      </a>
+    </nav>
+    {% endif %}
   </body>
 </html>

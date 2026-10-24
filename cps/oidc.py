@@ -85,6 +85,37 @@ oidc = Blueprint("oidc", __name__, url_prefix="/oidc")
 oauth = OAuth()
 
 
+def site_default_role():
+    """OIDC 自助注册新账号的角色＝站点「新用户默认角色」（管理后台 → 编辑基本设置）。
+
+    Why：2026-10-23 用户拍板「默认都是普通用户，管理员用户由我手动赋予」——
+        自助注册链路上不再存在任何自动提权路径，管理员只能由人在管理后台
+        逐个赋予。因此即便站点默认角色被勾上管理员位，这里也强制剔除。
+    How：oidc.py 与 cps/__init__ 存在循环导入风险（config 单例在包初始化后段
+        才创建），故延迟导入；配置未初始化（None）时按最小权限 0
+        （＝普通读者，不含任何角色位）返回。
+    """
+    from . import config
+
+    role = getattr(config, "config_default_role", None)
+    role = 0 if role is None else int(role)
+    if constants.has_flag(role, constants.ROLE_ADMIN):
+        role &= ~constants.ROLE_ADMIN
+        log.warning("站点默认角色含管理员位，已剔除：OIDC 自助注册一律为普通用户，"
+                    "管理员需在管理后台手动赋予")
+    return role
+
+
+def resolve_new_user_role():
+    """OIDC 自助注册新账号的角色决策（R211，缺陷根因修复点）。
+
+    旧实现在建号处写死 ``constants.ADMIN_USER_ROLES``（含 ``ROLE_ADMIN``），
+    任何拿到公开邀请链接的人首次登录即成为超管。现在统一走站点默认角色，
+    且该角色已被 ``site_default_role()`` 剔除管理员位。
+    """
+    return site_default_role()
+
+
 def init_oidc(app):
     issuer = os.getenv("AUTHENTIK_ISSUER", "").rstrip("/")
     client_id = os.getenv("AUTHENTIK_MAGICBOOK_CLIENT_ID", "")
@@ -135,7 +166,10 @@ def callback():
             user = ub.session.query(ub.User).filter(
                 func.lower(ub.User.email) == email.lower()).first()
         if user is None:
-            user = ub.User(name=username, email=email, role=constants.ADMIN_USER_ROLES)
+            # R211：自助注册不再继承管理员权限——一律站点默认角色（已剔除管理员位），
+            # 管理员由人在管理后台手动赋予（2026-10-23 用户拍板）。
+            user = ub.User(name=username, email=email,
+                          role=resolve_new_user_role())
             ub.session.add(user)
         user.oidc_issuer = issuer
         user.oidc_subject = subject

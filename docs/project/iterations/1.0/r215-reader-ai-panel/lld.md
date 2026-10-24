@@ -1,0 +1,164 @@
+# LLD — R215 阅读器与 AI 伴读面板
+
+> 状态：**开发中（2026-10-23，代码已落 worktree，待验收）**
+> 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
+> 迭代 1.0 · PJM MB-14 · Ship MAGICBOOK-222
+> 实现范围：EPUB 阅读器（`read.html`）为主；AI 面板改动对 `readpdf.html` / `readtxt.html` 生效，但桌面「推挤正文」的布局契约只在 EPUB 生效（其它阅读器保持覆盖，见 §4.6）。
+
+## 1. 文件清单
+
+| 动作 | 路径 | 说明 |
+| --- | --- | --- |
+| 新增 | `cps/static/js/reading/reader-toolbar.js` | 顶栏窄屏折叠 / 「更多」菜单 / 标签状态；无跨模块别名、无 `init` |
+| 改 | `cps/templates/read.html` | `#main` 加 `reader-main` 类；顶栏标签 + `#title-more` |
+| 改 | `cps/static/css/reader.css` | 阅读器作用域内的顶栏、段尾菜单、移动端覆盖 |
+| 改 | `cps/static/css/ai_chat.css` | 桌面 420px 覆盖式抽屉、移动全屏、头部标签、FAB 环/标签 |
+| 改 | `cps/static/css/onboarding.css` | `#onb-help` 避让页码 |
+| 改 | `cps/static/js/reading/reader-tts.js` | 段尾 4 图标 + 触屏「⋯」菜单 |
+| 改 | `cps/static/js/reading/reader-immersive.js` | 恢复 R183 段内译文（插入/缓存/显隐/重试） |
+| 改 | `cps/static/js/reading/epub.js` | rendered 钩子恢复缓存回填；设置项联动恢复 |
+| 改 | `cps/static/js/ai_chat.js` | 思考中前置与计时；覆盖式抽屉生命周期；placeholder 分格式；FAB 标签 |
+| 改 | `cps/templates/ai_chat_panel.html` | 头部按钮文字/aria、FAB 标签节点 |
+| 改 | `cps/templates/i18n_seed.html` + `cps/translations/zh_Hans_CN/LC_MESSAGES/messages.po` | 新增/改写文案 |
+| 新增 | `tests/test_reader_r215_ui.py` | 顶栏/段尾/思考中/覆盖式面板的静态守卫 |
+| 改 | `docs/project/iterations/1.0/plan.md` | MB-14 行补设计文档与状态 |
+| 交付时 | `docs/product/readme/reading.md`、`docs/product/reading/interface.md`、`docs/product/reading/features/*.md` | 四问回填（能力/契约/实现/LLD） |
+
+## 2. 顶栏（`reader-toolbar.js` + `reader.css`）
+
+### 2.1 模板
+
+`read.html` 的 `#main` 改为 `<div id="main" class="reader-main">`，仅作为 CSS 作用域，不影响 `readcbr.html`。
+
+`#title-controls` 内每个工具改为：
+
+```html
+<a id="immersive-translate" class="tb-tool" aria-pressed="false"
+   title="{{_('Translation mode')}}">
+  <span class="tb-icon">译</span><span class="tb-label">{{_('Translate')}}</span>
+</a>
+```
+
+- 保留全部既有 ID（`immersive-translate` / `whole-book-translate` / `tts-book` / `bookmark` / `setting` / `fullscreen`），`onboarding.js` 的锚点与 `tests/test_onboarding_tour.py` 依赖它们。
+- `#tts-book` / `#tts-book-stop` 的图标文本由 `reader-tts.js` 的 `ttsButtonsRender` 动态写入（`btn.textContent = '▶'`）。加标签后必须改为写内层 `.tb-icon`（`btn.querySelector('.tb-icon').textContent = …`），否则每次状态刷新都会把「朗读」标签抹掉。
+- 末尾新增 `<a id="title-more" class="tb-tool tb-more">…</a>` 与空容器 `<div id="title-more-menu" hidden></div>`。
+- `#metainfo` 增加 `min-width:0`，书名/章名 `text-overflow:ellipsis`。
+
+### 2.2 CSS
+
+作用域统一为 `.reader-main #titlebar ...`，不修改 `main.css`：
+
+| 规则 | 桌面 | ≤767px |
+| --- | --- | --- |
+| `#titlebar` | flex 三段；`opacity:.85`，hover 1；`height:auto; min-height:56px` | 同左，`min-height:52px` |
+| `.tb-tool` | `min-width:36px; min-height:36px; opacity:1` | `min-width:44px; min-height:44px` |
+| `.tb-icon` | `font-size:24px; line-height:1` | 24px |
+| `.tb-label` | `display:inline`，12px | `display:none` |
+| `#title-more` | `display:none` | `display:inline-flex` |
+| `#title-more-menu` | — | `position:fixed; top:56px; right:12px; min-width:180px` 的纵向菜单 |
+
+删除 `#titlebar a` 的二次 `opacity:.5`：新规则只作用于 `.tb-tool`，旧规则由更高优先级覆盖（`.reader-main #titlebar a.tb-tool{opacity:1}`）。
+
+### 2.3 JS
+
+`reader-toolbar.js`（IIFE，载入即执行，无 `window` 导出，避免触发「声明 init 必须显式调用」守卫）：
+
+1. 记录 `#title-more` 前所有节点的原始父节点与顺序：`[bookmark, setting, fullscreen, whole-book-translate(可选)]`。
+2. `sync(e)`：`matchMedia('(max-width:767px)')` 为真时把上述节点 `append` 到 `#title-more-menu`；为假时按记录顺序插回 `#title-more` 前。
+3. 点击 `#title-more` 切换菜单 `hidden`；点击外部 / Escape 关闭。
+4. `resize` 监听用 `requestAnimationFrame` 节流；节点搬家时其原有事件监听不受影响。
+5. 不复制节点，避免 ID 重复与监听丢失。
+
+## 3. 段尾工具（`reader-tts.js`）
+
+`injectParagraphTools` 生成「行内工具容器 + 4 个 span + 1 个菜单按钮」，全部留在段落尾部行内（2026-10-23 验收修订：绝对定位浮层压字，已回退）：
+
+- 4 个 span 仍带 `.reading-para-btn` + 专类，title/aria-label 补全；桌面 hover 显示 24px 图标（`READER_TOOLS_STYLE` 内 `font-size:1.5em; min-width:24px; height:24px`，触屏 `@media(hover:none)` 下 `display:none`）。
+- 新增 `<span class="reading-para-menu-btn" role="button" aria-label="...">⋯</span>`：
+  - 触屏（`hover:none`）显示，44×44；桌面 `display:none`。
+  - 点击 → `openParagraphMenu(el, menuBtn)`：外层 `document.body` 建 `.reading-para-menu`，按 iframe 矩形定位（复制 `reader-annotations.js` 的坐标换算），含 4 个带文字按钮。
+  - 菜单按钮点击时对对应的隐藏 span 调 `.click()`，复用现有朗读/翻译/批注/AI 逻辑，不复制实现。
+- 翻译 span 点击 `RI.translateParagraph(el, trBtn)`（R183 原实现：在该段下方插入/收回译文）。
+
+`READER_TOOLS_STYLE` 仍由 `ReaderCore.injectToolsStyle` 注入 iframe；新增的菜单样式写在 `reader.css`（外层文档），因为菜单挂在外层 `body`。
+
+## 4. 翻译（`reader-immersive.js`，2026-10-23 验收回滚）
+
+> 右侧译文栏方案被用户否决：**译文改回段落下方内联**，用户明确接受 epub.js 重分页抖动。代码已恢复为 R183 原实现，不再有 `translation-rail`、点段选中、`data-side-panel` 布局逻辑。
+
+实际行为（与 R183 一致）：
+
+- 工具栏「译」：开关整页自动翻译——开启后批量翻译当前可见页并插入各段下方；关闭移除所有译文。
+- 段落「译」按钮：单段翻译，译文插入该段下方；再点一次收回；命中 localStorage 缓存即时显示。
+- 缓存 key 为 `calibre.reader.translation.<bookKey>`（`{paragraphHash: text}`）；翻页/重渲染由 `epub.js` 调用 `RI.restoreCachedTranslations` 回填缓存译文。
+- 译文块按设置 `Translation display time per 100 words` 自动隐藏（`READER_TOOLS_STYLE` 的 `.reading-translation` 三态样式已恢复）。
+- 译文仍在 iframe 内、仍属正文流：高度变化会触发重分页，这是本次验收接受的已知代价。
+
+## 5. AI 面板（`ai_chat.css` + `ai_chat.js` + `ai_chat_panel.html`）
+
+### 5.1 布局（2026-10-23 验收回滚）
+
+原「桌面 50vw 停靠 + 正文缩宽 / 移动 55vh 底部抽屉」被用户否决，已恢复覆盖式抽屉：
+
+- 桌面：`#ai-companion-drawer{width:420px; max-width:100vw; height:100vh}`，`position:fixed` 覆盖正文；不设置 `data-side-panel`、不缩 `#main`、不触发重分页。
+- ≤600px：`width:100vw; height:100vh; top:0; right:0` 全屏抽屉；无圆角、无拖拽条。
+- `openDrawer()/closeDrawer()` 只切换 `.open` 类，并保留 FAB 标签记录；不再派发 `reader:panel-open/close`。
+- 与译文栏不再互斥：AI 浮层直接覆盖右栏，关闭后右栏原样可见。
+
+### 5.2 头部与 FAB
+
+- `ai_chat_panel.html` 的 4 个操作按钮加 `<span class="ai-ctl-label">新建/重命名/删除/记忆</span>`；≥900px 显示文字，窄屏只留图标 + `aria-label` + `title`。
+- FAB：`#ai-companion-fab` 加品牌色外环（box-shadow 2 层）+ `#ai-companion-fab-label`（「伴读」小标签）。桌面常显；移动端首次进入显示，首次打开抽屉后写 `localStorage['calibre.ai.fabLabelSeen']=1` 并隐藏。裂图/未装备仍回落「AI」文字。
+
+### 5.3 思考中
+
+`sendMessage` 改为：
+
+1. 同步 `beginThinking()`：创建 assistant 气泡（「思考中 · 0s」）、启动 1s 计时器、FAB 加 `buddy-thinking`、`sending=true`、禁用发送。
+2. `Promise.race([getPageContextAsync(), timeout(1200)])`；超时返回 `""`，请求照发。
+3. `streamChat(text, pageCtx, thinkingState)`：复用同一气泡；首个 `delta` / `tool_call` / `final` / `error` 任一到达即 `stopThinking()`（停表、移除 typing 占位、FAB 退出 thinking）。
+4. 计时文案「思考中 · Ns」；`N` 每秒刷新。
+
+### 5.4 placeholder 口径
+
+- 模板默认改 `Ask about this chapter...`（EPUB）。
+- `ai_chat.js` 初始化时按 `AICompanion.detectFormat()` 覆盖：`pdf` → `Ask about the current page...`；`txt` → `Ask about this text...`；`epub` 保持 chapter。
+- 三个 msgid 进 `i18n_seed.html` + 中文 `.po`。
+
+## 6. 幽灵「?」（`onboarding.css`）
+
+```css
+#onb-help{left:auto; right:16px; bottom:88px;}
+@media (max-width:767px){#onb-help{right:16px; bottom:76px;}}
+body[data-side-panel] #onb-help{display:none;}
+```
+
+- 不改 `onboarding.js`：入口仍恰好追加一次，`tests/test_onboarding_tour.py` 不变。
+- 彻底去留/并入「更多」菜单由 R216 处理；本条只保证不与页码、FAB、侧栏重叠。
+
+## 7. 守卫与测试
+
+| 测试 | 处置 |
+| --- | --- |
+| `tests/reader_js_modules.py` | 自动读取 `read.html` 的脚本顺序，新增 `reader-toolbar.js` 后仍按顺序拼接；确认新文件排在 `reader-core.js` 之后、`epub.js` 之前 |
+| `tests/test_reader_module_surface.py` | `ALIASES` 不变（新模块无跨模块别名、无 `init`）；`test_声明_init_的模块必须被显式调用` 仍只允许 `ReaderImmersive` |
+| `tests/test_onboarding_tour.py` | 顶栏 ID 与 `#onb-help` 追加逻辑保持不变 |
+| `tests/test_reader_lens_handoff.py` | 保留 `getElementById('immersive-translate')` |
+| 新增 `tests/test_reader_r215_ui.py` | ① 顶栏有 `.tb-label` / `#title-more` / 原有 ID；② 段尾工具行内、无绝对定位；③ `ai_chat.css` 为 420px 覆盖式 / 移动全屏且无 `data-side-panel`；④ `sendMessage` 中 `beginThinking` 先于 `getPageContextAsync`；⑤ placeholder 三个口径；⑥ `#onb-help` 右移；⑦ 译文恢复段内（`insertTranslation` 存在、无 `translation-rail`） |
+| 反向变异 | 逐条注入旧行为（恢复双重 opacity、把译文改成右栏、把思考中移回 streamChat）确认报红 |
+
+开发态闸门：`node --check` 全部改动 JS + 上述 pytest 文件全绿。正式发布态按仓规跑全量。
+
+## 8. 偏差表（相对 MB-14 原文）
+
+| MB-14 原文 | 实际实现 | 原因 |
+| --- | --- | --- |
+| 逐段翻译「写预留占位」 | 恢复 R183 段内内联译文（未做预留占位） | 先做的右栏方案被用户验收否决，明确「宁可重分页」；优先恢复原有交互 |
+| AI 面板「可拖宽/停靠」 | 桌面 420px 覆盖式抽屉 / 移动全屏 | 用户 2026-10-23 验收否决停靠方案，回滚覆盖式 |
+| 段尾「≥44px 或收进段落菜单」 | 桌面四图标 24px；触屏 44px 菜单 | 兼顾桌面效率与触屏触达（用户拍板） |
+| 幽灵「?」处置 | 仅位置避让 | DOM 归属 `onboarding.js`，R216 将重做；避免两单同时改守卫断言 |
+
+## 9. 风险与回滚
+
+- 风险：译文回到段内后会触发 epub.js 重分页抖动（用户 2026-10-23 明确接受）；AI 面板为覆盖式浮层，不改变正文宽度。
+- 回滚：纯前端改动，revert merge 即可；翻译恢复使用原 `calibre.reader.immersiveTranslate` 键，无迁移。

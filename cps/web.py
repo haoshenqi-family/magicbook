@@ -56,7 +56,7 @@ from .helper import check_valid_domain, check_email, check_username, \
     edit_book_read_status, valid_password
 from .pagination import Pagination
 from .redirect import get_redirect_location
-from .cw_babel import get_available_locale
+from .cw_babel import get_available_locale, get_available_translations
 from .usermanagement import login_required_if_no_ano
 from .kobo_sync_status import remove_synced_book
 from .render_template import render_title_template
@@ -2284,100 +2284,125 @@ def logout():
 
 
 # ################################### Users own configuration #########################################################
-def change_profile(kobo_support, local_oauth_check, oauth_status, translations, languages):
-    to_save = request.form.to_dict()
-    current_user.random_books = 0
-    try:
-        if current_user.role_passwd() or current_user.role_admin():
-            if to_save.get("password", "") != "":
-                current_user.password = generate_password_hash(valid_password(to_save.get("password")))
-        if to_save.get("kindle_mail", current_user.kindle_mail) != current_user.kindle_mail:
-            current_user.kindle_mail = valid_email(to_save.get("kindle_mail"))
-        new_email = valid_email(to_save.get("email", current_user.email))
-        if not new_email:
-            raise Exception(_("Email can't be empty and has to be a valid Email"))
-        if new_email != current_user.email:
-            current_user.email = check_email(new_email)
-        if current_user.role_admin():
-            if to_save.get("name", current_user.name) != current_user.name:
-                # Query username, if not existing, change
-                current_user.name = check_username(to_save.get("name"))
-        current_user.random_books = 1 if to_save.get("show_random") == "on" else 0
-        current_user.default_language = to_save.get("default_language", "all")
-        current_user.locale = to_save.get("locale", "en")
-        old_state = current_user.kobo_only_shelves_sync
-        # 1 -> 0: nothing has to be done
-        # 0 -> 1: all synced books have to be added to archived books, + currently synced shelfs which
-        # don't have to be synced have to be removed (added to Shelf archive)
-        current_user.kobo_only_shelves_sync = int(to_save.get("kobo_only_shelves_sync") == "on") or 0
-        if old_state == 0 and current_user.kobo_only_shelves_sync == 1:
-            kobo_sync_status.update_on_sync_shelfs(current_user.id)
-
-    except Exception as ex:
-        flash(str(ex), category="error")
-        return render_title_template("user_edit.html",
-                                     content=current_user,
-                                     config=config,
-                                     translations=translations,
-                                     profile=1,
-                                     languages=languages,
-                                     title=_("%(name)s's Profile", name=current_user.name),
-                                     page="me",
-                                     kobo_support=kobo_support,
-                                     registered_oauth=local_oauth_check,
-                                     oauth_status=oauth_status)
-
-    val = 0
-    for key, __ in to_save.items():
-        if key.startswith('show'):
-            val += int(key[5:])
-    current_user.sidebar_view = val
-    if to_save.get("Show_detail_random"):
-        current_user.sidebar_view += constants.DETAIL_RANDOM
-
-    try:
-        ub.session.commit()
-        flash(_("Success! Profile Updated"), category="success")
-        log.debug("Profile updated")
-    except IntegrityError:
-        ub.session.rollback()
-        flash(_("Oops! An account already exists for this Email."), category="error")
-        log.debug("Found an existing account for this Email")
-    except OperationalError as e:
-        ub.session.rollback()
-        log.error("Database error: %s", e)
-        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
-
-
-@web.route("/me", methods=["GET", "POST"])
+@web.route("/me", methods=["GET"])
 @user_login_required
 def profile():
+    """R216 偏好页：语言 / 阅读难度 / 阅读主题 / 伙伴。
+
+    Why 不再复用 user_edit.html：后者与管理员编辑用户共用，且旧的 change_profile
+    是全量覆盖——删掉 Kindle/侧栏勾选后，缺省字段会把 random_books、locale、
+    sidebar_view 一并重置。偏好保存改走 /me/preferences 的局部更新。
+    """
     languages = calibre_db.speaking_language()
     translations = get_available_locale()
-    kobo_support = feature_support['kobo'] and config.config_kobo_sync
+    settings, settings_error = _moonwell_settings_fetch()
     if feature_support['oauth'] and config.config_login_type == 2:
         oauth_status = get_oauth_status()
         local_oauth_check = oauth_check
     else:
         oauth_status = None
         local_oauth_check = {}
-
-    if request.method == "POST":
-        change_profile(kobo_support, local_oauth_check, oauth_status, translations, languages)
-    return render_title_template("user_edit.html",
+    return render_title_template("me.html",
                                  translations=translations,
                                  profile=1,
                                  languages=languages,
                                  content=current_user,
-                                 config=config,
-                                 kobo_support=kobo_support,
+                                 settings=settings,
+                                 settings_error=settings_error,
                                  title=_("%(name)s's Profile", name=current_user.name),
                                  page="me",
                                  registered_oauth=local_oauth_check,
                                  oauth_status=oauth_status)
 
 
+@web.route("/me/preferences", methods=["POST"])
+@user_login_required
+def update_preferences():
+    """只更新界面语言与书籍语言，不触碰其他用户字段（R216）。"""
+    locale = request.form.get("locale", current_user.locale or "en")
+    book_language = request.form.get("default_language", current_user.default_language or "all")
+
+    if locale not in get_available_translations():
+        flash(_("Invalid language"), category="error")
+        return redirect(url_for("web.profile"))
+    valid_book_languages = {lang.lang_code for lang in calibre_db.speaking_language()}
+    if book_language != "all" and book_language not in valid_book_languages:
+        flash(_("Invalid language"), category="error")
+        return redirect(url_for("web.profile"))
+
+    try:
+        current_user.locale = locale
+        current_user.default_language = book_language
+        ub.session.commit()
+        flash(_("Success! Profile Updated"), category="success")
+        log.debug("Preferences updated")
+    except OperationalError as e:
+        ub.session.rollback()
+        log.error("Database error: %s", e)
+        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
+    return redirect(url_for("web.profile"))
+
+
 # ###################################Show single book ##################################################################
+
+
+def recent_reading(user_id, limit=6):
+    """首页「继续阅读」取数（R213-B / MB-17）。
+
+    Why 不直接 order_by 后 limit：`reading_progress` 里可能残留已读完的书与被
+    删除的书，先截断再过滤会让列表出现空位。这里按 limit 的 3 倍取候选再过滤，
+    过滤后不足 limit 就少显示几张卡，不补位。
+
+    Why 返回 dict 而不是 ORM 行：模板要的是「书名 + 封面 + 37/125」，
+    拼装放在这里，避免模板里再 join 书库。
+    """
+    if not user_id:
+        return []
+    try:
+        rows = ub.session.query(ub.ReadingProgress).filter(
+            ub.ReadingProgress.user_id == int(user_id)).order_by(
+            ub.ReadingProgress.last_read_at.desc()).limit(max(limit, 1) * 3).all()
+    except Exception as e:
+        log.warning("recent_reading query failed: %s", e)
+        return []
+    if not rows:
+        return []
+
+    book_ids = [r.book_id for r in rows]
+    # 一次查出已读完集合，避免逐本查 ReadBook
+    finished = set()
+    try:
+        for read_book in ub.session.query(ub.ReadBook).filter(
+                ub.ReadBook.user_id == int(user_id),
+                ub.ReadBook.book_id.in_(book_ids),
+                ub.ReadBook.read_status == ub.ReadBook.STATUS_FINISHED).all():
+            finished.add(read_book.book_id)
+    except Exception as e:
+        log.warning("recent_reading read-status lookup failed: %s", e)
+
+    entries = []
+    for row in rows:
+        if len(entries) >= limit:
+            break
+        if row.book_id in finished:
+            continue
+        try:
+            book = calibre_db.get_filtered_book(row.book_id)
+        except Exception:
+            book = None
+        # 书被删或当前用户无权看：静默跳过，不进列表也不报错
+        if not book:
+            continue
+        entries.append({
+            "book": book,
+            "format": row.book_format,
+            "position": row.position,
+            "percent": row.progress_percent,
+            "page_current": row.page_current,
+            "page_total": row.page_total,
+            "last_read_at": row.last_read_at,
+        })
+    return entries
 
 
 @web.route("/read/<int:book_id>/<book_format>")
@@ -2400,16 +2425,32 @@ def read_book(book_id, book_format):
         bookmark = ub.session.query(ub.Bookmark).filter(and_(ub.Bookmark.user_id == int(current_user.id),
                                                              ub.Bookmark.book_id == book_id,
                                                              ub.Bookmark.format == book_format.upper())).first()
+    # 账号级阅读位置（R213-B）：EPUB 恢复位置用；服务端优先于浏览器 localStorage
+    reading_position = None
+    if current_user.is_authenticated:
+        progress = ub.session.query(ub.ReadingProgress).filter(
+            ub.ReadingProgress.user_id == int(current_user.id),
+            ub.ReadingProgress.book_id == book_id,
+            ub.ReadingProgress.book_format == book_format.upper()).first()
+        if progress:
+            reading_position = {
+                "position": progress.position,
+                "percent": progress.progress_percent,
+                "page_current": progress.page_current,
+                "page_total": progress.page_total,
+            }
     if book_format.lower() == "epub" or book_format.lower() == "kepub":
         log.debug("Start [k]epub reader for %d", book_id)
         return render_title_template('read.html', bookid=book_id, title=book.title, bookmark=bookmark,
-                                     book_format=book_format)
+                                     book_format=book_format, reading_position=reading_position)
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
-        return render_title_template('readpdf.html', pdffile=book_id, title=book.title)
+        return render_title_template('readpdf.html', pdffile=book_id, title=book.title,
+                                     reading_position=reading_position)
     elif book_format.lower() == "txt":
         log.debug("Start txt reader for %d", book_id)
-        return render_title_template('readtxt.html', txtfile=book_id, title=book.title)
+        return render_title_template('readtxt.html', txtfile=book_id, title=book.title,
+                                     reading_position=reading_position)
     elif book_format.lower() in ["djvu", "djv"]:
         log.debug("Start djvu reader for %d", book_id)
         return render_title_template('readdjvu.html', djvufile=book_id, title=book.title,
@@ -2436,6 +2477,40 @@ def read_book(book_id, book_format):
         flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
               category="error")
         return redirect(url_for("web.index"))
+
+
+# ---- R214 子项 A：书籍详情元数据呈现判定（判定不进模板，便于单测）----
+from cps.reading_insight.difficulty import resolve_difficulty
+
+
+def _pubdate_is_import_date(pubdate, timestamp):
+    """判定「伪出版日」：pubdate 与入藏 timestamp 相差 ≤1 天视为导入时间。
+
+    Why: Calibre 在 OPF 没有 dc:date 时会把导入时间填进 books.pubdate，详情页
+         因此把「入库日」当「出版日」展示（QA §四）。这类日期不是出版信息，
+         页面改显示「导入于 …」，不伪造出版日（R214 元数据不伪造原则）。
+    """
+    if not pubdate or not timestamp:
+        return False
+    try:
+        delta = (pubdate.replace(tzinfo=None) - timestamp.replace(tzinfo=None)).total_seconds()
+    except (AttributeError, TypeError, ValueError):
+        return False
+    return abs(delta) <= 86400
+
+
+def _shelf_names_for_book(shelf_ids):
+    """把书架 id 列表换成书架名列表（难度阶②级兜底要吃名称）。
+
+    Why: `ub.BookShelf.shelf` 是 `Column(Integer, ForeignKey('shelf.id'))`——外键整数列，
+         不是 Shelf 关系对象。详情页把书所属书架直接攒成 id 列表（模板按 id 判
+         「已加入书架」，形制不能改），拿它 `.name` 必然 AttributeError→整页 500。
+         名称单独查一次，也避免按书架数逐行 lazy load 出 N+1。
+    """
+    if not shelf_ids:
+        return []
+    return [name for (name,) in ub.session.query(ub.Shelf.name)
+            .filter(ub.Shelf.id.in_(shelf_ids)).all()]
 
 
 @web.route("/book/<int:book_id>")
@@ -2473,6 +2548,34 @@ def show_book(book_id):
         for media_format in entry.data:
             if media_format.format.lower() in constants.EXTENSIONS_AUDIO:
                 entry.audio_entries.append(media_format.format.lower())
+
+        # R214 子项 A：伪出版日判定 + 难度阶标签（四级兜底，与 R213 共用解析器）
+        entry.pubdate_is_import_date = _pubdate_is_import_date(entry.pubdate, entry.timestamp)
+        entry.difficulty = resolve_difficulty(
+            tag_names=[t.name for t in entry.tags],
+            shelf_names=_shelf_names_for_book(book_in_shelves),
+            series_name=entry.series[0].name if entry.series else "")
+
+        # R214 B：内容速览——一次解析缓存（book_insight），供简介/目录/试读三区块
+        # 与后续代价面板共用同一份量。解析失败不拖垮详情页，区块内显示错误原文
+        # （LLD §8 禁止静默降级），故兜 Exception 而非只兜 ValueError。
+        entry.insight = None
+        entry.insight_error = None
+        entry.insight_format = ("epub" if "epub" in entry.reader_list
+                                else "kepub" if "kepub" in entry.reader_list else "")
+        if entry.insight_format:
+            try:
+                # 延迟导入：reading_insight.service 的 generate_summary 反向引用 web，
+                # 模块级互引会成环（routes/book_detail.py 同因）。
+                from cps.reading_insight.service import get_or_build
+                entry.insight = get_or_build(book_id, entry.insight_format)
+                ai_summary = (entry.insight or {}).get("aiSummary")
+                if ai_summary and ai_summary.get("generatedAt"):
+                    from datetime import datetime
+                    ai_summary["generatedAtText"] = datetime.fromtimestamp(
+                        ai_summary["generatedAt"]).strftime("%Y-%m-%d")
+            except Exception as error:
+                entry.insight_error = str(error)
 
         return render_title_template('detail.html',
                                      entry=entry,

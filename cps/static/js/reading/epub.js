@@ -174,8 +174,23 @@ var reader;
                 // 因此恢复必须两级：先按 spine 序号 display（整数路径不走 CFI Range，
                 // 无此雷）安全落位，再用 cfiSafeForCurrentDocument 校验通过的 CFI 做
                 // 章内精调；校验不过则丢弃保存的位置，绝不让可疑 CFI 进入显示队列。
+                // R213-B：位置来源优先级 = 服务端（账号级、跨设备）> localStorage（本机兜底）。
+                // Why 不是简单二选一：老账号在服务端还没有记录，第一次进阅读器时服务端为空，
+                // 此时仍要用本地位置，并由 relocated 的首次上报自然完成回填（不写迁移脚本）。
+                var _savedPos = null;
                 try {
-                    var _savedPos = localStorage.getItem(position_key);
+                    var _srv = (window.calibre && window.calibre.readerPosition) || {};
+                    if (_srv && _srv.position) {
+                        _savedPos = JSON.stringify({
+                            cfi: _srv.position,
+                            percentage: typeof _srv.percent === "number" ? _srv.percent / 100 : undefined,
+                        });
+                    }
+                } catch (eSrv) {}
+                if (!_savedPos) {
+                    _savedPos = localStorage.getItem(position_key);
+                }
+                try {
                     if (_savedPos) {
                         try {
                             var _posObj = JSON.parse(_savedPos);
@@ -238,6 +253,21 @@ var reader;
                             position_key,
                             JSON.stringify(posObj)
                         );
+                    } catch (e) {}
+
+                    // R213-B：同时上报账号级位置（跨设备可见）。节流与卸载补发在
+                    // reader-progress.js 内，这里只负责把「当前真实位置」交出去。
+                    // 页码口径直接复用上面 locations 的 current/total —— 与阅读器顶部
+                    // 显示的 37/125 必须同源，否则首页卡片与阅读器会显示两个页码。
+                    try {
+                        if (window.ReaderProgress) {
+                            window.ReaderProgress.update({
+                                position: cfi,
+                                percent: percentage,
+                                page: total > 0 ? current : undefined,
+                                total: total > 0 ? total : undefined,
+                            });
+                        }
                     } catch (e) {}
                 });
                 reader.rendition.reportLocation();
@@ -414,7 +444,7 @@ var reader;
                 RT.bindSeek(content.document);
             }
         }
-        // 新章节渲染后仅回填缓存译文，翻译由段落按钮/工具栏手动触发
+        // 新章节渲染后仅回填已缓存的译文，翻译由段落按钮/工具栏手动触发
         if (RI.enabled()) setTimeout(RI.restoreCachedTranslations, 60);
         // R157 整本连播：翻章/重渲染时重建播放队列（播放器自身翻章走 internalNav 分支）
         if (RTTS.bookPlayerActive()) RTTS.bookPlayerOnRendered(section, view);
@@ -716,8 +746,14 @@ var reader;
     }
 
     // Default settings load
-    const theme = localStorage.getItem("calibre.reader.theme") ?? "lightTheme";
+    // R216：账号同步值（ui-prefs.js 早载写入）优先于 localStorage；若同步结果晚于此处到达，
+    // 由 magicbook:reader-theme 事件补切一次。用户在本次会话手选过主题时 ui-prefs 不再广播。
+    const theme = window.__mbReaderTheme || localStorage.getItem("calibre.reader.theme") || "lightTheme";
     selectTheme(theme);
+    window.addEventListener("magicbook:reader-theme", function (event) {
+        const synced = event && event.detail && event.detail.theme;
+        if (synced) { selectTheme(synced); }
+    });
 
     // Restore saved font and font size after reader is ready
     reader.book.ready.then(() => {

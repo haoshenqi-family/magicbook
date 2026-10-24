@@ -1,0 +1,92 @@
+/* R214 子项 A：书籍详情页视觉分层（QA §四）。
+
+   Why: 截图里「已加入的书架」与「加入书架」用同款 btn 外观，用户把移除芯片
+        误读成「默认展开的加入面板」。已加入项改为 label 芯片（带 ✕ 可移除），
+        与「加入书架」按钮分出层级；管理动作用 admin-tools 分组弱化。 */
+
+/* 已在书架：可移除芯片（details.js 按 [data-shelf-action] 委托绑定，类名可换） */
+.shelf-chip {
+  display: inline-block;
+  margin: 2px 4px 2px 0;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.shelf-chip .glyphicon-remove {
+  margin-right: 2px;
+  opacity: 0.6;
+}
+
+.shelf-chip:hover {
+  background-color: #c9302c;
+  color: #fff;
+  text-decoration: none;
+}
+
+/* 管理员工具区：与读者操作分组，弱化但不隐藏 */
+.admin-tools {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
+
+.admin-tools p {
+  margin-bottom: 4px;
+}
+
+/* R214 B：内容速览三区块（简介三级回退 / 目录 / 首章试读）。 */
+
+/* AI 简介：标注行弱化在正文之下，不冒充书目自带简介（拍板④） */
+.ai-summary-note {
+  margin: 6px 0 0;
+}
+
+/* 目录：层级缩进由模板按 level 内联输出，这里只管行距与折叠态 */
+.book-toc .toc-list {
+  list-style: none;
+  padding-left: 0;
+  margin-bottom: 8px;
+}
+
+.book-toc .toc-item {
+  padding: 3px 0;
+  border-bottom: 1px dotted #f0f0f0;
+}
+
+.book-toc .toc-toggle {
+  cursor: pointer;
+}
+
+.book-toc .toc-first-paragraph {
+  margin: 4px 0 2px;
+  font-size: 12px;
+}
+
+/* 首章试读：超高淡出遮罩，明示「还有」而不是截断感 */
+.book-preview .preview-body {
+  position: relative;
+  max-height: 420px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.book-preview .preview-body::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), #fff);
+  pointer-events: none;
+}
+
+.book-preview .preview-chapter-title {
+  margin: 10px 0 4px;
+}
+
+.book-preview .preview-text {
+  margin: 0 0 8px;
+  line-height: 1.7;
+}

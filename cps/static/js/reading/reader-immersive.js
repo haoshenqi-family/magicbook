@@ -3,6 +3,10 @@
 /**
  * R183（架构评审 B4 批次 5）：沉浸式翻译（整本/逐段译文插入、缓存、显隐与重试）。
  *
+ * R215 验收回滚（2026-10-23）：右侧译文栏方案被用户否决，恢复「译文直接插入
+ * 段落下方」的形态；用户明确接受由此带来的 epub.js 重分页抖动。本文件回到
+ * R183 实现，不再包含右栏/点段选中逻辑。
+ *
  * 载入顺序：i18n_seed → api.js → reader-core.js → reader-word-detail.js →
  * reader-annotations.js → reader-selection.js → 本文件 → epub.js
  */

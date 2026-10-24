@@ -468,3 +468,198 @@
   line-height: 1.5;
 }
 .annotation-card-list .annotation-item { padding: 5px 0 4px; }
+
+/* ===== R215 顶栏：可见性 / 触达 / 窄屏「更多」 ===== */
+.reader-main #titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: auto;
+  min-height: 56px;
+  padding: 6px 12px;
+  opacity: .92;
+  text-align: left;
+}
+.reader-main #titlebar:hover { opacity: 1; }
+.reader-main #opener { float: none; flex: 0 0 auto; }
+.reader-main #opener a {
+  width: auto;
+  height: auto;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  /* 原节点带可见文本 "Menu"，只用 ::before 图标，文本在视觉上归零 */
+  font-size: 0;
+  overflow: hidden;
+}
+.reader-main #opener a::before { font-size: 24px; line-height: 1; }
+.reader-main #metainfo {
+  float: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.reader-main #metainfo #book-title,
+.reader-main #metainfo #chapter-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reader-main #metainfo #chapter-title { font-size: .9em; opacity: .8; }
+.reader-main #title-controls {
+  float: none;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+.reader-main #titlebar a.tb-tool {
+  width: auto;
+  height: auto;
+  line-height: 1;
+  overflow: visible;
+  opacity: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.reader-main #titlebar a.tb-tool:hover {
+  opacity: 1;
+  background: rgba(127, 127, 127, .16);
+  border: none;
+  padding: 0 8px;
+}
+.reader-main #titlebar a.tb-tool:active {
+  box-shadow: none;
+  color: inherit;
+}
+.reader-main #titlebar a.tb-tool .tb-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+}
+.reader-main #titlebar a.tb-tool .tb-label { font-size: 12px; white-space: nowrap; }
+.reader-main #titlebar a.tb-tool[class*="icon-"]::before {
+  font-size: 24px;
+  line-height: 1;
+  margin-right: 0;
+}
+.reader-main #titlebar a#immersive-translate .tb-icon { font-size: 22px; font-weight: 700; }
+.reader-main #titlebar a#immersive-translate.active {
+  opacity: 1;
+  color: #f5a623;
+  background: rgba(245, 166, 35, .14);
+  border: none;
+  padding: 0 8px;
+}
+.reader-main #titlebar a#whole-book-translate .tb-icon { font-size: 18px; font-weight: 700; }
+.reader-main #titlebar a#tts-book .tb-icon,
+.reader-main #titlebar a#tts-book-stop .tb-icon { font-size: 20px; }
+.reader-main #titlebar a.tb-more { display: none; min-width: 44px; }
+
+.title-more-menu {
+  position: fixed;
+  top: 64px;
+  right: 12px;
+  z-index: 2147483645;
+  min-width: 180px;
+  max-width: 240px;
+  padding: 6px;
+  border: 1px solid rgba(127, 127, 127, .25);
+  border-radius: 10px;
+  background: #fff;
+  color: #333;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .25);
+  display: flex;
+  flex-direction: column;
+}
+.title-more-menu[hidden] { display: none; }
+.title-more-menu a.tb-tool {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #333;
+  font-size: 13px;
+  text-decoration: none;
+}
+.title-more-menu a.tb-tool:hover { background: rgba(74, 144, 217, .12); }
+.title-more-menu a.tb-tool .tb-label { display: inline; font-size: 13px; }
+.title-more-menu a.tb-tool .tb-icon { font-size: 18px; }
+.title-more-menu a.tb-tool[class*="icon-"]::before { font-size: 20px; }
+
+@media only screen and (max-width: 767px) {
+  .reader-main #titlebar { min-height: 52px; padding: 4px 8px; gap: 4px; }
+  .reader-main #opener a { min-width: 44px; min-height: 44px; }
+  .reader-main #titlebar a.tb-tool {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 6px;
+    gap: 0;
+  }
+  .reader-main #titlebar a.tb-tool .tb-label { display: none; }
+  /* 翻译开关保留文字态：开/关必须一眼可辨（其余工具仍只留图标） */
+  .reader-main #titlebar a#immersive-translate .tb-label {
+    display: inline;
+    font-size: 11px;
+  }
+  .reader-main #titlebar a#immersive-translate { min-width: 64px; }
+  .reader-main #titlebar a.tb-more { display: inline-flex; }
+  .reader-main #metainfo { font-size: 13px; }
+  .title-more-menu { top: 60px; right: 8px; }
+}
+
+/* ===== R215 触屏段尾「⋯」菜单（挂外层 body，脱离 iframe 分页裁切） ===== */
+.reading-para-menu {
+  position: fixed;
+  z-index: 2147483645;
+  min-width: 190px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 6px;
+  border: 1px solid rgba(127, 127, 127, .25);
+  border-radius: 10px;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .25);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reading-para-menu button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.reading-para-menu button:hover { background: rgba(74, 144, 217, .12); }

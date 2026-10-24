@@ -1,12 +1,14 @@
-/* magicbook 前端引导模式（R109）——spotlight 逐步导览。
+/* magicbook 前端引导模式（R109，R216 收敛）。
    Why: 新用户打开 magicbook 面对的是 Calibre 派生界面，找不到主流程在哪。
         本脚本用「蒙层挖孔 + 气泡」指向真实控件，让用户在真界面上学，而不是读文档。
         不引入第三方 tour 库（js/libs 无同类资产，为单页挂载新增依赖不划算）。
-        状态持久化复用既有 POST /ajax/view → User.view_settings['onboarding']，
-        因此零 Python 改动、零数据库迁移。
-   How: 两段导览——main（浏览/详情/设置，挂在 layout.html）与 reader（阅读器/AI 伴读，
-        挂在 read.html）。步骤只在锚点存在的页面上生效，锚点缺失（角色门控、书库为空、
-        单格式书）自动跳过而不是卡死。进度写 localStorage 以支持跨页面与新标签页续览。 */
+   R216：自动邀请只在主站段出现一次，账号级状态存 moon-well user_ui_settings
+        （GET /ajax/ui-settings、POST /ajax/ui-settings/onboarding/close）；
+        旧 view_settings['onboarding'] 仅作回填依据，不再写入。
+   How: 三段导览——main（浏览/详情/设置，挂在 layout.html）、reader（阅读器/AI 伴读，
+        挂在 read.html）与 buddy（伙伴页）。步骤只在锚点存在的页面上生效，锚点缺失
+        （角色门控、书库为空、单格式书）自动跳过而不是卡死。进度写 localStorage
+        以支持跨页面与新标签页续览。 */
 (function ($) {
   "use strict";
 
@@ -132,59 +134,71 @@
     } catch (e) { /* ignore */ }
   }
 
-  /** 服务端种子取自 view_settings['onboarding']（{main:bool, reader:bool}）；匿名为空。 */
-  function serverSeen() {
-    return cfg.seen && typeof cfg.seen === "object" ? cfg.seen : {};
+  /** 旧种子取自 view_settings['onboarding']（{main:bool, reader:bool}）；仅用于回填。 */
+  function legacySeen() {
+    var v = cfg.seen && typeof cfg.seen === "object" ? cfg.seen : {};
+    return Object.keys(v).some(function (k) { return !!v[k]; });
   }
 
-  function localSeen() {
-    var v = lsGet("seen", {});
-    return v && typeof v === "object" ? v : {};
+  /** 账号级已读（R216 权威）；null=尚未拉到，true=服务端说已看，false=没看过。 */
+  var accountSeen = null;
+  var settingsRequest = null;
+
+  /**
+   * 拉账号级 UI 设置。失败时按「已看」处理（fail closed）：读不到状态时宁可
+   * 不自动弹，也不把老用户再骚扰一遍；手动入口仍可用。
+   */
+  function fetchUiSettings() {
+    if (settingsRequest) return settingsRequest;
+    settingsRequest = $.ajax({
+      method: "GET",
+      url: appPath() + "/ajax/ui-settings",
+      dataType: "json",
+      timeout: 8000
+    }).then(function (data) {
+      var result = data && data.success ? data.result : null;
+      if (!result) throw new Error("ui settings unavailable");
+      accountSeen = !!result.onboardingSeen;
+      // 旧版只在 view_settings 里记过已读：静默回填，不重弹
+      if (!accountSeen && legacySeen()) {
+        accountSeen = true;
+        closeOnboarding();
+      }
+      return accountSeen;
+    }, function () {
+      accountSeen = true;
+      if (window.console && console.warn) {
+        console.warn("[onboarding] ui settings unavailable; auto invite skipped");
+      }
+      return accountSeen;
+    });
+    return settingsRequest;
   }
 
-  function isSeen(segment) {
-    // 服务端为权威（跨设备）；本地镜像兜住匿名访客——Anonymous.set_view_property
-    // 写的是 flask_session（cps/ub.py:338），而模板读的是共享行的 view_settings，
-    // 服务端那条写入对匿名既不会生效也没有意义，所以匿名只用 localStorage。
-    return !!serverSeen()[segment] || !!localSeen()[segment];
+  function isSeen() {
+    // R216：只认账号级状态。localStorage 是浏览器级共享的，同一浏览器换账号
+    // 会串（旧 R109 的「每浏览器各弹一次」根因）；账号未读时不能拿它压住邀请。
+    return accountSeen === true;
   }
 
-  function markSeen(segment) {
-    var seen = localSeen();
-    seen[segment] = true;
-    lsSet("seen", seen);
+  /** 关闭/完成引导：账号级只写一次，所有设备共享。 */
+  function closeOnboarding() {
+    accountSeen = true;
     clearProgress();
     if (!cfg.anonymous) {
       $.ajax({
         method: "POST",
-        url: appPath() + "/ajax/view",
+        url: appPath() + "/ajax/ui-settings/onboarding/close",
         contentType: "application/json; charset=utf-8",
         headers: { "X-CSRFToken": $("input[name='csrf_token']").val() || "" },
-        data: JSON.stringify({ onboarding: seen })
-        // 写失败不影响体验：下次进页面会重新邀请，最多重看一次导览
+        data: "{}"
+      }).fail(function () {
+        // 本机已按已看处理；其他设备仍可能再弹一次，留痕便于排查
+        if (window.console && console.warn) {
+          console.warn("[onboarding] failed to persist account-level seen");
+        }
       });
     }
-  }
-
-  // 「以后再说」按段记录：主流程说以后再不要，不该连带屏蔽阅读器导览
-  function isLater(segment) {
-    var v = lsGet("later", {});
-    return !!(v && typeof v === "object" && v[segment]);
-  }
-
-  function setLater(segment) {
-    var v = lsGet("later", {});
-    if (!v || typeof v !== "object") v = {};
-    v[segment] = 1;
-    lsSet("later", v);
-  }
-
-  /** 主动开启导览 = 撤回该段的「以后再说」，但不动另一段。 */
-  function clearLater(segment) {
-    var v = lsGet("later", {});
-    if (!v || typeof v !== "object") return;
-    delete v[segment];
-    lsSet("later", v);
   }
 
   function appPath() {
@@ -568,15 +582,14 @@
   }
 
   function finish(segment) {
-    markSeen(segment);
+    closeOnboarding();
     teardown();
     showEntryAgainIfNeeded(segment);
   }
 
-  /** ESC 只是「收起」，不等于「学完了」：不写 seen，只按以后再说处理。 */
+  /** R216：ESC 与 × 同义——关闭即账号级已看，不再保留「以后再说」第三态。 */
   function dismiss(segment) {
-    setLater(segment);
-    clearProgress();
+    closeOnboarding();
     teardown();
     showEntryAgainIfNeeded(segment);
   }
@@ -587,31 +600,23 @@
 
   /* ---------------- 邀请卡与常驻入口 ---------------- */
 
+  /** R216：全站唯一邀请卡，只有「开始引导 + 关闭」两个动作。 */
   function showInvite(segment) {
     applyChromePalette();
-    var isReader = segment === "reader";
-    var inviteText = segment === "buddy"
-      ? mbT("Claim your first companion — a snowy owl is waiting for new readers.")
-      : (isReader ? mbT("Flip pages, switch themes and use the AI companion, right inside the reader.")
-                  : mbT("Walk through finding books, shelves, download and reading on the real interface."));
-    var card = $('<div id="onb-invite" role="dialog" aria-label="' + esc(mbT("Onboarding Tour")) + '"><div class="onb-invite-card">'
+    var card = $('<div id="onb-invite" role="dialog" aria-modal="true" aria-labelledby="onb-invite-title"><div class="onb-invite-card">'
       + '<button type="button" class="onb-invite-x" title="' + esc(mbT("Close")) + '" aria-label="' + esc(mbT("Close")) + '">×</button>'
-      + '<div class="onb-invite-title">' + esc(mbT("Learn magicbook in 2 minutes")) + '</div>'
+      + '<div class="onb-invite-title" id="onb-invite-title">' + esc(mbT("Learn magicbook in 2 minutes")) + '</div>'
       + '<p class="onb-invite-text">'
-      + esc(inviteText)
+      + esc(mbT("Take a quick tour of finding books, shelves, reading and the AI companion — on the real interface."))
       + '</p><div class="onb-invite-actions">'
-      + '<button type="button" class="onb-btn onb-invite-never">' + esc(mbT("Never show again")) + '</button>'
       + '<span class="onb-spacer"></span>'
-      + '<button type="button" class="onb-btn onb-invite-later">' + esc(mbT("Later")) + '</button>'
       + '<button type="button" class="onb-btn onb-primary onb-invite-start">' + esc(mbT("Start Tour")) + '</button>'
       + '</div></div></div>');
 
     card.on("click", ".onb-invite-start", function () { card.remove(); startTour(segment); });
-    card.on("click", ".onb-invite-later", function () { setLater(segment); card.remove(); });
-    card.on("click", ".onb-invite-never", function () { setLater(segment); markSeen(segment); card.remove(); });
-    // × 与「以后再说」同义：否则每次翻页都重弹，等于没关
-    card.on("click", ".onb-invite-x", function () { setLater(segment); card.remove(); });
+    card.on("click", ".onb-invite-x", function () { closeOnboarding(); card.remove(); });
     $("body").append(card);
+    card.find(".onb-invite-start").trigger("focus");
   }
 
   /** 阅读器页没有 layout 的「设置」下拉，用常驻「?」代替手动入口。 */
@@ -627,7 +632,7 @@
     // 并发写入）把这行 append 写了两遍，两个同位置按钮只有第一个拿到监听，
     // 点到的永远是盖在上层的空壳（R113 线上事故）
     var help = $('<button type="button" id="onb-help" title="' + esc(mbT("Onboarding Tour")) + '" aria-label="' + esc(mbT("Onboarding Tour")) + '">?</button>');
-    help.on("click", function () { clearLater("reader"); showInvite("reader"); });
+    help.on("click", function () { startTour("reader"); });
     $("body").append(help);
   }
 
@@ -648,9 +653,7 @@
   function bindLayoutEntry() {
     $("#top_onboarding").on("click", function (e) {
       e.preventDefault();
-      var segment = detectSegment();
-      clearLater(segment);
-      startTour(segment);
+      startTour(detectSegment());
     });
   }
 
@@ -667,7 +670,8 @@
     if (progress && progress.segment === segment) {
       clearProgress();  // 步骤已从表里移除
     }
-    if (!isSeen(segment) && !isLater(segment)) {
+    // R216：自动邀请只发生在主站段；阅读器/伙伴页只保留手动入口，避免「出现三次」
+    if (segment === "main" && !isSeen()) {
       showInvite(segment);
       return;
     }
@@ -676,23 +680,37 @@
 
   function init() {
     bindLayoutEntry();
+    // 匿名不弹、也不请求账号设置（服务端没有可读状态）
+    if (cfg.anonymous) return;
     var segment = detectSegment();
-    // 伙伴段的锚点（雪鸮领取按钮）由 buddy.js 异步渲染，DOM 就绪时尚不存在，
-    // 直接跑会把领取步当锚点缺失跳过——交给 onRosterReady 在花名册画完后触发。
-    if (segment === "buddy") return;
-    runSegment(segment);
+    fetchUiSettings().always(function () {
+      // 伙伴段的锚点由 buddy.js 异步渲染，交给 onRosterReady 触发
+      if (segment === "buddy") return;
+      runSegment(segment);
+    });
   }
 
   // 暴露给 buddy.js：花名册渲染完成后触发伙伴段导览（幂等，仅伙伴页生效）。
   cfg.onRosterReady = function () {
-    if (detectSegment() === "buddy") runSegment("buddy");
+    if (detectSegment() !== "buddy") return;
+    fetchUiSettings().always(function () { runSegment("buddy"); });
   };
 
   $(document).on("keydown.onboarding", function (e) {
-    if (e.key !== "Escape" || !current) return;
-    // 阻止 ai_chat.js 的同键监听一起把抽屉关掉（它比我们早注册）
-    e.stopImmediatePropagation();
-    dismiss(current.segment);
+    if (e.key !== "Escape") return;
+    if (current) {
+      // 阻止 ai_chat.js 的同键监听一起把抽屉关掉（它比我们早注册）
+      e.stopImmediatePropagation();
+      dismiss(current.segment);
+      return;
+    }
+    // 邀请卡阶段 current 还是 null：ESC 与右上 × 同义（R216 取消「以后再说」第三态）
+    var invite = document.getElementById("onb-invite");
+    if (invite) {
+      e.stopImmediatePropagation();
+      closeOnboarding();
+      $(invite).remove();
+    }
   });
   $(window).on("resize.onboarding", onViewportEvent);
   // scroll 不冒泡：caliBlur 主题下真正滚动的是 .col-sm-10（overflow:auto），
