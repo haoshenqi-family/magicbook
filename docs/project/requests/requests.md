@@ -210,7 +210,7 @@
 
 216. **首访体验优化⑤引导收敛与个人中心：账号级只弹一次、/me改偏好页、难度入口前置、成就占位与伙伴IP风险登记**（MAGICBOOK-223，2026-10-23 占号）：来源＝报告 §六、§七。引导三处弹窗（登录页中文/阅读器英文/伙伴页）统一并改账号级只弹一次（落 moon-well 账号偏好，与 R208 同源）；`/me` 改偏好页并修 `div#user_submit` 键盘不可达；难度设置入口前置；成就灰占位修复；伙伴页文案重写。另按用户拍板登记一条 **伙伴 IP 风险**（内测保留 HP 角色、不改代码，正式对外发布前须换原创）——只进 L3/kb 文档，不在本条实现。　PJM 工作项：MAGICBOOK-15（迭代 1.0）。
 
-217. **注册后自动回 magicbook：邀请注册走 OIDC 上下文，enrollment 完成后静默授权回站并已登录**（占号 2026-10-23，待回填）
+217. **注册后自动回 magicbook：邀请注册走 OIDC 上下文，enrollment 完成后静默授权回站并已登录**（占号 2026-10-23）。背景：R103 起登录页「注册账号」按钮直接指向 Authentik 邀请链接且 `target="_blank"`，用户注册完停在 Authentik 侧，必须自己切回 magicbook 再点一次「Log in」——注册与登录是断开的两步。范围：① `cps/oidc.py` 新增 `GET /oidc/signup`，用 authlib 生成 OIDC 授权 URL（state/nonce/PKCE 存 Flask session），从既有 `AUTHENTIK_ENROLLMENT_INVITE_URL` 解析 itoken，把授权 URL 的 path+query 编码成 `next` 拼成邀请 flow URL；② 登录页按钮改指向 `/oidc/signup`，去掉 `target="_blank"`（同窗口连续体验）；③ 守卫测试 `tests/test_oidc_signup.py` 16 条。关键约束（现网实证）：Authentik flow 结束时的 `next` **必须是相对路径**（`_flow_done()` 里 `is_url_absolute` 判 netloc 非空即拒为 "Invalid next URL"），故 `next` 指向**同域** authorize 端点 `/application/o/authorize/?...` 而非 magicbook callback——Authentik 负责「已登录→签发 code→回调」，magicbook 侧 `callback()` 零改动，建号/绑号/角色判定不分叉；itoken 从既有 env 解析，不新增变量以免双份配置漂移。状态：**已开发，待验收**（2026-10-23，worktree `../magicbook-r217-oidc-signup-return`，分支 `feat/r217-oidc-signup-return`；16 条新增 + 相关回归 49 条全绿；现网端到端实测：flow 结束精确还原 `next` → authorize → Authentik 签发 code → 302 回 `https://magicbook.haoshenqi.top/oidc/callback?code=..`；测试账号已清理）。
 
 218. **R214 子项 A 验收缺陷：在书架里的书详情页 500，读不了书**（占号 2026-10-23，待回填）
 

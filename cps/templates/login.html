@@ -9,9 +9,13 @@
       {{_('Log in')}}
     </a>
     {# 邀请制注册：游客首页即本页（匿名浏览关闭时 / 302 到 /login），登录入口旁放注册入口；
-       链接来自 AUTHENTIK_ENROLLMENT_INVITE_URL；R112：标签走 Babel gettext，随 locale 切换 #}
-    {% if authentik_invite_url %}
-    <a id="authentik_invite_signup" href="{{ authentik_invite_url }}" target="_blank" rel="noopener"
+       R217：按钮指向 magicbook 侧的 /oidc/signup，由它把邀请注册与 OIDC 授权串成一条链
+       —— 用户注册完自动回到 magicbook 且已是登录态，无需再点一次登录。因此不再
+       target=_blank（那会让「注册完在哪」变成断点）。开关仍由
+       AUTHENTIK_ENROLLMENT_INVITE_URL 是否配置决定（沿用 R103 语义）；
+       R112：标签走 Babel gettext，随 locale 切换 #}
+    {% if authentik_invite_url and authentik_signup_url %}
+    <a id="authentik_invite_signup" href="{{ authentik_signup_url }}"
        class="btn btn-default btn-block" style="white-space:normal;margin-top:8px">
       {{_('Sign up')}}
     </a>

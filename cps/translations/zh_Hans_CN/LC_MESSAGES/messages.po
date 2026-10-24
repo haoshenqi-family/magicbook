@@ -6003,3 +6003,24 @@ msgstr "按 calibre 自定义阅读列筛选（该列只有「是 / 否」两个
 
 msgid "Unread: never opened, or marked as unread. In progress: opened but not finished. Read: finished."
 msgstr "未读：从没打开过，或手动标记为未读。在读：打开过但没读完。已读：读到最后一页或标记为已读。"
+
+msgid "Continue Reading"
+msgstr "继续阅读"
+
+msgid "Go to Learning"
+msgstr "去学习页"
+
+msgid "Recommended by level"
+msgstr "按难度阶推荐"
+
+msgid "Words due for review"
+msgstr "词待复习"
+
+msgid "Writing tasks to finish"
+msgstr "篇写作待完成"
+
+msgid "Your daily plan is unavailable right now — open the Learning page"
+msgstr "今日计划暂时取不到 · 去学习页看看"
+
+msgid "Use the new Home page as login landing page"
+msgstr "登录后进入新首页（/home）"

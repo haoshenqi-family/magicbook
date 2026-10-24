@@ -1,6 +1,6 @@
 # LLD — R213 首页信息架构（三子项实现细节）
 
-> 状态：**A（非分组部分）与 B 已开发待验收 / A 侧边栏分组与 C 未定稿**（2026-10-23；A 已实现 chips 文字标签、卡片格式徽标、搜索合并、移动底部导航、创建书架裁切修复，**侧边栏四组分组按用户要求暂缓**等拍板；C 依赖 A/B 合入）
+> 状态：**A（非分组部分）与 B 已上线/已验收；A 的侧边栏分组按用户 2026-10-24 拍板「本迭代不改，下个迭代再说」；C 已开发待验收（2026-10-24）**
 > 迭代：1.0 · PJM 工作项 [MB-12](https://haoshenqi.pingcode.com/pjm/workitems/cc_nhJnW) 及拆出的 A/B/C 三个任务（MB-16/17/18） · Ship 需求 MAGICBOOK-220
 > 实现落点：worktree `../magicbook-r213-home-ia`，分支 `feat/r213-home-ia`（A/B/C 共用一树，按同编号互斥纪律）
 > 上游：[hld.md](./hld.md)（方案选型与被否方案）· 需求基线 [`product/library/requirements.md`](../../../../product/library/requirements.md)
@@ -139,7 +139,41 @@ def level_of_shelf(name):  # 解析不出 → None
 - **无阶书架**：解析不出阶号的书架不进推荐池，其书归「未分级」尾组（不隐藏、不报错）。
 - **性能**：一次查出「书架 → 书」映射再在内存分组，禁止每阶一次查询（N+1）。
 
-## 5. 侧边栏分组（子项 A）
+### 4.3 实现结果与对本文原案的修正（2026-10-24）
+
+原案是设计期写的，落地时有四处必须改口径（都属「照原文写会错」，已按事实修正）：
+
+| 处 | 原案 | 实际落地 | 为什么必须改 |
+| --- | --- | --- | --- |
+| 待复习词数 | 取 `plan/today` 的 `reviews` | 取 **`reviewTotal`** | `reviews` 被 `dailyMinutes` 推出的上限截断（`LearningPlanService.today()` 的 `reviewCap`），用它会把「到期 40」显示成「到期 20」，直接违反 AC C2「两处数字一致」；`reviewTotal` 与 `/learning` 页 `srs/stats.dueNow` 同为 `countDueBetween(MIN, now)`，数值恒等 |
+| 写作待办 `createdAt` | 「前置核实，缺则退方案②（moon-well 加 `writingPending`）」 | **已核实存在**，无需改 moon-well | `WritingVO.HistoryItem` 同时有 `createdAt`（`LocalDateTime.toString()`，无时区）与 `lastDraftNo`；方案②不启用，跨仓改动为零 |
+| 落点判据位置 | 未指定 | 新增 `cps/landing.py::landing_endpoint()` 单点 | 判据被四处消费（登录页 `next` 默认值 / 本地登录成功 / OIDC `oidc_next` / 已登录再访问登录页）。写在 `web.py` 会让 `oidc.py` 只能函数内 import 绕环形依赖 |
+| 卡片宏 | 「循环抽成 `_book_card.html`」 | 宏带 7 个参数（`read_flag` / `show_badges` / `card_id` / `modal` / `music_icon` / `series_plain` / `href`）+ `caller()` | `index.html` 两个循环本来就有差异（随机区有徽标、列表区有音乐图标、series 页系列名是纯文本），不参数化就会在重构中改掉既有观感 |
+
+另两处落地细节：
+
+- **迁移不能省**：`_Settings` 新增 `config_home_landing` 列，既有库靠 `ub.migrate_home_landing_config()`
+  在启动时 `ALTER TABLE settings ADD COLUMN ... DEFAULT 1`。缺列不是「回退默认值」而是**任何配置读取都
+  OperationalError**（整站 500），所以这条迁移是功能的一部分，不是可选优化。
+- **首页零阻塞**：今日计划完全不走服务端渲染，`home.js` 并行拉两个既有代理端点；单块失败只让该数字显示 `–`，
+  两块都失败才整卡降级（AC C3）。随机发现沿用 `/` 的 `generate_linked_query + common_filters`，
+  受限书/归档书不会漏出来。
+
+### 4.4 验收对应（AC C1–C6）
+
+| AC | 判据落点 | 自动化守卫 |
+| --- | --- | --- |
+| C1 四块顺序、空块隐藏 | `home.html` 四段 + 条件包裹 | `test_home_hides_empty_sections`、`test_home_renders_cards_through_shared_macro` |
+| C2 两处数字一致 | `home.js` 取 `reviewTotal`；口径证明见 §4.3 | 口径由 moon-well 两侧源码同源保证（`countDueBetween`），无跨仓测试 |
+| C3 moon-well 不可用只降级该卡 | `home.js` 两个请求各自 `catch`；两块都失败才换文案 | 降级分支由 `data-text-unavailable` 文案与 `home-plan-degraded` 类钉住（真机截图验收） |
+| C4 归阶、合并、数字升序、未分级尾组、排除已读 | `level_of_shelf` / `group_book_ids_by_level` / `level_recommendations` | `test_level_of_shelf`（10 例）、`test_group_merges_same_level_and_keeps_unleveled`、`test_level_picks_numeric_order_and_finished_excluded`、`test_level_picks_skips_missing_books`、`test_level_picks_empty_when_no_level_shelf` |
+| C5 匿名跳登录 | `@user_login_required` | `test_home_requires_login` |
+| C6 默认落 `/home`、置 false 回退 `/` | `landing_endpoint()` + 四处调用点 | `test_landing_defaults_to_home`、`test_landing_falls_back_when_disabled`、`test_login_page_next_defaults_to_home`、`test_login_page_next_defaults_to_index_when_disabled`、`test_login_post_lands_on_home` |
+
+尚未自动化、留真机的一档：**G1 两档视口截图比对**（1440×900 / 390×844），属验收动作不属单测。
+
+## 5. 侧边栏分组（子项 A · 本迭代不实施）
+
 
 改造点 `cps/templates/layout.html`：`g.shelves_access` 平铺 → 分组渲染。
 

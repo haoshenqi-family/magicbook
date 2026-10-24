@@ -2,7 +2,7 @@ import base64
 import json
 import os
 import requests
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
 from authlib.integrations.flask_client import OAuth
 from authlib.integrations.flask_client.apps import FlaskOAuth2App
@@ -15,6 +15,8 @@ from joserfc.jws import JWSRegistry
 from sqlalchemy import func
 from . import ub, log, constants
 from .cw_login import login_user
+from .landing import landing_endpoint
+from .redirect import get_redirect_location
 
 
 class AuthentikOAuth2App(FlaskOAuth2App):
@@ -141,8 +143,105 @@ def login():
         flash("Authentik OIDC is not configured", "error")
         return redirect(url_for("web.login"))
     redirect_uri = os.getenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI") or url_for("oidc.callback", _external=True)
-    session["oidc_next"] = request.args.get("next") or url_for("web.index")
+    # R213-C：登录入口没带 next 时落站点默认落点（/home 或原 / 发现页）；
+    # 这里存的是完整 URL，callback 直接 302，故用 url_for 而非 endpoint 名。
+    session["oidc_next"] = request.args.get("next") or url_for(landing_endpoint())
     return oauth.authentik.authorize_redirect(redirect_uri)
+
+
+def _invite_token():
+    """从 ``AUTHENTIK_ENROLLMENT_INVITE_URL`` 解析出邀请 token（itoken）。
+
+    Why：沿用既有配置而不新增 env 变量——避免「invite URL 与 invite token 两份
+        配置各自漂移」，轮换时仍只改一个地方。该变量当前形态是
+        ``https://account.haoshenqi.top/if/flow/invitation-enrollment/?itoken=<uuid>``。
+    How：解析 query 取 ``itoken``；兼容「token」与「?token=」两种 key。
+        解析不出返回 None（调用方据此关闭注册入口，不静默跳坏链接）。
+    """
+    raw = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
+    if not raw:
+        return None
+    query = urlsplit(raw).query
+    for pair in query.split("&"):
+        if not pair:
+            continue
+        key, _, value = pair.partition("=")
+        if key in ("itoken", "token") and value:
+            return value
+    return None
+
+
+def _signup_authorize_target(redirect_uri):
+    """构造「注册完成后回 magicbook」的 OIDC 授权跳转目标（Authentik 同域相对路径）。
+
+    Why：Authentik 的 flow 结束时从 session 取 ``next`` 跳走，而 ``next``
+        **只接受相对路径**（``executor._flow_done()`` 用 ``is_url_absolute()``
+        判定，带 netloc 会被拒为 "Invalid next URL"）。因此不能把
+        ``https://magicbook.haoshenqi.top/oidc/callback`` 直接塞进 next。
+        办法是让 next 指向 **Authentik 自己的授权端点**——它与 flow 同域，
+        可写成相对路径 ``/application/o/authorize/?...``。Authentik 此时已由
+        邀请 flow 末位的 UserLoginStage 建立登录态，会静默签发 code 并 302 回
+        magicbook 的 redirect_uri。magicbook 侧的 callback() 逻辑完全复用，
+        建号/绑号/角色判定不分叉。
+    How：authlib 生成授权 URL（含 state/nonce/PKCE）→ 剥掉 scheme+host 只留
+        path+query → 作为 next。state 等参数由 authlib 写入 Flask session，
+        与既有 /oidc/login 路径完全一致。
+    """
+    rv = oauth.authentik.create_authorization_url(redirect_uri)
+    # authlib 把 state/nonce/code_verifier 存入 session，回调时凭 state 取回
+    oauth.authentik.save_authorize_data(redirect_uri=redirect_uri, **rv)
+    parts = urlsplit(rv["url"])
+    if parts.scheme or parts.netloc:
+        # 同域相对路径：Authentik 的 next 硬约束要求不能带 netloc
+        return urlunsplit(("", "", parts.path, parts.query, ""))
+    return rv["url"]
+
+
+@oidc.get("/signup")
+def signup():
+    """注册入口：把 Authentik 邀请注册 flow 与 OIDC 授权串成一条链。
+
+    Why：R103 起注册按钮直连邀请 flow（``target="_blank``），用户注册完停在
+        Authentik 侧，必须切回 magicbook 再点一次「Log in」——注册与登录断开。
+        本端点把两者串起来：先在 magicbook 侧生成 OIDC 授权 URL（state 存
+        session），再把它作为 ``next`` 挂在邀请 flow 后面；用户在 Authentik
+        完成注册后，flow 直接跳到授权端点静默签发 code，回到 magicbook 时
+        **已经是登录态**，无需二次点击。
+    How：授权 URL 的 path+query 作为 next（相对路径，见
+        ``_signup_authorize_target``）；itoken 从既有 env 解析；用户指定的
+        「注册完回哪个页面」走 ``get_redirect_location`` 做站内校验。
+    """
+    if not current_app.config.get("AUTHENTIK_OIDC_ENABLED"):
+        flash("Authentik OIDC is not configured", "error")
+        return redirect(url_for("web.login"))
+
+    invite_token = _invite_token()
+    if not invite_token:
+        flash("Registration is temporarily unavailable", "error")
+        return redirect(url_for("web.login"))
+
+    redirect_uri = os.getenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI") or url_for("oidc.callback", _external=True)
+    try:
+        target = _signup_authorize_target(redirect_uri)
+    except Exception as exc:
+        log.error("OIDC signup: failed to build authorization URL: %s", exc)
+        flash("Registration is temporarily unavailable", "error")
+        return redirect(url_for("web.login"))
+
+    # 注册完成后回到 magicbook 的哪个页面（只允许站内相对路径）
+    # R213-C：默认落点跟随站点配置（/home 或原 / 发现页），不再写死 web.index——
+    # 否则「注册即登录」会与本地登录落点不一致（新用户注册完被扔回老首页）。
+    session["oidc_next"] = get_redirect_location(request.args.get("next"), landing_endpoint())
+
+    invite_base = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
+    parts = urlsplit(invite_base)
+    flow_path = parts.path or "/if/flow/invitation-enrollment/"
+    # next 用 quote 编码：Authentik 前端把整个地址栏 query 原样透传给 executor，
+    # 不编码会让 next 里的 & 提前截断
+    flow_query = "itoken={0}&next={1}".format(quote(invite_token, safe=""), quote(target, safe=""))
+    signup_url = urlunsplit((parts.scheme, parts.netloc, flow_path, flow_query, ""))
+    log.info("OIDC signup: redirect to invitation enrollment flow (flow=%s)", flow_path)
+    return redirect(signup_url)
 
 
 @oidc.get("/callback")
@@ -198,4 +297,5 @@ def callback():
         except Exception as exc:
             log.warning("moon-well token exchange error: %s", exc)
 
-    return redirect(session.pop("oidc_next", url_for("web.index")))
+    # R213-C：oidc_next 丢失时也走站点默认落点（同样受 config_home_landing 控制）
+    return redirect(session.pop("oidc_next", url_for(landing_endpoint())))
