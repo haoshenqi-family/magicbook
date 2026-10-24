@@ -87,7 +87,9 @@
     <div class="panel-heading">{{_('Admin: Adjust Credits')}}</div>
     <div class="panel-body">
       <form id="credit-admin-adjust-form" class="form-inline" style="margin-bottom:0">
-        <input type="number" id="credit-admin-user" class="form-control" placeholder="{{_('User ID')}}" style="width:110px" required>
+        <select id="credit-admin-user" class="form-control" style="width:220px" required>
+          <option value="">{{_('Select user...')}}</option>
+        </select>
         <input type="number" id="credit-admin-amount" class="form-control" placeholder="{{_('Amount (+/-)')}}" style="width:140px" required>
         <input type="text" id="credit-admin-reason" class="form-control" placeholder="{{_('Reason (required, audited)')}}" style="width:260px" required>
         <button type="submit" class="btn btn-danger btn-sm">{{_('Apply Adjustment')}}</button>

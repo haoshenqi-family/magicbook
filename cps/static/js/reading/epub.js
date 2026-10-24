@@ -409,8 +409,7 @@ var reader;
             if (isNaN(value) || value < 0) value = RC.TRANSLATION_DISPLAY_DEFAULT;
             translationDisplayInput.value = String(value);
             try { localStorage.setItem(RC.TRANSLATION_DISPLAY_KEY, String(value)); } catch (e) {}
-            // R215：段落译文不再自动隐藏；该设置只剩划词气泡仍在用，改动后重排气泡计时
-            if (RS.isPopoverOpen()) RS.scheduleHide();
+            RI.rescheduleVisibleTranslations();
         });
     }
 
@@ -440,13 +439,13 @@ var reader;
         if (content && content.document) {
             RS.bindFrame(content);
             RTTS.injectParagraphTools(content);
-            // R215：翻译模式下单击段落 → 选中并在右栏显示译文（不再向正文插节点）
-            RI.bindContent(content);
             // R172 TED 原声伴听：段落点击切播（跳到该段原声位置）
             if (RT.isActive()) {
                 RT.bindSeek(content.document);
             }
         }
+        // 新章节渲染后仅回填已缓存的译文，翻译由段落按钮/工具栏手动触发
+        if (RI.enabled()) setTimeout(RI.restoreCachedTranslations, 60);
         // R157 整本连播：翻章/重渲染时重建播放队列（播放器自身翻章走 internalNav 分支）
         if (RTTS.bookPlayerActive()) RTTS.bookPlayerOnRendered(section, view);
         // R172 TED 原声伴听：翻章/重渲染后重建段落↔时间轴对齐并续高亮
@@ -747,8 +746,14 @@ var reader;
     }
 
     // Default settings load
-    const theme = localStorage.getItem("calibre.reader.theme") ?? "lightTheme";
+    // R216：账号同步值（ui-prefs.js 早载写入）优先于 localStorage；若同步结果晚于此处到达，
+    // 由 magicbook:reader-theme 事件补切一次。用户在本次会话手选过主题时 ui-prefs 不再广播。
+    const theme = window.__mbReaderTheme || localStorage.getItem("calibre.reader.theme") || "lightTheme";
     selectTheme(theme);
+    window.addEventListener("magicbook:reader-theme", function (event) {
+        const synced = event && event.detail && event.detail.theme;
+        if (synced) { selectTheme(synced); }
+    });
 
     // Restore saved font and font size after reader is ready
     reader.book.ready.then(() => {

@@ -52,3 +52,7 @@
 ## 8. i18n
 
 新增英文 msgid（伙伴页 + 引导 + 改写的 settings 文案）已补 `i18n_seed.html` 的 JS 词条映射，并追加到 `zh_Hans_CN` po + `pybabel compile`；运行时目录实测 `Buddies→伙伴` 等生效。
+
+## 9. FAB 伙伴显示与移动（R206 验收修正）
+
+`ai_chat_panel.html` 不再给伙伴 `<img>` 加内联 `display:none`，由 `.has-buddy` 样式控制显示，避免 CSS 规则被内联样式压过。伴读初始化时从 `fullImageUrl`（若有）或 `imageUrl` 预载装备伙伴头像。FAB 用 Pointer Events 支持鼠标与触屏拖动；松开后吸附到屏幕较近一侧，垂直位置保持并限制在视口内，位置保存在浏览器 `localStorage`；短距离按压仍触发打开伴读，完成拖动则抑制随后的 click。

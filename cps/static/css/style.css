@@ -226,6 +226,16 @@ table .bg-dark-danger a { color: #fff; }
   color: #45b29d !important;
 }
 
+/* R212 品牌圆章。Why 负上 margin：Grand Hotel 是 35px 手写体，字形中线明显低于行框中线，
+   直接 vertical-align: middle 会把圆章顶得偏高；此处按 headless Chrome 实测量出的偏移校准。 */
+.navbar-brand .brand-mark {
+  display: inline-block;
+  width: 26px;
+  height: 26px;
+  margin: -6px 8px 0 0;
+  vertical-align: middle;
+}
+
 .more-stuff {
   margin-top: 20px;
   padding-top: 20px;

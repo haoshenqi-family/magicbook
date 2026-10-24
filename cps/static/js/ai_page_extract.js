@@ -1,7 +1,8 @@
 /* Detects which reader is active (epub/pdf/txt) and extracts the current page text.
    Exposes window.AICompanion.getPageContext() -> string (sync)
    and window.AICompanion.getPageContextAsync() -> Promise<string> (for PDF).
-   Loaded by ai_chat_panel.html (included in each reader template). */
+   On regular pages it extracts the rendered body as the site assistant's context.
+   Loaded by ai_chat_panel.html (site layout and reader templates). */
 (function () {
   "use strict";
   window.AICompanion = window.AICompanion || {};
@@ -46,7 +47,26 @@
     if (typeof reader !== "undefined" && reader && reader.rendition) return "epub";
     if (typeof PDFViewerApplication !== "undefined") return "pdf";
     if (document.getElementById("content") && document.getElementById("readmain")) return "txt";
-    return "unknown";
+    return "site";
+  }
+
+  function extractSitePage() {
+    try {
+      var clone = document.body.cloneNode(true);
+      ["script", "style", "noscript", "nav", "header", "footer", "iframe", "#ai-companion-root"]
+        .forEach(function (selector) {
+          clone.querySelectorAll(selector).forEach(function (el) { el.remove(); });
+        });
+      var heading = clone.querySelector("h1") || clone.querySelector("h2");
+      var headingText = heading ? (heading.innerText || heading.textContent || "").trim() : "";
+      var text = (clone.innerText || clone.textContent || "").replace(/\s+/g, " ").trim();
+      var title = document.title || "";
+      var prefix = "Page title: " + title;
+      if (headingText && headingText !== title) prefix += " | Page heading: " + headingText;
+      return truncate(prefix + "\n" + text);
+    } catch (e) {
+      return "";
+    }
   }
 
   // Synchronous extractor (best-effort; PDF returns "" here and uses async)
@@ -54,6 +74,7 @@
     var fmt = detectFormat();
     if (fmt === "epub") return extractEpub();
     if (fmt === "txt") return extractTxt();
+    if (fmt === "site") return extractSitePage();
     return "";
   };
 
@@ -69,6 +90,7 @@
         return truncate(text);
       }).catch(function () { return ""; });
     }
+    if (fmt === "site") return Promise.resolve(extractSitePage());
     return Promise.resolve(window.AICompanion.getPageContext());
   };
 

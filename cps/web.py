@@ -57,7 +57,7 @@ from .helper import check_valid_domain, check_email, check_username, \
     edit_book_read_status, valid_password
 from .pagination import Pagination
 from .redirect import get_redirect_location
-from .cw_babel import get_available_locale
+from .cw_babel import get_available_locale, get_available_translations
 from .usermanagement import login_required_if_no_ano
 from .kobo_sync_status import remove_synced_book
 from .render_template import render_title_template
@@ -142,12 +142,9 @@ def add_security_headers(resp):
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"
     csp += " data:"
-    # 伙伴头像（R206）是 moon-well 下发的 MinIO 匿名直读直链，浏览器跨源取图；未放行时
-    # <img> 被 img-src 拦，而 ai_chat.js 用 new Image() 预载探测——失败即静默保留「AI」
-    # 文字兜底，故障在页面上不可见，故必须显式放行（同 R181 media-src 的踩坑口径）。
-    # 沿用其窄面做法：只在悬浮按钮真正出现的阅读页与 /buddy 花名册页放行。
-    if request.endpoint in ("web.read_book", "web.buddy_page"):
-        csp += " " + " ".join(MINIO_PUBLIC_ORIGINS)
+    # 伙伴头像（R206）原走 moon-well 下发的 MinIO 直链，img-src 曾按 HTML 页放行；
+    # R220 验收发现个别浏览器扩展会拦跨站图片子资源（ERR_BLOCKED_BY_CLIENT），
+    # 前端已全部改走同源代理 /ajax/buddy/image，img-src 收窄回 'self' + data:。
     if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
         csp += " *"
     if request.endpoint == "web.read_book":
@@ -2318,97 +2315,63 @@ def logout():
 
 
 # ################################### Users own configuration #########################################################
-def change_profile(kobo_support, local_oauth_check, oauth_status, translations, languages):
-    to_save = request.form.to_dict()
-    current_user.random_books = 0
-    try:
-        if current_user.role_passwd() or current_user.role_admin():
-            if to_save.get("password", "") != "":
-                current_user.password = generate_password_hash(valid_password(to_save.get("password")))
-        if to_save.get("kindle_mail", current_user.kindle_mail) != current_user.kindle_mail:
-            current_user.kindle_mail = valid_email(to_save.get("kindle_mail"))
-        new_email = valid_email(to_save.get("email", current_user.email))
-        if not new_email:
-            raise Exception(_("Email can't be empty and has to be a valid Email"))
-        if new_email != current_user.email:
-            current_user.email = check_email(new_email)
-        if current_user.role_admin():
-            if to_save.get("name", current_user.name) != current_user.name:
-                # Query username, if not existing, change
-                current_user.name = check_username(to_save.get("name"))
-        current_user.random_books = 1 if to_save.get("show_random") == "on" else 0
-        current_user.default_language = to_save.get("default_language", "all")
-        current_user.locale = to_save.get("locale", "en")
-        old_state = current_user.kobo_only_shelves_sync
-        # 1 -> 0: nothing has to be done
-        # 0 -> 1: all synced books have to be added to archived books, + currently synced shelfs which
-        # don't have to be synced have to be removed (added to Shelf archive)
-        current_user.kobo_only_shelves_sync = int(to_save.get("kobo_only_shelves_sync") == "on") or 0
-        if old_state == 0 and current_user.kobo_only_shelves_sync == 1:
-            kobo_sync_status.update_on_sync_shelfs(current_user.id)
-
-    except Exception as ex:
-        flash(str(ex), category="error")
-        return render_title_template("user_edit.html",
-                                     content=current_user,
-                                     config=config,
-                                     translations=translations,
-                                     profile=1,
-                                     languages=languages,
-                                     title=_("%(name)s's Profile", name=current_user.name),
-                                     page="me",
-                                     kobo_support=kobo_support,
-                                     registered_oauth=local_oauth_check,
-                                     oauth_status=oauth_status)
-
-    val = 0
-    for key, __ in to_save.items():
-        if key.startswith('show'):
-            val += int(key[5:])
-    current_user.sidebar_view = val
-    if to_save.get("Show_detail_random"):
-        current_user.sidebar_view += constants.DETAIL_RANDOM
-
-    try:
-        ub.session.commit()
-        flash(_("Success! Profile Updated"), category="success")
-        log.debug("Profile updated")
-    except IntegrityError:
-        ub.session.rollback()
-        flash(_("Oops! An account already exists for this Email."), category="error")
-        log.debug("Found an existing account for this Email")
-    except OperationalError as e:
-        ub.session.rollback()
-        log.error("Database error: %s", e)
-        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
-
-
-@web.route("/me", methods=["GET", "POST"])
+@web.route("/me", methods=["GET"])
 @user_login_required
 def profile():
+    """R216 偏好页：语言 / 阅读难度 / 阅读主题 / 伙伴。
+
+    Why 不再复用 user_edit.html：后者与管理员编辑用户共用，且旧的 change_profile
+    是全量覆盖——删掉 Kindle/侧栏勾选后，缺省字段会把 random_books、locale、
+    sidebar_view 一并重置。偏好保存改走 /me/preferences 的局部更新。
+    """
     languages = calibre_db.speaking_language()
     translations = get_available_locale()
-    kobo_support = feature_support['kobo'] and config.config_kobo_sync
+    settings, settings_error = _moonwell_settings_fetch()
     if feature_support['oauth'] and config.config_login_type == 2:
         oauth_status = get_oauth_status()
         local_oauth_check = oauth_check
     else:
         oauth_status = None
         local_oauth_check = {}
-
-    if request.method == "POST":
-        change_profile(kobo_support, local_oauth_check, oauth_status, translations, languages)
-    return render_title_template("user_edit.html",
+    return render_title_template("me.html",
                                  translations=translations,
                                  profile=1,
                                  languages=languages,
                                  content=current_user,
-                                 config=config,
-                                 kobo_support=kobo_support,
+                                 settings=settings,
+                                 settings_error=settings_error,
                                  title=_("%(name)s's Profile", name=current_user.name),
                                  page="me",
                                  registered_oauth=local_oauth_check,
                                  oauth_status=oauth_status)
+
+
+@web.route("/me/preferences", methods=["POST"])
+@user_login_required
+def update_preferences():
+    """只更新界面语言与书籍语言，不触碰其他用户字段（R216）。"""
+    locale = request.form.get("locale", current_user.locale or "en")
+    book_language = request.form.get("default_language", current_user.default_language or "all")
+
+    if locale not in get_available_translations():
+        flash(_("Invalid language"), category="error")
+        return redirect(url_for("web.profile"))
+    valid_book_languages = {lang.lang_code for lang in calibre_db.speaking_language()}
+    if book_language != "all" and book_language not in valid_book_languages:
+        flash(_("Invalid language"), category="error")
+        return redirect(url_for("web.profile"))
+
+    try:
+        current_user.locale = locale
+        current_user.default_language = book_language
+        ub.session.commit()
+        flash(_("Success! Profile Updated"), category="success")
+        log.debug("Preferences updated")
+    except OperationalError as e:
+        ub.session.rollback()
+        log.error("Database error: %s", e)
+        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
+    return redirect(url_for("web.profile"))
 
 
 # ###################################Show single book ##################################################################

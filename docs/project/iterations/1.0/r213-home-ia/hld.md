@@ -3,7 +3,7 @@
 > 状态：**草案，待第二轮讨论定稿**（2026-10-23；四问已拍板，§7 四条细节待拍板）
 > 迭代：1.0 · PJM 工作项 [MB-12](https://haoshenqi.pingcode.com/pjm/workitems/cc_nhJnW)（用户故事）· Ship 需求 MAGICBOOK-220
 > 来源：首访体验 QA 报告 §三.2–3.6、§八（`docs/project/qa/2026-10-23/2026-10-23-qa-report.md`）
-> 需求基线：[`docs/product/library/requirements.md`](../../../product/library/requirements.md) §2 R213
+> 需求基线：[`docs/product/library/requirements.md`](../../../../product/library/requirements.md) §2 R213
 
 ## 1. 目标与范围
 

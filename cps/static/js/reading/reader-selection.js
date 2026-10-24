@@ -81,10 +81,10 @@
             // 经缓存命中回收（幂等不重复计费），只真正发布缺失段。
             data: JSON.stringify({book_id: calibre.bookId, book_format: calibre.bookFormat, force: true})
         }).done(function (result) {
-            // 译文不是同步返回：任务由 moon-well 后台逐段执行并写入段落缓存，
-            // R215 起不再自动插进正文，点段翻译模式下命中缓存即时显示。
+            // 译文不是同步返回：任务由 moon-well 后台逐段执行并写入缓存，
+            // 完成后本阅读器翻页时经 restoreCachedTranslations 自动回填。
             try { localStorage.setItem('calibre.reader.translation.job.' + calibre.bookId, result.jobId); } catch (e) {}
-            alert(mbT('Whole-book translation submitted\nTotal paragraphs: {total}\nCached: {cached}\nNewly published: {published}\n\nTranslations are generated in the background paragraph by paragraph; turn on Translation mode and click a paragraph to read them.')
+            alert(mbT('Whole-book translation submitted\nTotal paragraphs: {total}\nCached: {cached}\nNewly published: {published}\n\nTranslations are generated in the background paragraph by paragraph and appear automatically while reading.')
                 .replace('{total}', result.totalCount || 0)
                 .replace('{cached}', result.cachedCount || 0)
                 .replace('{published}', result.publishedCount || 0));

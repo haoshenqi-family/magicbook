@@ -94,7 +94,8 @@
 
       card.innerHTML =
         '<div class="ach-badge ' + tierClass(a.tier) + '">' +
-        '  <span class="glyphicon ' + iconClass(a.iconKey) + '"></span>' +
+        '  <span class="glyphicon ' + iconClass(a.iconKey) + '" aria-hidden="true"></span>' +
+        (a.unlocked ? "" : '<span class="glyphicon glyphicon-lock ach-lock"></span>') +
         "</div>" +
         '<div class="ach-info">' +
         '  <div class="ach-name"></div>' +
@@ -114,6 +115,13 @@
       card.querySelector(".ach-desc").textContent = a.description || "";
       var unlockedAt = card.querySelector(".ach-unlocked-at");
       if (unlockedAt) { unlockedAt.textContent = "✓ " + formatDate(a.unlockedAt); }
+
+      var lock = card.querySelector(".ach-lock");
+      if (lock) {
+        var lockLabel = window.mbT ? window.mbT("Locked") : "Locked";
+        lock.title = lockLabel;
+        lock.setAttribute("aria-label", lockLabel);
+      }
 
       container.appendChild(card);
     });

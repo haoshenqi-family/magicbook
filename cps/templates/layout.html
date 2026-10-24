@@ -13,7 +13,8 @@
     {% endif %}
     <!-- Bootstrap -->
     <link rel="apple-touch-icon" sizes="140x140" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    {# R212：站内图标换品牌圆章（与 authentik 的 branding_favicon 同一枚，同源静态文件，不受 img-src 跨源限制） #}
+    <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='img/brand/favicon.png') }}">
     <link href="{{ url_for('static', filename='css/libs/bootstrap.min.css') }}" rel="stylesheet" media="screen">
     {% block header %}{% endblock %}
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
@@ -35,7 +36,8 @@
             <span class="icon-bar"></span>
             <span class="icon-bar"></span>
           </button>
-          <a class="navbar-brand" href="{{url_for('web.index')}}">{{instance}}</a>
+          {# R212 品牌圆章：alt="" 因紧邻的文字 wordmark 已承担名称，避免读屏念两遍 #}
+          <a class="navbar-brand" href="{{url_for('web.index')}}"><img class="brand-mark" src="{{ url_for('static', filename='img/brand/logo.png') }}" alt="">{{instance}}</a>
         </div>
         {% if g.current_theme == 1 %}
             <div class="home-btn"><a class="home-btn-tooltip" href="{{url_for("web.index", page=1)}}" data-toggle="tooltip" title="" data-placement="bottom" data-original-title="Home"></a></div>
@@ -265,6 +267,9 @@
       <script src="{{ url_for('static', filename='js/caliBlur.js') }}"></script>
     {% endif %}
     {% block js %}{% endblock %}
+    {% if current_user.is_authenticated and not current_user.is_anonymous %}
+    {% include 'ai_chat_panel.html' %}
+    {% endif %}
     {# R109 引导模式：必须在 jQuery 之后（onboarding.js 依赖 $），故放在 block js 之后 #}
     {% include 'i18n_seed.html' %}
     {% include 'onboarding_mount.html' %}

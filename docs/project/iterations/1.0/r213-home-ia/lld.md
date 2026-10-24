@@ -3,7 +3,7 @@
 > 状态：**A（非分组部分）与 B 已开发待验收 / A 侧边栏分组与 C 未定稿**（2026-10-23；A 已实现 chips 文字标签、卡片格式徽标、搜索合并、移动底部导航、创建书架裁切修复，**侧边栏四组分组按用户要求暂缓**等拍板；C 依赖 A/B 合入）
 > 迭代：1.0 · PJM 工作项 [MB-12](https://haoshenqi.pingcode.com/pjm/workitems/cc_nhJnW) 及拆出的 A/B/C 三个任务（MB-16/17/18） · Ship 需求 MAGICBOOK-220
 > 实现落点：worktree `../magicbook-r213-home-ia`，分支 `feat/r213-home-ia`（A/B/C 共用一树，按同编号互斥纪律）
-> 上游：[hld.md](./hld.md)（方案选型与被否方案）· 需求基线 [`product/library/requirements.md`](../../../product/library/requirements.md)
+> 上游：[hld.md](./hld.md)（方案选型与被否方案）· 需求基线 [`product/library/requirements.md`](../../../../product/library/requirements.md)
 > 本文档只管「怎么实现」。§1–§3 与子项 B 相关，§4–§8 分别对应 A/C。
 
 ## 1. 数据模型：`reading_progress`（子项 B）
@@ -164,6 +164,45 @@ def level_of_shelf(name):  # 解析不出 → None
 | 搜索合并 | `layout.html` 顶栏 | 高级搜索入口并入搜索框输入组（input-group-btn 内的 `⏷` 按钮，保留 `id="advanced_search"`——onboarding 引导步骤选中它），主导航不再并排。**已实现（2026-10-23）**。**偏差**：原案的「`⏷` 展开内联高级面板」未做，改为直达高级搜索页——内联面板与 C 的筛选能力重叠，留给 C 一并设计 |
 | 移动端底部导航 | `layout.html` 尾部 + `style.css` | `@media (max-width: 767px)` 固定底栏：书库 `/` · 学习 `/learning` · 我的（未登录显示登录）；`body { padding-bottom: 54px }`。**已实现（2026-10-23）**。样式落 `style.css`（非 caliBlur——caliBlur 是主题覆盖层，基础组件样式应进主表） |
 | 「创建书架」裁切 | `style.css` `.navigation` | `max-height: calc(100vh - 80px); overflow-y: auto;`（仅 ≥768px，侧栏不脱离文档流）。**已实现（2026-10-23）** |
+| 高级搜索「阅读状态」 | `search_form.html` + `search.py` | **见 §6.1**（顺手修，不在原始拆单范围内但同属「搜索入口可用」） |
+
+### 6.1 高级搜索「阅读状态」四态化（2026-10-23 追加）
+
+**问题**：这个下拉原样继承自 Calibre-Web，选项是布尔三态的直译——`Any/Empty/Yes/No` → **任何 / 空 / 确认 / 没有**。在中文语境里：
+- 「确认」「没有」完全无法对应「读过 / 没读过」；
+- 未配置 calibre 自定义阅读列时，`Empty` 与 `False` 落到**同一个 SQL 条件**（`coalesce(read_status,0) != FINISHED`），等于两个名字不同、行为相同的选项；
+- 本仓 `ReadBook` 早就是三态（UNREAD/IN_PROGRESS/FINISHED），但界面上没有「在读」这个最常用的选项。
+
+**改法**：
+- 界面改成互斥且穷尽的三态 + 「不限」，并加一行说明兜住边界：**未读**（从没打开过或标记未读）/ **在读**（打开过没读完）/ **已读**（读完了）。
+- 后端取值改为语义化 `unread` / `in_progress` / `finished`；旧 URL 的 `True` / `False` / 空值**保持兼容**（`True`→已读、空→未读、`False`→历史「未读完」语义）。
+- `unread` 用 `NOT EXISTS(... IN (IN_PROGRESS, FINISHED))` 实现——从没打开过的书**没有 ReadBook 行**，等值匹配会把它们全漏掉，而它们才是「未读」的主体。
+- 配了 calibre 自定义阅读列的实例退化成布尔三项（该列只有是/否），措辞改为「未填写 / 是 / 否」，不再出现「空/确认/没有」。
+- 搜索条回显把内部值翻成人话（`Read Status = '未读'`），不再把 `in_progress` 直接糊到页面上。
+- 同页自定义布尔列下拉（`cc.datatype == 'bool'`）是同一套直译，一并换成「未填写 / 是 / 否」。
+- i18n 新增 9 条 msgid 并编译；**没有改全局的 `Yes`/`No`/`Empty`**——`Yes` 在别处（如确认对话框）仍是「是」，改全局会连带误伤。
+
+**测试**：`tests/test_adv_search_read_status.py` 7 例（三态条件互不相同、unread 必须走 NOT EXISTS、旧值兼容、模板与 .mo 词条守卫）。测试环境无 calibre 库、跑不起 `/advsearch` 渲染，故界面断言落在模板源码 + 已编译译文上。
+
+#### 6.1.1 上线后缺陷：「在读」返回空集（2026-10-23 报告 / 2026-10-24 修复）
+
+上面四态化的设计缺陷：`ReadBook.STATUS_IN_PROGRESS` 这个常量**只有 Kobo 同步会写**
+（`kobo.py:801`），网页阅读器只写 `reading_progress`、从不写 `book_read_link`。
+生产库实测 `status=2` 共 **0 行**，于是「在读」是空集。查询侧无罪
+（`generate_linked_query` 的 join 正确）。
+
+修复：`POST /ajax/reading-progress` 在 upsert 位置的同时把 `ReadBook` 标成
+`IN_PROGRESS`（无记录则建行、`UNREAD` 则升级、`FINISHED` **不回退**）。三条边界：
+只在 POST 写不在 GET 写（防预取误标）；不碰 `times_started_reading` /
+`last_time_started_reading`（Kobo 设备统计字段）；不自建 `KoboReadingState`
+（`kobo.get_or_create_reading_state` 会自动补）。历史数据回填 SQL 见
+`fix-in-progress-status.md` §5。
+
+> 教训：**模型里有这个常量 ≠ 数据里有这个值**。上界面选项前必须多问一句
+> 「谁写它、多久写一次、现在有多少行」。
+
+> 数据库分布（`books` 在 metadata.db、ub 表在 app.db、跨库靠 ATTACH）与读写规矩，
+> 见 [docs/kb/sql/db-schema-map.md](../../../kb/sql/db-schema-map.md)。
 
 ## 7. 异常与边界
 

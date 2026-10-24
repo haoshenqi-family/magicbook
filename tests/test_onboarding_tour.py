@@ -1,10 +1,11 @@
-"""R109: 前端引导模式（onboarding tour）挂载点与状态契约。
+"""R109/R216: 前端引导模式（onboarding tour）挂载点与状态契约。
 
-Why: 引导模式刻意做成「零 Python 改动」——状态复用既有 POST /ajax/view 写进
-     User.view_settings['onboarding']，读取直接在模板里取 current_user.view_settings。
-     这两个都是间接依赖：上游一改，引导就静默失效（要么页面 500，要么永远邀请）。
-     本测试锁住：挂载点存在且不重复、三种 view_settings 形态都能渲染、
-     手动入口随角色显隐、以及 /ajax/view 这条写入通道对本用例确实可用。
+Why: R109 把已读状态放在 view_settings + localStorage，结果「每台设备各弹一次」；
+     R216 改为账号级（moon-well GET /ajax/ui-settings + POST .../onboarding/close），
+     view_settings 只作旧数据回填依据。三层依赖都不能静默失效：挂载点重复会双弹、
+     读不到状态时要 fail-closed、匿名访客不能写共享匿名行。
+     本测试锁住：挂载点唯一、三种 view_settings 形态仍能渲染、账号级通道接线、
+     邀请卡只有「开始/关闭」两态，以及手动入口随角色显隐。
 """
 import json
 import os
@@ -78,17 +79,17 @@ def test_mount_present_once(settings_page):
 
 
 def test_csrf_wiring_present(settings_page):
-    """挂载点自带 csrf_token 隐藏域，且前端确实带 X-CSRFToken 头。
+    """挂载点自带 csrf_token 隐藏域，且关闭引导确实带 X-CSRFToken 头。
 
     Why: 测试环境 conftest 关了 CSRF（WTF_CSRF_ENABLED=False），所以这里只能锁「接线」
-         而不是端到端校验；真实 CSRF 行为由本地浏览器实跑覆盖（见 R109 设计稿 §8）。
+         而不是端到端校验；真实 CSRF 行为由本地浏览器实跑覆盖。
          顺带修的既有问题：无上传权限的页面上原本没有任何 csrf_token 输入，
-         main.js 的 $.ajaxSetup 取到空值，写 /ajax/view 会静默 400。
+         main.js 的 $.ajaxSetup 取到空值，写状态接口会静默 400。
     """
     assert 'name="csrf_token"' in settings_page
     js = open(JS_PATH, encoding="utf-8").read()
     assert "X-CSRFToken" in js
-    assert "/ajax/view" in js
+    assert "/ajax/ui-settings/onboarding/close" in js
 
 
 def test_seen_seed_false_for_fresh_user(tour_user):
@@ -144,21 +145,79 @@ def test_manual_entry_hidden_for_anonymous(client):
     assert "top_onboarding" not in rv.data.decode("utf-8")
 
 
-def test_state_write_reuses_ajax_view_channel(tour_user):
-    """锁住外部契约：/ajax/view 必须能落 onboarding 命名空间，否则「零 Python 改动」
-    的前提消失（引导会在每台设备每次访问都重弹邀请卡）。"""
-    page = tour_user.get("/reading/settings").data.decode("utf-8")
-    token = re.search(r'name="csrf_token" value="([^"]+)"', page).group(1)
+def test_account_level_channels_are_registered(app):
+    """R216 外部契约：读已读状态走 GET /ajax/ui-settings，关闭走 POST
+    /ajax/ui-settings/onboarding/close；两条都代理到 moon-well。
+    测试环境没有 moon-well 可调，因此只锁路由注册与方法——端到端由本地实跑覆盖。"""
+    rules = {str(rule): rule for rule in app.url_map.iter_rules()}
+    assert "/ajax/ui-settings" in rules, "账号级设置读取端点未注册"
+    assert "GET" in rules["/ajax/ui-settings"].methods
 
-    rv = tour_user.post("/ajax/view",
-                       data=json.dumps({"onboarding": {"main": True, "reader": True}}),
-                       content_type="application/json",
-                       headers={"X-CSRFToken": token})
-    assert rv.status_code == 200
+    close_url = "/ajax/ui-settings/onboarding/close"
+    assert close_url in rules, "账号级关闭端点未注册"
+    assert "POST" in rules[close_url].methods
 
-    user = ub.session.query(ub.User).filter(ub.User.name == "tour-tester").first()
-    ub.session.expire(user)
-    assert user.view_settings["onboarding"] == {"main": True, "reader": True}
+    js = open(JS_PATH, encoding="utf-8").read()
+    assert 'url: appPath() + "/ajax/ui-settings/onboarding/close"' in js
+
+
+def test_account_state_fails_closed_and_backfills_legacy():
+    """Why: 读不到账号状态时若当成「没看过」，老用户每次访问都会再被邀请一次；
+    反过来，旧 view_settings 已读的老用户必须静默回填账号状态（不重弹）。
+    两个分支都在 fetchUiSettings 里，顺序错了就会在启动时闪一下邀请卡。"""
+    js = open(JS_PATH, encoding="utf-8").read()
+    m = re.search(r"function fetchUiSettings\(\) \{.*?\n  \}", js, re.S)
+    assert m, "fetchUiSettings 不存在"
+    body = m.group(0)
+    assert "accountSeen = true" in body, "请求失败必须 fail-closed"
+    assert "legacySeen()" in body and "closeOnboarding()" in body
+    assert body.index("accountSeen = !!result.onboardingSeen") < body.index("legacySeen()"), \
+        "先以账号状态为准，旧数据只在未读时回填"
+
+
+def test_seen_is_account_only_not_browser_local():
+    """localStorage 是浏览器级共享的：同一浏览器换账号会串，旧 R109 的
+    「每浏览器各弹一次」就是这么来的。登录用户的自动邀请只能看账号级状态。"""
+    js = open(JS_PATH, encoding="utf-8").read()
+    m = re.search(r"function isSeen\(\) \{.*?\n  \}", js, re.S)
+    assert m, "isSeen 不存在"
+    assert "accountSeen === true" in m.group(0)
+    assert "localSeen" not in js, "不能再从 localStorage 读已读状态"
+
+
+def test_anonymous_skips_account_requests_and_invite():
+    """匿名访客的 view_settings 指向共享匿名用户行：既不能读、更不能写。
+    init 必须在请求发出前就返回，否则匿名访客会拿到已读状态而永远看不到导览。"""
+    js = open(JS_PATH, encoding="utf-8").read()
+    m = re.search(r"function init\(\) \{.*?\n  \}", js, re.S)
+    assert m, "init 不存在"
+    body = m.group(0)
+    assert "if (cfg.anonymous) return" in body
+    assert body.index("if (cfg.anonymous) return") < body.index("fetchUiSettings()")
+    close = re.search(r"function closeOnboarding\(\) \{.*?\n  \}", js, re.S).group(0)
+    assert "if (!cfg.anonymous)" in close
+
+
+def test_invite_card_has_only_start_and_close():
+    """R216：三种弹窗收敛为一张卡；不再有「以后再说 / 不再提示」。
+    多出来的次级按钮会被旧种子词条复活，故同时断言这些 mbT 词条已从 JS 消失。"""
+    js = open(JS_PATH, encoding="utf-8").read()
+    m = re.search(r"function showInvite\(segment\) \{.*?\n  \}", js, re.S)
+    assert m, "showInvite 不存在"
+    body = m.group(0)
+    assert "onb-invite-start" in body and "onb-invite-x" in body
+    assert 'mbT("Later")' not in js and 'mbT("Never show again")' not in js
+    assert "onb-invite-later" not in js and "onb-invite-never" not in js
+
+
+def test_escape_closes_invite_when_no_step_is_active():
+    """邀请卡阶段 current 为 null：ESC 必须与右上 × 同义，否则键盘用户只能点鼠标。"""
+    js = open(JS_PATH, encoding="utf-8").read()
+    m = re.search(r'\$\(document\)\.on\("keydown\.onboarding".*?\n  \}\);', js, re.S)
+    assert m, "ESC 处理器不存在"
+    body = m.group(0)
+    assert 'getElementById("onb-invite")' in body
+    assert "closeOnboarding()" in body
 
 
 def test_reader_page_mounts_tour():
@@ -340,9 +399,9 @@ def test_i18n_seed_renders_chinese_for_zh_user(app):
         assert val, f"词条 {key!r} 翻译为空"
     assert d["Whole-book translation submitted\nTotal paragraphs: {total}\nCached: {cached}\n"
             "Newly published: {published}\n\nTranslations are generated in the background "
-            "paragraph by paragraph; turn on Translation mode and click a paragraph to read them."] == (
+            "paragraph by paragraph and appear automatically while reading."] == (
         "整本翻译已提交\n总段落：{total}\n已缓存：{cached}\n新发布：{published}\n\n"
-        "译文会在后台逐段生成；开启翻译模式后点击段落即可查看。")
+        "译文会在后台逐段生成，完成后阅读时自动显示。")
     assert d['(No long-term memories yet — say "remember…" in the chat or add one below)'] == (
         "（暂无长期记忆——对话里说「记住…」或在下方面板手动添加）")
     assert d["Delete this memory?"] == "删除这条记忆？"
