@@ -1,0 +1,115 @@
+{# R214 子项 C：整本任务代价面板 + 进度条（LLD §6 / §7）。
+
+   Why 文案全在本模板：JS 只做数字替换，句式经 data-* 传入。JS 里硬编码中文会绕开
+   i18n 契约（tests/test_i18n_seed_contract.py 校验 msgid 清单），B 轮的「零界面文案」
+   同一纪律。裸中文与 detail.html 其余新增区块一致，不进 _() 种子。
+
+   Why 只有一个入口按钮：三个整本按钮并列时，「整本翻译」是 primary、另外两个是 default，
+   视觉上把最便宜的链路包装成主操作。面板统一成「先看代价再决定」。 #}
+
+{# 活跃批次快照由 show_book 注入（LLD §7.5）：页面刷新后 JS 直接进进度态。 #}
+<script type="application/json" id="whole-book-active">{{ entry.whole_book_active|tojson }}</script>
+
+<div id="whole-book-progress" class="wb-progress" hidden>
+    <div class="wb-progress-inner">
+        <span class="wb-progress-title"></span>
+        <div class="progress">
+            <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+                 style="width: 0%"></div>
+        </div>
+        <span class="wb-progress-count"></span>
+        <button type="button" class="close wb-progress-close" aria-label="收起">&times;</button>
+    </div>
+</div>
+
+<div class="modal fade" id="whole-book-panel" tabindex="-1" role="dialog"
+     aria-labelledby="wb-title"
+     data-book-id="{{ entry.id }}"
+     data-book-format="{{ 'epub' if 'epub' in entry.reader_list else 'kepub' }}"
+     data-csrf-token="{{ csrf_token() }}"
+     data-url-estimate="{{ url_for('web.whole_book_estimate') }}"
+     data-url-translate-start="{{ url_for('web.reading_translate_book') }}"
+     data-url-translate-status="{{ url_for('web.reading_translate_book_status') }}"
+     data-url-tts-start="{{ url_for('web.reading_tts_book_start') }}"
+     data-url-tts-status="{{ url_for('web.reading_tts_book_status') }}"
+     data-url-word-detail-progress="{{ url_for('web.reading_word_detail_progress') }}"
+     data-url-word-detail-page="{{ url_for('web.word_detail_batch_page', book_id=entry.id, book_format=('epub' if 'epub' in entry.reader_list else 'kepub')) }}"
+     data-t-loading="计算中…"
+     data-t-error="估算失败：{message}"
+     data-t-units-text="{chapters} 章 · {paragraphs} 段 · {chars} 字；去重后实际处理 {billable} 段"
+     data-t-units-word="{chapters} 章 · 去重词 {billable} 个 · 英文词 {englishWords} 个"
+     data-t-coverage="{cached}/{total} 段命中缓存，只需处理 {remaining} 段"
+     data-t-coverage-word="{cached}/{total} 词已有详解，需生成 {remaining} 词"
+     data-t-coverage-tts="朗读逐段合成，不做缓存探针（已有音频自动跳过、不重复计费）"
+     data-t-coverage-unavailable="缓存覆盖暂不可得——仍按全书规模估算"
+     data-t-duration-history="约 {value}（基于最近 {samples} 个批次实测）"
+     data-t-duration-constant="约 {value}（按常量估算）"
+     data-t-duration-unknown="暂无实测样本，无法估算耗时"
+     data-t-credits="约 {value} 积分（粗算，非账单）"
+     data-t-credits-upper="，上限约 {value}"
+     data-t-credits-unavailable="费率暂不可得——规模可参考左侧，积分不给猜测数字"
+     data-t-credits-tts-off="朗读当前不计积分（仍会写音频缓存）"
+     data-t-active="已有批次在跑：{done}/{total}"
+     data-t-progress-done="整本任务已完成"
+     data-t-progress-failed="整本任务已结束（有失败段落）"
+     data-t-progress-cancelled="整本任务已取消"
+     data-t-unit-second="秒"
+     data-t-unit-minute="分钟"
+     data-t-unit-hour="小时"
+     data-t-confirm="即将开始{title}。\n\n预计耗时：{duration}\n预计积分：{credits}\n\n已有缓存的部分不会重复消耗，中途可关闭页面，批次在后台继续。"
+     data-t-confirm-unknown="即将开始{title}。\n\n耗时与积分暂时不可得（见面板说明）。\n\n确定开始吗？"
+     data-t-start-translate="开始整本翻译"
+     data-t-start-tts="开始整本朗读"
+     data-t-start-wordDetail="打开详解页面">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-label="关闭">
+                    <span aria-hidden="true">&times;</span></button>
+                <h4 class="modal-title" id="wb-title">整本任务</h4>
+            </div>
+            <div class="modal-body">
+                <p class="wb-lead text-muted">
+                    三项整本能力都只写译文 / 音频 / 详解缓存，<strong>不修改原书文件</strong>。
+                    下面的数字是粗算，不是账单。
+                </p>
+                <ul class="nav nav-tabs wb-tabs" role="tablist">
+                    <li role="presentation" class="active">
+                        <a href="#wb-pane-translate" aria-controls="wb-pane-translate"
+                           role="tab" data-toggle="tab" data-kind="translate">整本翻译</a></li>
+                    <li role="presentation">
+                        <a href="#wb-pane-tts" aria-controls="wb-pane-tts"
+                           role="tab" data-toggle="tab" data-kind="tts">整本朗读</a></li>
+                    <li role="presentation">
+                        <a href="#wb-pane-wordDetail" aria-controls="wb-pane-wordDetail"
+                           role="tab" data-toggle="tab" data-kind="wordDetail">全文单词详解</a></li>
+                </ul>
+                <div class="tab-content wb-content">
+                    {% for kind in ['translate', 'tts', 'wordDetail'] %}
+                        <div role="tabpanel" class="tab-pane{% if loop.first %} active{% endif %}"
+                             id="wb-pane-{{ kind }}">
+                            <div class="wb-card" data-kind="{{ kind }}">
+                                <dl class="dl-horizontal">
+                                    <dt>规模</dt>
+                                    <dd class="wb-units">计算中…</dd>
+                                    <dt>缓存覆盖</dt>
+                                    <dd class="wb-coverage">计算中…</dd>
+                                    <dt>预计耗时</dt>
+                                    <dd class="wb-duration">计算中…</dd>
+                                    <dt>预计积分</dt>
+                                    <dd class="wb-credits">计算中…</dd>
+                                </dl>
+                                <p class="wb-note text-muted"></p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="wb-footer-hint text-muted pull-left"></span>
+                <button type="button" class="btn btn-default" data-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="wb-start" disabled>开始</button>
+            </div>
+        </div>
+    </div>
+</div>
