@@ -374,3 +374,65 @@ def test_panel_renders_for_a_real_entry(app):
     assert "whole-book-active" in html
     assert "j1" in html, "活跃批次 JSON 没渲染出来"
     assert "不修改原书文件" in html
+
+
+PANEL_JS = os.path.join(ROOT, "cps", "static", "js", "whole-book-panel.js")
+
+
+def _read_panel_js():
+    with open(PANEL_JS, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def test_entry_button_does_not_use_bootstrap_data_api():
+    """入口按钮自己绑定事件，不再用 data-toggle / data-target。
+
+    Why：data-api 靠选择器找目标，找不到就静默空转；验收现场的实际形态是「点整本任务，
+    整页被套进另一个弹层」。反向变异：把 data-toggle="modal" 加回去 → 报红。
+    """
+    src = _read()
+    idx = src.index('id="whole-book-panel-open"')
+    # 只截这一个标签（往后遇到 ">" 即止）：400 字窗口会吃进下一个按钮的 data-toggle="dropdown"
+    snippet = src[src.rindex("<button", 0, idx):src.index(">", idx) + 1]
+    assert "data-toggle" not in snippet, "入口按钮又退回 data-api 了"
+    assert "data-target" not in snippet, "入口按钮又退回 data-api 了"
+
+
+def test_entry_button_hidden_in_xhr_fragment():
+    """XHR 片段里不下发面板骨架，入口按钮必须一起收掉（靠 is_xhr 门禁）。"""
+    gates = _enclosing_conditions(_read(), 'id="whole-book-panel-open"')
+    assert any("is_xhr" in g for g in gates), \
+        "书卡弹层（XHR 片段）里仍会渲染整本任务按钮: {0}".format(gates)
+
+
+def test_panel_open_is_bound_explicitly():
+    """JS 里显式绑定入口按钮并阻止默认行为（含 preventDefault / stopPropagation）。"""
+    js = _read_panel_js()
+    assert "$('#whole-book-panel-open').on('click'" in js
+    assert "preventDefault" in js
+    assert "stopPropagation" in js
+
+
+def test_start_label_keys_are_lowercase():
+    """`start-<kind>` 文案键必须全小写：HTML 属性名会被解析器小写化。
+
+    反向变异：把 JS 里的 toLowerCase() 去掉 → 详解 tab 的按钮文案变空（验收实测）。
+    """
+    panel = _read_panel()
+    assert 'data-t-start-worddetail=' in panel
+    assert 'data-t-start-wordDetail=' not in panel, "属性名带大写，解析后取不到"
+    assert "toLowerCase()" in _read_panel_js()
+
+
+def test_estimate_route_reports_instead_of_bare_500():
+    """估算路由必须有兜底：落 traceback 并把异常类型回给前端。
+
+    Why：面板拿到裸 500 只会显示「估算失败：500 」，管理员无从判断是解析失败还是库挂了。
+    """
+    path = os.path.join(ROOT, "cps", "routes", "book_detail.py")
+    with open(path, encoding="utf-8") as fh:
+        src = fh.read()
+    body = src[src.index("def whole_book_estimate("):]
+    assert "except Exception as error" in body
+    assert "traceback.format_exc()" in body
+    assert "type(error).__name__" in body

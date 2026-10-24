@@ -156,3 +156,33 @@ def test_empty_paragraphs_raises(monkeypatch):
     _patch(monkeypatch, paragraphs=[])
     with pytest.raises(ValueError):
         svc.estimate(337, "epub", "translate", lookup=lambda texts: {})
+
+
+def test_history_rate_swallows_query_errors(app, monkeypatch):
+    """台账查询失败只该退化成「没有实测样本」，不该把整个估算打成 500。
+
+    反向变异：去掉 _history_rate 里的 try/except → 本测试抛 RuntimeError。
+    """
+    def boom(*args, **kwargs):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(svc.ub.session, "query", boom)
+    assert svc._history_rate("translate") == (None, 0)
+
+
+def test_active_jobs_swallows_query_errors(app, monkeypatch):
+    """活跃批次快照是锦上添花：查不到就当没有，不能让面板整块挂掉。"""
+    import cps.cw_login as cw_login
+
+    class _User(object):
+        id = 7
+
+    monkeypatch.setattr(svc, "_book_file", lambda *a: (object(), "/tmp/x.epub"))
+    monkeypatch.setattr(svc, "_fingerprint", lambda path: "fp")
+    monkeypatch.setattr(cw_login, "current_user", _User())
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(svc.ub.session, "query", boom)
+    assert svc.active_jobs(1, "epub") == {"translate": None, "tts": None, "wordDetail": None}

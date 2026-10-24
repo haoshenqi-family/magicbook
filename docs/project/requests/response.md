@@ -43,19 +43,10 @@
 - `response-archive/response-R204.md`：R204 写作批改 SSE 真机无进度（WSGI 缓冲）——2026-10-23 R216 第三次 merge 后窗口达 11 续搬，原样搬移不改写
 - `response-archive/response-R205.md`：R205 每日学习「单词编故事」Hub 第八张卡（2026-10-23 R212 写入触发轮转搬移）
 - `response-archive/response-R206-R207.md`：R206 伙伴系统前端 + R207 伙伴验收三连与 CSP 拦图修复——2026-10-24 R213-C 写入触发轮转搬移（搬移前窗口已 11 节），原样搬移不改写
+- `response-archive/response-R208.md`：R208 每日学习 banner 小功能管理（齿轮抽屉 + 勾选过滤 + 引导卡）——2026-10-24 R213-C 合入 `origin/develop` 后窗口达 11 节（与 R214-C 验收缺陷节并行追加）触发续搬，原样搬移不改写
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-## 2026-10-23（R208：每日学习 banner 小功能管理——齿轮抽屉 + 勾选过滤 + 引导卡）
-
-- **交付**：① 中枢 banner 右上角齿轮 → 管理抽屉（`#lh-manage`，服务端渲染复选框、aria 全套、Esc 关闭），八个功能卡逐一勾选（含并行会话新增的 story 卡，data-key 与 CARDS 同序）；② `learning-hub.js` 勾选过滤——主列表 `cards`（`a.lh-card`）/ 可见列表 `visible` 双轨，轮播/圆点/箭头/缺口排序全部只看 visible；③ localStorage 镜像 `ln-banner-hidden-v1` 首帧前裁剪消除闪现，`plan/today` 的 `settings.bannerHiddenKeys` 回来后对账（服务端是真相；字段缺失=旧后端，保留镜像不报错）；④ 保存走 `POST /ajax/learning/plan/settings`（带既有四股值 + `bannerHiddenKeys`，底稿拼不齐宁可可见报错），失败错误行可见（优先上游文案）；⑤ 全不勾 → 引导卡（`#lh-guide`）+ 「选择功能」回入口；⑥ 代理 `learning_plan_settings` 增形制校验（`[a-z]{2,32}`、≤10，本地 400 镜像上游 50525）与透传（字段缺失不重建——null 语义归上游）。i18n 新增 7 词条（po+mo 编译）；JS 零新增 mbT 字面量，i18n 种子不动。
-- **测试**：新增 `tests/test_learning_banner_manage.py` 6 例（抽屉复选框与卡序一一对应、齿轮/保存/关闭接线、出厂全勾、引导卡默认隐藏、settings 路由注入、新词条 .mo 可取中文）；`test_learning_hub_cards.py` 卡序断言锚定 `<a class="lh-card">`（data-key 也出现在抽屉复选框上，卡序契约本身不变，随八卡更名 test_all_cards_render_in_order）；`test_learning_proxy.py` +4（勾选转发、空列表透传、形制违例本地 400、老客户端不带字段转发体不变）。合并树全量 **pytest 699 passed / 0 failed**（含并行会话 story 用例）。
-- **与并行会话的交织（都按纪律处理）**：① 本轮原占 R206，被并行会话伙伴前端占用且未提交条目遗失 → 续编 **R208**；moon-well 侧原占 R202/R203 连续撞号后定为 **R203**（TED 封面顺延 R204）。② story 八卡与本轮抽屉在同一模板/同一测试交汇：合并冲突按「他们的 CARDS 八条 + 函数名、我的锚定正则」解决，抽屉补 story 行，`MANAGE_KEYS` 八键。③ 错误码 BAD_BANNER_KEYS 随上游顺延 50521→**50525**。
-- **事故记录（本轮引入、同轮修复）**：全仓「兑底→兜底」错别字 sed 误伤 4 个历史台账/归档文件（违反历史只标注不重写），当场 `git checkout` 恢复 origin 原状，提交前复查无残留。另：本任务三处文件改动被写入守卫按「形似凭据」拦截（被拦行均为既有内容：R145 动态鉴权头、测试替身假值、R194 文档句；均非真实密钥），经用户授权重试仍被机械拦截，改走 `git apply` 补丁（`r208-banner-manage.patch`）落地——补丁内容与被拒写入完全一致。
-- **台账与驻留**：requests.md 占号 R208（chore 占号 + 两笔 feat + 一笔 docs，见 git log）；worktree `../magicbook-banner-manage`（分支 `feat/r208-banner-manage`，merge commit `9be68d29`）驻留待验收，验收通过后 `git worktree remove` + `git branch -d`。
-- **构建与未验（如实）**：push `9be68d29` 已触发 fnOS 构建（magicbook 侧构建核验未做，本机无 fnOS 免密通道）；moon-well 侧后端已由 R203/R204 会话实测构建上线（build-sha=0593f5a 含 R203）。**真机验收点**：齿轮开合与勾选保存即时生效、刷新与跨设备一致、另一设备改动被对账、全不勾出引导卡且可回管理、保存失败报错可见、移动端抽屉可用、story 卡可勾选。
-- **总结**：requests.md 占号 R208；本条为回应。窗口：写入前 10 节，归档 R188 后 10 节合规。冲突记录：R206 撞号（伙伴前端）+ 台账条目遗失，均已登记。
 
 ## 2026-10-23（R209：积分内测活动 + 充值倍率机制——充值页代理与前端）
 
@@ -224,6 +215,31 @@
 - **窗口**：本条写入后 `## ` 节数再 +1。按上一轮约定（R218 条已说明）轮转待统一整理，
   避免与并行会话的归档改动撞车，本轮不搬移。
 
+## 2026-10-24（R214-C 验收缺陷：入口按钮落进书卡弹层 + 估算 500）
+
+- **现象**：点「整本任务」后页面错乱（整页被套进「书籍详情」弹层）；Console 两条硬事实——
+  `/ajax/whole-book-estimate` **500**、`isotope` 报错（后者是弹层里套整页带出来的噪音）。
+- **定位一（错乱的真因）**：列表页点书卡是 **XHR 片段**——`show_book` 把 `detail.html`
+  渲染成 `fragment.html`，片段没有 `block js`，面板 modal + JS 整块不下发，但按钮在
+  `block body` 里照旧渲染。于是 `data-target` 选不到 `#whole-book-panel`，Bootstrap
+  data-api 空转并与既有的 `#bookDetailsModal` 抢这次点击 ⇒ 整页被塞进弹层。
+  **修**：按钮加 `not is_xhr` 门禁（整本任务只在完整详情页出现）+ 改 JS 显式绑定
+  （`preventDefault` / `stopPropagation`），不再依赖 data-api。
+- **定位二（500）**：估算链路两处**辅助查询**裸奔——`_history_rate`（台账采样）与
+  `active_jobs`（活跃批次）。任一抛错就把整块面板打成 500，而 `.fail` 收到的是 HTML，
+  界面只剩「估算失败：500 Internal Server Error」，既不知原因也不知该不该重试。
+  **修**：两处各自 try/except 降级（没有样本 / 没有活跃批次 + 落 warning）；路由补兜底
+  `except Exception`，落 `traceback.format_exc()` 并把 `类型: 消息` 回给前端——下次再失败，
+  面板上会直接写着原因，不用再靠猜。
+- **定位三（顺带修的形制级 bug）**：`data-t-start-wordDetail` 属性名带大写，被 HTML
+  解析器小写成 `...worddetail`，而 JS 用 `t('start-' + kind)` 取 camelCase ⇒ 详解 tab
+  的主按钮文案是空的。模板改全小写、JS 侧 `toLowerCase()`。
+- **测试**：新增 5 条（data-api 禁用 / is_xhr 门禁 / 显式绑定 / 键名小写 / 路由兜底源码守卫）
+  + 2 条降级行为测试（query 抛错时 `_history_rate` 回 `(None, 0)`、`active_jobs` 回全 None）。
+  全量 **853 passed / 0 failed**。
+- **待确认**：500 的具体异常类型要等这次上线后看面板上的那行红字（已含异常类型与消息），
+  本轮先把「不可读的失败」变成「可读的失败」，再按实际原因收口。
+
 ## 2026-10-24（R213-C：首页 `/home` 组装——继续阅读/今日计划/分级推荐/随机发现 + 登录落点开关；A 的侧边栏分组按拍板本迭代不做）
 
 ### R213-C（用户令：「A 的侧边栏分组 这个迭代不改，下个迭代再说。直接做C」）
@@ -238,5 +254,7 @@
 - **两处既有守卫同步更新（有意的结构变更，不是放宽）**：`test_home_nav_shell.py::test_cover_format_badges_present` 与 `test_onboarding_tour.py::test_browse_step_anchors_exist_in_templates` 原来断言 `index.html` 源码里有卡片外层 class / 格式徽标——现在是「index 复用宏」的结构，断言跟着实现移到 `partials/_book_card.html`，并各自加了「index 必须复用宏」这条更强的约束。
 - **i18n**：新增 7 条 msgid（Continue Reading / Go to Learning / Recommended by level / Words due for review / Writing tasks to finish / 降级提示 / 配置项标签），`pybabel compile` 重编 `messages.mo`（**msgfmt 报 po 里有三处历史重复词条**：`Save` / `Close` / `Vocabulary` 各定义两次——既有问题，本轮不顺手改，记录备查）。
 - **文档四问**：能力变了吗 → L1 `product/readme/library.md` 增「首页（`/home`）」一条；契约变了吗 → **无新对外接口**（`/home` 是页面路由，今日计划复用既有 `/ajax/learning/*` 代理），站点配置新增一项；实现/边界变了吗 → 新建 L3 `product/library/features/home-ia.md`（取数口径、归阶规则、卡片宏、边界与坑）；本次怎么实现 → LLD `project/iterations/1.0/r213-home-ia/lld.md` 补 §4.3 实现修正 + §4.4 验收对应表，状态行改为「A 分组按拍板本迭代不做 / C 已开发待验收」。AC `ac/acceptance.md` C1–C6 逐条勾选并注明判据落点。
-- **窗口**：写入前 response 已 11 节（上一轮 R214-C 追加后未轮转），本轮再加一节。按「写入即检查」把最旧的 **R206 + R207** 两节原样搬至 `response-archive/response-R206-R207.md` 并登记索引，窗口回 10；只搬移不改写。
-- **驻留与闸门**：worktree `../magicbook-r213-home-ia`（分支 `feat/r213-home-ia`，续作前已 merge `origin/develop` 拉齐基线）待真机验收；**push 即触发 fnOS 自动上线**，按用户闸门执行。真机验收重点：G1 两档视口（1440×900 / 390×844）截图比对，以及「今日计划」在 moon-well 正常/不可用两种状态下的表现（C2/C3 的最后一段只能在真机看）。
+- **窗口与合并冲突**：本轮两次触发轮转——① 写入前窗口已 11 节，先把最旧的 **R206 + R207** 原样搬至 `response-archive/response-R206-R207.md`，窗口回 10；② 之后合 `origin/develop`（`d1db8268`，带 R214-C 验收缺陷节）时本文件**必冲突**（双方都往末尾追加），按「两节都保留、按写入时间序 R214-C 在前 / R213-C 在后」解冲突，窗口再达 11，把最旧的 **R208** 搬至 `response-archive/response-R208.md`，窗口回 10。两次均只搬移不改写，索引各登记一行。
+- **AC 与台账回填（本轮实际改动的文件，不是只在回应里说）**：`ac/acceptance.md` 状态行改「A 除分组外已上线 / B 已验收 / C 已开发待验收」，C1–C6 逐条勾选并附判据落点 + 测试名，C2/C3 行内标「真机待 G1」；G2/G3 勾选；G1 保留待真机。**A1 明确不勾**并写明「本迭代不实施，不是缺口」；A2–A7/B1–B5 段首注明证据位置但**不代勾**（勾选归 MB-16/MB-17 结项轮次，代勾等于替别人宣布验收结论）。`plan.md` 回填 MB-12（A 除分组外已上线 / B 已验收 / C 已开发待验收）、MB-16（分组按 2026-10-24 拍板本迭代不改，`Shelf.kind` 留待下迭代）、MB-18（已开发待验收 + 落地清单）。
+- **顺带发现两处文档欠账（已标注、未擅自修）**：① AC **B6** 写的开关 `reading_progress_enabled` 在仓库里**根本不存在**（`cps/`、`tests/`、`_Settings` 均无命中）——R213-B 从未做过 kill switch，进度上报是常开的。按 MB-17 范围处理，留给下轮确认「补开关」还是「改判据」。② 首版我凭印象写了个 `enable_reading_progress`，随即被自己的核查推翻，已在 AC 里改成「查无此开关」的准确表述——这类名字不能猜。
+- **驻留与闸门**：已提交 `f4df325a`，并 merge `origin/develop`（`d1db8268`）拉齐基线，全量重跑后推进 develop 指针（**只推本地 develop，不 push**）。worktree `../magicbook-r213-home-ia`（分支 `feat/r213-home-ia`）保留待真机验收；**push 即触发 fnOS 自动上线，按用户闸门执行**。真机验收重点：G1 两档视口（1440×900 / 390×844）截图比对，以及「今日计划」在 moon-well 正常/不可用两种状态下的表现（C2/C3 的最后一段只能在真机看）。

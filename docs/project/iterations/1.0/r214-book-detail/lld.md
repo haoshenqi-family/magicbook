@@ -282,3 +282,34 @@ lazy load 出 N+1）。`book_in_shelves` 保持 id 列表不动——`detail.htm
 显示「加载失败」（复用 po 已有词条，不新引 msgid、不动 i18n 生成链）。同时补
 `preFilters.remove(useCache)`：原代码只在成功路径摘，一次失败就把 preFilter 永久挂在
 jQuery 上污染后续所有 AJAX。
+
+## 13. 子项 C 验收缺陷：面板打开后「跳错地方」+ 估算 500（2026-10-24）
+
+用户首轮验收报「整本任务点击后跳转路径不对」，Console 给出两条硬事实：
+`/ajax/whole-book-estimate` **500**；页面里出现 `#bookDetailsModal` 套整页的错乱。
+
+**缺陷一：入口按钮落在「书卡弹层」的 XHR 片段里。**
+列表页点书卡走的是 XHR：`show_book` 用 `is_xhr|yesno("fragment.html", "layout.html")`
+把 `detail.html` 渲染成**片段**，片段没有 `block js` ⇒ 面板骨架（modal + `whole_book_panel.html`）
+与 `whole-book-panel.js` 都不下发，但按钮在 `block body` 里照旧渲染。点下去 `data-target`
+选不到 `#whole-book-panel`，Bootstrap 的 data-api 静默空转，与页面上既有的
+`#bookDetailsModal` 抢同一次点击，最终形态就是「整页被套进另一个弹层」。
+**修法**：① 按钮加 `not is_xhr` 门禁——整本任务只在完整详情页出现；② 按钮不再用
+`data-toggle`/`data-target`，改由 JS 显式绑定（`preventDefault` + `stopPropagation`），
+把这一次点击从 data-api 的模糊地带里拿出来。守卫：`test_entry_button_does_not_use_bootstrap_data_api`、
+`test_entry_button_hidden_in_xhr_fragment`、`test_panel_open_is_bound_explicitly`。
+
+**缺陷二：`/ajax/whole-book-estimate` 500。**
+估算链路里有两处「辅助数据」的裸查询（`_history_rate` 的台账采样、`active_jobs` 的活跃批次），
+任何一处抛错（表缺失/库忙/ORM 异常）都会把整个面板打成 500，而 `.fail` 拿到的是 HTML，
+界面上只剩「估算失败：500 Internal Server Error」——**既不知道原因，也不知道该不该重试**。
+**修法**：① 两处查询各自 try/except，降级为「没有实测样本 / 没有活跃批次」并落 warning
+（辅助数据不该决定主结论）；② 路由补兜底 `except Exception`：落 `traceback.format_exc()`
+到服务端日志，把 `异常类型: 消息` 回给前端——面板上直接显示原因。
+守卫：`test_history_rate_swallows_query_errors`、`test_active_jobs_swallows_query_errors`、
+`test_estimate_route_reports_instead_of_bare_500`。
+
+**缺陷三（顺带，形制级）：`data-t-start-wordDetail` 取不到值。**
+HTML 解析器把属性名统一小写（`data-t-start-worddetail`），而 JS 侧 `t('start-' + kind)`
+用的是 camelCase ⇒ 详解 tab 的主按钮文案是空字符串。**修法**：模板属性名写全小写，
+JS 侧 `String(kind).toLowerCase()`。守卫：`test_start_label_keys_are_lowercase`。

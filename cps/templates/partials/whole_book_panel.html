@@ -60,7 +60,8 @@
      data-t-confirm-unknown="即将开始{title}。\n\n耗时与积分暂时不可得（见面板说明）。\n\n确定开始吗？"
      data-t-start-translate="开始整本翻译"
      data-t-start-tts="开始整本朗读"
-     data-t-start-wordDetail="打开详解页面">
+     {# 键名全小写：HTML 解析器会把属性名统一小写，JS 侧按 `start-<kind小写>` 取。 #}
+     data-t-start-worddetail="打开详解页面">
     <div class="modal-dialog modal-lg" role="document">
         <div class="modal-content">
             <div class="modal-header">

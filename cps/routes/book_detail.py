@@ -1,5 +1,6 @@
 # cps/routes/book_detail.py — R214 书籍详情速览端点（子项 B）。
 # 装饰注册沿用 web 蓝图（R181 形制，与 routes/reading.py 同款，endpoint 名不变）。
+import traceback
 import zipfile
 
 from flask import jsonify
@@ -10,8 +11,11 @@ from cps.web import _llm_task_admin_gate
 from cps.web import _whole_book_closures
 from cps.web import _word_detail_closures
 from cps.web import web
+from .. import logger
 from ..reading_insight import service as insight_service
 from ..usermanagement import user_login_required
+
+log = logger.create()
 
 
 @web.route("/ajax/book-insight", methods=["GET"])
@@ -85,3 +89,11 @@ def whole_book_estimate():
         return jsonify({"success": True, "result": result})
     except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
         return jsonify({"success": False, "message": str(error)}), 400
+    except Exception as error:      # noqa: BLE001 — 兜底只为「让失败可读」，不是为了吞掉它
+        # Why 兜底而不是让它 500：面板拿到裸 500 时只会显示「估算失败：500 」，管理员
+        # 既不知道是解析失败还是库挂了，也不知道该不该重试；排查只能靠捞容器日志。
+        # 这里既落 traceback（服务端可查），又把异常类型与消息透给前端（界面可读）。
+        log.error("whole-book estimate failed: book=%s kind=%s\n%s",
+                  payload.get("book_id"), payload.get("kind"), traceback.format_exc())
+        return jsonify({"success": False,
+                        "message": "{0}: {1}".format(type(error).__name__, error)}), 500

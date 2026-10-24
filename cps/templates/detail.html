@@ -87,10 +87,15 @@
                             {# R214 子项 C：三个整本入口合并为一个「整本任务」入口（LLD §6）。
                                原来并列时「整本翻译」是 primary、另外两个是 default——最便宜的
                                链路被包装成主操作。面板先给量/覆盖率/耗时/积分，再由管理员决定。
-                               门禁不变：整本能力全部管理员专属（R214 拍板①）。 #}
-                            {% if current_user.role_admin() %}<button type="button" class="btn btn-default"
-                                    id="whole-book-panel-open" data-toggle="modal"
-                                    data-target="#whole-book-panel">整本任务</button>{% endif %}
+                               门禁不变：整本能力全部管理员专属（R214 拍板①）。
+
+                               Why `not is_xhr`：书目列表里点书卡走的是 XHR 片段（detail.html
+                               改 extends fragment.html），片段的 block js 整个不下发 ⇒ 面板骨架
+                               与 JS 都不在，按钮点了只会落到 Bootstrap 的 data-api 空转（验收实测：
+                               在「书籍详情」弹层里点它，页面被套进另一个弹层）。整本任务只在
+                               完整详情页提供；弹层里的读者要么关掉弹层进详情页，要么用列表操作。 #}
+                            {% if current_user.role_admin() and not is_xhr %}<button type="button"
+                                    class="btn btn-default" id="whole-book-panel-open">整本任务</button>{% endif %}
                         {% endif %}
                         <div class="btn-group" role="group">
                             {% if entry.reader_list|length > 1 %}

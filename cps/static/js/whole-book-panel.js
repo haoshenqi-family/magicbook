@@ -100,7 +100,7 @@
         function setPending(kind) {
             var $card = cardOf(kind);
             $card.find('.wb-units, .wb-coverage, .wb-duration, .wb-credits').text(t('loading'));
-            $card.find('.wb-note').text('');
+            $card.find('.wb-note').removeClass('text-danger').text('');
         }
 
         function render(kind) {
@@ -111,7 +111,8 @@
             }
             if (data.error) {
                 $card.find('.wb-units, .wb-coverage, .wb-duration, .wb-credits').text('—');
-                $card.find('.wb-note').text(data.error);
+                // 失败要看得见：灰色说明句与「暂无数据」长得一样，红字才不会被人当成没数据。
+                $card.find('.wb-note').addClass('text-danger').text(data.error);
                 updateStart(kind);
                 return;
             }
@@ -178,7 +179,7 @@
             $card.find('.wb-credits').text(creditsText);
 
             var active = (data.activeJobs || {})[kind];
-            $card.find('.wb-note').text(active
+            $card.find('.wb-note').removeClass('text-danger').text(active
                 ? t('active', {done: fmtNum(active.done), total: fmtNum(active.total)})
                 : '');
             updateStart(kind);
@@ -191,7 +192,10 @@
             var data = state.estimates[kind] || {};
             var active = (data.activeJobs || {})[kind];
             var $btn = $('#wb-start');
-            $btn.text(t('start-' + kind));
+            // Why toLowerCase：HTML 解析器会把属性名统一小写（模板里写 data-t-start-wordDetail，
+            // 存下来是 data-t-start-worddetail，texts 的键因此全小写），而 kind 是 camelCase。
+            // 不折一下，详解 tab 的按钮文案会是空字符串。
+            $btn.text(t('start-' + String(kind).toLowerCase()));
             // 有活跃批次就不给「开始」——再点一次只是幂等复用，不如直接把进度显示出来。
             $btn.prop('disabled', !!data.error || !!active);
         }
@@ -364,6 +368,16 @@
         }
 
         // ---- 事件接线 ----
+
+        // 入口按钮自己打开面板，不走 Bootstrap 的 data-api。
+        // Why：data-api 从 `data-target` 选元素，选不到时静默空转；验收现场出现过
+        // 「点整本任务把整页套进另一个弹层」的错乱。显式绑定 + preventDefault 之后，
+        // 这个按钮的行为只由这里决定，也不会有祖先链接抢走这次点击。
+        $('#whole-book-panel-open').on('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            $panel.modal('show');
+        });
 
         $panel.on('show.bs.modal', function () {
             load(state.kind);
