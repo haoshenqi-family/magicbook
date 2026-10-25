@@ -233,3 +233,5 @@
 227. **Buddy 对话复用口语陪练语音能力：全站语音输入转写 + 每条回复手动朗读**（占号 2026-10-25）：用户原话「我想要 AI 伴读 Buddy 对话也可以复用 AI 口语陪练 陪练的语音能力。」四问拍板：① 范围＝输入+朗读**双向**；② 回复朗读＝**每条手动点**（不自动播）；③ 用户语音＝**只转文字**，不留可回放语音条；④ 生效面＝**全站**。复用 `learning-voice.js` 录音链路与 `/ajax/learning/asr/transcribe`、`/ajax/reading-tts`（1 积分/次、≤2000 字），**moon-well 零改动**。技术要点：录音模块依赖降级（不再硬依赖 `MBLearning`）；朗读改走 **Web Audio**（不动 CSP 的 `media-src` 窄面，顺带修掉 `synthesize_tts` 在非阅读页被 CSP 拦的既有静默故障）；长回复按 1800 字分段顺序播放并显示「朗读中 n/m」；朗读不带 `bookName` → 落 AI 临时语音档。设计：`docs/project/iterations/1.0/r227-buddy-voice/lld.md`；需求基线 `docs/product/companion/requirements.md`（新建）。状态：**已上线待验收**（2026-10-25 21:27 merge 并 push `cb198e00`；新增 8 条守卫 + 全量 972 passed；计费拒绝文案补丁随后续提交上线；worktree `../magicbook-r227-buddy-voice` 驻留待真机验收）。**计费口径（2026-10-25 晚，跨仓 moon-well R213）**：缓存命中 1 积分/段、首次生成按字符（50 字符=1 积分）、ASR 22 秒=1 积分且最少 1 积分；本仓代码零改动（费率走 `/credit/billing` 下发），仅同步 L1/L3/LLD 描述。
 
 228. **记录 moon-well R214 伴读 Agent Skills 的 magicbook 消费侧能力**（占号 2026-10-25，待回填）
+
+229. **缺陷修复：/home 随机发现把 linked Row 直接传 book_card，生产登录落点 500（挂 R213）**（占号 2026-10-25，待回填）
