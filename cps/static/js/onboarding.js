@@ -97,7 +97,7 @@
       body: "Ask questions about this book; it remembers your preferences." },
     { id: "reader-finish", sel: null,
       title: "Happy reading",
-      body: "Tap the “?” at the bottom-left any time to replay the tour." }
+      body: "Use the “Onboarding Tour” button at the bottom-right any time to replay the tour." }
   ];
 
   /* R206 伙伴段：只在 /buddy 页出现，花名册异步渲染后由 onRosterReady 触发，
@@ -619,10 +619,10 @@
     card.find(".onb-invite-start").trigger("focus");
   }
 
-  /** 阅读器页没有 layout 的「设置」下拉，用常驻「?」代替手动入口。 */
+  /** 阅读器页没有 layout 的「设置」下拉，用带文案的常驻按钮代替手动入口。 */
   function showReaderHelp() {
     // 配色要在「已存在就直接 return」之前算：teardown 会摘掉 onb-chrome-dark，
-    // 导览结束后不重算，那个「?」会从暗色卡回跳成浮在深色主题上的白按钮
+    // 导览结束后不重算，导览入口会从暗色卡回跳成浮在深色主题上的白按钮
     applyChromePalette();
     if (!isReaderPage()) return;
     // 去重要在 DOM 里查，不能用 $("#onb-help").length：jQuery 的 ID 选择器走
@@ -631,7 +631,8 @@
     // 监听绑在建好的节点上，不靠 #id 反查：71d126cb（R111 提交，正与 R112 会话同文件
     // 并发写入）把这行 append 写了两遍，两个同位置按钮只有第一个拿到监听，
     // 点到的永远是盖在上层的空壳（R113 线上事故）
-    var help = $('<button type="button" id="onb-help" title="' + esc(mbT("Onboarding Tour")) + '" aria-label="' + esc(mbT("Onboarding Tour")) + '">?</button>');
+    var label = mbT("Onboarding Tour");
+    var help = $('<button type="button" id="onb-help" title="' + esc(label) + '" aria-label="' + esc(label) + '">' + esc(label) + '</button>');
     help.on("click", function () { startTour("reader"); });
     $("body").append(help);
   }

@@ -572,6 +572,16 @@
   border: none;
   padding: 0 8px;
 }
+.reader-main #titlebar a#immersive-translate.is-loading .tb-icon {
+  animation: tb-translate-pulse .9s ease-in-out infinite;
+}
+@keyframes tb-translate-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader-main #titlebar a#immersive-translate.is-loading .tb-icon { animation: none; }
+}
 .reader-main #titlebar a#whole-book-translate .tb-icon { font-size: 18px; font-weight: 700; }
 .reader-main #titlebar a#tts-book .tb-icon,
 .reader-main #titlebar a#tts-book-stop .tb-icon { font-size: 20px; }

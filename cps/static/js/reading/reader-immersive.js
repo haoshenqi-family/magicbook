@@ -238,9 +238,10 @@
         for (var i = 0; i < Math.min(limit, items.length); i++) launch();
     }
 
-    // 整页翻译的单段任务（复用批量接口，段落数为 1）：带书籍上下文，
-    // 响应到达即渲染并写缓存，失败仅影响该段
-    function translateParagraphJob(job, cache, chapter, onDone) {
+    // 整页翻译的单段任务（复用批量接口，段落数为 1）：带书籍上下文。
+    // 结果先交给批量渲染器，等整页请求全部结束后再一次性改正文，避免逐段
+    // 插入把 iframe 高度改二十次，造成肉眼可见的连续重分页。
+    function translateParagraphJob(job, chapter, onResult, onDone) {
         $.ajax({
             url: calibre.readingTranslateBatchUrl,
             method: 'POST', contentType: 'application/json',
@@ -249,17 +250,28 @@
                 chapter: chapter})
         }).done(function (response) {
             var translation = ((response.result || response.data || [])[0] || '').trim();
-            if (translation) {
-                cache[job.hash] = translation;
-                saveTranslationCache(cache);
-                insertTranslation(job.el, translation);
-                setParagraphTranslated(job.el, true);
-            } else {
-                showTranslationError(job.el, job.text);
-            }
+            onResult(job, translation);
         }).fail(function (xhr) {
-            if (!reloadIfCsrfBlocked(xhr)) showTranslationError(job.el, job.text);
+            onResult(job, '', !reloadIfCsrfBlocked(xhr));
         }).always(onDone);
+    }
+
+    // 同一批译文在同一个 JS 任务里插入：浏览器只会在任务结束时绘制一次。
+    // 失败段也走同一批渲染，重试入口仍保留在段下。
+    function renderTranslationBatch(results, cache) {
+        var cacheDirty = false;
+        results.forEach(function (result) {
+            if (!result) return;
+            if (result.translation) {
+                cache[result.job.hash] = result.translation;
+                cacheDirty = true;
+                insertTranslation(result.job.el, result.translation);
+                setParagraphTranslated(result.job.el, true);
+            } else if (result.showError !== false) {
+                showTranslationError(result.job.el, result.job.text);
+            }
+        });
+        if (cacheDirty) saveTranslationCache(cache);
     }
 
     function applyImmersiveTranslation() {
@@ -282,23 +294,32 @@
                     return;
                 }
                 if (isElementVisible(el, win) && jobs.length < 20) {
-                    jobs.push({el: el, text: text, hash: paragraphHash(text)});
+                    jobs.push({
+                        el: el, text: text, hash: paragraphHash(text), index: jobs.length
+                    });
                 }
             });
         });
         if (!jobs.length) return;
 
         translationInFlight = true;
+        setTranslationLoading(true);
         var chapter = host.currentChapterTitle();
+        var results = new Array(jobs.length);
         var remaining = jobs.length;
-        jobs.forEach(function (job) { insertTranslation(job.el, mbT('Translating…'), 'is-loading'); });
-        // 逐段并发（限 4）：每段一个请求，翻译到达即显示，避免整页单请求的长时间卡顿
+        // 逐段并发（限 4）：每段一个请求；请求期不向正文插占位，全部完成后统一渲染。
         runConcurrent(jobs, 4, function (job, done) {
-            translateParagraphJob(job, cache, chapter, function () {
+            translateParagraphJob(job, chapter, function (finishedJob, translation, showError) {
+                results[finishedJob.index] = {
+                    job: finishedJob, translation: translation, showError: showError
+                };
+            }, function () {
                 done();
                 remaining--;
                 if (remaining) return;
                 translationInFlight = false;
+                setTranslationLoading(false);
+                if (translationEnabled()) renderTranslationBatch(results, cache);
                 if (translationRetryPending) {
                     translationRetryPending = false;
                     setTimeout(applyImmersiveTranslation, 50);
@@ -310,6 +331,11 @@
     // 工具栏「译」：开启 = 批量翻译当前可见页（全部翻译），关闭 = 移除所有译文。
     // 不再随翻页自动触发，避免整页 LLM 请求卡顿。
     var translateToggle = document.getElementById('immersive-translate');
+    function setTranslationLoading(on) {
+        if (!translateToggle) return;
+        translateToggle.classList.toggle('is-loading', !!on);
+        translateToggle.setAttribute('aria-busy', on ? 'true' : 'false');
+    }
     function updateTranslateToggle() {
         if (translateToggle) translateToggle.classList.toggle('active', translationEnabled());
     }
@@ -319,7 +345,10 @@
             try { localStorage.setItem(TRANSLATE_ENABLED_KEY, String(enabled)); } catch (e) {}
             updateTranslateToggle();
             if (enabled) applyImmersiveTranslation();
-            else removeAllTranslations();
+            else {
+                setTranslationLoading(false);
+                removeAllTranslations();
+            }
         });
         updateTranslateToggle();
         // 打开阅读器时若开关已开启：只回填已缓存的译文

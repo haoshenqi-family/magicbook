@@ -1,6 +1,6 @@
 # R225 注册跳转 / 普通账号阅读权限 / 品牌封面占位（LLD）
 
-状态：已开发待验收（2026-10-25）
+状态：已上线待验收（2026-10-25）
 
 ## 1. 缺陷与目标
 
@@ -68,6 +68,8 @@ site_default_role():
 | 详情提示 | `tests/test_auth_reader_covers_r225.py`：View / Download 两条无权限说明与中文 MO 均已守卫 |
 | 封面 | 同文件：JPEG 564×800、四角与中心均为品牌深墨绿；`helper.py` 单点回落 |
 | 总回归 | 定向 **90 passed / 0 failed**；全量 **961 passed / 0 failed**（4 个非阻断 warning）；`git diff --check` 与改动 Python 文件编译通过 |
+| 生产部署 | `890bc6072de413d78ecfb8c9c62f1fba66c5f4ba` 已由 fnOS 手动补跑同一构建脚本上线；容器 `healthy`，镜像 label `house.build-sha` 与提交一致，代码指纹 `f4556c5b4ea0df84` |
+| 生产核验 | `/oidc/signup?next=/read/223/epub` 为 302，顶层只有 `itoken` / `next`，无 `query`；关注后 Authentik 返回 200 邀请页。`/static/generic_cover.jpg` 为 81,048 字节，564×800，与仓库 blob 的 SHA-256 一致 |
 
 ## 5. 边界
 
@@ -75,3 +77,4 @@ site_default_role():
 - 存量账号修正脚本只改 `user.role`，不动 OIDC subject、会话与书库权限。
 - 新账号有阅读权限不等于有下载权限；`/download` 仍由 `ROLE_DOWNLOAD` 独立门禁。
 - 品牌封面是统一兜底，不代表书目真实封面；详情页仍尝试读取 `cover.jpg`。
+- 生产存量账号 `uxprobe2`（id=9）与 `uxprobe`（id=10）仍为 `role=0`，不会因代码上线自动获得阅读权限；需另行批准后点名执行修正脚本。

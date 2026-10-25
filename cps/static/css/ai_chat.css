@@ -71,7 +71,7 @@
 
 /* ============ R206 伙伴头像 + 动效（idle 呼吸 / thinking 起伏 / sleep 打盹） ============ */
 /* 外圈 hover 缩放走 button transform，内圈动效走 img transform，二者不冲突。 */
-#ai-companion-fab.has-buddy { background: #fff; padding: 0; }
+#ai-companion-fab.has-buddy { padding: 0; }
 #ai-companion-fab.has-buddy #ai-companion-fab-text { display: none; }
 #ai-companion-fab-img {
   width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
