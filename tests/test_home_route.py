@@ -217,6 +217,67 @@ def test_level_picks_empty_when_no_level_shelf(admin_client, clean_shelves, monk
     assert groups[0]["label"] == home_mod.UNLEVELED_LABEL
 
 
+# ---------------------------------------------------------------- 随机发现的返回形状
+
+def test_random_discover_returns_books_entities(admin_client, monkeypatch):
+    """R229 回归：`random_discover_books` 必须返回 Books 实体，不是 linked Row。
+
+    Why 钉形状：`generate_linked_query` 返回 `(Books, is_archived, read_status)` 三元组；
+    旧测试全部打桩本函数，真实返回形状从未被测，R213 上线后 Row 直接进了 book_card，
+    生产 `/home` 渲染 500（`Row object has no attribute 'id'`）。
+    """
+
+    class _LinkedRow:
+        """仿 linked Row：Books 在 .Books / [0]，读状态在 [2]。"""
+
+        def __init__(self, book):
+            self.Books = book
+
+        def __getitem__(self, index):
+            return self.Books if index == 0 else (1 if index == 2 else 0)
+
+    class _FakeQuery:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def filter(self, *a, **kw):
+            return self
+
+        def order_by(self, *a, **kw):
+            return self
+
+        def limit(self, *a, **kw):
+            return self
+
+        def all(self):
+            return self._rows
+
+    books = [_RenderableBook(601), _RenderableBook(602)]
+    rows = [_LinkedRow(book) for book in books]
+
+    class _FakeCalibreDbForRandom:
+        generate_linked_query = staticmethod(lambda *a, **kw: _FakeQuery(rows))
+        common_filters = staticmethod(lambda: True)
+
+    monkeypatch.setattr(home_mod, "calibre_db", _FakeCalibreDbForRandom())
+
+    result = home_mod.random_discover_books()
+    assert result == books, "随机发现把 linked Row 原样返回了——模板侧 book_card 只认 Books 实体"
+
+
+def test_random_discover_swallows_upstream_failure(admin_client, monkeypatch):
+    """上游抖动时返回空列表，不把异常抛给 /home（登录落点不许 500）。"""
+
+    def _boom(*a, **kw):
+        raise RuntimeError("db down")
+
+    class _BrokenCalibreDb:
+        generate_linked_query = staticmethod(_boom)
+
+    monkeypatch.setattr(home_mod, "calibre_db", _BrokenCalibreDb())
+    assert home_mod.random_discover_books() == []
+
+
 # ---------------------------------------------------------------- 落点开关
 
 def test_landing_defaults_to_home(landing_restore):

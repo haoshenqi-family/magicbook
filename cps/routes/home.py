@@ -150,7 +150,11 @@ def random_discover_books(limit=None):
     limit = limit or getattr(config, "config_random_books", 6) or 6
     try:
         query = calibre_db.generate_linked_query(config.config_read_column, db.Books)
-        return query.filter(calibre_db.common_filters()).order_by(func.random()).limit(limit).all()
+        rows = query.filter(calibre_db.common_filters()).order_by(func.random()).limit(limit).all()
+        # linked Row 是 (Books, is_archived, read_status) 三元组，模板侧的 book_card
+        # 只认 Books 实体（home.html 其余两块也都是实体）——不取 .Books 会渲染 500
+        # （R229 生产事故：`Row object has no attribute 'id'`）
+        return [row.Books for row in rows]
     except Exception as exc:
         log.warning("home: random discover failed: %s", exc)
         return []
