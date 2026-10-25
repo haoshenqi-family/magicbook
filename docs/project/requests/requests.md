@@ -225,3 +225,5 @@
 223. **Buddy 悬浮球化：透明头像 + hover 径向快捷气泡（/buddy 可配置）**（占号 2026-10-24）：用户原话——「把伙伴的AI伴读文字去掉，文字仅悬浮展示即可，蓝边框也去掉」「伙伴的背景也搞成透明的，文字悬浮也去掉，改为悬浮的时候弹出几个（4-5个，在伙伴页面可以设置，默认右上角的 翻译，朗读，书签等功能）功能气泡。类似Iphone 悬浮球。」范围：FAB 头像态透明化（去背景/边框/阴影/文字标签）、hover 弹出 4–5 个径向快捷气泡（chat 固定 + `/buddy` 页 chip 可配置，默认 翻译/朗读/书签 + 对话）、`GET/POST /ajax/buddy/quick-actions`（`view_settings['buddy']['quickActions']`）、气泡展开方向按 FAB 吸附位置自适应（iPhone 悬浮球同款）。　设计：`docs/project/iterations/1.0/r223-buddy-fab-bubbles/lld.md`。　状态：**已开发待验收**（2026-10-24，worktree `../magicbook-buddy`，分支 `feat/r206-buddy`；发布态全量 906 passed；push 闸门留用户）。
 
 224. **本轮测试修复未完成项收口：R212 入口层、R219 邀请注册、R213-B 进度开关、R214-C 估算 500**（占号 2026-10-24）：状态 **已完成代码收口，待真机验收**。本轮在 worktree `../magicbook-r224-close-out`（分支 `feat/r224-close-out`）补齐 R219 嵌套邀请链接、R212 交付项 1/3/4、R213-B/B6 进度总开关及三格式下线路径；R214-C 核实 `cps/reading_insight/service.py` 与 `origin/develop` 一致，估算 500 的修复已在 develop（`42ddfb19`/`b28d9240`），但生产异常类型因 ES 401 未取得证据。R213-A 侧边栏分组仍按拍板留到下一迭代。**未 push**。
+
+225. **修复邀请注册 URL、普通账号阅读 403 与统一品牌封面占位**（占号 2026-10-25，待回填）
