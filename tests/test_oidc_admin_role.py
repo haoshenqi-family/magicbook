@@ -25,15 +25,18 @@ _spec.loader.exec_module(audit)
 
 
 class TestResolveNewUserRole:
-    def test_站点默认角色为0时新账号是普通用户(self, monkeypatch):
+    def test_站点默认角色为0时新账号仍可阅读(self, monkeypatch):
         monkeypatch.setattr(config, "config_default_role", 0, raising=False)
-        assert oidc.resolve_new_user_role() == 0
+        role = oidc.resolve_new_user_role()
+        assert role == constants.ROLE_VIEWER
+        assert constants.has_flag(role, constants.ROLE_VIEWER)
+        assert not constants.has_flag(role, constants.ROLE_DOWNLOAD)
         assert not constants.has_flag(oidc.resolve_new_user_role(), constants.ROLE_ADMIN)
 
     def test_站点默认角色的其他权限位原样透传(self, monkeypatch):
-        role = constants.ROLE_DOWNLOAD | constants.ROLE_VIEWER
-        monkeypatch.setattr(config, "config_default_role", role, raising=False)
-        assert oidc.resolve_new_user_role() == role
+        configured = constants.ROLE_DOWNLOAD
+        monkeypatch.setattr(config, "config_default_role", configured, raising=False)
+        assert oidc.resolve_new_user_role() == configured | constants.ROLE_VIEWER
 
     def test_默认角色被误配成含管理员位时强制剔除(self, monkeypatch):
         """用户拍板「管理员由我手动赋予」：配置里勾了管理员位也不生效。"""
@@ -42,12 +45,12 @@ class TestResolveNewUserRole:
         role = oidc.resolve_new_user_role()
         assert not constants.has_flag(role, constants.ROLE_ADMIN)
         # 其他位照旧保留，只掉管理员位
-        assert role == constants.ADMIN_USER_ROLES & ~constants.ROLE_ADMIN
+        assert role == (constants.ADMIN_USER_ROLES & ~constants.ROLE_ADMIN) | constants.ROLE_VIEWER
 
-    def test_配置未初始化时按最小权限(self, monkeypatch):
+    def test_配置未初始化时仍保留阅读能力(self, monkeypatch):
         monkeypatch.setattr(config, "config_default_role", None, raising=False)
-        assert oidc.site_default_role() == 0
-        assert oidc.resolve_new_user_role() == 0
+        assert oidc.site_default_role() == constants.ROLE_VIEWER
+        assert oidc.resolve_new_user_role() == constants.ROLE_VIEWER
 
     def test_角色决策不看邮箱_不存在白名单旁路(self):
         """回归守卫：决策函数不接受邮箱参数，模块也不再暴露白名单解析。"""
@@ -92,10 +95,19 @@ class TestAuditCli:
     def test_role_admin_常量与脚本内联值同源(self):
         assert audit.ROLE_ADMIN == constants.ROLE_ADMIN
 
-    def test_降级目标角色剔除管理员位(self):
+    def test_role_viewer_常量与脚本内联值同源(self):
+        assert audit.ROLE_VIEWER == constants.ROLE_VIEWER
+
+    def test_降级目标角色补阅读位并剔除管理员位(self):
         target = audit.demote_target_role(constants.ADMIN_USER_ROLES)
         assert target == constants.ADMIN_USER_ROLES & ~constants.ROLE_ADMIN
         assert not constants.has_flag(target, constants.ROLE_ADMIN)
+        assert constants.has_flag(target, constants.ROLE_VIEWER)
+
+    def test_默认角色为0时降级仍保留阅读能力(self):
+        target = audit.demote_target_role(0)
+        assert target == constants.ROLE_VIEWER
+        assert not constants.has_flag(target, constants.ROLE_DOWNLOAD)
 
     def test_清单标注是否经oidc登录(self, tmp_path):
         db = str(tmp_path / "app.db")
@@ -149,7 +161,7 @@ class TestAuditCli:
             local_admin = conn.execute("SELECT role FROM user WHERE id = 1").fetchone()[0]
         finally:
             conn.close()
-        assert role == 0, "自助注册账号应降为默认角色"
+        assert role == constants.ROLE_VIEWER, "降级仍应保留基础阅读能力"
         assert local_admin == constants.ADMIN_USER_ROLES, "点名的本地管理员不受影响"
         backups = [p for p in os.listdir(str(tmp_path)) if ".r211-bak-" in p]
         assert len(backups) == 1, "写库前必须留一份备份"

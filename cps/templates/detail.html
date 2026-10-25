@@ -77,6 +77,19 @@
                                 </div>
                             {% endif %}
                         {% endif %}
+                    {% elif entry.data|length and not current_user.is_anonymous %}
+                        {# R225：Downloads are a separate permission from reading.
+                           Explain the gate instead of letting users discover it via 403. #}
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-default disabled"
+                                    id="download-permission-hint" aria-disabled="true">
+                                <span class="glyphicon glyphicon-lock"></span>
+                                {{ _('Download access is not enabled for this account') }}
+                            </button>
+                        </div>
+                        <p class="text-muted" id="download-permission-help">
+                            {{ _('Ask an administrator to enable “Download” in Users → Edit User for your account.') }}
+                        </p>
                     {% endif %}
                     {# R214 §3.5 阅读入口解禁（QA §四 核出的缺陷，子项 A 第一笔）：
                        「在线阅读」原先与三个整本入口共处同一个 role_admin() 条件内，R211 修复后
@@ -119,6 +132,19 @@
                                     - {{ entry.reader_list[0] }}</a>
                             {% endif %}
                         </div>
+                    {% elif entry.reader_list and not current_user.is_anonymous %}
+                        {# R225：不把权限门禁伪装成「没有入口」。阅读是账号级权限，
+                           用户需要知道该找谁开通，而不是点到 403 后自行猜测。 #}
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-default disabled"
+                                    id="read-permission-hint" aria-disabled="true">
+                                <span class="glyphicon glyphicon-lock"></span>
+                                {{ _('Reading access is not enabled for this account') }}
+                            </button>
+                        </div>
+                        <p class="text-muted" id="read-permission-help">
+                            {{ _('Ask an administrator to enable “View” in Users → Edit User for your account.') }}
+                        </p>
                     {% endif %}
                     {% if entry.audio_entries|length > 0 and current_user.role_viewer() %}
                         <div class="btn-group" role="group">

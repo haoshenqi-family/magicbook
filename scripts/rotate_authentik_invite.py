@@ -5,9 +5,10 @@
 ------------------
 登录页「注册账号 Sign up (invite)」指向 `.env` 的 `AUTHENTIK_ENROLLMENT_INVITE_URL`
 ——一条具体的 Authentik 邀请。**链接形式一变，这条入口就整体报废，而且失效只
-表现为「点进去报 Invalid invite」，不会有人来报「注册不了」**（2026-10-23 实测：
-老式 `?itoken=<uuid>` 被 authentik 判 invalid，实际原因是它现在只认嵌套形式
-`?query=itoken%3D<uuid>`；邀请记录本身一直好着——`single_use=false`、未过期）。
+表现为「点进去报 Invalid invite」或无限跳转，不会有人来报「注册不了」**。
+2026-10-25 R225 现网复核：Authentik 2025.10.2 接受顶层 `?itoken=<uuid>`
+及其 `next`；再包一层 `?query=itoken%3D<uuid>` 反而会让 executor API
+无限 302。邀请记录本身一直好着——`single_use=false`、未过期。
 
 本脚本把「建邀请 → 换 .env → 重启容器 → 校验」串成一条命令，避免下次再靠人肉。
 
@@ -32,8 +33,8 @@ python3 scripts/rotate_authentik_invite.py --name magicbook-r211 --apply \
   要长期有效」——一次性邀请用过就废，入口会周期性坏死（R103 那条就是这么报废的）。
   风险由 R211 兜底：转发出去也只产生普通用户，管理员仍由人工赋予。
   需要一次性时加 `--single-use`。
-- **链接形式**：脚本生成的是 `?query=itoken%3D<uuid>`（authentik 现在唯一认的
-  形式，见 `build_invite_url` 的注释）。
+- **链接形式**：脚本生成的是 `?itoken=<uuid>`（R225 现网复核后的正确形式，
+  见 `build_invite_url` 的注释）。
 - **必须 `docker compose up -d` 重建，不能 `docker restart`**：`env_file` 只在容器
   创建时注入进程环境，`restart` 不会重读 `.env`；而 `cps/web.py` 每次请求读
   `os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL")`，所以新链接必须进到进程环境。
@@ -101,14 +102,14 @@ def create_invitation(base_url, token, name, expires_at=None, flow=INVITE_FLOW,
 def build_invite_url(base_url, pk):
     """拼出可用的邀请链接。
 
-    ⚠️ **形式必须是嵌套 query**：authentik 的 invitation-enrollment flow 现在只认
-    `?query=itoken%3D<uuid>`——源码 `authentik/flows/views/executor.py`：
-    `get_params = QueryDict(request.GET.get(QS_QUERY, ""))`（`QS_QUERY="query"`），
-    即顶层 query 不会被读，必须整段塞进 `?query=` 里。2026-10-23 实测：老式
-    `?itoken=<uuid>` 一律被判 `Invalid invite/invite not found`（邀请本身是好的），
-    而 `?query=itoken%3D<uuid>` 正常放行到 `ak-stage-identification`。
+    ⚠️ **形式必须是顶层参数**：2026-10-25 对现网 Authentik 2025.10.2 实测，
+    `FlowInterface-2025.10.2.js` 把浏览器完整 `window.location.search` 作为
+    `flowsExecutorGet(query=...)` 的入参；`?itoken=<uuid>` 能返回注册首步，
+    而 `?query=itoken%3D<uuid>` 会让 API 收到 `query=query%3D...` 并无限 302。
+    因此这里只生成顶层 itoken，不再预编码一层 query。
     """
-    return f"{base_url.rstrip('/')}/if/flow/{INVITE_FLOW}/?query=itoken%3D{pk}"
+    query = urllib.parse.urlencode({"itoken": pk})
+    return f"{base_url.rstrip('/')}/if/flow/{INVITE_FLOW}/?{query}"
 
 
 def _ssh(host, command, timeout=120):

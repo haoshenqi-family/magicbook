@@ -94,14 +94,18 @@ def site_default_role():
     Why：2026-10-23 用户拍板「默认都是普通用户，管理员用户由我手动赋予」——
         自助注册链路上不再存在任何自动提权路径，管理员只能由人在管理后台
         逐个赋予。因此即便站点默认角色被勾上管理员位，这里也强制剔除。
+    R225：在线阅读是产品基础能力，任何新账号都必须有 ROLE_VIEWER；
+        下载仍是独立权限，不用阅读修复顺带放开。
     How：oidc.py 与 cps/__init__ 存在循环导入风险（config 单例在包初始化后段
-        才创建），故延迟导入；配置未初始化（None）时按最小权限 0
-        （＝普通读者，不含任何角色位）返回。
+        才创建），故延迟导入；配置未初始化（None）时仍返回阅读权限。
     """
     from . import config
 
     role = getattr(config, "config_default_role", None)
     role = 0 if role is None else int(role)
+    # R225: 在线阅读是本产品的基础能力，不接受“新用户默认角色”把它关掉。
+    # 下载仍是独立权限位，不能借阅读修复顺手放开。
+    role |= constants.ROLE_VIEWER
     if constants.has_flag(role, constants.ROLE_ADMIN):
         role &= ~constants.ROLE_ADMIN
         log.warning("站点默认角色含管理员位，已剔除：OIDC 自助注册一律为普通用户，"
@@ -114,7 +118,7 @@ def resolve_new_user_role():
 
     旧实现在建号处写死 ``constants.ADMIN_USER_ROLES``（含 ``ROLE_ADMIN``），
     任何拿到公开邀请链接的人首次登录即成为超管。现在统一走站点默认角色，
-    且该角色已被 ``site_default_role()`` 剔除管理员位。
+    且该角色已被 ``site_default_role()`` 剔除管理员位，并补齐基础阅读位。
     """
     return site_default_role()
 
@@ -220,19 +224,26 @@ def _invite_token():
     """从 ``AUTHENTIK_ENROLLMENT_INVITE_URL`` 解析出邀请 token（itoken）。
 
     Why：沿用既有配置而不新增 env 变量——避免「invite URL 与 invite token 两份
-        配置各自漂移」，轮换时仍只改一个地方。Authentik 只解析外层 ``query``
-        参数的整段值，因此当前正确形态是
-        ``.../?query=itoken%3D<uuid>``；同时兼容老式顶层 ``?itoken=<uuid>``，
-        避免升级瞬间把既有部署的注册入口关掉。
-    How：先解析外层 ``query`` 里的嵌套 query，再回退解析顶层 query；两种位置
-        都兼容 ``itoken`` / ``token`` 两种 key。解析不出返回 None（调用方据此
-        关闭注册入口，不静默跳坏链接）。
+        配置各自漂移」，轮换时仍只改一个地方。2026-10-25 R225 现网实测：
+        Authentik 2025.10.2 的 ``FlowsApi.flowsExecutorGet`` 把浏览器原始
+        ``window.location.search`` 整体作为 API 的 ``query`` 入参。若 magicbook
+        再套一层 ``?query=itoken%3D...``，API 收到的是 ``query=query%3D...``，
+        会无限 302；顶层 ``?itoken=<uuid>`` 才能正常返回注册首步。
+    How：优先解析顶层 ``itoken`` / ``token``；同时兼容历史嵌套
+        ``?query=itoken%3D<uuid>`` 的存量 env，避免升级瞬间关闭注册入口。
+        解析不出返回 None（调用方据此关闭注册入口，不静默跳坏链接）。
     """
     raw = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
     if not raw:
         return None
 
     outer_query = parse_qs(urlsplit(raw).query, keep_blank_values=True)
+    for key in ("itoken", "token"):
+        value = (outer_query.get(key) or [""])[0].strip()
+        if value:
+            return value
+
+    # 向后兼容历史嵌套形态；新链接不再生成这一层。
     nested_queries = outer_query.get("query") or []
     for nested_query in nested_queries:
         nested = parse_qs(nested_query, keep_blank_values=True)
@@ -240,12 +251,6 @@ def _invite_token():
             value = (nested.get(key) or [""])[0].strip()
             if value:
                 return value
-
-    # 向后兼容 R103 以来的顶层 query；Authentik 新版本不再读取这一层。
-    for key in ("itoken", "token"):
-        value = (outer_query.get(key) or [""])[0].strip()
-        if value:
-            return value
     return None
 
 
@@ -314,11 +319,10 @@ def signup():
     invite_base = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
     parts = urlsplit(invite_base)
     flow_path = parts.path or "/if/flow/invitation-enrollment/"
-    # Authentik executor 只解析外层 query 参数的整段值：
-    # get_params = QueryDict(request.GET.get("query", ""))。因此 itoken 与 next
-    # 必须先组成内层 query，再整体作为外层 query 参数编码（否则会被判 Invalid invite）。
-    nested_query = urlencode({"itoken": invite_token, "next": target})
-    flow_query = urlencode({"query": nested_query})
+    # R225: 顶层参数才是 Authentik 2025.10.2 接受的形态。邀请 flow 在
+    # executor 初始化时读取 itoken，并把它与 next 写入 flow session；再套一层
+    # ``query=`` 会让 API 收到的 query 变成 ``query=query%3D...``（无限 302）。
+    flow_query = urlencode({"itoken": invite_token, "next": target})
     signup_url = urlunsplit((parts.scheme, parts.netloc, flow_path, flow_query, ""))
     log.info("OIDC signup: redirect to invitation enrollment flow (flow=%s)", flow_path)
     return redirect(signup_url)
