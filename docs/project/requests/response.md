@@ -54,43 +54,7 @@
 - `response-archive/response-R212.md`：R212 入口层换皮之品牌资产与字样收敛——2026-10-25 R227 写入触发轮转搬移，原样搬移不改写
 ---
 
-> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-## 2026-10-24（R214 子项 C：整本任务代价面板）
-
-### R214-C（承接「继续」→ 子项 C 开发）
-
-- **任务定位**：R214 收口件，PJM MB-13 / Ship MAGICBOOK-221。三个整本入口（翻译/朗读/详解）
-  从「点一下就下单」改成「先看代价再决定」，落 LLD §4.3/§5/§6/§7。
-- **后端**：`reading_insight/service.py` 补 `estimate()` + `active_jobs()`；`routes/book_detail.py`
-  加 `POST /ajax/whole-book-estimate`（admin + `_llm_task_admin_gate`）；`web.py` 加
-  `_credit_billing_rates()`（moon-well `/credit/billing`，5 分钟进程内缓存，取不到回 None）
-  与 show_book 的活跃批次快照注入。
-- **实现修正（与 LLD 原文不同，已回填 §4.3 表）**：
-  ① `units.billable` 新增——翻译/朗读台账的 item 都按 `text_hash` 唯一，拿全书段落数当工作量
-  会把重复段算两遍，耗时与积分一起虚高；`paragraphs` 仍保留书目真实段数。
-  ② `activeJobs` 新增——§7.5 要的「页面初始进度态」需要服务端承载字段，估算与首屏共用同一个
-  `active_jobs()`，两条路径 `total/done` 不会分叉。
-  ③ `duration.known` 显式化 + **详解没有常量兜底**（无实测支撑秒/词，样本不足就明说不知道）。
-  ④ `credits.rate` 只回传本条链路用到的字段。
-  ⑤ 详解覆盖率直接分批调 cached-check，不走 `preview()`（后者会重抽一遍正文；`notWordLike`
-  只在预览页有解释位）。
-- **前端**：新增 `partials/whole_book_panel.html`（三 tab + 卡片 + 进度条 + 全部文案在 data-*）
-  与 `whole-book-panel.js`（切 tab 拉估算并按 kind 缓存、主按钮二次确认带预计时长/积分、
-  进度轮询 4s/5s/30s、有活跃批次直接进进度态）；`detail.html` 三个并列按钮合并为单个
-  「整本任务」入口并把内联 jQuery 整体迁出；`book-detail.css` 补面板与吸顶进度条样式。
-  **详解保持两步式**：面板主按钮只跳 `word_detail_batch_page`，不替管理员下单（R176 边界）。
-- **测试**：新增 `tests/test_whole_book_estimate.py` ×10（去重计费单位、朗读不探缓存、
-  详解只走 cached-check、lookup 失败不报 0、费率不可得、tts 关闭计费专属原因、历史中位数优先、
-  活跃批次透传、非法 kind、空段落）；`test_book_detail_r214.py` 补 5 条（入口 admin 门禁、
-  面板三 tab、旧并列按钮不许复活、「不修改原书文件」可见、模板真渲染 + endpoint 存在、
-  估算端点只读守卫）。**改了两条既有守卫**：R176 的「三个整本按钮各一处」（形制已合并，
-  改判「入口一处 + 面板三 tab」）、R214 自己的 `test_whole_book_buttons_admin_gated`（同因）。
-  全量 **804 passed / 0 failed**。
-- **未做**：真机验收未跑（面板要真书 + admin 账号）；push 闸门留给你——本节代码在
-  `feat/r214-book-detail` 分支上，未合 develop、未 push。
-- **窗口**：本条写入后 `## ` 节数再 +1。按上一轮约定（R218 条已说明）轮转待统一整理，
-  避免与并行会话的归档改动撞车，本轮不搬移。
+> 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
 
 ## 2026-10-24（R214-C 验收缺陷：入口按钮落进书卡弹层 + 估算 500）
 
@@ -298,3 +262,14 @@
 - **上线实况（2026-10-25 21:27）**：用户令「上线」→ 主检出 `develop` 上 `a7eecd0c..cb198e00` 快进合并并 push（17 files / +774）。fnOS 自动构建，约 35 秒后生产静态资源即为新版：`/static/js/ai_chat.js` 含 `decodeAudioData` 与 `ai-chat-speak`、`/static/js/learning-voice.js` 含 `window.MBLearning || {}` 且旧 `if (!MB) return` 已消失、`ai_chat.css` 含 `.ai-chat-mic`、`/login` 渲染出的 i18n 种子里有 `Read reply aloud`（顺带证明模板没被字典改动搞坏）。`/` 仍 302 → `/login?next=%2F`，与改动前一致。
 - **补丁（同日 21:3x，计费拒绝要说人话）**：核账时发现「积分不足」的失败体是 HTTP 500 + `Result` 信封，原实现只看 `resp.ok` 就直接 `arrayBuffer()` 去 decode，用户会看到「解码失败」——把计费拒绝伪装成播放器坏了。`fetchSpeechBytes` 改为：成功且 `Content-Type` 是音频才解字节，否则读文本、取 `Result.message` 抛出（典型文案「积分不足，无法使用AI功能」）；新增第 8 条守卫钉住「失败分支必须走 `.text()`」。属同一需求内的缺陷修补，不另占号。
 - **计费口径变更（2026-10-25 晚，承接 moon-well R213）**：用户指正「1 积分/段只针对缓存命中，真实生成走正常计费，TTS/ASR 都要收，参考阿里云标价」。moon-well 侧据此改成：**命中 1 积分/段、首次生成按 50 字符/积分**（cosyvoice-v3-flash 1 元/万字符 ×2）、**ASR 22 秒/积分且最少 1 积分**，并修掉「真实合成双扣」「预检在调用之后」「ASR 实际从未收费」三处缺陷。magicbook 侧代码零改动（费率由 `/credit/billing` 下发、朗读走既有代理），只更新 L1/L3/LLD 的计费描述；**用户可见变化**：一条 1800 字新回复首读约 36 积分、重听 1 积分，一句语音提问约 1 积分，整本任务面板的朗读预估因费率真源变化会放大约 20 倍（预期行为，非缺陷）。
+## 2026-10-25（R229：缺陷修复——/home 随机发现 linked Row 致生产登录落点 500，挂 R213）
+
+### R229（博客截图会话中发现的生产缺陷）
+
+- **任务定位**：缺陷修复（挂 R213 首页）。发现路径：为写产品功能博客做生产截图，打开 `/home` 直接 500（traceback 落在 `home.html` 随机发现块 `book_card(book)` 的 `url_for(book.id)`）；对所有开启「随机发现」的用户均复现，当晚 R227 镜像上线后被掩盖的窗口未知，属生产登录落点级故障。
+- **根因**：`random_discover_books` 复用 `generate_linked_query`（返回 `(Books, is_archived, read_status)` 三元组）；旧 `index.html` 侧取 `entry.Books`，R213-C 的 `home.html` 把 Row 原样传给共享宏 `_book_card.html`（只认 Books 实体）。既有测试对 `random_discover_books` 全部打桩，真实返回形状从未被守卫——打桩护住了组装、漏了形状。
+- **修复**：`cps/routes/home.py` 取 `row.Books`（Python 侧收敛形状，模板契约与其余两块一致）；新增回归测试 2 条：`test_random_discover_returns_books_entities`（仿 linked Row 断言必须返回 Books 实体）、`test_random_discover_swallows_upstream_failure`（上游抖动返回空列表，登录落点不许 500）。
+- **验证**：`tests/test_home_route.py` 定向回归 **29 passed / 0 failed**（27 旧 + 2 新）。push `develop`（`c0a7311c`，经 `fix/r229-home-random-row` 分支直推 origin，未动被并行会话占用且处于 detached HEAD 的主检出）；fnOS 自动构建部署，生产实测 `/home` 四块完整渲染（继续阅读带 `186/1467` 进度、今日计划、阶推荐、随机发现）。
+- **过程合规备注**：主检出当时为并行会话 detached HEAD（R228 本地未推 2 提交），merge 冲突后立即 `--abort` 并还原现场，改从 worktree 直推 origin/develop（与 `claim.sh` 同款姿势，fast-forward 无历史改写）；主检出已还原为 972b3830。
+- **窗口**：写入前已有 10 节，按「写入即检查」把最早 R214 子项 C 整节原样搬至 `response-archive/response-R214.md` 并登记索引，窗口保持 10。
+- **总结**：requests.md 条目 229 已回填；本条为回应。冲突记录：无撞号；与 R228 并行会话无 git 冲突（分支隔离 + 直推 fast-forward）。

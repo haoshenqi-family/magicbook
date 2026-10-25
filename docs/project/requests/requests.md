@@ -234,4 +234,4 @@
 
 228. **记录 moon-well R214 伴读 Agent Skills 的 magicbook 消费侧能力**（占号 2026-10-25，待回填）
 
-229. **缺陷修复：/home 随机发现把 linked Row 直接传 book_card，生产登录落点 500（挂 R213）**（占号 2026-10-25，待回填）
+229. **缺陷修复：/home 随机发现把 linked Row 直接传 book_card，生产登录落点 500（挂 R213）**（占号 2026-10-25）：状态 **已上线待验收**。缺陷发现于 2026-10-25 晚博客截图会话：生产 `/home` 对开启「随机发现」的用户渲染 500（`jinja2 UndefinedError: Row object has no attribute 'id'`）。根因：R213-C 的 `random_discover_books` 复用 `generate_linked_query`（返回 `(Books, is_archived, read_status)` 三元组），旧 index.html 侧取 `entry.Books`，home.html 却把 Row 原样传给 `book_card` 宏；既有测试全部打桩该函数，真实返回形状从未被测。修复：`cps/routes/home.py` 取 `row.Books`；新增 2 条回归测试钉住「必须返回 Books 实体」与「上游抖动返回空列表」。定向回归 `tests/test_home_route.py` **29 passed / 0 failed**；实现提交经 `fix/r229-home-random-row` push 至 `develop`（`c0a7311c`），fnOS 自动构建部署，生产 `/home` 已实测四块完整渲染（继续阅读/今日计划/阶推荐/随机发现）。worktree `../magicbook-r229-home-random-row`（分支 `fix/r229-home-random-row`）原样驻留待验收。
