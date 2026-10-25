@@ -50,24 +50,10 @@
 - `response-archive/response-R214.md`：R214 书籍详情子项 A（阅读入口解禁 + 元数据修正 + 视觉分层，含 B 合流记录）——2026-10-24 R223 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R216.md`：R216 引导收敛 + `/me` 偏好页 + 难度入口前置 + 成就锁态 + 伙伴文案 + IP 风险登记——2026-10-24 R224 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R217.md`：R217 注册后自动回 magicbook（邀请注册接回 OIDC 上下文，enrollment 完成后静默授权回站且已登录）——2026-10-25 R225 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R218.md`：R218 R214 子项 A 验收缺陷（书架内书籍详情 500）——2026-10-25 R226 写入触发轮转搬移，原样搬移不改写
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-## 2026-10-23（R218：R214 子项 A 验收缺陷——在书架里的书详情页 500，读不了书）
-
-### R218（用户：「我为什么没办法读书了」+ 详情弹窗只剩 `...` 的截图 → 定性 → 「可以，按方案修复」）
-
-- **任务定位**：缺陷，挂 R214 子项 A / PJM MB-13 / Ship MAGICBOOK-221。不做无主修复——根因就在 `fdd95225`（子项 A 元数据修正）里。
-- **定性证据**（先查 ES 再读码，`app-log-magicbook`）：`Exception on /book/145 [GET]` 栈顶 `web.py:2576 shelf_names=[s.name for s in book_in_shelves]` → `AttributeError: 'int' object has no attribute 'name'`；近 24h `/book/{id}` 9 次、首次 21:07（＝子项 A 部署后）。**影响面按数据切成两半**：`ub.BookShelf.shelf` 是 `Column(Integer, ForeignKey('shelf.id'))`，攒出来的是 id 列表，凡在任意书架里的书必 500；不在书架的书走空列表分支照常打开——所以现象长成「书架里的整架打不开」，极易被误读成个别文件损坏。详情弹窗正文靠 AJAX 填 `/book/<id>`，**「在线阅读」入口就在里面**，500 等于把阅读器入口整个摘掉（`/read/<id>/<fmt>` 路由本身无异常，属可绕过路径）。
-- **修复（两 commit）**：① `88ba3626` 名称改由 `_shelf_names_for_book(shelf_ids)` 单查一次（`in_` 一条 SQL，不按书架数 lazy load 出 N+1）；`book_in_shelves` 保持 id 列表不动——`detail.html` 用 `shelf.id in books_shelfs` 判「已加入书架」，形制改了会连带坏掉。② `8643f8fe` 弹窗 AJAX 补 `.fail()`：原先只挂 `.done()`，服务端一报错就停在 `layout.html` 的模板占位符字面量 `...`，把接口故障伪装成「这本书没详情」（ops 准则⑦点名的静默降级形态）；失败分支同时补 `preFilters.remove(useCache)`——原代码只在成功路径摘，一次失败就把 preFilter 永久挂在 jQuery 上污染后续所有 AJAX。文案复用 po 已有 `"Failed to load"`（加载失败），**不新引 msgid、不动 i18n 生成链**（见下「未顺带做的」）。
-- **测试**：`tests/test_book_detail_r214.py` 17→**19 条**——真 ORM 造「阶N」书架 + 书-架关联钉住 id→名→解析器整条接线（含空集分支），另加**调用点源码守卫**。Why 要这条：转换器与解析器各自的单测都拦不住「参数形制在调用点错位」，而 §10 计划里那条「集成：真 socket 起 app 打 `/book/337`」子项 A 根本没落地——这正是缺陷漏网的直接原因。反向变异实测三处均报红：调用点换回 `[s.name for s in ...]`、转换器改成 `return list(shelf_ids)`、JS 删掉整个 `.fail` 分支。全量复跑干净 worktree **762 passed / 0 failed**（`layout.html` 是全站布局，不敢只跑改动模块）。
-- **同编号互斥的例外（需你知悉）**：R214 的 worktree `../magicbook-r214-book-detail` 已被**子项 B 的 3 个未合并提交**占用（`develop...feat/r214-book-detail` = 3/2），在里面改会把未验收的 B 一起带上线，故另起 `../magicbook-r214-detail-500`（分支 `fix/r214-detail-500`，从 `origin/develop` `040b627b` 切出）。这是对第 9 条「禁止换 slug 绕开」的一次破例，理由不是便利而是**避免把并行在途工作误发布**；子项 B 后续 merge 时会自然拿到本修复（同函数 `show_book` 有冲突面，届时按 B 优先合）。
-- **未顺带做的**：跑 `scripts/generate_i18n_seed.py` 会带出不相关的陈旧清单漂移——`cps/static/js/buddy.js`（R206 并行会话合入时漏跑生成器）不在 `tests/i18n_js_files.json` 里、`msgid_count` 299→311。这 12 条词条与本次 hotfix 无关，且把 buddy.js 新纳入契约扫描可能翻出别人的红。已单独记为待办，不在本分支处理。
-- **文档四问**：能力变了吗 → L1 无变化（缺陷修复，`readme/library.md` 的「书籍详情」条仍成立）；契约变了吗 → 无对外接口变化；实现/边界 → LLD **§12 新增**（根因/影响面/为何单测没拦住/修法/守卫），§8 降级表补「详情弹窗 AJAX 非 2xx」一行；本次怎么实现 → LLD §12 + 状态行回填缺陷修复。AC 补 **A8**（在书架的书 `/book/<id>` 必须 200）与 **A9**（AJAX 失败可见 + 失败分支摘 preFilter），A1–A7 仍待你真机验收，未代你勾选。
-- **驻留与闸门**：worktree `../magicbook-r214-detail-500`（分支 `fix/r214-detail-500`，含 merge `origin/develop` 的 `03a9c991`）原样驻留待验收；验收通过后 `worktree remove` + `branch -d`。**台账占号 R218 已 push**（`4e1aff6f`，纯文档 commit，按「占号即 push」惯例——注意 fnOS 链未加「纯文档跳过」判据，这一推会起一次构建，产物内容与 `040b627b` 等值）。**代码修复本身未 push**，等你的上线指令。
-- **窗口**：本条写入后 `## ` 节数达 12，超 10。**本轮不搬移**——`response-R195-R202.md` 的轮转已存在于本地 develop 未 push 的 `6dcaced0` 上（并行会话工作区还 staged 了 `D response-R195-R202.md` / `D response-R203.md`），此处再轮转一次必然与之冲突。登记为待办：待 R217/QA 那批 staged 内容落定后，由一轮统一整理窗口的人按「写入即检查」补齐，不静默滞留。
-- **总结**：requests.md 占号 R218（2026-10-23，条目 218，已 push）；本条为回应；冲突记录：与 R214 子项 B 同函数 `show_book` 存在合并冲突面（本分支只动 `shelf_names` 一行 + 新增 helper，B 动 insight 注入，交集小）；与并行会话的 response 归档整理存在窗口轮转撞车风险，已按上条避让。
 
 ## 2026-10-23（R212：入口层换皮之品牌资产与字样收敛——一枚圆章两条通道）
 
@@ -294,3 +280,20 @@
 - **驻留与闸门**：worktree `../magicbook-r225-auth-reader-covers`（分支 `fix/r225-auth-reader-covers`）原样保留待验收，验收通过后 `git worktree remove` + `git branch -d`。真机验收项：干净浏览器从 `/login` 完成注册并回站登录；批准后给 `uxprobe2`/`uxprobe` 开 View 再打开 `/read/223/epub`；首页无封面书检查品牌图。下载权限若也要开放，须单独授 `ROLE_DOWNLOAD`，不与阅读权限捆绑。
 - **窗口**：写入前已满 10 节，按「写入即检查」把最早 R217 整节原样搬至 `response-archive/response-R217.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 225 已从占位回填；本条为回应。冲突记录：无撞号；生产存量账号未改，需按点名清单另行批准；R225 与此前 R219 的“嵌套 query”结论相反，已在 L3 / KB 明确标为现网 2025.10.2 复核后的现行口径，历史 R219 记录保留不改写。
+
+## 2026-10-25（R226：阅读器验收缺陷——伙伴白圆底 / 幽灵问号 / 翻译连续重排）
+
+### R226（用户：补验上一轮被 403 挡住的阅读器问题——顶栏、伙伴入口、AI 面板、段落按钮提示、翻译抖动、幽灵问号）
+
+- **任务定位**：缺陷，挂 MB-14 / R215 阅读器验收，关联 R223 伙伴透明悬浮球与 R216 引导入口。先复验再修，不把「需求已拍板」误当回归。
+- **复验证据（生产 `https://magicbook.haoshenqi.top/read/223/epub`，普通读者会话）**：正文可打开，页码正常，403 已消失；桌面顶栏实际为「译 翻译 / 整 翻译本书 / ▶ 朗读 / 书签 / 设置 / 全屏」，CSS 为 24px 图标、12px 标签、36px 最小触达盒；段落四枚控件（朗读/翻译/批注/AI 伴读）在 AX 树中均有完整名称，源码 `createParaButton()` 同时写 `title` 与 `aria-label`；AI 头部新建/重命名/删除/记忆按钮也都有 `title` 与 `aria-label`。✓ 是主题选中标记，不是操作按钮，不应强加 tooltip。
+- **AI 面板遮正文不是本轮缺陷**：真机为 420px 右侧覆盖式抽屉，打开时确实覆盖正文右缘。该形态是用户 2026-10-23 明确否决停靠方案后拍板的 R215 C1，不能因本轮一句「还遮不遮正文」擅自反转；已写进 R226 回应与 LLD，留待用户若改口径再立新需求。
+- **已修一：伙伴白圆底**。根因是 `ai_chat.css` 中 `.has-buddy { background: transparent; box-shadow: none; }` 之后又有同特异度 `.has-buddy { background: #fff; padding: 0; }`，后写白底覆盖 R223 的透明契约。修复为后写规则只保留 `padding: 0`，透明背景与无阴影仍由前一条唯一声明；无头像兜底蓝底不受影响。
+- **已修二：幽灵「?」**。根因是 `onboarding.js` 动态创建的常驻按钮可见文本只有 `?`，含义藏在只有悬停才出现的 `title` 中。修复为按钮可见文本直接使用本地化「使用引导」，右下位置保留、改成 40px 高胶囊；导览收尾文案同步从「左下角 ?」改为右下角「Onboarding Tour」，i18n 种子与 zh PO/MO 成对更新，旧词条移除。
+- **已修三：整页翻译连续重排**。根因是批量翻译先给最多 20 个可见段插 `Translating…`，随后每个请求完成就逐段替换，连续改变 iframe 高度；用户接受的是最终译文内联导致的一次重分页，不是请求期的二十次抖动。修复：请求期不再插正文占位，只给顶栏「译」加 `is-loading`/`aria-busy` 轻脉冲（reduced-motion 下关闭动画）；并发仍为 4，全部返回后在同一个 JS 任务里按原顺序一次性插入、缓存只写一次；失败段仍按既有可重试错误块渲染；请求中关闭翻译则迟到结果不写正文。
+- **测试**：新增 `tests/test_reader_r226_acceptance.py` 3 条源码守卫（透明优先级、导览入口文案、批量翻译一次渲染与加载态）。定向回归 **62 passed / 0 failed**（R226 + R215 UI + 引导导览 + 导览视觉 + 导航下拉），随后翻译/模块面/i18n 回归 **34 passed / 0 failed**；`node --check` 与 `git diff --check` 通过。发布态全量待推送前按仓规执行。
+- **文档四问**：能力 → L1 `readme/readme.md`、`readme/reading.md`、`readme/companion.md` 更新「右下使用引导」、翻译等待反馈与伙伴入口位置；契约 → 无接口变化；实现/边界 → L3 `reading/features/companion-panel.md`、`learning/features/onboarding.md`；本次实现 → `iterations/1.0/r226-reader-verify/lld.md`（状态：开发中）；`REQUIREMENTS.md` 与迭代 `plan.md` 同步。
+- **未在真机复验的边界（明确记录）**：本轮 Chrome 原生控制在后半段被用户切去其他标签，未能对「新样式已上线后的伙伴透明态、右下文案按钮、批量翻译过程」再拍一轮生产截图；当前证据是生产旧样式实拍 + 新代码静态/回归守卫。必须在合并上线后补：① 伙伴无白圆；② 右下「使用引导」；③ 整页翻译等待期正文不动、完成后一次出现。不得把静态测试冒充真机验收。
+- **驻留与闸门**：worktree `../magicbook-r226-reader-verify`（分支 `fix/r226-reader-verify`，基线 `origin/develop` `a5fe007f`）原样保留；当前未 push，等用户验收指令后合并并上线。
+- **窗口**：写入前已有 10 节，按「写入即检查」把最早 R218 整节原样搬至 `response-archive/response-R218.md` 并登记索引，窗口保持 10。
+- **总结**：requests.md 条目 226 已回填；本条为回应。冲突记录：无撞号；唯一口径冲突是「AI 面板遮正文」——R215 已明确选择覆盖式抽屉，本轮不擅自回滚，需用户另下新口径才会改。

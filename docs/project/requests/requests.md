@@ -228,4 +228,4 @@
 
 225. **修复邀请注册 URL、普通账号阅读 403 与统一品牌封面占位**（占号 2026-10-25）：状态 **已上线待验收**。用户报告 `/login` 注册被 Authentik 判 `Invalid invite`（干净浏览器均复现）、普通账号所有 `/read/<id>/<format>` 与 `/download` 403、首页多本 TED/BBC Learning English 书显示白字 `Cover not available`。已确认根因并修复：① `/oidc/signup` 与轮换脚本改回 Authentik 2025.10.2 接受的顶层 `?itoken=...&next=...`，历史嵌套 env 仅兼容读取；② OIDC 新账号固定补 `ROLE_VIEWER`、仍强制剔除 `ROLE_ADMIN`，下载位保持独立；存量缺阅读位账号由 `scripts/reader_role_audit.py` 默认 dry-run、点名补位、写前备份，`oidc_admin_audit.py --demote` 也保留阅读位；详情页分别说明 View / Download 权限如何开通；③ `generic_cover.jpg` 换为 564×800 深墨绿品牌封面。修复已 merge 并在生产 `890bc607` 上线，注册跳转与品牌封面已实测；生产存量账号未自动改；worktree `../magicbook-r225-auth-reader-covers`（分支 `fix/r225-auth-reader-covers`）原样驻留待验收。
 
-226. **核验并修复阅读器顶栏/伴读面板/段落工具提示/翻译抖动/幽灵问号**（占号 2026-10-25，待回填）
+226. **核验并修复阅读器顶栏/伴读面板/段落工具提示/翻译抖动/幽灵问号**（占号 2026-10-25）：用户要求在 R225 修复后继续复验上一轮被 403 阻断的阅读器问题——顶栏图标是否放大、AI 伴读入口是否仍为白圆圈、AI 面板是否遮正文、段落 `✓＋✎🗑🧠` 是否有 tooltip、翻译是否重排抖动、幽灵「?」是否存在。核验结论：顶栏 24px 图标 + 12px 标签正常；段落工具与 AI 头部按钮均有 `title`/`aria-label`；AI 420px 覆盖式抽屉是 2026-10-23 明确拍板，不视为缺陷；确认伙伴头像白色圆底、阅读器无文案「?」、批量翻译逐段插入导致连续重排三项真实缺陷并修复。状态：**开发中待验收**（worktree `../magicbook-r226-reader-verify`，分支 `fix/r226-reader-verify`）。

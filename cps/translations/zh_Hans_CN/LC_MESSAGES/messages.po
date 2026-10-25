@@ -4164,6 +4164,11 @@ msgid "Onboarding Tour"
 msgstr "使用引导"
 
 msgid ""
+"Use the “Onboarding Tour” button at the bottom-right any time to replay the "
+"tour."
+msgstr "随时点右下角「使用引导」重看本段导览。"
+
+msgid ""
 "Open Alipay app and scan the QR code. Credits are granted automatically "
 "after payment."
 msgstr "打开支付宝 App 扫描二维码，支付完成后积分自动到账。"
@@ -4352,9 +4357,6 @@ msgid ""
 "Switch library views by newest / trending / top rated / read / unread / "
 "random — your first stop for finding books."
 msgstr "按「最新 / 热门 / 高分 / 已读 / 未读 / 随机」切换书库视图，是找书的第一站。"
-
-msgid "Tap the “?” at the bottom-left any time to replay the tour."
-msgstr "想重看随时点左下角的「?」。"
 
 msgid ""
 "The cover grid is your library. Click a cover for details; hover for "
