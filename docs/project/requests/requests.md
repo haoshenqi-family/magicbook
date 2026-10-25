@@ -227,3 +227,5 @@
 224. **本轮测试修复未完成项收口：R212 入口层、R219 邀请注册、R213-B 进度开关、R214-C 估算 500**（占号 2026-10-24）：状态 **已完成代码收口，待真机验收**。本轮在 worktree `../magicbook-r224-close-out`（分支 `feat/r224-close-out`）补齐 R219 嵌套邀请链接、R212 交付项 1/3/4、R213-B/B6 进度总开关及三格式下线路径；R214-C 核实 `cps/reading_insight/service.py` 与 `origin/develop` 一致，估算 500 的修复已在 develop（`42ddfb19`/`b28d9240`），但生产异常类型因 ES 401 未取得证据。R213-A 侧边栏分组仍按拍板留到下一迭代。**未 push**。
 
 225. **修复邀请注册 URL、普通账号阅读 403 与统一品牌封面占位**（占号 2026-10-25）：状态 **已上线待验收**。用户报告 `/login` 注册被 Authentik 判 `Invalid invite`（干净浏览器均复现）、普通账号所有 `/read/<id>/<format>` 与 `/download` 403、首页多本 TED/BBC Learning English 书显示白字 `Cover not available`。已确认根因并修复：① `/oidc/signup` 与轮换脚本改回 Authentik 2025.10.2 接受的顶层 `?itoken=...&next=...`，历史嵌套 env 仅兼容读取；② OIDC 新账号固定补 `ROLE_VIEWER`、仍强制剔除 `ROLE_ADMIN`，下载位保持独立；存量缺阅读位账号由 `scripts/reader_role_audit.py` 默认 dry-run、点名补位、写前备份，`oidc_admin_audit.py --demote` 也保留阅读位；详情页分别说明 View / Download 权限如何开通；③ `generic_cover.jpg` 换为 564×800 深墨绿品牌封面。修复已 merge 并在生产 `890bc607` 上线，注册跳转与品牌封面已实测；生产存量账号未自动改；worktree `../magicbook-r225-auth-reader-covers`（分支 `fix/r225-auth-reader-covers`）原样驻留待验收。
+
+226. **核验并修复阅读器顶栏/伴读面板/段落工具提示/翻译抖动/幽灵问号**（占号 2026-10-25，待回填）
