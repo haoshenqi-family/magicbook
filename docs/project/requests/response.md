@@ -52,6 +52,7 @@
 - `response-archive/response-R217.md`：R217 注册后自动回 magicbook（邀请注册接回 OIDC 上下文，enrollment 完成后静默授权回站且已登录）——2026-10-25 R225 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R218.md`：R218 R214 子项 A 验收缺陷（书架内书籍详情 500）——2026-10-25 R226 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R212.md`：R212 入口层换皮之品牌资产与字样收敛——2026-10-25 R227 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R213-C.md`：R213-C 首页 `/home` 组装 + 登录落点开关——2026-10-25 R228 写入触发轮转搬移，原样搬移不改写
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
@@ -80,25 +81,6 @@
   全量 **853 passed / 0 failed**。
 - **待确认**：500 的具体异常类型要等这次上线后看面板上的那行红字（已含异常类型与消息），
   本轮先把「不可读的失败」变成「可读的失败」，再按实际原因收口。
-
-## 2026-10-24（R213-C：首页 `/home` 组装——继续阅读/今日计划/分级推荐/随机发现 + 登录落点开关；A 的侧边栏分组按拍板本迭代不做）
-
-### R213-C（用户令：「A 的侧边栏分组 这个迭代不改，下个迭代再说。直接做C」）
-
-- **范围锁定**：本轮只做 C。R213-A 的「侧边栏四组分组」按用户拍板**本迭代不实施、下个迭代再说**（LLD §5 保留设计与约束，不删不实现），A 以「除分组外已上线」结项。
-- **开发第一步先核实 LLD 的两个前置假设**（不猜字段名）：① `writing/history` 是否真带 `createdAt` —— 读 moon-well `WritingVO.HistoryItem` 确认 `createdAt` + `lastDraftNo` 都在，**方案②（moon-well 加 `writingPending`）不启用，跨仓改动为零**；② 待复习词数该取哪个字段 —— `/learning` 页的「到期」用的是 `srs/stats.dueNow`（`learning-hub.js::renderStats`），而 `plan/today` 的 `reviews` 被 `dailyMinutes` 推出的 `reviewCap` **截断**（`LearningPlanService.today()`），拿它会把「到期 40」显示成「到期 20」，直接违反 AC C2。落地取 **`reviewTotal`**——它与 `dueNow` 是同一个 `countDueBetween(MIN, now)` 查询，**数值恒等**，这条同源关系是 C2 的实证依据（不是「大概一致」）。
-- **四处对 LLD 原案的修正**（照原文写会错，已回填 LLD §4.3）：见上；另两处是**落点判据抽成 `cps/landing.py::landing_endpoint()` 单点**（四处消费：登录页 `next` 默认值 / 本地登录成功 / OIDC `oidc_next` 默认值 / 已登录再访问登录页；写进 `web.py` 会让 `oidc.py` 只能函数内 import 绕环形依赖）、以及**卡片宏参数化到 7 个参数**（`index.html` 两个循环本来就有差异，不参数化就会在重构中改掉既有观感）。
-- **卡片只留一份实现**：新增 `cps/templates/partials/_book_card.html::book_card()`，`index.html`（随机区/列表区）与 `home.html`（继续阅读/分级推荐/随机发现）共用；差异走 `read_flag` / `show_badges` / `card_id` / `modal` / `music_icon` / `series_plain` / `href` + `caller()`（继续阅读用它挂进度条）。**顺带补上 R213-A 的欠账**：格式徽标当初只进了随机区，列表区一直没有——现在两区同源，不会再漂。
-- **落点开关带迁移**：`settings.config_home_landing`（Boolean，默认 `True`）。既有库必须靠 `ub.migrate_home_landing_config()` 启动 `ALTER TABLE settings ADD COLUMN ... DEFAULT 1`——缺列不是「回退默认值」而是**任何配置读取都 OperationalError**（整站 500），所以迁移是功能的一部分。管理端「编辑配置」加勾选框（`_config_checkbox`），取消勾选即回退 `/` 发现页，**回退不需要发版**。
-- **首页零阻塞**：今日计划完全不走服务端渲染，`home.js` 并行拉两个既有代理端点，单块失败只让该数字显示 `–`，两块都失败才整卡降级为「今日学习页」提示（AC C3）；随机发现沿用 `/` 的 `generate_linked_query + common_filters`，受限书/归档书不会漏出来。文案全部由模板 `_()` 注入 `data-*`，JS 只填数字——**没有第二个取词入口，也就没有「mbT 词条漏进种子」的静默回退面**（`test_home_js_passes_text_through_data_attributes` 钉住）。
-- **测试**：新增 `tests/test_home_route.py` 27 例——登录门禁、四块空态不渲染、`阶N` 解析 10 组参数、同阶合并去重、**`阶10` 不排在 `阶2` 前**、已读完不进推荐、书被删跳过、无阶书架进「未分级」尾组、落点开关四种组合、迁移幂等、**真渲染一张卡**（`image.book_cover` / `main_format` 这类过滤器只在渲染时暴露参数不匹配）、**真渲染 index 的一条 entry**（列表区不带格式徽标、带音乐图标）。全量 `pytest tests/` = **873 passed / 0 failed**。
-- **两处既有守卫同步更新（有意的结构变更，不是放宽）**：`test_home_nav_shell.py::test_cover_format_badges_present` 与 `test_onboarding_tour.py::test_browse_step_anchors_exist_in_templates` 原来断言 `index.html` 源码里有卡片外层 class / 格式徽标——现在是「index 复用宏」的结构，断言跟着实现移到 `partials/_book_card.html`，并各自加了「index 必须复用宏」这条更强的约束。
-- **i18n**：新增 7 条 msgid（Continue Reading / Go to Learning / Recommended by level / Words due for review / Writing tasks to finish / 降级提示 / 配置项标签），`pybabel compile` 重编 `messages.mo`（**msgfmt 报 po 里有三处历史重复词条**：`Save` / `Close` / `Vocabulary` 各定义两次——既有问题，本轮不顺手改，记录备查）。
-- **文档四问**：能力变了吗 → L1 `product/readme/library.md` 增「首页（`/home`）」一条；契约变了吗 → **无新对外接口**（`/home` 是页面路由，今日计划复用既有 `/ajax/learning/*` 代理），站点配置新增一项；实现/边界变了吗 → 新建 L3 `product/library/features/home-ia.md`（取数口径、归阶规则、卡片宏、边界与坑）；本次怎么实现 → LLD `project/iterations/1.0/r213-home-ia/lld.md` 补 §4.3 实现修正 + §4.4 验收对应表，状态行改为「A 分组按拍板本迭代不做 / C 已开发待验收」。AC `ac/acceptance.md` C1–C6 逐条勾选并注明判据落点。
-- **窗口与合并冲突**：本轮两次触发轮转——① 写入前窗口已 11 节，先把最旧的 **R206 + R207** 原样搬至 `response-archive/response-R206-R207.md`，窗口回 10；② 之后合 `origin/develop`（`d1db8268`，带 R214-C 验收缺陷节）时本文件**必冲突**（双方都往末尾追加），按「两节都保留、按写入时间序 R214-C 在前 / R213-C 在后」解冲突，窗口再达 11，把最旧的 **R208** 搬至 `response-archive/response-R208.md`，窗口回 10。两次均只搬移不改写，索引各登记一行。
-- **AC 与台账回填（本轮实际改动的文件，不是只在回应里说）**：`ac/acceptance.md` 状态行改「A 除分组外已上线 / B 已验收 / C 已开发待验收」，C1–C6 逐条勾选并附判据落点 + 测试名，C2/C3 行内标「真机待 G1」；G2/G3 勾选；G1 保留待真机。**A1 明确不勾**并写明「本迭代不实施，不是缺口」；A2–A7/B1–B5 段首注明证据位置但**不代勾**（勾选归 MB-16/MB-17 结项轮次，代勾等于替别人宣布验收结论）。`plan.md` 回填 MB-12（A 除分组外已上线 / B 已验收 / C 已开发待验收）、MB-16（分组按 2026-10-24 拍板本迭代不改，`Shelf.kind` 留待下迭代）、MB-18（已开发待验收 + 落地清单）。
-- **顺带发现两处文档欠账（已标注、未擅自修）**：① AC **B6** 写的开关 `reading_progress_enabled` 在仓库里**根本不存在**（`cps/`、`tests/`、`_Settings` 均无命中）——R213-B 从未做过 kill switch，进度上报是常开的。按 MB-17 范围处理，留给下轮确认「补开关」还是「改判据」。② 首版我凭印象写了个 `enable_reading_progress`，随即被自己的核查推翻，已在 AC 里改成「查无此开关」的准确表述——这类名字不能猜。
-- **驻留与闸门**：已提交 `f4df325a`，并 merge `origin/develop`（`d1db8268`）拉齐基线，全量重跑后推进 develop 指针（**只推本地 develop，不 push**）。worktree `../magicbook-r213-home-ia`（分支 `feat/r213-home-ia`）保留待真机验收；**push 即触发 fnOS 自动上线，按用户闸门执行**。真机验收重点：G1 两档视口（1440×900 / 390×844）截图比对，以及「今日计划」在 moon-well 正常/不可用两种状态下的表现（C2/C3 的最后一段只能在真机看）。
 
 ## 2026-10-24（R221：AI 口语陪练语音优先——教练默认语音条 + 用户录音转写预览）
 
@@ -262,6 +244,20 @@
 - **上线实况（2026-10-25 21:27）**：用户令「上线」→ 主检出 `develop` 上 `a7eecd0c..cb198e00` 快进合并并 push（17 files / +774）。fnOS 自动构建，约 35 秒后生产静态资源即为新版：`/static/js/ai_chat.js` 含 `decodeAudioData` 与 `ai-chat-speak`、`/static/js/learning-voice.js` 含 `window.MBLearning || {}` 且旧 `if (!MB) return` 已消失、`ai_chat.css` 含 `.ai-chat-mic`、`/login` 渲染出的 i18n 种子里有 `Read reply aloud`（顺带证明模板没被字典改动搞坏）。`/` 仍 302 → `/login?next=%2F`，与改动前一致。
 - **补丁（同日 21:3x，计费拒绝要说人话）**：核账时发现「积分不足」的失败体是 HTTP 500 + `Result` 信封，原实现只看 `resp.ok` 就直接 `arrayBuffer()` 去 decode，用户会看到「解码失败」——把计费拒绝伪装成播放器坏了。`fetchSpeechBytes` 改为：成功且 `Content-Type` 是音频才解字节，否则读文本、取 `Result.message` 抛出（典型文案「积分不足，无法使用AI功能」）；新增第 8 条守卫钉住「失败分支必须走 `.text()`」。属同一需求内的缺陷修补，不另占号。
 - **计费口径变更（2026-10-25 晚，承接 moon-well R213）**：用户指正「1 积分/段只针对缓存命中，真实生成走正常计费，TTS/ASR 都要收，参考阿里云标价」。moon-well 侧据此改成：**命中 1 积分/段、首次生成按 50 字符/积分**（cosyvoice-v3-flash 1 元/万字符 ×2）、**ASR 22 秒/积分且最少 1 积分**，并修掉「真实合成双扣」「预检在调用之后」「ASR 实际从未收费」三处缺陷。magicbook 侧代码零改动（费率由 `/credit/billing` 下发、朗读走既有代理），只更新 L1/L3/LLD 的计费描述；**用户可见变化**：一条 1800 字新回复首读约 36 积分、重听 1 积分，一句语音提问约 1 积分，整本任务面板的朗读预估因费率真源变化会放大约 20 倍（预期行为，非缺陷）。
+
+## 2026-10-25（R228：moon-well R214 伴读 Agent Skills 的 magicbook 消费侧说明）
+
+### R228（承接 moon-well R214；用户：「把magic book 所有的功能 总结一下，做成一个skill 给 AI伴读的agent使用。先判断AI伴读的agent 是否支持skill」）
+
+- **任务定位**：跨仓消费说明，magicbook **零代码改动**。后端主责 moon-well R214；本仓 R214 已被“书籍详情”占用，故消费侧顺延占 **R228**，不覆盖既有编号。
+- **支持判断**：原 AI 伴读 Agent **不支持 Codex / Claude 原生 Skill**；它是 moon-well 内有界工具循环 + `AgentToolRegistry` 白名单 + Nacos 提示词。直接放 `SKILL.md` 不会生效，因此 moon-well R214 实现的是产品内只读、无脚本、渐进披露的 Skill 机制。
+- **消费侧交付**：`companion` L1 说明伴读可按需加载 MagicBook 全功能指南并强调不扩权；`companion/requirements.md` 记录 moon-well R214 / magicbook R228；`iterations/1.0/r214-agent-skill/lld.md` 写明真实页面路径、不可执行动作、失败退化与验收清单；迭代 `plan.md` 增跨仓工作项。
+- **用户可见范围**：涉及阅读、翻译、查词、词汇、学习计划、朗读、积分或伙伴的问题，助手可先取指南再给具体页面/操作；指南按需读取、不占每轮上下文；不会因此获得点按钮、改设置、下单、启动整本任务或管用户的新权限。
+- **不变量**：不改前端模板、不改 `/ai/agent/*` 代理、不改 SSE/会话/消息结构、不改工具白名单或写确认门；moon-well 关闭 Skill 或白名单未放行时，magicbook 无需变化。
+- **验收**：① 问每日学习功能/入口，答案覆盖当前八项（含 Word Story）；② 问改难度 / 买积分 / 启动整本翻译，给真实页面路线且不声称已执行；③ 问价格/活动倍率，以页面为准；④ 普通寒暄不触发全功能指南加载。**真机对话验收待用户执行。**
+- **台账与驻留**：本仓台账占 **R228**；文档改动在 magicbook 主干本地提交（`develop`，docs-only，无代码 worktree）；moon-well 代码驻留 `../moon-well-r214-agent-skill`（分支 `feat/r214-agent-skill`）。**均未 push、未 merge。**
+- **窗口**：写入前 10 节；按“写入即检查”把最早 R213-C 整节原样搬至 `response-archive/response-R213-C.md` 并登记索引，窗口保持 10。
+
 ## 2026-10-25（R229：缺陷修复——/home 随机发现 linked Row 致生产登录落点 500，挂 R213）
 
 ### R229（博客截图会话中发现的生产缺陷）

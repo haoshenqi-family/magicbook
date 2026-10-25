@@ -12,7 +12,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | library | 书库：书架浏览/搜索、上传下载、元数据管理、OPDS/Kobo 同步、整本翻译、Halo 文章接入 | [library](library.md) |
 | reading | 阅读器：EPUB/PDF/TXT 阅读、段落/整页/整本翻译、朗读、AI 批注、新概念课级音频、5 个内置主题跨设备同步（划词查词由 MagicLens 扩展承担） | [reading](reading.md) |
 | vocabulary | 词汇学习：生词自动判定、认识/生词标记、生词本、词汇量测试与难度推荐（标记与高亮的入口在 MagicLens） | [vocabulary](vocabulary.md) |
-| learning | 每日学习中枢：功能 banner 循环卡片进七个子页面——复习队列（辨析/回忆/拼写三梯度、四档评分）、听写、AI 口语陪练、复述训练 4-3-2、计时重读、写作工坊、选书难度匹配；另有今日计划/复习摘要/本周四股 | [learning](learning.md) |
+| learning | 每日学习中枢：功能 banner 循环卡片进八个功能页——复习队列（辨析/回忆/拼写三梯度、四档评分）、听写、AI 口语陪练、复述训练 4-3-2、计时重读、写作工坊、单词编故事、选书难度匹配；另有今日计划/复习摘要/本周四股 | [learning](learning.md) |
 | companion | AI 伴读：围绕当前书对话提问、工具调用、跨书记忆；伙伴系统（AI 阅读按钮的外观） | [companion](companion.md) |
 | credit | 积分与订阅：积分余额/流水/充值（支付宝扫码）、订阅状态、成就徽章 | [credit](credit.md) |
 | admin | 管理：LLM 任务手动执行面板、用户与站点管理、OIDC 登录 | [admin](admin.md) |
