@@ -290,6 +290,6 @@
 - **封面**：确认 `cps/static/generic_cover.jpg` 原本就是白底黑字的 `Cover not available`。替换为 564×800 深墨绿品牌封面，沿用 `get_cover_on_failure()` 单点回落，首页、详情、OPDS 等所有缺封面路径共用，不改 URL 与缓存语义；已目视检查。
 - **测试**：定向回归 **90 passed / 0 failed**（`test_oidc_signup.py` / `test_oidc_admin_role.py` / `test_auth_reader_covers_r225.py` / `test_reader_role_audit_r225.py` / `test_book_detail_r214.py`），发布态全量 **961 passed / 0 failed**（4 个非阻断 warning）；另做反向变异：删除详情页 Download 提示后守卫报红，恢复后 27 passed。新增中文词条已进 `zh_Hans_CN` PO/MO，守卫从编译后 `.mo` 取词，防止“PO 正常、运行时英文”。
 - **文档四问**：能力 → L1 `readme/library.md` 补无封面品牌占位，`readme/admin.md` 说明新账号阅读/下载边界；契约/边界 → L3 `admin/features/oidc-self-registration.md` 与 KB `oidc-login.md` 修正邀请链接形式、角色语义与两个修正 CLI；本次实现 → LLD `iterations/1.0/r225-auth-reader-covers/lld.md`（状态：已开发待验收）；`REQUIREMENTS.md` 与迭代 `plan.md` 同步。
-- **驻留与闸门**：worktree `../magicbook-r225-auth-reader-covers` 原样保留待验收；验收通过后 `git worktree remove` + `git branch -d`。**push 会触发 fnOS 自动部署，故未 push**；部署后再做真机验收：干净浏览器从 `/login` 完成注册并回站登录、`uxprobe` 打开 `/read/223/epub`、首页无封面书显示品牌图。
+- **驻留与闸门**：分支提交 `53e2e662`，已 merge 回主检出 `develop`（merge `b1f4d9e6`）；worktree `../magicbook-r225-auth-reader-covers` 原样保留待验收，验收通过后 `git worktree remove` + `git branch -d`。**push 会触发 fnOS 自动部署，故未 push**；部署后再做真机验收：干净浏览器从 `/login` 完成注册并回站登录、`uxprobe` 打开 `/read/223/epub`、首页无封面书显示品牌图。
 - **窗口**：写入前已满 10 节，按「写入即检查」把最早 R217 整节原样搬至 `response-archive/response-R217.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 225 已从占位回填为“已开发待验收”；本条为回应。冲突记录：无撞号；生产存量账号未改，需按点名清单另行批准；R225 与此前 R219 的“嵌套 query”结论相反，已在 L3 / KB 明确标为现网 2025.10.2 复核后的现行口径，历史 R219 记录保留不改写。
