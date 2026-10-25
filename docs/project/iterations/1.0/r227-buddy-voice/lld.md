@@ -86,6 +86,7 @@
 | 转写成功但用户不发送 | 文字留在输入框，无副作用（录音不入库） |
 | 朗读请求 400（段超限） | 理论不发生（1800 < 2000）；发生则状态行红字可见 |
 | 朗读 404 / 上游 TTS 失败 | 状态行「⚠ 朗读音频不可用」，不静默 |
+| 积分不足（`precheckSufficient` 在扣费前拒绝） | 失败体是 moon-well 的 `Result` 信封（HTTP 500 + JSON），前端先读文本取 `message` 再抛，状态行显示「积分不足，无法使用AI功能」；不做 `arrayBuffer` 直解，否则会伪装成「解码失败」 |
 | 浏览器拦截自动播放 | 手动点朗读是手势链，正常可播；`audio` SSE 事件在 suspended 上下文下提示「浏览器拦截了自动播放」 |
 | 长回复分段 | 状态行「朗读中 n/m」，播完自动收起按钮态 |
 | 关闭抽屉 / 切会话 | 立即停止播放并复位按钮 |
@@ -94,7 +95,7 @@
 
 **自动测试**
 
-- `tests/test_buddy_voice.py`（新增 7 条）：面板挂载与脚本顺序、录音模块解耦、转写不自动发送、朗读不带书籍上下文、朗读不用 blob 媒体、分段上限 <2000、新词条在种子/PO/MO 三处齐全。
+- `tests/test_buddy_voice.py`（新增 8 条）：面板挂载与脚本顺序、录音模块解耦、转写不自动发送、朗读不带书籍上下文、朗读不用 blob 媒体、分段上限 <2000、失败要带出上游 message、新词条在种子/PO/MO 三处齐全。
 - 回归：`test_buddy_site_assistant.py` / `test_buddy_page.py` / `test_i18n_seed_contract.py` / `test_csp_media.py` / `test_reader_r226_acceptance.py` / `test_reader_r215_ui.py` / `test_learning_pages_static.py` / `test_common_api_contract.py` / `test_onboarding_tour.py` 共 **117 passed / 0 failed**。
 - JS：`node --check ai_chat.js`、`node --check learning-voice.js`；`splitForSpeech` 另用 node 直接跑边界（1900 字无标点、纯中文、空串、双段）。
 

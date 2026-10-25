@@ -105,6 +105,19 @@ def test_speech_segments_stay_under_upstream_limit():
     assert 200 <= int(m.group(1)) < 2000
 
 
+def test_speech_failure_surfaces_upstream_message():
+    """朗读失败要说出上游原因（典型是「积分不足，无法使用AI功能」）。
+
+    失败体是 moon-well 的 Result 信封（HTTP 500 + JSON）。不解析 message 就直接
+    去 decodeAudioData，用户看到的会是「Unable to decode audio data」——等于把
+    计费拒绝说成播放器坏了，排查方向直接跑偏。
+    """
+    body = _function_body(_read(CHAT_JS), "fetchSpeechBytes")
+    assert ".text()" in body, "失败分支必须读文本体，不能直接当音频解"
+    assert "jsonMessage(raw)" in body
+    assert "isAudioResponse(response)" in body, "200 但非音频也要走错误分支"
+
+
 def test_new_voice_strings_are_seeded_and_translated():
     """t("…") 词条必须在种子 + PO + 编译后的 MO 里都有中文。
 

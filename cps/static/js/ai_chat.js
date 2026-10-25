@@ -75,9 +75,30 @@
       },
       body: JSON.stringify({ text: text }),
     }).then(function (response) {
-      if (!response.ok) throw new Error(t("Read-aloud audio is unavailable"));
-      return response.arrayBuffer();
+      // 失败体是 moon-well 的 Result 信封（HTTP 500 + {success:false,message}），
+      // 典型是「积分不足，无法使用AI功能」。不带出 message 的话前端只能拿到
+      // 一段 JSON 字节去 decode，用户看到的是「解码失败」——把计费拒绝伪装成
+      // 播放器坏了，比不说更糟（R227）。
+      if (response.ok && isAudioResponse(response)) return response.arrayBuffer();
+      return response.text().then(function (raw) {
+        throw new Error(jsonMessage(raw) || t("Read-aloud audio is unavailable"));
+      });
     });
+  }
+
+  function isAudioResponse(response) {
+    var type = (response.headers.get("Content-Type") || "").toLowerCase();
+    return type.indexOf("audio/") === 0 || type.indexOf("application/octet-stream") === 0;
+  }
+
+  function jsonMessage(raw) {
+    try {
+      var data = JSON.parse(raw);
+      if (!data) return "";
+      return String(data.message || (data.result && data.result.message) || "").trim();
+    } catch (e) {
+      return "";
+    }
   }
 
   function decodeSpeech(ctx, bytes) {
