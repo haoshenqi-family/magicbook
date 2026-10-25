@@ -94,3 +94,4 @@
 | 2026-07-31 | 修复 `/ai/admin` 500 报错 | 根因：`cps.ai.models` 在 `create_app()` 的 `Base.metadata.create_all` 之后才被导入，导致 `ai_config`/`ai_provider` 等表从未创建，首次访问 `/ai/admin` 查询即抛 `OperationalError: no such table`。修复：在 `cps/ai/__init__.py` 导入时新增 `ensure_ai_tables()` 显式建表，并调用 `seed_default_config()` 写入默认配置。验证：模拟线上全新 DB 启动，`/ai/admin` 返回 200 且含 DeepSeek；测试套件 58 passed。 |
 | 2026-10-25 | R225 注册跳转 / 阅读权限 / 封面占位 | 注册邀请改回 Authentik 2025.10.2 接受的顶层 `?itoken=...&next=...`；新账号固定具备在线阅读位但不自动获得下载/管理员；存量账号用 `scripts/reader_role_audit.py` 点名补阅读位；无封面统一使用品牌深墨绿占位图。 |
 | 2026-10-25 | R226 阅读器验收缺陷 | 伙伴头像恢复透明无白底；阅读器导览入口由无文案「?」改为右下角「使用引导」；整页翻译改为请求期顶栏加载态、全部返回后一次渲染，避免逐段插入触发的连续重排。AI 面板 420px 覆盖式抽屉维持 R215 既有拍板。 |
+| 2026-10-25 | R227 Buddy 语音能力 | 伴读面板复用口语陪练的录音+ASR 链路：全站可语音提问（转写填输入框、编辑后发送，录音不留存）；每条助手回复可手动朗读（Web Audio 播放、长回复分段、不带书籍上下文以免污染段落缓存）。CSP 未放宽。 |

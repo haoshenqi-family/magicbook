@@ -190,6 +190,38 @@
 #ai-chat-input { width: 100%; min-height: 60px; max-height: 120px; padding: 8px; border: 1px solid #ccc; border-radius: 8px; resize: none; font-size: 14px; }
 #ai-chat-send { margin-top: 8px; padding: 8px 20px; background: #4285f4; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
 #ai-chat-send:disabled { background: #aaa; cursor: not-allowed; }
+
+/* ============ R227 语音输入（复用口语陪练录音链路）+ 每条回复朗读 ============ */
+/* 录音/转写状态机由 learning-voice.js 自己维护（sw-rec / 按钮文案 / disabled），
+   这里只负责外观与触达盒；按钮文案随状态变长，故用 flex 不设固定宽。 */
+.ai-chat-input-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.ai-chat-input-actions #ai-chat-send { margin-top: 0; margin-left: auto; }
+.ai-chat-mic {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 6px 12px;
+  background: #f5f7fb; color: #33475e; border: 1px solid #d7e3f7;
+  border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.ai-chat-mic:hover { background: #eef3fb; }
+.ai-chat-mic:disabled { opacity: 0.55; cursor: not-allowed; }
+/* 录音中：红底 + 呼吸点，明确「再点一次停止」（R221 的点击开始/点击停止口径） */
+.ai-chat-mic.sw-rec { background: #fff1f0; border-color: #ffccc7; color: #cf1322; }
+.ai-chat-mic.sw-rec .ai-mic-icon { animation: ai-mic-pulse 1s ease-in-out infinite; }
+@keyframes ai-mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .ai-chat-mic.sw-rec .ai-mic-icon { animation: none; }
+}
+.ai-chat-voice-status { margin-top: 6px; font-size: 12px; color: #7a8aa2; min-height: 0; }
+.ai-chat-voice-status:empty { display: none; }
+/* 助手消息底部的朗读按钮：轻量文字按钮，播放中变红并可再点停止 */
+.ai-chat-speak {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 8px; padding: 4px 10px;
+  background: #f5f7fb; color: #33475e; border: 1px solid #d7e3f7;
+  border-radius: 999px; cursor: pointer; font-size: 12px;
+}
+.ai-chat-speak:hover { background: #eef3fb; }
+.ai-chat-speak.is-playing { background: #fff1f0; border-color: #ffccc7; color: #cf1322; }
 .ai-chat-typing { color: #999; font-style: italic; }
 /* 思考中三点波浪（首个 delta 到达前的等待反馈） */
 .ai-chat-typing .dot { display: inline-block; animation: ai-chat-dot-bounce 1.2s infinite; }
@@ -221,6 +253,9 @@
   /* Bigger touch targets for the input and send button. */
   #ai-chat-input { font-size: 16px; min-height: 48px; }
   #ai-chat-send { padding: 10px 24px; font-size: 16px; }
+  /* R227：麦克风与朗读按钮一起抬到 44px 触达盒（R215 移动端硬指标） */
+  .ai-chat-mic { min-height: 44px; font-size: 15px; }
+  .ai-chat-speak { min-height: 44px; padding: 8px 14px; font-size: 13px; }
   #ai-chat-new { padding: 4px 8px; font-size: 20px; }
   #ai-chat-rename, #ai-chat-delete { padding: 4px 8px; font-size: 17px; }
 

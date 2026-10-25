@@ -29,7 +29,13 @@
     <div id="ai-chat-messages"></div>
     <div id="ai-chat-input-area">
       <textarea id="ai-chat-input" placeholder="{{_('Ask about this chapter...')}}"></textarea>
-      <button id="ai-chat-send">{{_('Send')}}</button>
+      {# R227 语音输入：复用口语陪练的录音+ASR 链路（learning-voice.js）。转写结果
+         只填进输入框由用户确认，录音本身不落库——Buddy 的消息仍是纯文本。 #}
+      <div class="ai-chat-input-actions">
+        <button id="ai-chat-mic" type="button" class="ai-chat-mic" title="{{_('Tap to speak')}}" aria-label="{{_('Tap to speak')}}"><span class="ai-mic-icon" aria-hidden="true">🎤</span><span class="sw-mic-label">{{_('Tap to speak')}}</span></button>
+        <button id="ai-chat-send">{{_('Send')}}</button>
+      </div>
+      <div id="ai-chat-voice-status" class="ai-chat-voice-status" role="status" aria-live="polite"></div>
     </div>
     <div id="ai-memory-panel">
       <div class="ai-memory-header">
@@ -59,4 +65,7 @@
 <script src="{{ url_for('static', filename='js/ai_page_extract.js') }}"></script>
 {# R114 输入法守卫：read 系模板不继承 layout.html，随面板引入，挡住聊天输入框的组合回车 #}
 <script src="{{ url_for('static', filename='js/ime_guard.js') }}"></script>
+{# R227 语音输入：麦克风链路与口语陪练同源（WebAudio 采集 → 16k wav → ASR），
+   必须先于 ai_chat.js 载入，后者只负责把按钮挂上去并把转写结果填进输入框。 #}
+<script src="{{ url_for('static', filename='js/learning-voice.js') }}"></script>
 <script src="{{ url_for('static', filename='js/ai_chat.js') }}"></script>

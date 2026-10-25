@@ -32,6 +32,7 @@
 | MB-20 R217 注册后自动回 magicbook：邀请注册走 OIDC 上下文，enrollment 完成后静默授权回站并已登录 | 任务 | （关联 MAGICBOOK-11 / MAGICBOOK-219） | [r217-oidc-signup-return/lld.md](./r217-oidc-signup-return/lld.md) | **已开发待验收**（2026-10-23，worktree `../magicbook-r217-oidc-signup-return`，分支 `feat/r217-oidc-signup-return`；新增 16 条守卫测试 + 相关回归 49 条全绿；现网端到端链路实测：flow 结束精确还原 `next` → authorize → Authentik 签发 code → 302 回 `/oidc/callback`） |
 | MB-21 R225 注册跳转 / 普通账号阅读权限 / 品牌封面占位 | 缺陷 | 待建（挂 R219 / R211 / R214） | [r225-auth-reader-covers/lld.md](./r225-auth-reader-covers/lld.md) | **已上线待验收**（2026-10-25，开发 `890bc607`；worktree `../magicbook-r225-auth-reader-covers`，分支 `fix/r225-auth-reader-covers`；定向 90 passed，全量 961 passed；生产注册跳转与品牌封面已核验，存量读者需点名授权） |
 | MB-14/R223 阅读器验收缺陷 R226 | 缺陷 | 待建（挂 MAGICBOOK-222 / R215 / R223 / R216） | [r226-reader-verify/lld.md](./r226-reader-verify/lld.md) | **开发中待验收**（2026-10-25，worktree `../magicbook-r226-reader-verify`，分支 `fix/r226-reader-verify`）：伙伴白圆底、幽灵「?」、批量翻译连续重排已修；420px AI 覆盖式抽屉维持既有拍板 |
+| MB-22 R227 Buddy 语音：全站语音输入转写 + 每条回复手动朗读（复用口语陪练链路） | 用户故事 | 待建 | [r227-buddy-voice/lld.md](./r227-buddy-voice/lld.md) | **开发完成待验收**（2026-10-25，worktree `../magicbook-r227-buddy-voice`，分支 `feat/r227-buddy-voice`）：`learning-voice.js` 依赖降级全站复用；朗读走 Web Audio（不动 CSP）、分段 1800 字；定向回归 117 passed；待真机验收 6 项 |
 
 ## 版本
 

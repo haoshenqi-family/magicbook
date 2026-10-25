@@ -6073,3 +6073,12 @@ msgstr "请联系管理员，在「用户」→「编辑用户」中为你的账
 
 msgid "Self-registered accounts always receive View. Administrators can still adjust it per account. Download is a separate permission."
 msgstr "自助注册账号默认具备在线阅读权限，管理员仍可按账号调整；下载是独立权限。"
+
+msgid "Read reply aloud"
+msgstr "朗读本条回复"
+
+msgid "Reading… {{n}}/{{m}}"
+msgstr "朗读中 {{n}}/{{m}}"
+
+msgid "Transcript ready — edit it before sending"
+msgstr "转写完成，可编辑后发送"

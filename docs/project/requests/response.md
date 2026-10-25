@@ -51,30 +51,10 @@
 - `response-archive/response-R216.md`：R216 引导收敛 + `/me` 偏好页 + 难度入口前置 + 成就锁态 + 伙伴文案 + IP 风险登记——2026-10-24 R224 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R217.md`：R217 注册后自动回 magicbook（邀请注册接回 OIDC 上下文，enrollment 完成后静默授权回站且已登录）——2026-10-25 R225 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R218.md`：R218 R214 子项 A 验收缺陷（书架内书籍详情 500）——2026-10-25 R226 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R212.md`：R212 入口层换皮之品牌资产与字样收敛——2026-10-25 R227 写入触发轮转搬移，原样搬移不改写
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移）
-
-## 2026-10-23（R212：入口层换皮之品牌资产与字样收敛——一枚圆章两条通道）
-
-- **承接**：用户令「MB-11 authentik 的第 2 项（logo/背景）改成跟 magicbook 统一风格的，看看 magicbook 有没有什么要改的，都使用哈利波特系列风格」。查 MB-11 描述得待办第 1 项即 `branding_logo` / `branding_default_flow_background` 仍是官方默认。
-- **先否证「统一风格」的前提**：实测 magicbook **没有任何图形品牌资产**——站内唯一品牌是文字 wordmark（`style.css:223` Grand Hotel 手写体 + 青绿 `#45b29d`），`cps/static/img/` 只有功能图标，`/login` 是裸 Bootstrap `.well`。所以「跟 magicbook 统一」无从取齐，本轮是**新建**图形标识、再让两边共用，不是把 authentik 对齐到某个既有图形。
-- **三问三答拍板**：托管＝MinIO `brand/`；标识＝圆章版雪鸮立旧书；范围＝改名 + 挂徽章 + favicon（登录页换皮、整站换色不做）。
-- **authentik 侧实测**（决定托管路线）：容器源码 `/authentik/brands/models.py:34` 把 `branding_logo` 等定成 `TextField`，全仓无 `MediaAvatar`、`root/urls.py` 不挂 `/media/`（`/media/`、`/files/` 线上 404）——**没有上传接口，只能填 URL**；登录页 CSP 头实测**不存在**，故跨源图可放行；15 条 flow 的 `background` 列全空 → 改 brand 一处覆盖登录/注册/改密。两条 brand（`authentik-default` / `account.haoshenqi.top`）三个字段现均为内置默认路径。
-- **一处主动收紧（对我自己上一轮的方案）**：我先前把「同源一份资产」当成默认前提，实测本仓 CSP 是 `img-src 'self' data:`，且 `tests/test_csp_media.py::test_buddy_image_origin_not_opened_site_wide` 显式断言「其余页面不放行 MinIO」（R181 窄面口径）。为顶栏一枚徽章去放宽全站 img-src 等于推翻一条有意收紧的守卫，不值。故**站内走同源静态文件**（`cps/static/img/brand/`，128px/30KB），认证域走 MinIO，两份产物由 `vibe_images/build_brand_assets.py` 一次生成、不手改。
-- **交付项 2 的实测修正**：台账原写「站内 6 处 Calibre-Web」——那是只扫模板。按 `_()`/`N_()` 全量扫，用户可见面 **13 处**（模板 6 + `admin.py` 4 + `helper.py` 5 + `kobo_auth.py` 1 + `search.py` 1，其中 3 处是注册欢迎邮件与测试邮件，站内根本看不见、只有收邮件时看得见）。逐行精确替换，**日志行与文件头许可证署名保留**（前者断了 ES `app-log-magicbook` 文本检索，后者是上游署名）。`stats.html` 的 "powered by Calibre-Web" 亦保留——真实归属，抹掉等于谎报来源。
-- **i18n 联动**：改 msgid 必须成对改 `zh_Hans_CN/messages.po` 并重编 `.mo`，否则中文退回英文、看起来像「翻译丢了」。10 条有译文词条成对更新（顺带修上游 `Caliebre` 拼写与 `Catalog`→「路径」两处误译）；3 条无译文的与改前行为一致。
-- **顶栏偏移是量出来的**：headless Chrome 实测圆章中线与文字盒中线差 **-0.4px**（35px Grand Hotel 的字形中线低于行框中线），故 `margin: -6px 8px 0 0` 而非直接 `vertical-align: middle`。
-- **测试**：新增 `tests/test_brand_consistency.py` 5 例（模板无残留 / 无 `_(...)` 带上游品牌 / 10 词条必须出中文 / 资产存在且被引用且 CSS 有规则 / 配置默认值形态）。**反向变异两处已做**：还原 `http_error.html` + 还原 `.mo` → 2 例即红；复原后 5 passed。开发态合计 **138 passed**（含 `test_csp_media` 8 例，证明没碰坏窄面口径）。全量属发布闸门，留用户指令。
-- **不做**：不改 `apple-touch-icon`（140×140 与 64px 素材不匹配，且非本轮范围）；不改 `cli.py --help` 与调试包文件名（运维面）；不给认证页加素材兜底；不放宽 CSP。
-- **风险登记**：认证域 logo/背景是**新的对外可见面**，随 `docs/product/companion/features/buddy-ip-risk.md` 同一登记处置（内测可接受、公开注册前换原创）；本轮素材为原创构图，未用电影原图/校徽/闪电字标。
-- **上线顺序（不可颠倒）**：moon-well R209 先上线（bucket 策略只在启动时写，不重启 `brand/` 一直 403）→ 传对象并实测 200 → magicbook push → authentik 写三字段 + `restart server worker`（改 brand 有缓存）→ 现网核验。生产 `app.db` 的 `config_calibre_web_title` 现值仍是 `Calibre-Web`（代码默认值改动不影响存量），改它属运维写操作，留用户放行。
-- **台账与驻留**：本轮不占新号（属 R212 交付项 2/5 的执行，按「不做无主修复」挂在 MB-11 下）；worktree `../magicbook-r212-brand-assets`（分支 `feat/r212-brand-assets`，基线 `e649a785`）驻留待验收；**push 闸门留用户**。跨仓：moon-well R209（`../moon-well-r209-brand-assets`）。
-- **窗口**：本条写入使回应节数达 11，按「写入即检查」把最旧一节 **R205**（单词编故事 Hub 卡）原样搬至 `response-archive/response-R205.md` 并登记索引，窗口回 10。
-- **补记（2026-10-24 生产实况）**：authentik 侧**已换皮生效**——两条 brand × 三字段 `UPDATE 2`（改前值备份 `/root/authentik-brands-backup-20261024-r212.json`）+ `restart server worker`（约 10s 回 healthy），headless Chrome 真页面截图确认 `--ak-flow-background` 与 logo/favicon 均指向新对象、圆章实际渲染在卡片正中约 150px（我 mock 里画的左上角小图是错的，素材按 256px 出是对的）。**本仓代码仍未 push**，顶栏徽章/字样收敛只在分支上。另查清一处**非本轮**缺陷：登录按钮仍是英文「Log in」（真人中文浏览器实测，非探针假象），但它不在任何配置面里——2025.10 的 `authentik_flows_flow` 无 `submit_button_text` 列、`flowstagebinding` 无 `label` 列（均实测 schema），R162 中文化覆盖的是 prompt 的 label/placeholder。要改得动上游前端包，另立条目。
-- **补记 2（2026-10-24 08:09 已 push 上线）**：用户令「1，2 push，3 改掉吧」→ `8842d1c2..195ab0d7` 快进推 develop（同样从 worktree 直推，主检出有并行会话未提交改动，不碰）。fnOS `build END OK`、基线推进。**线上实测**：`<title>magicbook | Login</title>`、顶栏圆章 + Grand Hotel wordmark 渲染正确（headless Chrome 截图）、`/static/img/brand/{logo,favicon}.png` 双 200。站点标题也按第 3 项改掉：`app.db` → `settings.config_calibre_web_title` = `magicbook`（取拉丁文，Grand Hotel 无中文字形）；该值启动时读入内存，改完当下线上仍吐旧值，由本次部署重启生效——**「改了 DB 就以为好了」是这个坑的标准形态**。
-- **合并实况与新基线复跑**：推前 origin 又被并行会话甩开两次（r215 段尾字形、r206 伙伴拖拽）。第一次带来 `messages.mo` **二进制冲突**——正解不是 `--ours/--theirs` 二选一，而是**用合并后的 `.po` 重编**（`.mo` 是产物）；`.po` 侧自动合并后校验「无冲突标记 / 残留 Calibre-Web msgid=0 / 我方 magicbook 词条 11 条」才提交。第二次干净合并。两轮各跑全量：`pytest tests/` = **819 passed / 0 failed**。
-- **总结**：requests.md 的 R212 条目追加第二轮拍板与两处实测修正；response.md 增一节、轮转一节。冲突记录：无撞号。
 
 ## 2026-10-24（R214 子项 C：整本任务代价面板）
 
@@ -297,3 +277,21 @@
 - **驻留与闸门**：worktree `../magicbook-r226-reader-verify`（分支 `fix/r226-reader-verify`，基线 `origin/develop` `a5fe007f`）原样保留，合并提交 `0b666d77` 已上线，等待用户最终验收；验收通过后再 `worktree remove` + `branch -d`。
 - **窗口**：写入前已有 10 节，按「写入即检查」把最早 R218 整节原样搬至 `response-archive/response-R218.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 226 已回填；本条为回应。冲突记录：无撞号；唯一口径冲突是「AI 面板遮正文」——R215 已明确选择覆盖式抽屉，本轮不擅自回滚，需用户另下新口径才会改。
+
+## 2026-10-25（R227：Buddy 对话复用口语陪练语音能力——全站语音提问 + 每条回复手动朗读）
+
+### R227（用户：「我想要 AI 伴读 Buddy 对话也可以复用 AI 口语陪练 陪练的语音能力。」）
+
+- **任务定位**：需求（跨功能复用，不是缺陷）；**单仓交付**——moon-well 侧零改动，ASR 与 TTS 端点都已在线（R221 前端 / moon-well R212 后端）。
+- **四问四答拍板（2026-10-25）**：① 范围＝**输入+朗读双向**（不是只做输入或只做朗读）；② 回复朗读＝**每条手动点「朗读本条」**（不自动播——回复普遍 800–2000 字，自动播既慢又按次扣费）；③ 用户语音＝**只转成文字**、不留可回放语音条（否则要给 `ai_message` 加音频字段 + 走 MinIO 上传，跨仓改动不划算）；④ 生效面＝**全站**（Buddy 自 R220 起是全站助手）。
+- **复用面（先查后写，不是凭印象）**：`learning-voice.js`（WebAudio→16k wav→ASR，R158/R159/R160 三处坑都在里面）、`/ajax/learning/asr/transcribe`（登录鉴权、10MB、60s、不扣积分）、`/ajax/reading-tts`→moon-well `/tts/speak`（**1 积分/次含命中**、≤2000 字、65s）、`/ajax/reading-tts-cached`（只读缓存不计费）。**不复用**：录音上传/语音条（要改 `ai_message`）、教练回复的服务端同步合成（Buddy 是 SSE 流式，会把 `final` 拖长且长回复必撞 2000 字上限）。
+- **三处不能照搬，各自有解**：① `learning-voice.js` 原硬依赖 `window.MBLearning`（`if (!MB) return;`），Buddy 面板在全站挂载、没有 learning-common → **依赖降级为「有则用、无则回退」**（`window.mbT` / `window.MBApi.csrfToken()` / `options.asrUrl`），学习页零改动；另补 `clearNode` 回退——缺 `MBLearning` 时 `MB.clear(select)` 会在设备下拉处直接 TypeError。② 朗读不能用 `<audio src=blob:>`：`media-src blob:` 目前只在阅读页/口语页放行，照搬要把 CSP 铺到全站，而 `test_non_reader_pages_still_block_blob_media` 正是拦这条的守卫 → **改走 Web Audio**（`fetch` 取字节 + `decodeAudioData`，受 `connect-src` 回退 `default-src 'self'` 约束，**不受 media-src 管辖**），`web.py` **一行未改**。③ 长回复撞 2000 字上限 → 分段 1800（空行→句末标点→硬切），顺序播放并在状态行显示「朗读中 n/m」。
+- **顺带修掉一个既有静默故障**：伴读工具 `synthesize_tts` 的 `audio` SSE 事件原本也用 `new Audio(blob:)`，在非阅读页会被 CSP 拦掉且几乎没有可见提示（R220 把面板铺到全站之后就该暴露）。改成同一条 Web Audio 路径后，全站都能响。
+- **缓存档位**：朗读**不带** `bookName`/`chapter`，让 moon-well 按「AI 临时语音」档（7 天清理）落盘，不把一次性回复写进书籍段落的永久缓存；与 `synthesize_tts` 的既有口径一致。
+- **一处存量缺陷（本轮不擅自改）**：`ai_chat.js` 顶部的 `var mbT = window.mbT || identity` 在脚本载入时就被固定成恒等函数——`layout.html` 把 `i18n_seed.html` 排在 `ai_chat_panel.html` **之后**，所以面板既有动态文案实际上是英文。修法只有一行（改成调用时解析），但会让一批既有文案突然变中文，属可见行为变化，需单独一轮带验收。本轮新增文案改用本地 `t(id)`，词条手工进种子（生成器只扫 `mbT(`），并由新测试同时守种子/PO/MO。
+- **测试**：新增 `tests/test_buddy_voice.py` 7 条（面板挂载与脚本顺序、录音模块解耦、转写不自动发送、朗读不带书籍上下文、朗读不用 blob 媒体、分段上限 <2000、`t()` 词条三处齐全）；定向回归 **117 passed / 0 failed**（buddy 两套 + 页面冒烟 + i18n 契约 + CSP + 阅读器 R226/R215 + 学习页静态 + common api + 引导）；`node --check` 两个 JS；`splitForSpeech` 另用 node 直跑边界（1900 字无标点→[1800,101,223]、纯中文 3000 字→2 段、空串→[]）。
+- **真机验收未做（6 项）**：阅读页录音转写并编辑发送、首页同样可录可转（验证全站而非只在阅读页）、点朗读出声/再点停止、长回复两段连播、关抽屉即停、中文界面下按钮与状态行为中文。
+- **文档四问**：能力→L1 `readme/companion.md` 增「说话提问」「朗读回复」；契约→无接口变化（复用既有代理，故未改 L2）；实现/边界→新建 L3 `companion/features/buddy-voice.md`；本次实现→`iterations/1.0/r227-buddy-voice/lld.md`（状态：开发完成待验收）。另按「模块无基线则补建」新建需求基线 `companion/requirements.md`（R227 起）。
+- **台账与驻留**：R227 由 `claim.sh` 占号并 push（`a7eecd0c`，纯台账）；worktree `../magicbook-r227-buddy-voice`（分支 `feat/r227-buddy-voice`，基线 `origin/develop` `a7eecd0c`）原样驻留待验收；**push 闸门留用户**。
+- **窗口**：写入前已有 10 节，按「写入即检查」把最早 R212 整节原样搬至 `response-archive/response-R212.md` 并登记索引，窗口保持 10。
+- **总结**：requests.md 条目 227 已从占位回填；本条为回应。冲突记录：无撞号；唯一保留项是 `mbT` 冻结问题（存量、影响面大，另立一轮），不在本轮顺带改。

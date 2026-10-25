@@ -8,6 +8,13 @@
   "use strict";
   // R112: i18n 取词（种子缺失时回退 msgid 本身）
   var mbT = window.mbT || function (id) { return id; };
+  // R227：上面的 mbT 在脚本载入时就被固定成恒等函数——layout.html 的 i18n_seed
+  // 在本文件之后 include，读模块时 window.mbT 还不存在。既有文案因此恒回英文
+  //（见 LLD 遗留项，单独一轮处理）。新加的语音文案必须调用时取词，否则新词条
+  // 等于没加：用户点「朗读」得到的还是英文。
+  function t(id) {
+    return typeof window.mbT === "function" ? window.mbT(id) : id;
+  }
   if (!window.AICompanion) return;
 
   var BOOK_ID = null;
@@ -15,11 +22,70 @@
   var currentConversationId = null;
   var sending = false;
   var deleting = false;
-  var ttsAudio = null;
+  // R227：语音输入（麦克风按钮）与朗读（每条回复）的页面级状态
+  var micBtnEl = null;
+  var voiceStatusTimer = null;
 
   function getCsrfToken() {
     // R177：CSRF 单点迁 common/api.js（三形态链式探测，read.html 的隐藏域为第 3 形态）
     return window.MBApi.csrfToken();
+  }
+
+  // ------------------------------------------------------------------
+  // R227 语音播放基元（伴读工具朗读 + 每条回复朗读共用）
+  //
+  // Why 不用 <audio src=blob:>：media-src 目前只在阅读页与口语页放行 blob:
+  //（R181 / R221 刻意保持的窄面），而 Buddy 面板自 R220 起在全站挂载
+  //（layout.html + 三个 read 模板）。用 blob 音频要么改 CSP 全站放行 blob:，
+  // 要么「全站可用」在非阅读页静默无声——两个都不对。
+  // AudioContext.decodeAudioData 的字节来自 fetch（default-src 已含 'self'），
+  // 不受 media-src 约束，播放能力与页面无关，也不再依赖 CSP 放行面。
+  // ------------------------------------------------------------------
+  var speech = { ctx: null, source: null, btn: null, token: 0 };
+
+  function speechContext() {
+    if (!speech.ctx) {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      speech.ctx = new Ctx();
+    }
+    // 点击手势链里创建/恢复：无手势时浏览器把上下文留在 suspended，
+    // 届时播不出声，调用方按「被浏览器拦截」提示（与旧 Audio 路径同口径）。
+    if (speech.ctx.state === "suspended" && speech.ctx.resume) speech.ctx.resume();
+    return speech.ctx;
+  }
+
+  function stopSpeech() {
+    speech.token += 1;
+    if (speech.source) {
+      try { speech.source.onended = null; speech.source.stop(); } catch (e) { /* 已结束 */ }
+      speech.source = null;
+    }
+    if (speech.btn) markSpeakButton(speech.btn, false);
+    speech.btn = null;
+  }
+
+  function fetchSpeechBytes(url, text) {
+    return fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({ text: text }),
+    }).then(function (response) {
+      if (!response.ok) throw new Error(t("Read-aloud audio is unavailable"));
+      return response.arrayBuffer();
+    });
+  }
+
+  function decodeSpeech(ctx, bytes) {
+    return new Promise(function (resolve, reject) {
+      // 老 Safari 只有回调形态的 decodeAudioData，Promise 形态会被当成 undefined
+      var maybe = ctx.decodeAudioData(bytes, resolve, reject);
+      if (maybe && typeof maybe.then === "function") maybe.then(resolve, reject);
+    });
   }
 
   /**
@@ -37,28 +103,196 @@
       if (onError) onError(mbT("Nothing to read"));
       return;
     }
-    fetch("/ajax/reading-tts-cached", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
-      },
-      body: JSON.stringify({ text: text }),
-    }).then(function (response) {
-      if (!response.ok) throw new Error(mbT("Read-aloud audio is unavailable"));
-      return response.blob();
-    }).then(function (blob) {
-      if (ttsAudio) {
-        try { ttsAudio.pause(); } catch (e) { /* 上一段可能已释放 */ }
-      }
-      ttsAudio = new Audio(URL.createObjectURL(blob));
-      ttsAudio.play().catch(function () {
-        // Chrome 在无用户手势时拒播，必须说出来：不说就等于「扣了分却没声音」
+    stopSpeech();
+    var ctx = speechContext();
+    if (!ctx) {
+      if (onError) onError(t("Read-aloud audio is unavailable"));
+      return;
+    }
+    var token = speech.token;
+    fetchSpeechBytes("/ajax/reading-tts-cached", text).then(function (bytes) {
+      if (token !== speech.token) return null;
+      return decodeSpeech(ctx, bytes);
+    }).then(function (buffer) {
+      if (!buffer || token !== speech.token) return;
+      if (ctx.state === "suspended") {
         if (onError) onError(mbT("Browser blocked auto-play, interact with the page first"));
-      });
+        return;
+      }
+      var source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      speech.source = source;
+      source.start(0);
     }).catch(function (err) {
       if (onError) onError(err.message || String(err));
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // R227 每条回复朗读：/tts/speak（1 积分/次）按段合成，顺序播放
+  // ------------------------------------------------------------------
+  // /tts/speak 单次上限 2000 字（magicbook 代理与 moon-well 双端校验），1800 留余量。
+  // 先按空行分段，段仍超长再按句末标点切，最后才硬切——不把半句话读成两条。
+  var SPEECH_SEGMENT_MAX = 1800;
+
+  function splitForSpeech(text) {
+    var normalized = String(text || "").replace(/\r\n/g, "\n").trim();
+    if (!normalized) return [];
+    var out = [];
+    normalized.split(/\n{2,}/).forEach(function (para) {
+      para = para.trim();
+      if (!para) return;
+      if (para.length <= SPEECH_SEGMENT_MAX) { out.push(para); return; }
+      var sentences = para.match(/[^.!?。！？；;]+[.!?。！？；;]*/g) || [para];
+      var current = "";
+      sentences.forEach(function (sentence) {
+        if (sentence.length > SPEECH_SEGMENT_MAX) {
+          if (current) { out.push(current); current = ""; }
+          for (var i = 0; i < sentence.length; i += SPEECH_SEGMENT_MAX) {
+            out.push(sentence.slice(i, i + SPEECH_SEGMENT_MAX));
+          }
+          return;
+        }
+        if (current && (current + sentence).length > SPEECH_SEGMENT_MAX) {
+          out.push(current);
+          current = "";
+        }
+        current += sentence;
+      });
+      if (current) out.push(current);
+    });
+    return out;
+  }
+
+  /** 朗读正文取自渲染后的 DOM：工具芯片、tokens 计数、思考占位、告警行都不是回答。 */
+  function speechTextOf($msg) {
+    var $clone = $msg.clone();
+    $clone.find(".ai-tool-chip, .ai-chat-usage, .ai-chat-typing, .ai-chat-speak").remove();
+    // renderMarkdown 把换行渲染成 <br>、代码块渲染成 <pre>；直接 text() 会把它们
+    // 拼成一整行（"line oneLine two"），TTS 既没有停顿还会粘词，故先还原成换行。
+    $clone.find("br").replaceWith("\n");
+    $clone.find("p, pre, li, blockquote, h1, h2, h3, h4, h5, h6, tr").each(function () {
+      $(this).append("\n");
+    });
+    var text = ($clone.text() || "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    return text.split("\n").filter(function (line) {
+      return line.trim().indexOf("⚠") !== 0;
+    }).join("\n").trim();
+  }
+
+  function markSpeakButton(btn, playing) {
+    if (!btn) return;
+    var label = btn.querySelector(".ai-speak-label");
+    var text = playing ? t("Stop reading aloud") : t("Read reply aloud");
+    btn.classList.toggle("is-playing", !!playing);
+    if (label) label.textContent = text;
+    btn.setAttribute("aria-label", text);
+    btn.title = text;
+  }
+
+  function attachSpeakButton($msg) {
+    if (!$msg || !$msg.length) return;
+    $msg.find(".ai-chat-speak").remove();
+    var text = speechTextOf($msg);
+    if (!text) return;
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ai-chat-speak";
+    var icon = document.createElement("span");
+    icon.className = "ai-speak-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "🔊";
+    var label = document.createElement("span");
+    label.className = "ai-speak-label";
+    btn.appendChild(icon);
+    btn.appendChild(label);
+    markSpeakButton(btn, false);
+    btn.addEventListener("click", function () {
+      if (btn.classList.contains("is-playing")) { stopSpeech(); return; }
+      playReply(text, btn);
+    });
+    $msg.append(btn);
+  }
+
+  function playReply(text, btn) {
+    stopSpeech();
+    var segments = splitForSpeech(text);
+    if (!segments.length) { setVoiceStatus(t("Nothing to read")); return; }
+    var ctx = speechContext();
+    if (!ctx) { setVoiceStatus(t("Read-aloud audio is unavailable")); return; }
+
+    var token = speech.token;
+    speech.btn = btn;
+    markSpeakButton(btn, true);
+
+    (function playAt(index) {
+      if (token !== speech.token) return;
+      if (index >= segments.length) { stopSpeech(); return; }
+      if (segments.length > 1) {
+        setVoiceStatus(t("Reading… {{n}}/{{m}}")
+          .replace("{{n}}", index + 1).replace("{{m}}", segments.length));
+      }
+      // 走 /ajax/reading-tts（/tts/speak）：不带 bookName/chapter，让 moon-well 把音频
+      // 落「AI 临时语音」档（7 天清理），不污染书籍段落的永久缓存。
+      fetchSpeechBytes("/ajax/reading-tts", segments[index]).then(function (bytes) {
+        if (token !== speech.token) return null;
+        return decodeSpeech(ctx, bytes);
+      }).then(function (buffer) {
+        if (!buffer || token !== speech.token) return;
+        var source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        speech.source = source;
+        source.onended = function () { playAt(index + 1); };
+        source.start(0);
+      }).catch(function (err) {
+        if (token !== speech.token) return;
+        stopSpeech();
+        setVoiceStatus("⚠ " + (err.message || String(err)));
+      });
+    })(0);
+  }
+
+  /** 语音/朗读状态行：屏幕可见，不在控制台里烂掉。 */
+  function setVoiceStatus(text) {
+    var node = document.getElementById("ai-chat-voice-status");
+    if (!node) return;
+    node.textContent = text || "";
+    if (voiceStatusTimer) { clearTimeout(voiceStatusTimer); voiceStatusTimer = null; }
+    if (text) {
+      voiceStatusTimer = setTimeout(function () {
+        node.textContent = "";
+        voiceStatusTimer = null;
+      }, 6000);
+    }
+  }
+
+  function initVoiceInput() {
+    var api = window.MBLearningVoice;
+    micBtnEl = document.getElementById("ai-chat-mic");
+    if (!micBtnEl || !api) return;
+    api.attach({
+      micBtn: micBtnEl,
+      statusEl: document.getElementById("ai-chat-voice-status"),
+      // 本站代理路由（与学习页同一条），面板不载 learningUrls，显式给死值
+      asrUrl: "/ajax/learning/asr/transcribe",
+      onRecording: function (recording) {
+        if (sending) return;   // 发送中不接受新转写，避免和上一条的落库打架
+        var text = String((recording && recording.text) || "").trim();
+        if (!text) return;
+        var $input = $("#ai-chat-input");
+        var current = String($input.val() || "").replace(/\s+$/, "");
+        // 有草稿时追加而不是覆盖：用户常常先打一半再补一句口头描述
+        $input.val(current ? current + " " + text : text);
+        var el = $input.get(0);
+        if (el) {
+          el.focus();
+          try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {}
+        }
+        setVoiceStatus(t("Transcript ready — edit it before sending"));
+      },
     });
   }
 
@@ -115,6 +349,7 @@
     applyFormatPlaceholder();
     initFabLabel();
     initBubbles();
+    initVoiceInput();
     loadConversations();
     loadBuddyFab();
   }
@@ -153,6 +388,8 @@
 
   function closeDrawer() {
     $("#ai-companion-drawer").removeClass("open");
+    // 抽屉关掉还在念，用户找不到停止入口——关即停（R227）
+    stopSpeech();
   }
 
   // ------------------------------------------------------------------
@@ -488,6 +725,7 @@
 
   /** 新会话 = 本地置空，首条消息由 moon-well 服务端建会话（final 事件回传 id）。 */
   function newConversation() {
+    stopSpeech();
     currentConversationId = null;
     persistSelection();
     $("#ai-chat-conversations").val(null);
@@ -497,6 +735,7 @@
 
   function selectConversation(conversationId) {
     if (!conversationId) return;
+    stopSpeech();
     currentConversationId = conversationId;
     persistSelection();
     $("#ai-chat-conversations").val(conversationId);
@@ -584,7 +823,9 @@
   function appendMessage(role, content) {
     var safe = renderMarkdown(content);
     var cls = role === "user" ? "user" : "assistant";
-    $('<div class="ai-chat-msg ' + cls + '"></div>').html(safe).appendTo("#ai-chat-messages");
+    var $msg = $('<div class="ai-chat-msg ' + cls + '"></div>').html(safe).appendTo("#ai-chat-messages");
+    // R227：历史里的助手消息同样可朗读（只给助手侧——读自己的提问没有意义）
+    if (cls === "assistant") attachSpeakButton($msg);
     scrollMessages();
   }
 
@@ -662,6 +903,8 @@
   function beginThinking() {
     sending = true;
     $("#ai-chat-send").prop("disabled", true);
+    // 发送期间禁止录音：转写结果无处安放（输入框已清空、上一条正在落库）
+    if (micBtnEl) micBtnEl.disabled = true;
     $("#ai-companion-fab").addClass("buddy-thinking").removeClass("buddy-sleep");
     var started = Date.now();
     var $msg = $('<div class="ai-chat-msg assistant"><span class="ai-chat-typing">' + mbT("Thinking") +
@@ -833,8 +1076,11 @@
       } else if (!fullText) {
         $msg.html('<span class="ai-chat-typing">(no response)</span>');
       }
+      // 流式期间每帧都在重写 $msg 内容，按钮必须等收尾后再挂（否则下一个 delta 就抹掉）
+      attachSpeakButton($msg);
       sending = false;
       $("#ai-chat-send").prop("disabled", false);
+      if (micBtnEl) micBtnEl.disabled = false;
       if (conversationIdFromFinal) {
         var changed = conversationIdFromFinal !== currentConversationId;
         currentConversationId = conversationIdFromFinal;
