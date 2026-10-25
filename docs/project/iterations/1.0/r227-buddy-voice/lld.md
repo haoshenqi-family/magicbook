@@ -42,7 +42,7 @@
 
 ### D3 · 朗读走计费端点，但不带书籍上下文
 
-`/ajax/reading-tts` → moon-well `/tts/speak`：**每次请求扣 1 积分**（含缓存命中），单次 ≤2000 字。moon-well 的缓存分级以「调用方是否携带 `bookName`/`chapter`」判档：带＝书籍段落、MinIO 永久；不带＝AI 临时语音、7 天清理。
+`/ajax/reading-tts` → moon-well `/tts/speak`：**命中缓存 1 积分/段、首次生成按字符**（50 字符 = 1 积分，moon-well R213 口径），单次 ≤2000 字。moon-well 的缓存分级以「调用方是否携带 `bookName`/`chapter`」判档：带＝书籍段落、MinIO 永久；不带＝AI 临时语音、7 天清理。
 
 **做法**：朗读一律**不带** `bookName`/`chapter`。AI 回复是一次性文本，落永久档只会污染书籍段落缓存。代价是同一段回复在 7 天后重播会重新计费——可接受，且与既有 `synthesize_tts` 的口径一致。
 
