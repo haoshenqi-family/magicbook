@@ -6055,3 +6055,19 @@ msgstr "登录你的书房"
 
 msgid "Remember reading position across devices"
 msgstr "跨设备记住阅读位置"
+
+#: R225 阅读/下载权限提示与默认角色说明（2026-10-25）
+msgid "Reading access is not enabled for this account"
+msgstr "此账号尚未开通阅读权限"
+
+msgid "Ask an administrator to enable “View” in Users → Edit User for your account."
+msgstr "请联系管理员，在「用户」→「编辑用户」中为你的账号勾选「在线阅读」。"
+
+msgid "Download access is not enabled for this account"
+msgstr "此账号尚未开通下载权限"
+
+msgid "Ask an administrator to enable “Download” in Users → Edit User for your account."
+msgstr "请联系管理员，在「用户」→「编辑用户」中为你的账号勾选「下载」。"
+
+msgid "Self-registered accounts always receive View. Administrators can still adjust it per account. Download is a separate permission."
+msgstr "自助注册账号默认具备在线阅读权限，管理员仍可按账号调整；下载是独立权限。"

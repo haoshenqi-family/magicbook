@@ -1,4 +1,4 @@
-"""R217：注册后自动回 magicbook（`/oidc/signup`）。
+"""R217/R225：注册后自动回 magicbook（`/oidc/signup`）。
 
 Why：R103 起注册按钮直连 Authentik 邀请 flow（``target="_blank"``），用户注册完
     停在 Authentik 侧，必须切回 magicbook 再点一次「Log in」——注册与登录断开
@@ -6,7 +6,8 @@ Why：R103 起注册按钮直连 Authentik 邀请 flow（``target="_blank"``）�
     session），再把它作为 ``next`` 挂在邀请 flow 后面；用户在 Authentik 完成
     注册后，flow 直接跳到授权端点静默签发 code，回到 magicbook 时已是登录态。
 
-这些用例把三条「不能退化的硬约束」钉死：
+这些用例把四条「不能退化的硬约束」钉死：
+  0. 邀请 flow 的 ``itoken`` 与 ``next`` 必须是顶层 query（R225 现网实证）。
   1. ``next`` **必须是相对路径**——Authentik 的 ``executor._flow_done()`` 用
      ``is_url_absolute()`` 判定，带 netloc 会被拒为 "Invalid next URL"；
   2. ``next`` 必须指向 Authentik **同域的授权端点** ``/application/o/authorize/``，
@@ -26,6 +27,10 @@ CLIENT_ID = "test-client"
 CLIENT_SECRET = "test-secret"
 REDIRECT_URI = "https://magicbook.example/oidc/callback"
 INVITE_URL = (
+    "https://account.example/if/flow/invitation-enrollment/"
+    "?itoken=test-token"
+)
+LEGACY_NESTED_INVITE_URL = (
     "https://account.example/if/flow/invitation-enrollment/"
     "?query=itoken%3Dtest-token"
 )
@@ -84,34 +89,33 @@ def _signup_location(client, path="/oidc/signup"):
     return rv.status_code, rv.headers.get("Location", "")
 
 
-def _nested_flow_query(location):
-    """取 Authentik flow 外壳里的内层 query，模拟 executor 的解析方式。"""
-    outer_query = parse_qs(urlsplit(location).query)
-    return parse_qs(outer_query["query"][0])
+def _flow_query(location):
+    """取 Authentik flow URL 的顶层 query（R225 现行契约）。"""
+    return parse_qs(urlsplit(location).query)
 
 
 class TestInviteToken:
-    def test_parses_itoken_from_nested_query(self, monkeypatch):
-        """R219：Authentik 只读外层 query 里的嵌套 itoken。"""
+    def test_parses_top_level_itoken(self, monkeypatch):
+        """R225：Authentik 只读顶层 query。"""
         monkeypatch.setenv("AUTHENTIK_ENROLLMENT_INVITE_URL", INVITE_URL)
         assert _invite_token() == "test-token"
 
-    def test_parses_legacy_top_level_itoken(self, monkeypatch):
-        """老部署仍可启动，但只用于兼容已有 env，不再生成这种链接。"""
+    def test_parses_legacy_nested_itoken(self, monkeypatch):
+        """历史嵌套 env 仍可启动，但不再生成这种链接。"""
         monkeypatch.setenv(
             "AUTHENTIK_ENROLLMENT_INVITE_URL",
-            "https://account.example/if/flow/invitation-enrollment/?itoken=legacy-token",
+            LEGACY_NESTED_INVITE_URL,
         )
-        assert _invite_token() == "legacy-token"
+        assert _invite_token() == "test-token"
 
-    def test_nested_token_wins_over_legacy_outer_token(self, monkeypatch):
-        """嵌套 query 是现行契约，冲突时不能退回旧值。"""
+    def test_top_level_token_wins_over_legacy_nested_token(self, monkeypatch):
+        """顶层 query 是现行契约，冲突时不能退回旧值。"""
         monkeypatch.setenv(
             "AUTHENTIK_ENROLLMENT_INVITE_URL",
             "https://account.example/if/flow/invitation-enrollment/"
-            "?itoken=outer-token&query=itoken%3Dnested-token",
+            "?itoken=current-token&query=itoken%3Dlegacy-token",
         )
-        assert _invite_token() == "nested-token"
+        assert _invite_token() == "current-token"
 
     def test_parses_token_alias_in_nested_query(self, monkeypatch):
         monkeypatch.setenv(
@@ -137,15 +141,15 @@ class TestSignupRedirect:
         status, location = _signup_location(client)
         assert status == 302
         assert location.startswith("https://account.example/if/flow/invitation-enrollment/")
-        assert _nested_flow_query(location)["itoken"] == ["test-token"]
+        assert _flow_query(location)["itoken"] == ["test-token"]
 
-    def test_itoken_and_next_are_nested_under_query(self, app, client, signup_env):
-        """R219：二者必须在内层 query，顶层只留 Authentik 认识的 query 外壳。"""
+    def test_itoken_and_next_are_top_level(self, app, client, signup_env):
+        """R225：二者必须是顶层参数，不能再被 query= 二次包裹。"""
         status, location = _signup_location(client)
         assert status == 302
-        outer_query = parse_qs(urlsplit(location).query)
-        assert set(outer_query) == {"query"}
-        assert set(_nested_flow_query(location)) == {"itoken", "next"}
+        flow_query = _flow_query(location)
+        assert set(flow_query) == {"itoken", "next"}
+        assert "query" not in flow_query, "禁止把 itoken / next 再塞进 query="
 
     def test_next_is_relative_path(self, app, client, signup_env):
         """硬约束 1：next 必须是相对路径。
@@ -155,7 +159,7 @@ class TestSignupRedirect:
         """
         status, location = _signup_location(client)
         assert status == 302
-        next_value = _nested_flow_query(location)["next"][0]
+        next_value = _flow_query(location)["next"][0]
         parts = urlsplit(next_value)
         assert not parts.scheme, "next 不得带 scheme（Authentik 只接受相对路径）"
         assert not parts.netloc, "next 不得带 netloc（Authentik 只接受相对路径）"
@@ -164,13 +168,13 @@ class TestSignupRedirect:
     def test_next_points_to_authorize_endpoint(self, app, client, signup_env):
         """硬约束 2：next 指向同域授权端点——那里才能静默签发 code。"""
         status, location = _signup_location(client)
-        next_value = _nested_flow_query(location)["next"][0]
+        next_value = _flow_query(location)["next"][0]
         assert next_value.startswith("/application/o/authorize/")
 
     def test_next_carries_client_id_and_redirect_uri(self, app, client, signup_env):
         """next 内必须带 client_id 与 redirect_uri，否则授权端点无法签发 code。"""
         status, location = _signup_location(client)
-        next_query = parse_qs(urlsplit(_nested_flow_query(location)["next"][0]).query)
+        next_query = parse_qs(urlsplit(_flow_query(location)["next"][0]).query)
         assert next_query["client_id"] == [CLIENT_ID]
         assert next_query["redirect_uri"] == [REDIRECT_URI]
         assert next_query["response_type"] == ["code"]
@@ -188,7 +192,7 @@ class TestSignupRedirect:
         with client:
             status, location = _signup_location(client)
             assert status == 302
-            next_query = parse_qs(urlsplit(_nested_flow_query(location)["next"][0]).query)
+            next_query = parse_qs(urlsplit(_flow_query(location)["next"][0]).query)
             state = next_query["state"][0]
             # authlib 存 session 的键形如 _state_authentik_<state>
             assert any(state in key for key in session.keys()), \
@@ -213,7 +217,7 @@ class TestSignupRedirect:
         monkeypatch.delenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI", raising=False)
         status, location = _signup_location(client)
         assert status == 302
-        next_query = parse_qs(urlsplit(_nested_flow_query(location)["next"][0]).query)
+        next_query = parse_qs(urlsplit(_flow_query(location)["next"][0]).query)
         assert next_query["redirect_uri"][0].endswith("/oidc/callback")
 
     def test_no_redirect_when_invite_not_configured(self, app, client, signup_env, monkeypatch):
