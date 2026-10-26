@@ -241,7 +241,7 @@
 - **否决了两种更「贴心」的做法**：① 默认折叠、点开才显示——用户要的是不显示，折叠仍占一行、仍要一句文案；② 悬浮提示（hover 出 token）——藏起来的数字更容易被误读成「这一轮花了多少积分」，而实际扣费口径是每千 token 折 10 积分、TTS 按字符、ASR 按秒，一个数说不清。
 - **测试**：新增 `tests/test_buddy_no_token_usage.py` 5 条——面板脚本不得含 `ai-chat-usage`/`promptTokens`/`completionTokens`；**全站** `cps/static/js/*.js` 均不得读这两个字段（面板自 R220 起全站挂载，漏一页就复现）；`final` 分支仍回传会话 id 且不再出现 `obj.usage`；CSS 无残留规则；积分页保留 `#credit-consume-rows` 与「原因/功能/积分」三列。定向回归 22 passed，**全量 986 passed / 0 failed**（`pytest tests/ -q`）。`node --check` 通过。
 - **踩坑记录**：CSS 注释里原本写了 `.ai-chat-usage` 类名，被第 4 条守卫直接判红——注释里的类名同样会误导后来者，守卫这种字面量断言的价值就在这。
-- **扩展侧已确认无需改**：magiclens 全仓（`*.js` / `*.html`）grep 无 `ai-chat-usage` / `promptTokens` / `tokens `，它不共用这份面板脚本。
+- **扩展侧：最初误判「无需改」，复查后确认为遗留**。首次用 `grep "a\|b"` 扫 magiclens 得空结果就下了结论，属 BSD grep 不支持 `\|` 交替造成的假阴性；改用 ripgrep 复核，`magiclens/extension/chat.js:366` 确有 `tokens ${promptTokens}+${completionTokens}` 写进消息 `.meta` 行。该仓不共用本面板脚本、且扩展需重新打包分发，故本轮**只记录不夹带修**，等用户决定是否单开一轮（同一坑还差点漏掉 moon-well 的 `CreditServiceTest` 活动倍率用例，已在本轮 R221 一并处理）。
 - **文档四问**：能力→L1 `readme/companion.md` 增「聊天里不显示用量」；契约→无变化（SSE 字段与积分接口均未动，故未改 L2）；实现/边界→LLD `iterations/1.0/r232-hide-token-usage/lld.md`；本次实现→同 LLD。需求基线 `REQUIREMENTS.md` 增一行。
 - **台账与驻留**：`claim.sh magicbook` 占号 **R232**（`2e48546f`，纯台账，已 push）；worktree `../magicbook-r232-hide-token-usage`（分支 `feat/r232-hide-token-usage`）驻留待验收；push 闸门留用户。
 - **窗口**：写入前 11 节（已超窗），写入后 12 节；按「写入即检查」把最早 R221、R222 两节原样搬至 `response-archive/response-R221-R222.md` 并登记索引，窗口回到 10。
