@@ -168,16 +168,16 @@
           <div class="form-group">
             <label for="me-export-password">{{_('ZIP password')}}</label>
             <input type="password" class="form-control" id="me-export-password"
-                   minlength="6" maxlength="128" required
+                   minlength="6" maxlength="128"
                    placeholder="{{_('At least 6 characters')}}">
           </div>
           <div class="form-group">
             <label for="me-export-password2">{{_('Repeat password')}}</label>
             <input type="password" class="form-control" id="me-export-password2"
-                   minlength="6" maxlength="128" required>
+                   minlength="6" maxlength="128">
           </div>
           <p class="help-block">
-            {{_('The password is used only to encrypt the file. It is never stored — if you forget it, export again.')}}
+            {{_('Leave the password empty to get an unencrypted ZIP — anyone who gets the file can open it. The password is never stored; if you forget it, export again.')}}
           </p>
           <button type="submit" id="me-export-start" class="btn btn-primary">{{_('Create export')}}</button>
           <span id="me-export-message" class="me-export-message" role="status" aria-live="polite"></span>

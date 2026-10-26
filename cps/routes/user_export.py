@@ -17,12 +17,19 @@ _DOWNLOAD_TIMEOUT = 120
 @web.route("/ajax/user-export/create", methods=["POST"])
 @user_login_required
 def user_export_create():
-    """发起导出：body {password}。密码只透传 moon-well，本仓不落任何存储。"""
+    """发起导出：body {password}（可选——R230 修订：空=不加密导出）。
+
+    密码只透传 moon-well，本仓不落任何存储；提供时本地校验 6-128。
+    """
     payload = request.get_json(silent=True) or {}
     password = payload.get("password")
-    if not isinstance(password, str) or not 6 <= len(password) <= 128:
+    if password is None or password == "":
+        forwarded = {}
+    elif isinstance(password, str) and 6 <= len(password) <= 128:
+        forwarded = {"password": password}
+    else:
         return jsonify(success=False, message="password must be 6-128 characters"), 400
-    return _moonwell_proxy("/export/learning-data", {"password": password},
+    return _moonwell_proxy("/export/learning-data", forwarded,
                            30, "user export create")
 
 

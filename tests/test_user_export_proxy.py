@@ -76,12 +76,14 @@ def test_create_rejects_short_password_locally(admin_client, moonwell_configured
     assert proxy.calls == [], "短密码必须本地拒绝，不得触达 moon-well"
 
 
-def test_create_rejects_missing_password_locally(admin_client, moonwell_configured,
-                                                 monkeypatch):
+def test_create_rejects_non_string_password_locally(admin_client, moonwell_configured,
+                                                    monkeypatch):
+    """R230 修订后：缺密码=不加密导出（合法）；只有非字符串类型仍本地 400。"""
     proxy = RecordingProxy({})
     monkeypatch.setattr(_mb_client, "proxy", proxy)
-    assert admin_client.post("/ajax/user-export/create", json={}).status_code == 400
     assert admin_client.post("/ajax/user-export/create", json={"password": 123456}).status_code == 400
+    assert admin_client.post("/ajax/user-export/create", json={"password": ["a"]}).status_code == 400
+    assert proxy.calls == []
 
 
 def test_create_forwards_password_only(admin_client, moonwell_configured, monkeypatch):
@@ -94,6 +96,17 @@ def test_create_forwards_password_only(admin_client, moonwell_configured, monkey
     call = proxy.call_for("/export/learning-data")
     assert call["method"] == "POST"
     assert call["payload"] == {"password": "long-enough"}
+
+
+def test_create_without_password_forwards_empty_payload(admin_client, moonwell_configured,
+                                                        monkeypatch):
+    """R230 修订：密码可选——空/缺省时转发空 payload（不加密导出），不本地拒绝。"""
+    proxy = RecordingProxy({"/export/learning-data": (_envelope(
+        {"id": 8, "status": "PENDING", "encrypted": False}), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/user-export/create", json={"password": ""})
+    assert response.status_code == 200
+    assert proxy.call_for("/export/learning-data")["payload"] == {}
 
 
 # ---------- 3. tasks 透传 ----------

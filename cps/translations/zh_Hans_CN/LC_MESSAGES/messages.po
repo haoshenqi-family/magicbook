@@ -6139,3 +6139,9 @@ msgstr "密码只用于加密文件，系统不会保存；忘记密码只能重
 
 msgid "Create export"
 msgstr "生成导出"
+
+msgid "Not encrypted"
+msgstr "未加密"
+
+msgid "Leave the password empty to get an unencrypted ZIP — anyone who gets the file can open it. The password is never stored; if you forget it, export again."
+msgstr "不设密码则导出不加密的 ZIP——任何拿到文件的人都能打开。密码只用于加密文件、系统不保存；忘记密码只能重新导出。"

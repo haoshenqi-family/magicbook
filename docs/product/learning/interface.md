@@ -109,7 +109,7 @@
 
 | magicbook 端点 | moon-well 端点 | 超时 | 说明 |
 | --- | --- | --- | --- |
-| `POST /ajax/user-export/create` | `POST /export/learning-data` | 30s | 发起导出；本地校验密码 6-128 后仅透传 `{password}`，短密码本地 400 不触上游 |
+| `POST /ajax/user-export/create` | `POST /export/learning-data` | 30s | 发起导出；密码**可选**（修订）：空=转发空 payload（不加密导出），提供则本地校验 6-128 后仅透传 `{password}`，非法类型/短密码本地 400 不触上游 |
 | `GET /ajax/user-export/tasks` | `GET /export/learning-data/tasks` | 30s | 近 30 天任务列表（5s 轮询，有进行中任务时） |
 | `GET /ajax/user-export/tasks/<id>/download` | `GET /export/learning-data/tasks/{id}/download` | 120s | **binary 透传**加密 ZIP + attachment 头；非 200 原样透传上游 Result 错误 |
 

@@ -351,7 +351,8 @@
 
       var line = document.createElement("div");
       var label = document.createElement("strong");
-      label.textContent = "#" + task.id + " · " + statusLabel(task);
+      label.textContent = "#" + task.id + " · " + statusLabel(task)
+        + (task.encrypted === false ? " · " + mbT("Not encrypted") : "");
       line.appendChild(label);
 
       var detail = document.createElement("span");
@@ -410,18 +411,22 @@
     event.preventDefault();
     var password = $("me-export-password").value;
     var repeat = $("me-export-password2").value;
-    if (password.length < 6) {
-      say(mbT("Password must be at least 6 characters."), true);
-      return;
-    }
-    if (password !== repeat) {
-      say(mbT("The two passwords do not match."), true);
-      return;
+    var payload = {};
+    if (password !== "") {
+      if (password.length < 6) {
+        say(mbT("Password must be at least 6 characters."), true);
+        return;
+      }
+      if (password !== repeat) {
+        say(mbT("The two passwords do not match."), true);
+        return;
+      }
+      payload.password = password;
     }
     var button = $("me-export-start");
     button.disabled = true;
     say(mbT("Creating export…"), false);
-    postJson("/ajax/user-export/create", { password: password })
+    postJson("/ajax/user-export/create", payload)
       .then(function (response) {
         if (!response.ok) {
           throw new Error(messageOf(response, mbT("Failed to create export")));
