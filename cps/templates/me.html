@@ -156,6 +156,38 @@
       </div>
     </div>
 
+    <div class="panel panel-default" id="me-export">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Export My Learning Data')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted">
+          {{_('Download your vocabulary and practice records as an encrypted ZIP: Anki-importable word cards, machine-readable JSON/CSV and a readable review report. Audio is not included.')}}
+        </p>
+        <form id="me-export-form" autocomplete="off">
+          <div class="form-group">
+            <label for="me-export-password">{{_('ZIP password')}}</label>
+            <input type="password" class="form-control" id="me-export-password"
+                   minlength="6" maxlength="128" required
+                   placeholder="{{_('At least 6 characters')}}">
+          </div>
+          <div class="form-group">
+            <label for="me-export-password2">{{_('Repeat password')}}</label>
+            <input type="password" class="form-control" id="me-export-password2"
+                   minlength="6" maxlength="128" required>
+          </div>
+          <p class="help-block">
+            {{_('The password is used only to encrypt the file. It is never stored — if you forget it, export again.')}}
+          </p>
+          <button type="submit" id="me-export-start" class="btn btn-primary">{{_('Create export')}}</button>
+          <span id="me-export-message" class="me-export-message" role="status" aria-live="polite"></span>
+        </form>
+        <div id="me-export-tasks" class="me-export-tasks" aria-live="polite">
+          {{_('Loading...')}}
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 {% endblock %}

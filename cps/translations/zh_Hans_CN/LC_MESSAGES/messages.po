@@ -6082,3 +6082,60 @@ msgstr "朗读中 {{n}}/{{m}}"
 
 msgid "Transcript ready — edit it before sending"
 msgstr "转写完成，可编辑后发送"
+
+msgid "Queued"
+msgstr "已排队"
+
+msgid "Generating"
+msgstr "生成中"
+
+msgid "Ready"
+msgstr "可下载"
+
+msgid "Expired"
+msgstr "已过期"
+
+msgid "expires"
+msgstr "有效期至"
+
+msgid "No exports yet."
+msgstr "还没有导出记录。"
+
+msgid "Download ZIP"
+msgstr "下载 ZIP"
+
+msgid "Password must be at least 6 characters."
+msgstr "密码至少需要 6 个字符。"
+
+msgid "The two passwords do not match."
+msgstr "两次输入的密码不一致。"
+
+msgid "Creating export…"
+msgstr "正在创建导出…"
+
+msgid "Export started. It usually takes less than a minute."
+msgstr "导出已开始，通常不到一分钟完成。"
+
+msgid "Failed to create export"
+msgstr "创建导出失败"
+
+msgid "Export My Learning Data"
+msgstr "导出我的学习数据"
+
+msgid "Download your vocabulary and practice records as an encrypted ZIP: Anki-importable word cards, machine-readable JSON/CSV and a readable review report. Audio is not included."
+msgstr "把你的词汇与练习记录打包成加密 ZIP 下载：内含可导入 Anki 的单词卡、机器可读的 JSON/CSV 和一份可读的回顾报告。不包含音频。"
+
+msgid "ZIP password"
+msgstr "ZIP 解压密码"
+
+msgid "At least 6 characters"
+msgstr "至少 6 个字符"
+
+msgid "Repeat password"
+msgstr "再次输入密码"
+
+msgid "The password is used only to encrypt the file. It is never stored — if you forget it, export again."
+msgstr "密码只用于加密文件，系统不会保存；忘记密码只能重新导出。"
+
+msgid "Create export"
+msgstr "生成导出"

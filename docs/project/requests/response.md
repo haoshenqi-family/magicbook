@@ -272,3 +272,12 @@
 **交付四问**：能力与契约均未变（用户不可见）→ L1/L2 不动；实现/边界变（构建期信任模型）→ `Dockerfile` 内注释 + `docs/project/iterations/2026-10-security-baseline/r231-pip-trusted-host/lld.md`（状态行＝已实现待验收）。本仓 `tests/` 全是 Flask 层用例，**无测试覆盖 Dockerfile**，故门禁落在上述两条实测证据与首次构建日志上。
 
 **worktree 驻留登记**：`../magicbook-r231-pip-trusted-host`，分支 `fix/r231-pip-trusted-host`（从 `origin/develop` 切出），状态＝待合并与用户验收；`Dockerfile` 改动已在本地提交，待本轮随台账同步 push。
+
+## R230 · 个人学习数据导出入口（2026-10-26）
+
+**对 R230 的回应**：四点拍板与 D1-D5 定稿落进需求基线 §R230；本仓交付入口与下载 UI（`cps/routes/user_export.py` 三代理端点 + `/me` 面板 + me.js 交互 + i18n 种子/po/mo 三处同步），数据主体在 moon-well R220。测试 `tests/test_user_export_proxy.py` 8 例 + i18n 契约 5 例，全量 **981 passed**。L1/L2/LLD 已回填（readme /me 句、learning/interface.md 导出节、iterations/2026-10-user-data-export/r230-export-ui/lld.md）。
+
+**worktree 驻留登记**：`../magicbook-r230-user-data-export`（分支 `feat/r230-user-data-export`，从 origin/develop @ fe59ad54 切出），merge 本地 develop 后原样保留待验收。部署顺序：moon-well 先、本仓后（fnOS webhook 链自动构建上线）。
+
+**编号说明**：占号时发现 pip trusted-host 会话与 /home 会话存在既有漂移（origin 上 pip=229、本地记 230）——该漂移已由当事会话按「不修改既有记录、续编下一个空号」处置（pip 最终 R231，见台账 231 条），本轮 R230 在 origin 上为干净占位，无冲突。
+**台账总结**：requests.md R230 已回填完整状态；response.md 本条新增。

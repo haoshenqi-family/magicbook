@@ -255,3 +255,189 @@
     load();
   })();
 })();
+
+/* R230 学习数据导出：发起（密码两遍）→ 任务列表轮询 → 过期内下载。
+   产物为加密 ZIP（moon-well R220 生成，MinIO 保留 7 天）；失败呈现到表单消息区。 */
+(function () {
+  "use strict";
+
+  var mbT = window.mbT || function (id) { return id; };
+  var POLL_MS = 5000;
+
+  function $(id) { return document.getElementById(id); }
+
+  var form = $("me-export-form");
+  var message = $("me-export-message");
+  var tasksBox = $("me-export-tasks");
+  if (!form || !tasksBox) { return; }
+
+  function csrfToken() {
+    if (window.MBApi && window.MBApi.csrfToken) { return window.MBApi.csrfToken(); }
+    var input = document.querySelector("input[name='csrf_token']");
+    return input ? input.value : "";
+  }
+
+  function httpJson(url, options) {
+    if (window.MBApi && window.MBApi.httpJson) { return window.MBApi.httpJson(url, options); }
+    return fetch(url, options).then(function (response) {
+      return response.text().then(function (text) {
+        var data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (e) { /* 非 JSON 按失败处理 */ }
+        return { ok: response.ok, status: response.status, data: data, raw: text };
+      });
+    });
+  }
+
+  function postJson(url, payload) {
+    return httpJson(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken() },
+      credentials: "same-origin",
+      body: JSON.stringify(payload)
+    });
+  }
+
+  function unwrap(data) {
+    if (data && typeof data === "object" && "result" in data) { return data.result; }
+    return data;
+  }
+
+  function messageOf(response, fallback) {
+    var data = response.data;
+    if (data && typeof data === "object" && data.message) { return String(data.message); }
+    return fallback;
+  }
+
+  function say(text, isError) {
+    message.textContent = text;
+    message.className = isError ? "me-export-message text-danger" : "me-export-message text-muted";
+  }
+
+  function formatSize(bytes) {
+    if (!bytes && bytes !== 0) { return "–"; }
+    if (bytes < 1024) { return bytes + " B"; }
+    if (bytes < 1024 * 1024) { return (bytes / 1024).toFixed(1) + " KB"; }
+    return (bytes / 1024 / 1024).toFixed(1) + " MB";
+  }
+
+  function formatTime(value) {
+    if (!value) { return "–"; }
+    return String(value).replace("T", " ").slice(0, 16);
+  }
+
+  var STATUS_LABELS = {
+    PENDING: mbT("Queued"),
+    RUNNING: mbT("Generating"),
+    SUCCESS: mbT("Ready"),
+    FAILED: mbT("Failed")
+  };
+
+  function statusLabel(task) {
+    if (task.status === "SUCCESS" && !task.downloadable) { return mbT("Expired"); }
+    return STATUS_LABELS[task.status] || task.status;
+  }
+
+  function render(tasks) {
+    tasksBox.innerHTML = "";
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      tasksBox.appendChild(document.createTextNode(mbT("No exports yet.")));
+      return;
+    }
+    var list = document.createElement("ul");
+    list.className = "me-export-task-list";
+    tasks.forEach(function (task) {
+      var item = document.createElement("li");
+      item.className = "me-export-task";
+
+      var line = document.createElement("div");
+      var label = document.createElement("strong");
+      label.textContent = "#" + task.id + " · " + statusLabel(task);
+      line.appendChild(label);
+
+      var detail = document.createElement("span");
+      detail.className = "text-muted";
+      detail.textContent = "  " + formatTime(task.createdAt)
+        + (task.fileSize ? " · " + formatSize(task.fileSize) : "")
+        + (task.expiresAt ? " · " + mbT("expires") + " " + formatTime(task.expiresAt) : "");
+      line.appendChild(detail);
+      item.appendChild(line);
+
+      if (task.status === "FAILED" && task.errorMessage) {
+        var err = document.createElement("div");
+        err.className = "text-danger small";
+        err.textContent = task.errorMessage;
+        item.appendChild(err);
+      }
+      if (task.downloadable) {
+        var link = document.createElement("a");
+        link.className = "btn btn-default btn-sm";
+        link.href = "/ajax/user-export/tasks/" + task.id + "/download";
+        link.textContent = mbT("Download ZIP");
+        item.appendChild(link);
+      }
+      list.appendChild(item);
+    });
+    tasksBox.innerHTML = "";
+    tasksBox.appendChild(list);
+  }
+
+  var pollTimer = null;
+
+  function refresh() {
+    return httpJson("/ajax/user-export/tasks", { credentials: "same-origin" })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error(messageOf(response, mbT("Failed to load")));
+        }
+        var tasks = unwrap(response.data);
+        if (!Array.isArray(tasks)) { tasks = []; }
+        render(tasks);
+        var active = tasks.some(function (t) { return t.status === "PENDING" || t.status === "RUNNING"; });
+        if (active && pollTimer === null) {
+          pollTimer = setInterval(refresh, POLL_MS);
+        } else if (!active && pollTimer !== null) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      })
+      .catch(function () {
+        tasksBox.innerHTML = "";
+        tasksBox.appendChild(document.createTextNode(mbT("Failed to load")));
+      });
+  }
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    var password = $("me-export-password").value;
+    var repeat = $("me-export-password2").value;
+    if (password.length < 6) {
+      say(mbT("Password must be at least 6 characters."), true);
+      return;
+    }
+    if (password !== repeat) {
+      say(mbT("The two passwords do not match."), true);
+      return;
+    }
+    var button = $("me-export-start");
+    button.disabled = true;
+    say(mbT("Creating export…"), false);
+    postJson("/ajax/user-export/create", { password: password })
+      .then(function (response) {
+        if (!response.ok) {
+          throw new Error(messageOf(response, mbT("Failed to create export")));
+        }
+        say(mbT("Export started. It usually takes less than a minute."), false);
+        $("me-export-password").value = "";
+        $("me-export-password2").value = "";
+        refresh();
+      })
+      .catch(function (error) {
+        say(error.message, true);
+      })
+      .then(function () {
+        button.disabled = false;
+      });
+  });
+
+  refresh();
+})();
