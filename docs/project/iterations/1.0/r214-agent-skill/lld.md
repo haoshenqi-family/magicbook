@@ -1,8 +1,8 @@
 # moon-well R214 / magicbook R228 伴读 Agent Skills · 消费侧说明
 
-> 状态：**已上线，待验收**（2026-10-26）
+> 状态：**已上线，验收证据已补齐，待用户最终确认**（2026-10-26）
 > 工作项：moon-well R214 的跨仓消费说明；magicbook R214 已被“书籍详情”占用，消费侧占 **magicbook R228**。
-> 后端设计：moon-well worktree `../moon-well-r214-agent-skill/docs/project/iterations/1.0/r214-agent-skill/lld.md`
+> 后端设计：moon-well `develop` 的 `docs/project/iterations/1.0/r214-agent-skill/lld.md`（原 R214 worktree 已不存在）。
 
 ## 1. 用户可见变化
 
@@ -10,7 +10,7 @@
 
 该指南不影响：
 
-- 现有伴读工具白名单、用户作用域与写确认门；
+- 现有伴读工具白名单、用户作用域与写确认门配置；
 - magicbook 前端页面、代理端点、会话与消息结构；
 - 现有笔记、记忆、朗读和伙伴功能。
 
@@ -24,6 +24,8 @@
 | 告知价格与倍率以页面为准 | 从记忆编造价格、下单或领取成就 |
 | 说明管理员能力所在页面 | 执行用户管理或授予权限 |
 
+生产实际 `ai.agent.write-confirm-required=false`：写工具不会被配置级确认门拦截，`AddAnnotationTool.requireConfirm()` 只让前端展示更醒目；助手只在用户明确要求后调用 `add_annotation` / `save_memory`，不能把该配置描述成线上拦截。
+
 ## 3. 失败与兼容
 
 - moon-well 关闭 Skill 或白名单未放行时，前端无需变化；助手继续按原提示词回答。
@@ -36,8 +38,10 @@
 - [x] 询问“帮我改阅读难度/买积分/启动整本翻译”时，助手给页面路线，不声称已完成。证据：生产真机逐项拒绝代执行，分别指向 `/reading/settings`、`/credits`、书籍详情页整本任务入口；轨迹未出现写工具。
 - [x] 询问价格或活动倍率时，以页面为准，不编造数值。证据：生产真机会话明确“充值价格、倍率与活动结束时间以页面为准”，未编造具体数值。
 - [x] 普通寒暄不触发全功能指南加载。
-- [ ] 新版 `synthesize_tts` 计费结果文案的 GUI 复测：Mac 锁屏且 Chrome 扩展通道报 `nodeRepl.fetch request failed`，按安全约束未绕过；待用户解锁后补测。
-- [ ] 两个独立生产账号的跨账号数据隔离真机对照未执行；当前只能依据自动化、当前用户上下文和工具白名单声明代码边界，不能声明双账号生产实测通过。
+- [x] 新版 `synthesize_tts` 计费结果文案已在生产 GUI 复测：首次“音频已生成并开始播放（本次 3 积分）”，二次“缓存命中，只扣 1 积分（首次生成时是 3 积分）”；`/credits` 账本对应 `15:07:27 reading-tts -3`、`15:07:57 reading-tts -1`。
+- [x] 新注册普通账号 `r214probe-20261026-6457`（moon-well userId 15）已验证用户级能力：`/admin` 404、`/admin/user/1` 403、`/shelf/create` 可访问、下载按钮显示未开通；Skill 加载、寒暄、查词、记忆、批注与 TTS 均真实可用。
+- [x] 会话与长期记忆的用户隔离通过：数据库只读计数为 userId 15 的 3 个会话、4 条记忆，其他用户 24 个会话、8 条记忆；带唯一标记的 2 条记忆只属于 userId 15，其他用户 0 条。新账号面板只看到自己的会话和记忆。批注按既有设计为段落级共享（`listByParagraph()` 不按 `userId` 过滤），不能写成私有隔离。
+- [x] 积分按当前登录用户真实扣减：赠送 10000、余额 7972、账本累计 2028；`ai-agent-step` 1840/40 次、`ai-agent-memory` 180/18 次、`reading-tts` 8/4 次。Skill、function call 与 Agent 内部调用均走该用户积分链路，不消耗系统积分。
 
 ## 5. 参考
 
