@@ -242,4 +242,4 @@
 
 232. **AI 伴读面板不再显示 token 用量（仅保留后台记录，用量只在设置·积分查看）**（占号 2026-10-26，待回填）
 
-233. **AI 回复中的本站链接可点击并在新窗口打开**（占号 2026-10-26，待回填）
+233. **AI 回复中的本站链接可点击并在新窗口打开**（占号 2026-10-26）：状态 **开发完成待验收**。`ai_chat.js::renderMarkdown()` 增加安全站内链接渲染：支持 Markdown 链接、裸 `/me`、`/credits`、`/book/<id>`、当前 origin 绝对 URL 与路径型行内代码，统一 `target="_blank" rel="noopener noreferrer"`；外部域名、协议相对 URL、`javascript:`、含凭据 URL、围栏代码块与 HTML 注入保持纯文本；查询参数/fragment 保留，中英文尾随标点与括号留在链接外。实现按「先转义→受控占位→origin 归一化→href 二次属性转义」执行，未改接口、SSE、工具白名单或 CSP。新增 `tests/test_ai_message_links_r233.py` 13 条（Node 真执行生产函数），定向联合回归 36 passed、扩展安全/契约回归 58 passed、`node --check` 与 `git diff --check` 通过。文档：L1 `readme/companion.md`、需求基线 `companion/requirements.md`、L3 `companion/features/ai-message-links.md`、LLD `iterations/1.0/r233-ai-links/lld.md`、迭代 `plan.md`。worktree `../magicbook-r233-ai-links`（分支 `feat/r233-ai-links`）驻留待验收。

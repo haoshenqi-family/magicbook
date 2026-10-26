@@ -131,6 +131,12 @@
 .ai-chat-msg { margin-bottom: 12px; padding: 10px 14px; border-radius: 12px; max-width: 88%; word-wrap: break-word; }
 .ai-chat-msg.user { background: #4285f4; color: #fff; margin-left: auto; }
 .ai-chat-msg.assistant { background: #fff; color: #333; border: 1px solid #e0e0e0; }
+.ai-chat-msg.assistant .ai-chat-site-link {
+  color: #1a73e8; font-weight: 500; text-decoration: underline;
+  text-decoration-thickness: 1px; text-underline-offset: 2px;
+}
+.ai-chat-msg.assistant .ai-chat-site-link:hover { color: #0b57d0; }
+.ai-chat-msg.user .ai-chat-site-link { color: #fff; text-decoration: underline; }
 .ai-chat-msg.assistant pre { background: #f0f0f0; padding: 8px; border-radius: 4px; overflow-x: auto; }
 .ai-chat-msg.assistant code { font-family: monospace; font-size: 13px; }
 .ai-chat-hint { text-align: center; color: #999; font-size: 12px; margin-bottom: 12px; }
