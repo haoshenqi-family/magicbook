@@ -3955,7 +3955,7 @@ msgstr "积分"
 msgid ""
 "Credits are consumed by AI features (about 1 credit per 1k tokens). "
 "Recharge is credited instantly after payment."
-msgstr "AI 功能会消耗积分（约每千 token 消耗 1 积分）。充值支付后即时到账。"
+msgstr "AI 功能会消耗积分。充值支付后即时到账。"
 
 msgid "Current level"
 msgstr "当前等级"
