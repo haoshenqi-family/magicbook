@@ -158,32 +158,36 @@
 
     <div class="panel panel-default" id="me-export">
       <div class="panel-heading">
-        <h3 class="panel-title">{{_('Export My Learning Data')}}</h3>
+        <h3 class="panel-title">导出我的学习数据</h3>
       </div>
       <div class="panel-body">
+        {# 2026-10-26 用户修订：导出面板文案改中文直写（不走 _() 翻译链）——
+           账号 locale 为 en 时 gettext 回退英文 msgid，用户要求恒中文。 #}
         <p class="text-muted">
-          {{_('Download your vocabulary and practice records as an encrypted ZIP: Anki-importable word cards, machine-readable JSON/CSV and a readable review report. Audio is not included.')}}
+          把你的词汇与练习记录打包成 ZIP 下载：内含可导入 Anki 的单词卡、机器可读的 JSON/CSV
+          和一份可读的回顾报告。不包含音频。文件保留 7 天。
         </p>
         <form id="me-export-form" autocomplete="off">
           <div class="form-group">
-            <label for="me-export-password">{{_('ZIP password')}}</label>
+            <label for="me-export-password">ZIP 解压密码（可选）</label>
             <input type="password" class="form-control" id="me-export-password"
                    minlength="6" maxlength="128"
-                   placeholder="{{_('At least 6 characters')}}">
+                   placeholder="至少 6 个字符，留空则不加密">
           </div>
           <div class="form-group">
-            <label for="me-export-password2">{{_('Repeat password')}}</label>
+            <label for="me-export-password2">再次输入密码</label>
             <input type="password" class="form-control" id="me-export-password2"
                    minlength="6" maxlength="128">
           </div>
           <p class="help-block">
-            {{_('Leave the password empty to get an unencrypted ZIP — anyone who gets the file can open it. The password is never stored; if you forget it, export again.')}}
+            密码只用于加密文件，系统不会保存；忘记密码只能重新导出。
+            不设密码则导出不加密的 ZIP——任何拿到文件的人都能打开。
           </p>
-          <button type="submit" id="me-export-start" class="btn btn-primary">{{_('Create export')}}</button>
+          <button type="submit" id="me-export-start" class="btn btn-primary">生成导出</button>
           <span id="me-export-message" class="me-export-message" role="status" aria-live="polite"></span>
         </form>
         <div id="me-export-tasks" class="me-export-tasks" aria-live="polite">
-          {{_('Loading...')}}
+          加载中…
         </div>
       </div>
     </div>

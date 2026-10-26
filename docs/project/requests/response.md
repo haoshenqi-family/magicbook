@@ -222,3 +222,11 @@
 - **总结**：requests.md 条目 233 已从占位回填；本条为回应。冲突记录：无撞号；主检出未提交的 `messages.po` 未被读取、修改或提交。
 
 **修订轮（2026-10-26 晚，用户拍板「用户也可以不设置导出密码」）**：create 代理空/缺省密码转发空 payload（非字符串仍本地 400）；me 表单密码框去必填、帮助文案改双形态说明；任务行按 `encrypted` 显示「未加密」；i18n 种子 +2（"Not encrypted" 与新帮助句）+ po/mo 重编译。`test_user_export_proxy.py` 8→9 例（新增空密码转发），全量 **1000 passed**。文档：requirements §R230 修订段、learning/interface.md、LLD 状态行。moon-well R220 同步修订（`encrypted` 列 + 不加密打包路径，见其 response.md）。
+
+
+**修订轮 2（2026-10-26 晚，用户两点：文件名带时间 + 导出说明改中文）**：① download 代理改为**透传上游
+attachment 文件名**（moon-well 生成 `my-learning-data-<yyyyMMdd-HHmm>-<id>.zip`），上游未给回退本仓缺省；
+RecordingProxy 支持三元 headers，新增回退与透传两断言（代理 8→9 例）。② me.html 导出面板与 me.js 导出段
+**中文直写**（不经 `_()`/`mbT`——账号 locale=en 时 gettext 回退英文，用户要求恒中文；种子/po 既有词条留存，
+i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本轮按原命名重建（`feat/r230-user-data-export`
+自 origin/develop @ e861c0e7 切出），继续驻留待验收。

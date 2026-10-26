@@ -34,7 +34,10 @@ def _envelope(result):
 
 
 class RecordingProxy:
-    """记录转发出去的目标，并按 path 返回预设响应。"""
+    """记录转发出去的目标，并按 path 返回预设响应。
+
+    replies 值支持 (body, status) 或 (body, status, headers)——下载透传测试用第三元。
+    """
 
     def __init__(self, replies):
         self.replies = replies
@@ -44,8 +47,10 @@ class RecordingProxy:
                  system_identity=None, identity_headers=None, bearer_token=None):
         self.calls.append({"path": path, "payload": payload, "method": method,
                            "timeout": timeout, "binary": binary})
-        body, status = self.replies[path]
-        return body, status, {"Content-Type": "application/json"}
+        reply = self.replies[path]
+        body, status = reply[0], reply[1]
+        headers = reply[2] if len(reply) > 2 else {"Content-Type": "application/json"}
+        return body, status, headers
 
     def call_for(self, path):
         return next(call for call in self.calls if call["path"] == path)
@@ -126,15 +131,30 @@ def test_tasks_forwards_get_without_payload(admin_client, moonwell_configured,
 
 def test_download_streams_zip_with_attachment_header(admin_client, moonwell_configured,
                                                       monkeypatch):
-    proxy = RecordingProxy({"/export/learning-data/tasks/7/download": (b"PK-zip-bytes", 200)})
+    upstream_cd = 'attachment; filename="my-learning-data-20261026-2119-7.zip"'
+    proxy = RecordingProxy({"/export/learning-data/tasks/7/download": (
+        b"PK-zip-bytes", 200, {"Content-Type": "application/zip",
+                               "Content-Disposition": upstream_cd})})
     monkeypatch.setattr(_mb_client, "proxy", proxy)
     response = admin_client.get("/ajax/user-export/tasks/7/download")
     assert response.status_code == 200
     assert response.data == b"PK-zip-bytes"
-    assert "attachment" in response.headers.get("Content-Disposition", "")
-    assert "my-learning-data-7.zip" in response.headers.get("Content-Disposition", "")
+    # 2026-10-26 用户修订：文件名透传上游（moon-well 生成带任务创建时间的文件名）
+    assert response.headers.get("Content-Disposition") == upstream_cd
     call = proxy.call_for("/export/learning-data/tasks/7/download")
     assert call["binary"] is True, "下载必须按字节透传，文本解码会损坏 ZIP"
+
+
+def test_download_falls_back_to_default_disposition_without_upstream(admin_client,
+                                                                      moonwell_configured,
+                                                                      monkeypatch):
+    proxy = RecordingProxy({"/export/learning-data/tasks/9/download": (
+        b"PK-zip-bytes", 200, {"Content-Type": "application/zip"})})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.get("/ajax/user-export/tasks/9/download")
+    assert response.status_code == 200
+    assert response.headers.get("Content-Disposition") == \
+        'attachment; filename="my-learning-data-9.zip"'
 
 
 def test_download_passes_through_upstream_error(admin_client, moonwell_configured,

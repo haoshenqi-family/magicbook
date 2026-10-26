@@ -326,21 +326,21 @@
   }
 
   var STATUS_LABELS = {
-    PENDING: mbT("Queued"),
-    RUNNING: mbT("Generating"),
-    SUCCESS: mbT("Ready"),
-    FAILED: mbT("Failed")
+    PENDING: "已排队",
+    RUNNING: "生成中",
+    SUCCESS: "可下载",
+    FAILED: "失败"
   };
 
   function statusLabel(task) {
-    if (task.status === "SUCCESS" && !task.downloadable) { return mbT("Expired"); }
+    if (task.status === "SUCCESS" && !task.downloadable) { return "已过期"; }
     return STATUS_LABELS[task.status] || task.status;
   }
 
   function render(tasks) {
     tasksBox.innerHTML = "";
     if (!Array.isArray(tasks) || tasks.length === 0) {
-      tasksBox.appendChild(document.createTextNode(mbT("No exports yet.")));
+      tasksBox.appendChild(document.createTextNode("还没有导出记录。"));
       return;
     }
     var list = document.createElement("ul");
@@ -352,14 +352,14 @@
       var line = document.createElement("div");
       var label = document.createElement("strong");
       label.textContent = "#" + task.id + " · " + statusLabel(task)
-        + (task.encrypted === false ? " · " + mbT("Not encrypted") : "");
+        + (task.encrypted === false ? " · " + "未加密" : "");
       line.appendChild(label);
 
       var detail = document.createElement("span");
       detail.className = "text-muted";
       detail.textContent = "  " + formatTime(task.createdAt)
         + (task.fileSize ? " · " + formatSize(task.fileSize) : "")
-        + (task.expiresAt ? " · " + mbT("expires") + " " + formatTime(task.expiresAt) : "");
+        + (task.expiresAt ? " · " + "有效期至" + " " + formatTime(task.expiresAt) : "");
       line.appendChild(detail);
       item.appendChild(line);
 
@@ -373,7 +373,7 @@
         var link = document.createElement("a");
         link.className = "btn btn-default btn-sm";
         link.href = "/ajax/user-export/tasks/" + task.id + "/download";
-        link.textContent = mbT("Download ZIP");
+        link.textContent = "下载 ZIP";
         item.appendChild(link);
       }
       list.appendChild(item);
@@ -388,7 +388,7 @@
     return httpJson("/ajax/user-export/tasks", { credentials: "same-origin" })
       .then(function (response) {
         if (!response.ok) {
-          throw new Error(messageOf(response, mbT("Failed to load")));
+          throw new Error(messageOf(response, "加载失败"));
         }
         var tasks = unwrap(response.data);
         if (!Array.isArray(tasks)) { tasks = []; }
@@ -403,7 +403,7 @@
       })
       .catch(function () {
         tasksBox.innerHTML = "";
-        tasksBox.appendChild(document.createTextNode(mbT("Failed to load")));
+        tasksBox.appendChild(document.createTextNode("加载失败"));
       });
   }
 
@@ -414,24 +414,24 @@
     var payload = {};
     if (password !== "") {
       if (password.length < 6) {
-        say(mbT("Password must be at least 6 characters."), true);
+        say("密码至少需要 6 个字符。", true);
         return;
       }
       if (password !== repeat) {
-        say(mbT("The two passwords do not match."), true);
+        say("两次输入的密码不一致。", true);
         return;
       }
       payload.password = password;
     }
     var button = $("me-export-start");
     button.disabled = true;
-    say(mbT("Creating export…"), false);
+    say("正在创建导出…", false);
     postJson("/ajax/user-export/create", payload)
       .then(function (response) {
         if (!response.ok) {
-          throw new Error(messageOf(response, mbT("Failed to create export")));
+          throw new Error(messageOf(response, "创建导出失败"));
         }
-        say(mbT("Export started. It usually takes less than a minute."), false);
+        say("导出已开始，通常不到一分钟完成。", false);
         $("me-export-password").value = "";
         $("me-export-password2").value = "";
         refresh();

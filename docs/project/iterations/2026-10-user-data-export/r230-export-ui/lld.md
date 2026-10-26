@@ -1,6 +1,6 @@
 # LLD · R230 个人学习数据导出入口（magicbook 侧）
 
-> 状态：已上线待验收（2026-10-26；同日修订=密码可选：空密码转发空 payload、表单去必填、任务行「未加密」标志，i18n +2 词条，测试 9 例，全量 1000 passed）
+> 状态：已上线待验收（2026-10-26；修订=①密码可选：空密码转发空 payload、任务行「未加密」标志；②下载 attachment 文件名透传上游（带任务创建时间）；③导出面板文案**中文直写**（不走 `_()` 翻译链，账号 locale=en 时 gettext 回退英文、用户要求恒中文；种子/po 既有词条留存无害）。代理 9 例 + 契约 5 例全绿）
 > 需求基线：`docs/product/learning/requirements.md` §R230；后端主体与产物细节见 moon-well
 > `iterations/2026-10-user-data-export/r220-user-data-export/`（同号跨仓）。
 
@@ -21,6 +21,9 @@
 - **密码零存储**：本仓不落任何密码（连日志都没有），仅请求线程内透传 moon-well。
 - **密码可选（2026-10-26 修订）**：空/缺省 → 转发空 payload（moon-well 不加密导出）；
   非字符串类型仍本地 400。
+- **面板文案中文直写（2026-10-26 修订）**：me.html 导出面板与 me.js 导出段改中文常量、
+  不经 `_()`/`mbT`——本站 i18n 是「英文 msgid→locale 译文」，账号 locale=en 时会回退英文，
+  而该面板唯一读者要求恒中文。种子/po 既有词条留存（契约仍绿，无害）。
 - **下载不缓冲**：binary 透传（Flask Response 直接回字节，moon-well 侧已流式）。
 - **i18n**：me.js 在 `tests/i18n_js_files.json` 清单内 → 新 mbT 词条必须进种子（契约 2）+
   po（契约 3）+ mo（契约 5）；「Failed」词条本轮漏过一次种子，靠契约测试拦下。

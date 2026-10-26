@@ -111,7 +111,7 @@
 | --- | --- | --- | --- |
 | `POST /ajax/user-export/create` | `POST /export/learning-data` | 30s | 发起导出；密码**可选**（修订）：空=转发空 payload（不加密导出），提供则本地校验 6-128 后仅透传 `{password}`，非法类型/短密码本地 400 不触上游 |
 | `GET /ajax/user-export/tasks` | `GET /export/learning-data/tasks` | 30s | 近 30 天任务列表（5s 轮询，有进行中任务时） |
-| `GET /ajax/user-export/tasks/<id>/download` | `GET /export/learning-data/tasks/{id}/download` | 120s | **binary 透传**加密 ZIP + attachment 头；非 200 原样透传上游 Result 错误 |
+| `GET /ajax/user-export/tasks/<id>/download` | `GET /export/learning-data/tasks/{id}/download` | 120s | **binary 透传** ZIP；attachment 文件名**透传上游**（`my-learning-data-<yyyyMMdd-HHmm>-<id>.zip`，2026-10-26 用户修订），上游未给回退本仓缺省；非 200 原样透传上游 Result 错误 |
 
 - 前端：`/me` 面板（me.html + me.js 追加段），文案走 i18n 种子五步链（me.js 在 i18n_js_files 清单内）。
 - 后端语义权威：moon-well `docs/product/export/interface.md`（错误码 50601-50605）。

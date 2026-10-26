@@ -44,7 +44,11 @@ def user_export_tasks():
 @web.route("/ajax/user-export/tasks/<int:task_id>/download", methods=["GET"])
 @user_login_required
 def user_export_download(task_id):
-    """代理流式下载加密 ZIP；非 200 时透传后端错误 JSON（Result 包装，前端可读 message）。"""
+    """代理流式下载导出 ZIP；非 200 时透传后端错误 JSON（Result 包装，前端可读 message）。
+
+    2026-10-26 用户修订：attachment 文件名透传上游（moon-well 生成
+    my-learning-data-<yyyyMMdd-HHmm>-<id>.zip，带任务创建时间）；上游未给时回退本仓无时间戳缺省。
+    """
     result = _moonwell_proxy("/export/learning-data/tasks/%d/download" % task_id, None,
                              _DOWNLOAD_TIMEOUT, "user export download",
                              binary=True, method="GET")
@@ -52,6 +56,13 @@ def user_export_download(task_id):
     if status != 200:
         return body, status
     response = Response(body, status=200, mimetype="application/zip")
-    response.headers["Content-Disposition"] = \
+    upstream_headers = result[2] if len(result) > 2 else None
+    upstream_disposition = None
+    if upstream_headers is not None:
+        try:
+            upstream_disposition = upstream_headers.get("Content-Disposition")
+        except AttributeError:
+            upstream_disposition = None
+    response.headers["Content-Disposition"] = upstream_disposition or \
         'attachment; filename="my-learning-data-%d.zip"' % task_id
     return response
