@@ -1,6 +1,6 @@
-# LLD · R230 去掉 PyPI 镜像的 pip trusted-host（关闭 TLS 校验＝构建链投毒面）
+# LLD · R231 去掉 PyPI 镜像的 pip trusted-host（关闭 TLS 校验＝构建链投毒面）
 
-状态：已实现待验收（2026-10-26）｜关联：R230 / PingCode MAGICBOOK 需求池｜基线分支：`fix/r230-pip-trusted-host`
+状态：已实现待验收（2026-10-26）｜关联：R231 / PingCode MAGICBOOK 需求池｜基线分支：`fix/r231-pip-trusted-host`
 
 ## 这次怎么实现
 
