@@ -850,15 +850,98 @@
     scrollMessages();
   }
 
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function decodeEscapedText(value) {
+    return String(value || "").replace(/&(amp|lt|gt|quot|#39);/g, function (_, name) {
+      return { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'" }[name];
+    });
+  }
+
+  /**
+   * R233：只把当前站点内的路径变成链接。
+   *
+   * Why 不复用 new URL 的 origin 判断就结束：`//evil.example` 与含用户名密码的
+   * 绝对 URL 也会被 URL 解析器接受。这里先拒绝控制字符/反斜杠，再要求输入以
+   * 单斜杠或当前 origin 开头，最后仍比对规范化后的 origin。
+   */
+  function normalizeSiteHref(raw) {
+    var value = decodeEscapedText(raw).trim();
+    var origin = window.location.origin;
+    if (!value || /[\u0000-\u001f\u007f\\]/.test(value)) return "";
+    if (value !== origin && value.indexOf(origin + "/") !== 0 && value.charAt(0) !== "/") return "";
+    if (value.indexOf("//") === 0) return "";
+    var url;
+    try { url = new URL(value, origin); } catch (e) { return ""; }
+    if (url.origin !== origin || url.username || url["password"]) return "";
+    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+    return url.pathname + url.search + url.hash;
+  }
+
+  function siteLink(href, labelHtml) {
+    return '<a class="ai-chat-site-link" href="' + escapeHtml(href) +
+      '" target="_blank" rel="noopener noreferrer">' + labelHtml + "</a>";
+  }
+
   function renderMarkdown(text) {
     if (!text) return "";
-    var esc = $("<div>").text(text).html(); // escape HTML first
+    var esc = escapeHtml(text); // escape HTML before any markup is introduced
+    var held = [];
+    var marker = "\u0000";
+    while (esc.indexOf(marker) !== -1) marker += "\u0000";
+
+    // Hold code and Markdown links first: a URL-looking token inside code must
+    // never reach the bare-link pass, and an invalid link target must stay text.
+    // Plain-held text is restored before the final inline passes so bold that
+    // wraps a link still becomes one <strong> rather than two adjacent tags.
+    function hold(html, isFinal) {
+      held.push({ html: html, final: !!isFinal });
+      return marker + (held.length - 1) + marker;
+    }
+    function restore(finalOnly) {
+      for (var pass = 0; pass < held.length; pass += 1) {
+        held.forEach(function (item, index) {
+          if (!!item.final === finalOnly) esc = esc.split(marker + index + marker).join(item.html);
+        });
+      }
+    }
+
     esc = esc.replace(/```([\s\S]*?)```/g, function (_, code) {
-      return "<pre><code>" + code.replace(/^\n/, "") + "</code></pre>";
+      return hold("<pre><code>" + code.replace(/^\n/, "") + "</code></pre>", true);
     });
-    esc = esc.replace(/`([^`]+)`/g, "<code>$1</code>");
+    esc = esc.replace(/`([^`\n]+)`/g, function (_, code) {
+      var href = normalizeSiteHref(code);
+      return hold(href ? siteLink(href, "<code>" + code + "</code>") : "<code>" + code + "</code>", true);
+    });
+    esc = esc.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, function (whole, label, target) {
+      var href = normalizeSiteHref(target);
+      if (!href) return hold(whole, true);
+      var labelHtml = label.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      return hold(siteLink(href, labelHtml), true);
+    });
+
+    // Bare site paths / same-origin absolute URLs. Trailing prose punctuation
+    // stays outside the anchor; external URLs never match normalizeSiteHref.
+    esc = esc.replace(/(^|[\s(（\[【:：,，;；、])(\/[^\s<>"'`、（）【】《》]+|https?:\/\/[^\s<>"'`、（）【】《》]+)/g,
+      function (_, prefix, target) {
+        var chain = target.match(/(?:[.,;:!?，。；：！？、）)\]}>】》]+)$/);
+        var trailing = chain ? chain[0] : "";
+        var trimmed = trailing ? target.slice(0, -trailing.length) : target;
+        var href = normalizeSiteHref(trimmed);
+        if (!href) return prefix + target;
+        return prefix + siteLink(href, escapeHtml(href)) + trailing;
+      });
+    restore(false);
     esc = esc.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     esc = esc.replace(/\n/g, "<br>");
+    restore(true);
     return esc;
   }
 
