@@ -1,7 +1,7 @@
 # AI 回复站内链接
 
 > 读者：修改 `cps/static/js/ai_chat.js` 消息渲染或伴读链接行为的人。
-> 状态：现行（2026-10-26 R233，开发完成待验收）。
+> 状态：现行（2026-10-26 R233，已上线待验收）。
 > 需求基线：[`../requirements.md`](../requirements.md) R233；本次实现：[`../../../project/iterations/1.0/r233-ai-links/lld.md`](../../../project/iterations/1.0/r233-ai-links/lld.md)。
 
 ## 实现方式

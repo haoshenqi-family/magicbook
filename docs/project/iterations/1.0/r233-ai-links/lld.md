@@ -1,6 +1,6 @@
 # R233 AI 回复站内链接 · LLD
 
-> 状态：**开发完成待验收**（2026-10-26）
+> 状态：**已上线待验收**（2026-10-26）
 > 工作项：R233（magicbook 单仓交付）· 迭代 1.0 · 目录 `docs/project/iterations/1.0/r233-ai-links/`
 > 用户原话：「AI给出的本站链接应该可以直接跳转（在新窗口）。」
 
@@ -54,8 +54,21 @@ HTML 转义、围栏/行内代码、粗体和换行，既不解 Markdown 链接�
   + `test_buddy_voice.py`，共 **36 passed / 0 failed**。
 - `node --check cps/static/js/ai_chat.js` 通过；`git diff --check` 通过。
 
-## 6. 未做与风险
+## 6. 生产验收
+
+- 实现已推送 `origin/develop`（`f68e39b3`）；生产静态资源
+  `https://magicbook.haoshenqi.top/static/js/ai_chat.js` 已确认含 `normalizeSiteHref`、
+  `target="_blank"` 与 `noopener noreferrer`。
+- 在 `/book/252` 的 AI 抽屉中取得真实回复，裸 `/credits` 与 Markdown `[我的页面](/me)` 均渲染为
+  `a.ai-chat-site-link`，属性为 `target="_blank" rel="noopener noreferrer"`。
+- 两个链接逐一点击后，分别打开 `https://magicbook.haoshenqi.top/credits` 与
+  `https://magicbook.haoshenqi.top/me` 新标签，目标页均正常渲染。
+- 新标签无法取得源页面 `window.opener`；In-app Browser 对无 opener 的行为读作不可访问的
+  `undefined`（非 `null`），不存在跨窗口对象访问。
+- 上线后补跑 `tests/test_ai_message_links_r233.py`：**13 passed / 0 failed**。
+
+## 7. 未做与风险
 
 - 不把普通外部 URL 变成可点击链接：用户只要求本站链接，且外链会扩大钓鱼面。
 - 不做 URL 短链、跳转确认页或域名白名单管理；当前 origin 即唯一边界。
-- 本机自动化只验证渲染函数与静态资源；生产部署后仍需在 AI 抽屉真机点击确认新标签行为。
+- 外部 URL 仍为纯文本；若未来需要外链，应另立需求并单独评估提示、域名白名单与安全边界。
