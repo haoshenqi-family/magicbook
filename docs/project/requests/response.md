@@ -257,7 +257,7 @@
 - **验收（2026-10-26 生产真机）**：① 每日学习回答覆盖当前八项（写作、口语、复述 4-3-2、计时重读、听写、复习队列、Word Story、选书难度匹配），并给出 `/learning` 及各活动入口；② 改难度 / 买积分 / 启动整本翻译均拒绝代执行，给出 `/reading/settings`、`/credits`、书籍详情页真实路线，轨迹无写工具；③ 价格、倍率和活动结束时间明确以页面为准，未编造数值；④ 普通寒暄未加载 Skill。新词查询与 TTS 首次 miss 2 积分、第二次命中 1 积分也已实测。
 - **待补验证（如实）**：新版 `synthesize_tts` 的“首次生成 2 积分 / 缓存命中 1 积分”结果文案尚未在 GUI 复测；Mac 锁屏且 Chrome 扩展通道报 `nodeRepl.fetch request failed`，未绕过系统锁屏。两个独立生产账号的跨账号数据隔离真机对照未执行，不能写成通过。
 - **能力与计费边界**：生产白名单共 10 项，只有 `add_annotation` / `save_memory` 两个写工具；所有业务工具使用当前登录用户的真实能力、`UserContext` 与积分链路，不注入系统身份，也不提供脚本、任意文件或未注册接口。
-- **上线与台账**：moon-well 提交 `05ed7fd` 已推送 `origin/develop` 并部署，生产健康 `UP`；正式发布态全量 **1559 tests / 0 failures / 0 errors / 0 skipped**。本仓 R228 为 docs-only，无代码 worktree；moon-well worktree `../moon-well-r214-agent-skill`（分支 `feat/r214-agent-skill`）原样保留待用户验收。
+- **上线与台账**：moon-well 代码提交 `05ed7fd` 已推送 `origin/develop` 并部署，生产健康 `UP`；验收文档 `f0bafad` 为 docs-only。正式发布态全量 **1559 tests / 0 failures / 0 errors / 0 skipped**。本仓 R228 为 docs-only，无代码 worktree；moon-well worktree `../moon-well-r214-agent-skill`（分支 `feat/r214-agent-skill`）原样保留待用户验收。
 - **窗口**：写入前 10 节；按“写入即检查”把最早 R213-C 整节原样搬至 `response-archive/response-R213-C.md` 并登记索引，窗口保持 10。
 
 ## 2026-10-25（R229：缺陷修复——/home 随机发现 linked Row 致生产登录落点 500，挂 R213）
