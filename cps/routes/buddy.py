@@ -26,10 +26,15 @@ _BUDDY_IMAGE_PATH_PREFIX = "/magicbook/buddy/"
 
 # 伙伴悬浮球 hover 快捷动作（类 iPhone 悬浮球）。动作全集 = 阅读页顶栏工具 +
 # 站点导航；「对话」固定占一位。配置存 view_settings['buddy']['quickActions']。
+# R234：「AI 对话恒在第一位且不可删除」是服务端不变量，不只靠前端约定——写入与
+# 读回都经 _pin_chat_first 归一，直连 API 存成 chat 缺失 / 错位的旧值一律被纠正。
 QUICK_ACTION_IDS = (
     "chat", "immersive-translate", "tts-book", "bookmark",
     "learning", "library", "me",
 )
+QUICK_ACTION_PINNED = "chat"
+QUICK_ACTION_MIN = 4
+QUICK_ACTION_MAX = 5
 QUICK_ACTION_LABEL_IDS = {
     "chat": "Chat",
     "immersive-translate": "Translation",
@@ -111,7 +116,7 @@ def buddy_image_proxy():
 @web.route("/ajax/buddy/quick-actions", methods=["GET", "POST"])
 @user_login_required
 def buddy_quick_actions():
-    """Hover 快捷气泡配置；GET 返回全集与当前选择，POST 覆写选择（4-5 个）。
+    """Hover 快捷气泡配置；GET 返回全集与当前选择，POST 覆写选择（4-5 个，chat 恒首位）。
     label 在请求期取词——gettext 依赖请求上下文，模块导入期只会缓存英文 msgid。"""
     current = current_user_view_settings()
     if request.method == "GET":
@@ -126,17 +131,34 @@ def buddy_quick_actions():
     payload = request.get_json(silent=True) or {}
     selected = payload.get("selected")
     if (not isinstance(selected, list)
-            or not (4 <= len(selected) <= 5)
             or any(a not in QUICK_ACTION_IDS for a in selected)
             or len(set(selected)) != len(selected)):
         return jsonify({"success": False, "message": "invalid quick actions"}), 400
-    current_user.set_view_property("buddy", "quickActions", selected)
-    return jsonify({"success": True, "result": {"selected": selected}})
+    # 数量口径按归一后算：chat 由服务端补位，不带 chat 发 3 个＝4 个合法；
+    # 发 5 个非 chat 连 chat 共 6 个，超上限 400 而不是静默丢掉用户的选择。
+    normalized = _pin_chat_first(selected)
+    if not (QUICK_ACTION_MIN <= len(normalized) <= QUICK_ACTION_MAX):
+        return jsonify({"success": False, "message": "invalid quick actions"}), 400
+    current_user.set_view_property("buddy", "quickActions", normalized)
+    return jsonify({"success": True, "result": {"selected": normalized}})
 
 
 def current_user_view_settings():
-    """读取当前用户 quickActions；非法/缺失回落默认四项。"""
+    """读取当前用户 quickActions：chat 钉回首位、截到上限；非法/缺失/不足回落默认四项。
+    R223 期服务端不校验 chat，存量旧值可能缺 chat 或 chat 不在首位，读时一并纠正。"""
     raw = (current_user.view_settings or {}).get("buddy", {}).get("quickActions")
-    if isinstance(raw, list) and raw and all(a in QUICK_ACTION_IDS for a in raw):
-        return raw
+    if isinstance(raw, list):
+        normalized = _pin_chat_first(raw)[:QUICK_ACTION_MAX]
+        if len(normalized) >= QUICK_ACTION_MIN:
+            return normalized
     return list(QUICK_ACTION_DEFAULTS)
+
+
+def _pin_chat_first(actions):
+    """白名单过滤 + 保序去重 + chat 钉到第一位；不做数量裁决，由调用方按场景定。"""
+    others = []
+    for action in actions:
+        if (action in QUICK_ACTION_IDS and action != QUICK_ACTION_PINNED
+                and action not in others):
+            others.append(action)
+    return [QUICK_ACTION_PINNED] + others

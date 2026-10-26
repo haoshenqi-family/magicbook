@@ -57,24 +57,10 @@
 - `response-archive/response-R214-C-defect.md`：R214-C 验收缺陷（入口按钮落进书卡弹层 + 估算 500）——2026-10-26 R230 写入使窗口达 11，原样搬移不改写；与既有 `response-R214-C.md`（R214 子项 C 代价面板）是两条不同条目
 - `response-archive/response-R221-R222.md`：R221 AI 口语陪练语音优先 + R222 书籍简介验收缺陷——2026-10-26 R233 写入触发轮转搬移，原文无改写
 - `response-archive/response-R223.md`：R223 Buddy 悬浮球化（透明头像 + hover 径向快捷气泡）——2026-10-26 R232 会话合并 origin/develop（R233 一节并入）后窗口达 11 节，原样搬移不改写
+- `response-archive/response-R224.md`：R224 本轮测试修复未完成项收口（R219 / R212 / R213-B6 / R214-C）——2026-10-26 R234 写入触发轮转搬移，原样搬移不改写
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
-
-## 2026-10-24（R224：本轮测试修复未完成项收口——R219 / R212 / R213-B6 / R214-C）
-
-### R224（用户：「review 本轮测试修复，找到哪些没有修改完成且没有推到下个迭代的」→「尽可能修复代码未完成的部分」）
-
-- **结论先行**：真正属于代码未完成、且未排到下一迭代的是 **R219 邀请链接、R212 交付项 1/3/4、R213-B/B6 进度总开关、R214-C 估算 500 核实**。R215、R221、R223、R220 属待真机验收，不是本轮代码缺口；**只有 R213-A 侧边栏分组**按用户 2026-10-24 拍板明确留到下一迭代，不冒充本轮完成。
-- **R219（已修复）**：`cps/oidc.py` 优先读取 Authentik 嵌套 `?query=itoken%3D...`，兼容旧顶层 `itoken`/`token`；`/oidc/signup` 只输出外层 `?query=`，内部同时带 `itoken` 与 `next`。`tests/test_oidc_signup.py` 覆盖嵌套解析、旧格式兼容、冲突优先级与 token alias；生产 env 与真实注册流仍待验收。
-- **R212（代码完成，待真机验收）**：登录页新增价值主张与随机书墙（复用 `random_discover_books`/`common_filters`，空库或查询失败安静隐藏）；新账号 locale 按 Authentik claim → Accept-Language → 站点默认初始化；顶栏增加语言入口。复查中修掉两个隐藏依赖：① 顶栏只提交 `locale`，`/me/preferences` 仅在 `default_language` 显式出现时校验/更新，避免账号里失效的书籍语言连带拒绝界面切换；② 匿名浏览关闭时不取书、不渲染书墙，避免封面端点重定向造成破图及未授权页面泄露书名。新增 6 条中文 PO/MO 守卫，中文不再静默回退英文。
-- **R213-B/B6（已补开发，待复验）**：新增 `config_reading_progress_enabled` 配置列与存量库 ALTER 迁移、管理页开关；关闭时 `/ajax/reading-progress` 返回 `{"success": true, "disabled": true}`，不写 `ReadingProgress` / `ReadBook`；EPUB/PDF/TXT 均不加载 `reader-progress.js`、不注入服务端位置，EPUB 回退 localStorage、PDF 不拼 `#page`、TXT 回到改造前行为。测试隔离也修实：管理配置 POST 会因缺失复选框清空大量字段，现将整行 `_Settings` 快照恢复并清 `ConfigSQL._settings` 缓存，避免后续用例被 kill switch 污染；另在临时旧库上验证缺列 ALTER 与默认值，不依赖测试库已含新列。
-- **R214-C（代码核实，证据有缺口）**：当前 worktree 的 `cps/reading_insight/service.py` 与 `origin/develop` 完全一致，估算 500 的相关修复已在 develop（`42ddfb19`、`b28d9240`），本 worktree 无额外代码可改。生产 ES 查询返回 **401**，因此不能声称已证实生产 500 的具体异常类型；R214-C 仍需真机复核。
-- **验收而非代码缺口**：R215、R221、R223、R220 的自动化/局部修复已在各自分支或 develop，剩余动作是真机验收与状态流转；本轮不把「未跑真机」写成「代码没做完」。
-- **明确下迭代**：R213-A 的侧边栏四组分组（`Shelf.kind` 判定）仅此项按用户拍板留到下一迭代；本轮不改其设计，也不勾选 A1。
-- **文档同步**：L1 `readme/reading.md` 更正 PDF/TXT 账号级进度；L2 `reading/interface.md` 补开关关闭响应；L3 `reading/features/reading-progress.md` 更正 `ReadBook` 在读状态与三格式下线边界；R219 工作流、L3、`.env.example` 与 R217 历史 LLD 标注现行嵌套 query（历史只标注不重写）；R212 LLD 改为交付项 1/3/4 代码完成待真机；R213 AC/LLD 与计划表统一 `config_reading_progress_enabled` 并清掉「查无此开关」旧警告。
-- **验证与驻留**：定向回归 **196 passed / 0 failed**（OIDC、入口层、品牌/CSP、`/me`、导航、阅读进度、首页、R214 估算与详情），`git diff --check` 与改动 Python 文件编译通过。用户 2026-10-25 指示 merge and push 后，在最新 `origin/develop` 上执行发布态全量 **944 passed / 0 failed**。worktree `../magicbook-r224-close-out`（分支 `feat/r224-close-out`，基线 `origin/develop` `b0af8382`）保留待真机验收。
-- **总结**：requests.md 条目 224 为本轮收口需求，条目 219 已回填「已开发待验收」；本条为回应。冲突记录：未改主检出、未 push；R214-C 生产异常类型未证实、ES 401 属证据缺口；R216 回应已按 10 节窗口规则原样搬至 `response-archive/response-R216.md`。
 
 ## 2026-10-25（R225：邀请注册跳转、普通账号阅读/下载 403、品牌封面占位）
 
@@ -230,3 +216,14 @@ RecordingProxy 支持三元 headers，新增回退与透传两断言（代理 8�
 **中文直写**（不经 `_()`/`mbT`——账号 locale=en 时 gettext 回退英文，用户要求恒中文；种子/po 既有词条留存，
 i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本轮按原命名重建（`feat/r230-user-data-export`
 自 origin/develop @ e861c0e7 切出），继续驻留待验收。
+## 2026-10-26（R234：悬浮球快捷动作——AI 对话恒在第一位且不可删除，升级为服务端不变量）
+
+### R234（用户：「伙伴悬浮球快捷动作，AI 对话始终在第一位切不可删除」）
+
+- **结论先行**：这条铁律此前只由前端保证（`/buddy` 页 chat chip 固定选中不可取消 + `renderBubbles` 恒把 chat 排第一位），服务端 POST 不校验 chat——直连 API 可把 chat 存成缺失（气泡渲染成 6 个，突破 4–5 口径）或末位，存量旧值读回也不归一。本轮把「恒第一位、不可删」落为**服务端不变量**，用户可见行为不变。
+- **实现**：`cps/routes/buddy.py` 新增 `_pin_chat_first()`（白名单过滤 + 保序去重 + chat 钉首位）。POST 归一后落库：缺 chat 补首位、错位前移；数量口径连 chat 一起算（4–5），发 5 个非 chat＝6 个，**400 拒绝而非静默截断**。`current_user_view_settings()` 读回对存量旧值（R223 期写入）同样归一并截上限 5，归一后不足 4 个或含白名单外动作回落默认四项——无需数据迁移的惰性纠正。常量 `QUICK_ACTION_PINNED/MIN/MAX` 钉口替代裸数字。
+- **前端零行为改动**：仅更正 `buddy.js` 注释（「勾选 2-5 个」实为 4-5 个）；`renderBubbles` 的 `["chat"].concat(...)` 保留作双保险。
+- **测试**：`tests/test_buddy_page.py` +3——`test_quick_actions_post_pins_chat_first`（缺 chat 补位 / chat 中位前移，均读回归一结果）、`test_quick_actions_post_rejects_over_max_counting_pinned_chat`（5 个非 chat 400 且不落库）、`test_quick_actions_read_normalizes_legacy_values`（直写 view_settings 模拟三类存量旧值 + 坏数据回落默认）。定向回归 **26 passed**（buddy 页 + R215 结构 + i18n 契约）、buddy 全家 **50 passed**；`git diff --check` 通过。既有 R223 三条校验用例语义不变（2 个 / 未知 / 重复仍 400）。
+- **文档四问**：能力 → L1 `readme/companion.md` 悬浮球条目补「恒在第一位且不可删除（R234）」；契约 → 端点形制不变（POST 语义收紧已写进基线）；实现/边界 → 新建 L3 `companion/features/buddy-quick-actions.md`；本次实现 → `iterations/1.0/r234-buddy-qa-chat-first/lld.md`。需求基线 `companion/requirements.md` §R234、R223 LLD 边界两条标注〔已被 R234 取代〕、迭代 `plan.md` 已同步。
+- **台账与驻留**：R234 由 `claim.sh` 占号并 push（`500a7316`，纯台账）；实现 `bbd482ae`。写入前 response.md 已有 10 节，按「写入即检查」把最早 R224 节原样搬至 `response-archive/response-R224.md` 并登记索引，窗口恢复 10 节。worktree `../magicbook-r234-buddy-qa-chat-first`（分支 `feat/r234-buddy-qa-chat-first`）按闸门驻留待用户验收。
+- **总结**：requests.md 条目 234 已从占位回填；本条为回应。冲突记录：无撞号；主检出未提交的 `messages.po` 改动（去掉积分说明里「约每千 token 消耗 1 积分」一句）经核对与 origin/develop 中 R230 `eecc514b` 已合入的同一 hunk 逐字一致（重复劳动），ff 拉齐前以 stash 挪开、push 后确认该改动已在 HEAD 中，**stash 条目保留未动**（如为并行会话在途工作可自行处置）。
