@@ -53,34 +53,10 @@
 - `response-archive/response-R218.md`：R218 R214 子项 A 验收缺陷（书架内书籍详情 500）——2026-10-25 R226 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R212.md`：R212 入口层换皮之品牌资产与字样收敛——2026-10-25 R227 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R213-C.md`：R213-C 首页 `/home` 组装 + 登录落点开关——2026-10-25 R228 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R214-C-defect.md`：R214-C 验收缺陷（入口按钮落进书卡弹层 + 估算 500）——2026-10-26 R230 写入使窗口达 11，原样搬移不改写；与既有 `response-R214-C.md`（R214 子项 C 代价面板）是两条不同条目
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
-
-## 2026-10-24（R214-C 验收缺陷：入口按钮落进书卡弹层 + 估算 500）
-
-- **现象**：点「整本任务」后页面错乱（整页被套进「书籍详情」弹层）；Console 两条硬事实——
-  `/ajax/whole-book-estimate` **500**、`isotope` 报错（后者是弹层里套整页带出来的噪音）。
-- **定位一（错乱的真因）**：列表页点书卡是 **XHR 片段**——`show_book` 把 `detail.html`
-  渲染成 `fragment.html`，片段没有 `block js`，面板 modal + JS 整块不下发，但按钮在
-  `block body` 里照旧渲染。于是 `data-target` 选不到 `#whole-book-panel`，Bootstrap
-  data-api 空转并与既有的 `#bookDetailsModal` 抢这次点击 ⇒ 整页被塞进弹层。
-  **修**：按钮加 `not is_xhr` 门禁（整本任务只在完整详情页出现）+ 改 JS 显式绑定
-  （`preventDefault` / `stopPropagation`），不再依赖 data-api。
-- **定位二（500）**：估算链路两处**辅助查询**裸奔——`_history_rate`（台账采样）与
-  `active_jobs`（活跃批次）。任一抛错就把整块面板打成 500，而 `.fail` 收到的是 HTML，
-  界面只剩「估算失败：500 Internal Server Error」，既不知原因也不知该不该重试。
-  **修**：两处各自 try/except 降级（没有样本 / 没有活跃批次 + 落 warning）；路由补兜底
-  `except Exception`，落 `traceback.format_exc()` 并把 `类型: 消息` 回给前端——下次再失败，
-  面板上会直接写着原因，不用再靠猜。
-- **定位三（顺带修的形制级 bug）**：`data-t-start-wordDetail` 属性名带大写，被 HTML
-  解析器小写成 `...worddetail`，而 JS 用 `t('start-' + kind)` 取 camelCase ⇒ 详解 tab
-  的主按钮文案是空的。模板改全小写、JS 侧 `toLowerCase()`。
-- **测试**：新增 5 条（data-api 禁用 / is_xhr 门禁 / 显式绑定 / 键名小写 / 路由兜底源码守卫）
-  + 2 条降级行为测试（query 抛错时 `_history_rate` 回 `(None, 0)`、`active_jobs` 回全 None）。
-  全量 **853 passed / 0 failed**。
-- **待确认**：500 的具体异常类型要等这次上线后看面板上的那行红字（已含异常类型与消息），
-  本轮先把「不可读的失败」变成「可读的失败」，再按实际原因收口。
 
 ## 2026-10-24（R221：AI 口语陪练语音优先——教练默认语音条 + 用户录音转写预览）
 
@@ -271,3 +247,23 @@
 - **过程合规备注**：主检出当时为并行会话 detached HEAD（R228 本地未推 2 提交），merge 冲突后立即 `--abort` 并还原现场，改从 worktree 直推 origin/develop（与 `claim.sh` 同款姿势，fast-forward 无历史改写）；主检出已还原为 972b3830。
 - **窗口**：写入前已有 10 节，按「写入即检查」把最早 R214 子项 C 整节原样搬至 `response-archive/response-R214.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 229 已回填；本条为回应。冲突记录：无撞号；与 R228 并行会话无 git 冲突（分支隔离 + 直推 fast-forward）。
+
+## 2026-10-26（R230：去掉 pip `trusted-host`——构建链不再关闭 TLS 校验）
+
+**背景**：本会话先做家族仓主动安全扫描（首份留档，无历史基线），高危 6 落本仓 Dockerfile；用户拍板「删第 6 行」。
+
+**改动**：`Dockerfile:5-6` 原为 `index-url=https://mirrors.aliyun.com/...` **加** `global.trusted-host mirrors.aliyun.com`。后者语义是对该 host 跳过证书链与主机名校验，等于把构建期依赖交付交给「任何处在构建机与镜像站之间的人」——构建在 fnOS 跑（`../ops/tools/webhook-builder/build-magicbook.sh:74-75`，push develop 即触发），出网又走自建出口（`.9:12811`/`7891`），同内网设备、构建机上任一低权进程、出口、镜像站上游都在信任路径上。现只删这一行，换源保留（换源不是问题，关校验才是）。
+
+**为什么敢删（这行当年可能是为了绕证书错，前提必须先验）**：① 基础镜像自带 CA——`python:3.11-slim-bookworm` 上游 Dockerfile 第 22-29 行在 `FROM debian:bookworm-slim` 后即 `apt-get install ca-certificates netbase tzdata`，本仓 stage 1 虽未装（只有 `libssl-dev`）但基础层已有；② 镜像站证书本就正常——本机 `curl https://mirrors.aliyun.com/pypi/simple/`（不加 `-k`）得 `HTTP 200` 且 `ssl_verify_result=0`。
+
+**没做到的验证（写清楚，别当已通过）**：本机 Docker daemon 未运行，**没有真跑一次 `docker build`**。首次 fnOS 构建即验收点：日志若出 `CERTIFICATE_VERIFY_FAILED`，说明构建机上前提不成立（典型是代理做 TLS interception 而企业根证书没进镜像），那时要修证书链，**不要把 `trusted-host` 加回来**。
+
+**刻意不做的另一半**：`Dockerfile:26` 无 `--require-hashes`、`requirements.txt` 全是 range 且无 lock——TLS 正常后仍缺**内容校验**，装什么仍由镜像站当时返回决定。彻底收口需出带 hash 的锁文件，牵动全量解析，属独立需求另占号；基础镜像按 digest 钉、moon-well 的 Maven `mirrorOf>*` 同理另排。
+
+**归档命名混撞（顺手记录）**：本次轮转最旧一节「R214-C 验收缺陷」时发现归档里已有 `response-R214-C.md`，内容是**另一条**（R214 子项 C 整本任务代价面板）。按标题推导文件名会静默覆盖他人条目，故本次落名为 `response-R214-C-defect.md`。建议后续同名条目一律带语义后缀。
+
+**撞号记录（家族纪律要求）**：本条原占 **R229**，随后发现并行会话的 `/home` 随机发现缺陷修复已用 R229（其 `response.md` 节 `## 2026-10-25（R229…）` 已并入 develop，但它的**台账行未随代码并入**，导致 `claim.sh` 按 develop 台账算号时看不见它、把我发到了 229）。按「不修改既有记录、续编下一个空号」处置：本条改占 **R230**（树与分支同步改名 `magicbook-r230-pip-trusted-host` / `fix/r230-pip-trusted-host`，迭代目录同步），并把对方那条台账行**原样补记**进 `requests.md` 的 229 位（文字逐字来自 `../magicbook-r229-home-random-row` 的 requests.md，未作任何改写）。**根因留给后续**：占号只看台账、验收窗口看 response.md，两处不同步就会撞——建议后续给 `claim.sh` 增加「同时扫 response.md 与其节标题」的算号来源。
+
+**交付四问**：能力与契约均未变（用户不可见）→ L1/L2 不动；实现/边界变（构建期信任模型）→ `Dockerfile` 内注释 + `docs/project/iterations/2026-10-security-baseline/r229-pip-trusted-host/lld.md`（状态行＝已实现待验收）。本仓 `tests/` 全是 Flask 层用例，**无测试覆盖 Dockerfile**，故门禁落在上述两条实测证据与首次构建日志上。
+
+**worktree 驻留登记**：`../magicbook-r229-pip-trusted-host`，分支 `fix/r229-pip-trusted-host`（从 `origin/develop` 切出），状态＝待 merge 与用户验收；代码**未 push**（push 即触发 fnOS 构建上线）。
