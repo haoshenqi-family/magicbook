@@ -234,3 +234,4 @@
 
 228. **记录 moon-well R214 伴读 Agent Skills 的 magicbook 消费侧能力**（占号 2026-10-25）：用户原话「把magic book 所有的功能 总结一下，做成一个skill 给 AI伴读的agent使用。先判断AI伴读的agent 是否支持skill」。后端主责 moon-well R214；本仓 R214 已被书籍详情占用，故本条顺延占 **R228**，只做消费侧文档与验收说明、**不改代码**。交付：companion L1 增按需加载伴读指南及不扩权说明；companion 需求基线记录 moon-well R214；本仓迭代 `1.0/r214-agent-skill/lld.md` 写明真实页面/不可执行动作与失败退化；计划表增跨仓行。moon-well `05ed7fd` 已上线，生产健康 `UP`；每日学习八项、越权拒绝、价格以页面为准、寒暄不加载已真机验证。状态：**已上线，待验收**；magicbook 无代码、无接口变更，部署顺序无要求。未验项：新版 TTS 计费文案 GUI 复测（待解锁）、两个独立生产账号跨账号隔离对照。
 
+229. **删 Dockerfile 的 pip trusted-host（关闭 PyPI 镜像 TLS 校验＝构建链 MITM 投毒面，安全扫描高危6）**（占号 2026-10-26，待回填）
