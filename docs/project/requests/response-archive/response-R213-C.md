@@ -1,0 +1,22 @@
+> 归档：R213-C（magicbook `/home` 组装 + 登录落点开关；A 的侧边栏分组按拍板本迭代不做）原样搬移自 `response.md`。
+
+> 2026-10-25 R228 写入时窗口达 11，按「写入即检查」把最早一节搬出，只搬移原文、不总结、不改写。
+
+## 2026-10-24（R213-C：首页 `/home` 组装——继续阅读/今日计划/分级推荐/随机发现 + 登录落点开关；A 的侧边栏分组按拍板本迭代不做）
+
+### R213-C（用户令：「A 的侧边栏分组 这个迭代不改，下个迭代再说。直接做C」）
+
+- **范围锁定**：本轮只做 C。R213-A 的「侧边栏四组分组」按用户拍板**本迭代不实施、下个迭代再说**（LLD §5 保留设计与约束，不删不实现），A 以「除分组外已上线」结项。
+- **开发第一步先核实 LLD 的两个前置假设**（不猜字段名）：① `writing/history` 是否真带 `createdAt` —— 读 moon-well `WritingVO.HistoryItem` 确认 `createdAt` + `lastDraftNo` 都在，**方案②（moon-well 加 `writingPending`）不启用，跨仓改动为零**；② 待复习词数该取哪个字段 —— `/learning` 页的「到期」用的是 `srs/stats.dueNow`（`learning-hub.js::renderStats`），而 `plan/today` 的 `reviews` 被 `dailyMinutes` 推出的 `reviewCap` **截断**（`LearningPlanService.today()`），拿它会把「到期 40」显示成「到期 20」，直接违反 AC C2。落地取 **`reviewTotal`**——它与 `dueNow` 是同一个 `countDueBetween(MIN, now)` 查询，**数值恒等**，这条同源关系是 C2 的实证依据（不是「大概一致」）。
+- **四处对 LLD 原案的修正**（照原文写会错，已回填 LLD §4.3）：见上；另两处是**落点判据抽成 `cps/landing.py::landing_endpoint()` 单点**（四处消费：登录页 `next` 默认值 / 本地登录成功 / OIDC `oidc_next` 默认值 / 已登录再访问登录页；写进 `web.py` 会让 `oidc.py` 只能函数内 import 绕环形依赖）、以及**卡片宏参数化到 7 个参数**（`index.html` 两个循环本来就有差异，不参数化就会在重构中改掉既有观感）。
+- **卡片只留一份实现**：新增 `cps/templates/partials/_book_card.html::book_card()`，`index.html`（随机区/列表区）与 `home.html`（继续阅读/分级推荐/随机发现）共用；差异走 `read_flag` / `show_badges` / `card_id` / `modal` / `music_icon` / `series_plain` / `href` + `caller()`（继续阅读用它挂进度条）。**顺带补上 R213-A 的欠账**：格式徽标当初只进了随机区，列表区一直没有——现在两区同源，不会再漂。
+- **落点开关带迁移**：`settings.config_home_landing`（Boolean，默认 `True`）。既有库必须靠 `ub.migrate_home_landing_config()` 启动 `ALTER TABLE settings ADD COLUMN ... DEFAULT 1`——缺列不是「回退默认值」而是**任何配置读取都 OperationalError**（整站 500），所以迁移是功能的一部分。管理端「编辑配置」加勾选框（`_config_checkbox`），取消勾选即回退 `/` 发现页，**回退不需要发版**。
+- **首页零阻塞**：今日计划完全不走服务端渲染，`home.js` 并行拉两个既有代理端点，单块失败只让该数字显示 `–`，两块都失败才整卡降级为「今日学习页」提示（AC C3）；随机发现沿用 `/` 的 `generate_linked_query + common_filters`，受限书/归档书不会漏出来。文案全部由模板 `_()` 注入 `data-*`，JS 只填数字——**没有第二个取词入口，也就没有「mbT 词条漏进种子」的静默回退面**（`test_home_js_passes_text_through_data_attributes` 钉住）。
+- **测试**：新增 `tests/test_home_route.py` 27 例——登录门禁、四块空态不渲染、`阶N` 解析 10 组参数、同阶合并去重、**`阶10` 不排在 `阶2` 前**、已读完不进推荐、书被删跳过、无阶书架进「未分级」尾组、落点开关四种组合、迁移幂等、**真渲染一张卡**（`image.book_cover` / `main_format` 这类过滤器只在渲染时暴露参数不匹配）、**真渲染 index 的一条 entry**（列表区不带格式徽标、带音乐图标）。全量 `pytest tests/` = **873 passed / 0 failed**。
+- **两处既有守卫同步更新（有意的结构变更，不是放宽）**：`test_home_nav_shell.py::test_cover_format_badges_present` 与 `test_onboarding_tour.py::test_browse_step_anchors_exist_in_templates` 原来断言 `index.html` 源码里有卡片外层 class / 格式徽标——现在是「index 复用宏」的结构，断言跟着实现移到 `partials/_book_card.html`，并各自加了「index 必须复用宏」这条更强的约束。
+- **i18n**：新增 7 条 msgid（Continue Reading / Go to Learning / Recommended by level / Words due for review / Writing tasks to finish / 降级提示 / 配置项标签），`pybabel compile` 重编 `messages.mo`（**msgfmt 报 po 里有三处历史重复词条**：`Save` / `Close` / `Vocabulary` 各定义两次——既有问题，本轮不顺手改，记录备查）。
+- **文档四问**：能力变了吗 → L1 `product/readme/library.md` 增「首页（`/home`）」一条；契约变了吗 → **无新对外接口**（`/home` 是页面路由，今日计划复用既有 `/ajax/learning/*` 代理），站点配置新增一项；实现/边界变了吗 → 新建 L3 `product/library/features/home-ia.md`（取数口径、归阶规则、卡片宏、边界与坑）；本次怎么实现 → LLD `project/iterations/1.0/r213-home-ia/lld.md` 补 §4.3 实现修正 + §4.4 验收对应表，状态行改为「A 分组按拍板本迭代不做 / C 已开发待验收」。AC `ac/acceptance.md` C1–C6 逐条勾选并注明判据落点。
+- **窗口与合并冲突**：本轮两次触发轮转——① 写入前窗口已 11 节，先把最旧的 **R206 + R207** 原样搬至 `response-archive/response-R206-R207.md`，窗口回 10；② 之后合 `origin/develop`（`d1db8268`，带 R214-C 验收缺陷节）时本文件**必冲突**（双方都往末尾追加），按「两节都保留、按写入时间序 R214-C 在前 / R213-C 在后」解冲突，窗口再达 11，把最旧的 **R208** 搬至 `response-archive/response-R208.md`，窗口回 10。两次均只搬移不改写，索引各登记一行。
+- **AC 与台账回填（本轮实际改动的文件，不是只在回应里说）**：`ac/acceptance.md` 状态行改「A 除分组外已上线 / B 已验收 / C 已开发待验收」，C1–C6 逐条勾选并附判据落点 + 测试名，C2/C3 行内标「真机待 G1」；G2/G3 勾选；G1 保留待真机。**A1 明确不勾**并写明「本迭代不实施，不是缺口」；A2–A7/B1–B5 段首注明证据位置但**不代勾**（勾选归 MB-16/MB-17 结项轮次，代勾等于替别人宣布验收结论）。`plan.md` 回填 MB-12（A 除分组外已上线 / B 已验收 / C 已开发待验收）、MB-16（分组按 2026-10-24 拍板本迭代不改，`Shelf.kind` 留待下迭代）、MB-18（已开发待验收 + 落地清单）。
+- **顺带发现两处文档欠账（已标注、未擅自修）**：① AC **B6** 写的开关 `reading_progress_enabled` 在仓库里**根本不存在**（`cps/`、`tests/`、`_Settings` 均无命中）——R213-B 从未做过 kill switch，进度上报是常开的。按 MB-17 范围处理，留给下轮确认「补开关」还是「改判据」。② 首版我凭印象写了个 `enable_reading_progress`，随即被自己的核查推翻，已在 AC 里改成「查无此开关」的准确表述——这类名字不能猜。
+- **驻留与闸门**：已提交 `f4df325a`，并 merge `origin/develop`（`d1db8268`）拉齐基线，全量重跑后推进 develop 指针（**只推本地 develop，不 push**）。worktree `../magicbook-r213-home-ia`（分支 `feat/r213-home-ia`）保留待真机验收；**push 即触发 fnOS 自动上线，按用户闸门执行**。真机验收重点：G1 两档视口（1440×900 / 390×844）截图比对，以及「今日计划」在 moon-well 正常/不可用两种状态下的表现（C2/C3 的最后一段只能在真机看）。

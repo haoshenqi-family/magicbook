@@ -3955,7 +3955,7 @@ msgstr "积分"
 msgid ""
 "Credits are consumed by AI features (about 1 credit per 1k tokens). "
 "Recharge is credited instantly after payment."
-msgstr "AI 功能会消耗积分（约每千 token 消耗 1 积分）。充值支付后即时到账。"
+msgstr "AI 功能会消耗积分。充值支付后即时到账。"
 
 msgid "Current level"
 msgstr "当前等级"
@@ -4164,6 +4164,11 @@ msgid "Onboarding Tour"
 msgstr "使用引导"
 
 msgid ""
+"Use the “Onboarding Tour” button at the bottom-right any time to replay the "
+"tour."
+msgstr "随时点右下角「使用引导」重看本段导览。"
+
+msgid ""
 "Open Alipay app and scan the QR code. Credits are granted automatically "
 "after payment."
 msgstr "打开支付宝 App 扫描二维码，支付完成后积分自动到账。"
@@ -4353,9 +4358,6 @@ msgid ""
 "random — your first stop for finding books."
 msgstr "按「最新 / 热门 / 高分 / 已读 / 未读 / 随机」切换书库视图，是找书的第一站。"
 
-msgid "Tap the “?” at the bottom-left any time to replay the tour."
-msgstr "想重看随时点左下角的「?」。"
-
 msgid ""
 "The cover grid is your library. Click a cover for details; hover for "
 "quick actions."
@@ -4438,6 +4440,9 @@ msgid ""
 "Use it to combine filters by author / series / publisher / language / "
 "rating."
 msgstr "按作者 / 系列 / 出版社 / 语言 / 评分多条件组合过滤时用这里。"
+
+msgid "Select user..."
+msgstr "选择用户..."
 
 msgid "User ID"
 msgstr "用户 ID"
@@ -5118,6 +5123,36 @@ msgstr "用英文打出你要说的话"
 
 msgid "Upgraded phrasings"
 msgstr "升级表达"
+
+msgid "Play voice message"
+msgstr "播放语音消息"
+
+msgid "Show text"
+msgstr "显示文字"
+
+msgid "Hide text"
+msgstr "收起文字"
+
+msgid "Voice playback failed"
+msgstr "语音播放失败"
+
+msgid "Tap to speak"
+msgstr "点击说话"
+
+msgid "Your words will appear here after recording"
+msgstr "录音转写会显示在这里，可修改后发送"
+
+msgid "Review your transcript before sending"
+msgstr "发送前请确认转写内容"
+
+msgid "Record again"
+msgstr "重新录音"
+
+msgid "Type instead"
+msgstr "改为打字"
+
+msgid "Use voice instead"
+msgstr "改用语音"
 
 msgid "WPM"
 msgstr "词/分"
@@ -5896,6 +5931,9 @@ msgstr "询问本章内容…"
 msgid "Ask about this text..."
 msgstr "询问本文…"
 
+msgid "Ask about this page..."
+msgstr "就本页内容提问…"
+
 msgid "Rename"
 msgstr "重命名"
 
@@ -5967,3 +6005,143 @@ msgstr "按 calibre 自定义阅读列筛选（该列只有「是 / 否」两个
 
 msgid "Unread: never opened, or marked as unread. In progress: opened but not finished. Read: finished."
 msgstr "未读：从没打开过，或手动标记为未读。在读：打开过但没读完。已读：读到最后一页或标记为已读。"
+
+msgid "Continue Reading"
+msgstr "继续阅读"
+
+msgid "Go to Learning"
+msgstr "去学习页"
+
+msgid "Recommended by level"
+msgstr "按难度阶推荐"
+
+msgid "Words due for review"
+msgstr "词待复习"
+
+msgid "Writing tasks to finish"
+msgstr "篇写作待完成"
+
+msgid "Your daily plan is unavailable right now — open the Learning page"
+msgstr "今日计划暂时取不到 · 去学习页看看"
+
+msgid "Use the new Home page as login landing page"
+msgstr "登录后进入新首页（/home）"
+
+msgid "Buddy quick actions"
+msgstr "伙伴悬浮球快捷动作"
+
+msgid "Pick what pops up around the buddy on hover (2-5). The chat bubble always stays."
+msgstr "选择悬停伙伴时弹出的动作（2-5 个）。「对话」气泡固定保留。"
+
+msgid "Pick at least 4 actions"
+msgstr "至少选择 4 个动作"
+
+msgid "Chat"
+msgstr "对话"
+
+#: R212 登录页价值主张与书墙（2026-10-24）
+msgid "Your private reading room"
+msgstr "你的私人书房"
+
+msgid "Read deeper. Learn while you read."
+msgstr "读得更深，在阅读中学习。"
+
+msgid "A personal library with instant translation, vocabulary help, and an AI reading companion — all in one quiet place."
+msgstr "一座私人图书馆，集即时翻译、词汇帮助与 AI 阅读伙伴于一体，安放于一隅静好。"
+
+msgid "Books in the library"
+msgstr "馆藏图书"
+
+msgid "Sign in to your library"
+msgstr "登录你的书房"
+
+msgid "Remember reading position across devices"
+msgstr "跨设备记住阅读位置"
+
+#: R225 阅读/下载权限提示与默认角色说明（2026-10-25）
+msgid "Reading access is not enabled for this account"
+msgstr "此账号尚未开通阅读权限"
+
+msgid "Ask an administrator to enable “View” in Users → Edit User for your account."
+msgstr "请联系管理员，在「用户」→「编辑用户」中为你的账号勾选「在线阅读」。"
+
+msgid "Download access is not enabled for this account"
+msgstr "此账号尚未开通下载权限"
+
+msgid "Ask an administrator to enable “Download” in Users → Edit User for your account."
+msgstr "请联系管理员，在「用户」→「编辑用户」中为你的账号勾选「下载」。"
+
+msgid "Self-registered accounts always receive View. Administrators can still adjust it per account. Download is a separate permission."
+msgstr "自助注册账号默认具备在线阅读权限，管理员仍可按账号调整；下载是独立权限。"
+
+msgid "Read reply aloud"
+msgstr "朗读本条回复"
+
+msgid "Reading… {{n}}/{{m}}"
+msgstr "朗读中 {{n}}/{{m}}"
+
+msgid "Transcript ready — edit it before sending"
+msgstr "转写完成，可编辑后发送"
+
+msgid "Queued"
+msgstr "已排队"
+
+msgid "Generating"
+msgstr "生成中"
+
+msgid "Ready"
+msgstr "可下载"
+
+msgid "Expired"
+msgstr "已过期"
+
+msgid "expires"
+msgstr "有效期至"
+
+msgid "No exports yet."
+msgstr "还没有导出记录。"
+
+msgid "Download ZIP"
+msgstr "下载 ZIP"
+
+msgid "Password must be at least 6 characters."
+msgstr "密码至少需要 6 个字符。"
+
+msgid "The two passwords do not match."
+msgstr "两次输入的密码不一致。"
+
+msgid "Creating export…"
+msgstr "正在创建导出…"
+
+msgid "Export started. It usually takes less than a minute."
+msgstr "导出已开始，通常不到一分钟完成。"
+
+msgid "Failed to create export"
+msgstr "创建导出失败"
+
+msgid "Export My Learning Data"
+msgstr "导出我的学习数据"
+
+msgid "Download your vocabulary and practice records as an encrypted ZIP: Anki-importable word cards, machine-readable JSON/CSV and a readable review report. Audio is not included."
+msgstr "把你的词汇与练习记录打包成加密 ZIP 下载：内含可导入 Anki 的单词卡、机器可读的 JSON/CSV 和一份可读的回顾报告。不包含音频。"
+
+msgid "ZIP password"
+msgstr "ZIP 解压密码"
+
+msgid "At least 6 characters"
+msgstr "至少 6 个字符"
+
+msgid "Repeat password"
+msgstr "再次输入密码"
+
+msgid "The password is used only to encrypt the file. It is never stored — if you forget it, export again."
+msgstr "密码只用于加密文件，系统不会保存；忘记密码只能重新导出。"
+
+msgid "Create export"
+msgstr "生成导出"
+
+msgid "Not encrypted"
+msgstr "未加密"
+
+msgid "Leave the password empty to get an unencrypted ZIP — anyone who gets the file can open it. The password is never stored; if you forget it, export again."
+msgstr "不设密码则导出不加密的 ZIP——任何拿到文件的人都能打开。密码只用于加密文件、系统不保存；忘记密码只能重新导出。"

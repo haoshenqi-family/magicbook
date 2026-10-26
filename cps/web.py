@@ -22,6 +22,7 @@ import os
 import json
 import re
 import threading
+import time
 import uuid
 import mimetypes
 import chardet  # dependency of requests
@@ -56,6 +57,7 @@ from .helper import check_valid_domain, check_email, check_username, \
     edit_book_read_status, valid_password
 from .pagination import Pagination
 from .redirect import get_redirect_location
+from .landing import landing_endpoint
 from .cw_babel import get_available_locale, get_available_translations
 from .usermanagement import login_required_if_no_ano
 from .kobo_sync_status import remove_synced_book
@@ -137,16 +139,18 @@ def add_security_headers(resp):
         # 后端同一份，过渡期两源并列）。
         csp += ("; media-src 'self' blob: https://dict.youdao.com"
                 " " + " ".join(MINIO_PUBLIC_ORIGINS))
+    elif request.endpoint == "web.learning_speaking_page":
+        # 口语陪练把 TTS 与用户录音经 fetch 转成 Blob URL 后交给 Audio 播放。
+        # media-src 未显式声明时会回退到不含 blob: 的 default-src，浏览器将
+        # 拦截播放；这里只放行同源与 blob，不携带阅读页的有道 / MinIO 外源。
+        csp += "; media-src 'self' blob:"
     csp += "; img-src 'self'"
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"
     csp += " data:"
-    # 伙伴头像（R206）是 moon-well 下发的 MinIO 匿名直读直链，浏览器跨源取图；未放行时
-    # <img> 被 img-src 拦，而 ai_chat.js 用 new Image() 预载探测——失败即静默保留「AI」
-    # 文字兜底，故障在页面上不可见，故必须显式放行（同 R181 media-src 的踩坑口径）。
-    # 沿用其窄面做法：只在悬浮按钮真正出现的阅读页与 /buddy 花名册页放行。
-    if request.endpoint in ("web.read_book", "web.buddy_page"):
-        csp += " " + " ".join(MINIO_PUBLIC_ORIGINS)
+    # 伙伴头像（R206）原走 moon-well 下发的 MinIO 直链，img-src 曾按 HTML 页放行；
+    # R220 验收发现个别浏览器扩展会拦跨站图片子资源（ERR_BLOCKED_BY_CLIENT），
+    # 前端已全部改走同源代理 /ajax/buddy/image，img-src 收窄回 'self' + data:。
     if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
         csp += " *"
     if request.endpoint == "web.read_book":
@@ -452,7 +456,7 @@ def _b1_payload(allowed, required=()):
                 return None
             cleaned[key] = value
             continue
-        if key == "addUnknown":
+        if key in ("addUnknown", "voice"):
             if not isinstance(value, bool):
                 return None
             cleaned[key] = value
@@ -871,11 +875,47 @@ def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
                                   bearer_token=bearer_token)
 
 
+# R214 C：整本任务代价面板的费率缓存（LLD §5.3）。
+# Why 5 分钟：面板切三个 tab 会连拉三次估算，费率是 Nacos 热调常量却要跨公网一次；
+# 单一真源留在 moon-well（R207），本仓不镜像常量——镜像必然漂移。
+_CREDIT_BILLING_TTL_SECONDS = 300
+_credit_billing_cache = {"fetched_at": 0.0, "rates": None}
+
+
+def _credit_billing_rates():
+    """取 moon-well /credit/billing 的费率；不可用回 None（面板据此显「费率暂不可得」）。"""
+    now = time.time()
+    if (_credit_billing_cache["rates"] is not None
+            and now - _credit_billing_cache["fetched_at"] < _CREDIT_BILLING_TTL_SECONDS):
+        return _credit_billing_cache["rates"]
+    response = _moonwell_proxy("/credit/billing", None, 10, "credit billing", method="GET")
+    if not isinstance(response, tuple) or len(response) < 2:
+        return None
+    body, status = response[0], response[1]
+    if status < 200 or status >= 300:
+        log.warning("credit billing unavailable: HTTP %s", status)
+        return None
+    try:
+        data = json.loads(body)
+    except (TypeError, ValueError):
+        log.warning("credit billing returned unreadable response")
+        return None
+    rates = data.get("result") if isinstance(data, dict) else None
+    if not isinstance(rates, dict):
+        return None
+    _credit_billing_cache["rates"] = rates
+    _credit_billing_cache["fetched_at"] = now
+    return rates
+
+
 def _moonwell_refresh_session_token():
     return _moonwell_client.refresh_session_token()
 
 
-def _moonwell_multipart(path, file_bytes, filename, timeout, label):
+def _moonwell_multipart(path, file_bytes, filename, timeout, label, fields=None):
+    if fields:
+        return _moonwell_client.multipart(path, file_bytes, filename, timeout, label,
+                                          fields=fields)
     return _moonwell_client.multipart(path, file_bytes, filename, timeout, label)
 
 
@@ -2142,7 +2182,7 @@ def register():
     if not config.config_public_reg:
         abort(404)
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if not config.get_mail_server_configured():
         flash(_("Oops! Email server is not configured, please contact your administrator."), category="error")
         return render_title_template('register.html', title=_("Register"), page="register")
@@ -2155,25 +2195,44 @@ def handle_login_user(user, remember, message, category):
     login_user(user, remember=remember)
     flash(message, category=category)
     [limiter.limiter.clear(limit.limit, *limit.request_args) for limit in limiter.current_limits]
-    return redirect(get_redirect_location(request.form.get('next', None), "web.index"))
+    # R213-C：表单没带 next 时落到站点配置的默认落点（/home 或原 / 发现页）
+    return redirect(get_redirect_location(request.form.get('next', None), landing_endpoint()))
 
 
 def render_login(username="", password=""):
-    next_url = request.args.get('next', default=url_for("web.index"), type=str)
+    next_url = request.args.get('next', default=url_for(landing_endpoint()), type=str)
     if url_for("web.logout") == next_url:
-        next_url = url_for("web.index")
+        next_url = url_for(landing_endpoint())
     oidc_enabled = current_app.config.get("AUTHENTIK_OIDC_ENABLED", False)
     # 邀请制注册入口：链接由 .env 的 AUTHENTIK_ENROLLMENT_INVITE_URL 注入（Authentik
     # 邀请默认 30 天过期，轮换时只改环境变量并重启，不动代码）；未配置则不渲染
     invite_url = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
+    # R217：注册按钮改为指向 magicbook 侧的 /oidc/signup —— 它把「邀请注册」与
+    # 「OIDC 授权」串成一条链，用户注册完自动回站且已是登录态（不再需要二次点击）。
+    # 仍以 invite_url 是否配置为开关：未配置 → 不渲染注册入口（沿用 R103 语义）。
+    signup_url = url_for("oidc.signup", next=next_url) if invite_url else ""
+    # R212：游客先看到「这里有什么」，再看登录表单。复用首页随机发现的
+    # common_filters（归档/受限书不会漏出）；书库未配置或查询失败时安静隐藏书墙，
+    # 不用一张灰图占住登录入口。关闭匿名浏览时不取书：封面端点会重定向登录，
+    # 提前取数既会产生破图，也会在未授权页面泄露书名。
+    login_books = []
+    if config.config_anonbrowse:
+        try:
+            from .routes.home import random_discover_books
+
+            login_books = random_discover_books(limit=4)
+        except Exception as exc:
+            log.warning("login: book wall unavailable: %s", exc)
     return render_title_template('login.html',
                                  title=_("Login"),
                                  next_url=next_url,
                                  username=username,
                                  password=password,
+                                 login_books=login_books,
                                  oauth_check=oauth_check,
                                  authentik_oidc_enabled=oidc_enabled,
                                  authentik_invite_url=invite_url,
+                                 authentik_signup_url=signup_url,
                                  # 统一账户体系：Authentik 启用时隐藏本地密码表单，仅保留 OIDC 登录
                                  hide_local_login=oidc_enabled,
                                  mail=config.get_mail_server_configured(), page="login")
@@ -2182,7 +2241,7 @@ def render_login(username="", password=""):
 @web.route('/login', methods=['GET'])
 def login():
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
         log.error(u"Cannot activate LDAP authentication")
         flash(_(u"Cannot activate LDAP authentication"), category="error")
@@ -2196,7 +2255,7 @@ def login_post():
     form = request.form.to_dict()
     username = strip_whitespaces(form.get('username', "")).lower().replace("\n","").replace("\r","")
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
         log.error(u"Cannot activate LDAP authentication")
         flash(_(u"Cannot activate LDAP authentication"), category="error")
@@ -2320,19 +2379,27 @@ def profile():
 def update_preferences():
     """只更新界面语言与书籍语言，不触碰其他用户字段（R216）。"""
     locale = request.form.get("locale", current_user.locale or "en")
-    book_language = request.form.get("default_language", current_user.default_language or "all")
 
     if locale not in get_available_translations():
         flash(_("Invalid language"), category="error")
         return redirect(url_for("web.profile"))
-    valid_book_languages = {lang.lang_code for lang in calibre_db.speaking_language()}
-    if book_language != "all" and book_language not in valid_book_languages:
-        flash(_("Invalid language"), category="error")
-        return redirect(url_for("web.profile"))
+
+    # R212 顶栏语言菜单只提交 locale。`default_language` 是 /me 表单的书籍
+    # 过滤条件，不能因为顶栏没有提交它就被重置；只有字段显式出现时才校验并
+    # 更新。这样即使账号里保留的语言已从书库消失，切换界面语言仍可成功。
+    update_book_language = "default_language" in request.form
+    book_language = None
+    if update_book_language:
+        book_language = request.form.get("default_language")
+        valid_book_languages = {lang.lang_code for lang in calibre_db.speaking_language()}
+        if book_language != "all" and book_language not in valid_book_languages:
+            flash(_("Invalid language"), category="error")
+            return redirect(url_for("web.profile"))
 
     try:
         current_user.locale = locale
-        current_user.default_language = book_language
+        if update_book_language:
+            current_user.default_language = book_language
         ub.session.commit()
         flash(_("Success! Profile Updated"), category="success")
         log.debug("Preferences updated")
@@ -2427,7 +2494,7 @@ def read_book(book_id, book_format):
                                                              ub.Bookmark.format == book_format.upper())).first()
     # 账号级阅读位置（R213-B）：EPUB 恢复位置用；服务端优先于浏览器 localStorage
     reading_position = None
-    if current_user.is_authenticated:
+    if current_user.is_authenticated and config.config_reading_progress_enabled:
         progress = ub.session.query(ub.ReadingProgress).filter(
             ub.ReadingProgress.user_id == int(current_user.id),
             ub.ReadingProgress.book_id == book_id,
@@ -2439,18 +2506,22 @@ def read_book(book_id, book_format):
                 "page_current": progress.page_current,
                 "page_total": progress.page_total,
             }
+    progress_enabled = bool(config.config_reading_progress_enabled)
     if book_format.lower() == "epub" or book_format.lower() == "kepub":
         log.debug("Start [k]epub reader for %d", book_id)
         return render_title_template('read.html', bookid=book_id, title=book.title, bookmark=bookmark,
-                                     book_format=book_format, reading_position=reading_position)
+                                     book_format=book_format, reading_position=reading_position,
+                                     reading_progress_enabled=progress_enabled)
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
         return render_title_template('readpdf.html', pdffile=book_id, title=book.title,
-                                     reading_position=reading_position)
+                                     reading_position=reading_position,
+                                     reading_progress_enabled=progress_enabled)
     elif book_format.lower() == "txt":
         log.debug("Start txt reader for %d", book_id)
         return render_title_template('readtxt.html', txtfile=book_id, title=book.title,
-                                     reading_position=reading_position)
+                                     reading_position=reading_position,
+                                     reading_progress_enabled=progress_enabled)
     elif book_format.lower() in ["djvu", "djv"]:
         log.debug("Start djvu reader for %d", book_id)
         return render_title_template('readdjvu.html', djvufile=book_id, title=book.title,
@@ -2576,6 +2647,17 @@ def show_book(book_id):
                         ai_summary["generatedAt"]).strftime("%Y-%m-%d")
             except Exception as error:
                 entry.insight_error = str(error)
+
+        # R214 C：三种整本链路的活跃批次快照（LLD §7.5）——页面直接进进度态，
+        # 不再显示「开始」按一个已经在跑的批次。查询失败只让快照为空，不拦详情页。
+        # 仅管理员查：整本能力本就是 admin 专属，非管理员多查三张表没有收益。
+        entry.whole_book_active = {}
+        if current_user.role_admin() and entry.insight_format:
+            try:
+                from cps.reading_insight.service import active_jobs
+                entry.whole_book_active = active_jobs(book_id, entry.insight_format)
+            except Exception as error:
+                log.warning("whole-book active job lookup failed for book %s: %s", book_id, error)
 
         return render_title_template('detail.html',
                                      entry=entry,

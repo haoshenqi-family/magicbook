@@ -282,28 +282,30 @@ body.onboarding-active.onb-step-ai #ai-companion-fab {
   cursor: pointer;
 }
 
-/* ---------------- 阅读器常驻「?」入口 ---------------- */
+/* ---------------- 阅读器常驻导览入口 ---------------- */
 
 #onb-help {
   position: fixed;
   right: 16px;
   left: auto;
-  /* R215：原本 left:16/bottom:16 与左下页码（left:12/bottom:2）撞位；
-     移到 FAB 上方，并在任一侧栏打开时让位 */
+  /* R226：原先只有一枚圆形「?」，在阅读器里像无归属的幽灵浮层。
+     改为带明确「使用引导」文案的胶囊按钮，仍放在 FAB 上方。 */
   bottom: 88px;
   z-index: 2147483640;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+  width: auto;
+  min-width: 0;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
   border: 1px solid var(--onb-card-border);
   background: var(--onb-card-bg);
   color: var(--onb-fg-muted);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
-  opacity: .78;
+  opacity: .9;
 }
 
 #onb-help:hover {

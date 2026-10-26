@@ -61,11 +61,42 @@ def test_read_entry_dropdown_also_unadmin_gated():
     assert not any("role_admin" in g for g in gates)
 
 
-def test_whole_book_buttons_admin_gated():
-    """三个整本入口保持管理员专属（R214 拍板①）。"""
-    for marker in ('id="whole-book-translate"', 'id="whole-book-tts"', "url_for('web.word_detail_batch_page'"):
-        gates = _enclosing_conditions(_read(), marker)
-        assert any("role_admin" in g for g in gates), "{0} 丢了 admin 门禁".format(marker)
+def test_whole_book_entry_admin_gated():
+    """整本入口（C 轮合并为单个「整本任务」按钮）仍只给管理员（R214 拍板①）。
+
+    反向变异：把按钮挪出 role_admin 块 → 外层条件里没有 role_admin → 报红。
+    """
+    gates = _enclosing_conditions(_read(), 'id="whole-book-panel-open"')
+    assert any("role_admin" in g for g in gates), \
+        "整本任务按钮不在 role_admin 门禁内: {0}".format(gates)
+
+
+PANEL = os.path.join(ROOT, "cps", "templates", "partials", "whole_book_panel.html")
+
+
+def _read_panel():
+    with open(PANEL, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def test_whole_book_panel_has_three_kinds():
+    """面板三 tab 齐全（翻译/朗读/详解），且 partial 真的被详情页引入。"""
+    panel = _read_panel()
+    for kind in ("translate", "tts", "wordDetail"):
+        assert 'data-kind="%s"' % kind in panel, "面板缺 {0} tab".format(kind)
+    assert "whole_book_panel.html" in _read(), "detail.html 没 include 面板"
+
+
+def test_legacy_whole_book_buttons_are_gone():
+    """旧的三个并列按钮不许回来：它们是「点一下就下单」的形态，面板存在的理由就是替代它。"""
+    src = _read()
+    for marker in ('id="whole-book-translate"', 'id="whole-book-tts"'):
+        assert marker not in src, "{0} 复活了".format(marker)
+
+
+def test_panel_promises_no_original_mutation():
+    """「不修改原书文件」是拍板口径，面板上必须看得见——不许只在后端返回值里。"""
+    assert "不修改原书文件" in _read_panel()
 
 
 def test_old_combined_gate_is_gone():
@@ -284,3 +315,124 @@ def test_details_modal_fail_branch_releases_prefilter():
     """失败分支必须同样摘掉 useCache preFilter，否则它永久挂在 jQuery 上。"""
     handler = _details_modal_handler()
     assert handler.count("preFilters.remove(useCache)") == 2, "成功/失败两条路径各摘一次"
+
+
+def test_panel_template_compiles_and_endpoints_exist(app):
+    """面板模板能编译 + 所有 url_for 端点真实存在。
+
+    Why 单独一条：include/url_for 写错 endpoint 不会在导入时报错，只在用户点开面板那一
+    刻 500——详情页其余部分照常渲染，最容易被验收漏掉。
+    """
+    from flask import url_for
+
+    with app.test_request_context("/book/1"):
+        app.jinja_env.get_template("partials/whole_book_panel.html")
+        for endpoint in ("web.whole_book_estimate",
+                         "web.reading_translate_book",
+                         "web.reading_translate_book_status",
+                         "web.reading_tts_book_start",
+                         "web.reading_tts_book_status",
+                         "web.reading_word_detail_progress"):
+            assert url_for(endpoint), endpoint
+        assert url_for("web.word_detail_batch_page", book_id=1, book_format="epub")
+
+
+def test_estimate_endpoint_is_admin_gated_and_read_only():
+    """估算端点：admin 门禁 + 只读（不出现 start/publish 调用）。
+
+    Why 钉源码：estimate 一旦顺手调了 start，面板就从「报价」变成「下单」。
+    """
+    path = os.path.join(ROOT, "cps", "routes", "book_detail.py")
+    with open(path, encoding="utf-8") as fh:
+        src = fh.read()
+    start = src.index("def whole_book_estimate(")
+    body = src[start:src.index("@web.route", start) if "@web.route" in src[start:] else len(src)]
+    assert '_llm_task_admin_gate()' in body
+    for forbidden in ("_start(", "publish(", ".start("):
+        assert forbidden not in body, "估算端点出现了写操作: {0}".format(forbidden)
+
+
+def test_panel_renders_for_a_real_entry(app):
+    """真渲染一次：tojson / data-* 文案 / csrf 属性任一处写错，详情页就是 500。
+
+    Why 不满足于「模板能编译」：Jinja 编译期看不到 `entry.whole_book_active` 的形态、
+    也看不到 `|tojson` 在无该属性时静默输出 undefined——渲染一次才拦得住。
+    """
+    from flask import render_template
+
+    class _Entry(object):
+        id = 337
+        reader_list = ["epub"]
+        whole_book_active = {"translate": {"jobId": "j1", "status": "RUNNING",
+                                           "total": 10, "done": 4}}
+
+    with app.test_request_context("/book/337"):
+        html = render_template("partials/whole_book_panel.html", entry=_Entry())
+
+    assert "整本任务" in html
+    assert 'id="whole-book-panel-open"' not in html      # 入口按钮在 detail.html，不在 partial
+    assert "whole-book-active" in html
+    assert "j1" in html, "活跃批次 JSON 没渲染出来"
+    assert "不修改原书文件" in html
+
+
+PANEL_JS = os.path.join(ROOT, "cps", "static", "js", "whole-book-panel.js")
+
+
+def _read_panel_js():
+    with open(PANEL_JS, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def test_entry_button_does_not_use_bootstrap_data_api():
+    """入口按钮自己绑定事件，不再用 data-toggle / data-target。
+
+    Why：data-api 靠选择器找目标，找不到就静默空转；验收现场的实际形态是「点整本任务，
+    整页被套进另一个弹层」。反向变异：把 data-toggle="modal" 加回去 → 报红。
+    """
+    src = _read()
+    idx = src.index('id="whole-book-panel-open"')
+    # 只截这一个标签（往后遇到 ">" 即止）：400 字窗口会吃进下一个按钮的 data-toggle="dropdown"
+    snippet = src[src.rindex("<button", 0, idx):src.index(">", idx) + 1]
+    assert "data-toggle" not in snippet, "入口按钮又退回 data-api 了"
+    assert "data-target" not in snippet, "入口按钮又退回 data-api 了"
+
+
+def test_entry_button_hidden_in_xhr_fragment():
+    """XHR 片段里不下发面板骨架，入口按钮必须一起收掉（靠 is_xhr 门禁）。"""
+    gates = _enclosing_conditions(_read(), 'id="whole-book-panel-open"')
+    assert any("is_xhr" in g for g in gates), \
+        "书卡弹层（XHR 片段）里仍会渲染整本任务按钮: {0}".format(gates)
+
+
+def test_panel_open_is_bound_explicitly():
+    """JS 里显式绑定入口按钮并阻止默认行为（含 preventDefault / stopPropagation）。"""
+    js = _read_panel_js()
+    assert "$('#whole-book-panel-open').on('click'" in js
+    assert "preventDefault" in js
+    assert "stopPropagation" in js
+
+
+def test_start_label_keys_are_lowercase():
+    """`start-<kind>` 文案键必须全小写：HTML 属性名会被解析器小写化。
+
+    反向变异：把 JS 里的 toLowerCase() 去掉 → 详解 tab 的按钮文案变空（验收实测）。
+    """
+    panel = _read_panel()
+    assert 'data-t-start-worddetail=' in panel
+    assert 'data-t-start-wordDetail=' not in panel, "属性名带大写，解析后取不到"
+    assert "toLowerCase()" in _read_panel_js()
+
+
+def test_estimate_route_reports_instead_of_bare_500():
+    """估算路由必须有兜底：落 traceback 并把异常类型回给前端。
+
+    Why：面板拿到裸 500 只会显示「估算失败：500 」，管理员无从判断是解析失败还是库挂了。
+    """
+    path = os.path.join(ROOT, "cps", "routes", "book_detail.py")
+    with open(path, encoding="utf-8") as fh:
+        src = fh.read()
+    body = src[src.index("def whole_book_estimate("):]
+    assert "except Exception as error" in body
+    assert "traceback.format_exc()" in body
+    assert "type(error).__name__" in body

@@ -1,9 +1,11 @@
 # ========== Stage 1: 构建依赖层 ==========
 FROM python:3.11-slim-bookworm AS builder
 
-# 使用阿里云 PyPI 镜像加速
-RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ \
-    && pip config set global.trusted-host mirrors.aliyun.com
+# 使用阿里云 PyPI 镜像加速（R231：去掉 `global.trusted-host`——它会让 pip 对该 host 跳过
+# 证书链与主机名校验，构建路径上的中间人即可随意下发 wheel。镜像本身 HTTPS 证书正常，
+# 实测 `curl https://mirrors.aliyun.com/pypi/simple/` 的 ssl_verify_result=0、HTTP 200，
+# 所以这行没有任何收益。将来若真报证书错，应修证书/代理，别再关校验。）
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
 
 # 安装编译依赖（某些 Python 包需要编译）
 RUN apt-get update && apt-get install -y --no-install-recommends \

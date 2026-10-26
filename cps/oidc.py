@@ -2,7 +2,7 @@ import base64
 import json
 import os
 import requests
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urlencode, urljoin, urlsplit, urlunsplit
 
 from authlib.integrations.flask_client import OAuth
 from authlib.integrations.flask_client.apps import FlaskOAuth2App
@@ -15,6 +15,9 @@ from joserfc.jws import JWSRegistry
 from sqlalchemy import func
 from . import ub, log, constants
 from .cw_login import login_user
+from .landing import landing_endpoint
+from .redirect import get_redirect_location
+from .cw_babel import get_available_translations
 
 
 class AuthentikOAuth2App(FlaskOAuth2App):
@@ -91,14 +94,18 @@ def site_default_role():
     Why：2026-10-23 用户拍板「默认都是普通用户，管理员用户由我手动赋予」——
         自助注册链路上不再存在任何自动提权路径，管理员只能由人在管理后台
         逐个赋予。因此即便站点默认角色被勾上管理员位，这里也强制剔除。
+    R225：在线阅读是产品基础能力，任何新账号都必须有 ROLE_VIEWER；
+        下载仍是独立权限，不用阅读修复顺带放开。
     How：oidc.py 与 cps/__init__ 存在循环导入风险（config 单例在包初始化后段
-        才创建），故延迟导入；配置未初始化（None）时按最小权限 0
-        （＝普通读者，不含任何角色位）返回。
+        才创建），故延迟导入；配置未初始化（None）时仍返回阅读权限。
     """
     from . import config
 
     role = getattr(config, "config_default_role", None)
     role = 0 if role is None else int(role)
+    # R225: 在线阅读是本产品的基础能力，不接受“新用户默认角色”把它关掉。
+    # 下载仍是独立权限位，不能借阅读修复顺手放开。
+    role |= constants.ROLE_VIEWER
     if constants.has_flag(role, constants.ROLE_ADMIN):
         role &= ~constants.ROLE_ADMIN
         log.warning("站点默认角色含管理员位，已剔除：OIDC 自助注册一律为普通用户，"
@@ -111,9 +118,75 @@ def resolve_new_user_role():
 
     旧实现在建号处写死 ``constants.ADMIN_USER_ROLES``（含 ``ROLE_ADMIN``），
     任何拿到公开邀请链接的人首次登录即成为超管。现在统一走站点默认角色，
-    且该角色已被 ``site_default_role()`` 剔除管理员位。
+    且该角色已被 ``site_default_role()`` 剔除管理员位，并补齐基础阅读位。
     """
     return site_default_role()
+
+
+def _normalize_locale(value):
+    """把 OIDC claim / Accept-Language 归一成本站实际存在的 gettext locale。
+
+    Why：Authentik 常见 claim 是 ``zh-CN`` 或 ``zh-Hans-CN``，而本站翻译目录
+    与 ``user.locale`` 使用的是 ``zh_Hans_CN``。直接落库会让 Babel 找不到翻译，
+    界面静默退回英文；直接接受任意 claim 又可能写入不存在的目录。
+    How：先按 Babel 规范化，再以完整 locale → 语言+地区 → 语言+文字 → 语言
+    逐级回退。只接受 ``cps/translations`` 里真实存在的 locale，失败返回 None。
+    """
+    from babel import Locale
+    from babel.core import UnknownLocaleError
+
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        locale = Locale.parse(raw.replace("-", "_"))
+    except (UnknownLocaleError, ValueError):
+        return None
+
+    candidates = []
+    if locale.language and locale.script and locale.territory:
+        candidates.append("{0}_{1}_{2}".format(
+            locale.language, locale.script, locale.territory))
+    if locale.language and locale.territory:
+        candidates.append("{0}_{1}".format(locale.language, locale.territory))
+    if locale.language and locale.script:
+        candidates.append("{0}_{1}".format(locale.language, locale.script))
+    if locale.language:
+        candidates.append(locale.language)
+    try:
+        available = get_available_translations()
+    except (RuntimeError, KeyError):
+        # 纯函数层（无 app 上下文）不依赖 Flask-Babel；生产请求内会在下面
+        # 按真实翻译目录过滤，避免写入不存在的 locale。
+        return candidates[0] if candidates else None
+    for candidate in candidates:
+        if candidate in available:
+            return candidate
+    return None
+
+
+def new_user_locale(claims):
+    """新账号初始 locale：Authentik locale claim > Accept-Language > 站点默认值。
+
+    Why 只用于新建账号：已有账号的语言是用户显式偏好，不能在每次 OIDC 登录时
+    被浏览器头覆盖。Accept-Language 使用 Werkzeug 的 quality 排序结果，避免自己
+    解析 q 值；claim 不允许时继续看浏览器，而不是强行写英文。
+    """
+    from . import config
+
+    claim_locale = _normalize_locale((claims or {}).get("locale"))
+    if claim_locale:
+        return claim_locale
+
+    preferred = []
+    for value in request.accept_languages.values():
+        normalized = _normalize_locale(value)
+        if normalized and normalized not in preferred:
+            preferred.append(normalized)
+    if preferred:
+        return preferred[0]
+
+    return _normalize_locale(getattr(config, "config_default_locale", None)) or "en"
 
 
 def init_oidc(app):
@@ -141,8 +214,118 @@ def login():
         flash("Authentik OIDC is not configured", "error")
         return redirect(url_for("web.login"))
     redirect_uri = os.getenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI") or url_for("oidc.callback", _external=True)
-    session["oidc_next"] = request.args.get("next") or url_for("web.index")
+    # R213-C：登录入口没带 next 时落站点默认落点（/home 或原 / 发现页）；
+    # 这里存的是完整 URL，callback 直接 302，故用 url_for 而非 endpoint 名。
+    session["oidc_next"] = request.args.get("next") or url_for(landing_endpoint())
     return oauth.authentik.authorize_redirect(redirect_uri)
+
+
+def _invite_token():
+    """从 ``AUTHENTIK_ENROLLMENT_INVITE_URL`` 解析出邀请 token（itoken）。
+
+    Why：沿用既有配置而不新增 env 变量——避免「invite URL 与 invite token 两份
+        配置各自漂移」，轮换时仍只改一个地方。2026-10-25 R225 现网实测：
+        Authentik 2025.10.2 的 ``FlowsApi.flowsExecutorGet`` 把浏览器原始
+        ``window.location.search`` 整体作为 API 的 ``query`` 入参。若 magicbook
+        再套一层 ``?query=itoken%3D...``，API 收到的是 ``query=query%3D...``，
+        会无限 302；顶层 ``?itoken=<uuid>`` 才能正常返回注册首步。
+    How：优先解析顶层 ``itoken`` / ``token``；同时兼容历史嵌套
+        ``?query=itoken%3D<uuid>`` 的存量 env，避免升级瞬间关闭注册入口。
+        解析不出返回 None（调用方据此关闭注册入口，不静默跳坏链接）。
+    """
+    raw = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
+    if not raw:
+        return None
+
+    outer_query = parse_qs(urlsplit(raw).query, keep_blank_values=True)
+    for key in ("itoken", "token"):
+        value = (outer_query.get(key) or [""])[0].strip()
+        if value:
+            return value
+
+    # 向后兼容历史嵌套形态；新链接不再生成这一层。
+    nested_queries = outer_query.get("query") or []
+    for nested_query in nested_queries:
+        nested = parse_qs(nested_query, keep_blank_values=True)
+        for key in ("itoken", "token"):
+            value = (nested.get(key) or [""])[0].strip()
+            if value:
+                return value
+    return None
+
+
+def _signup_authorize_target(redirect_uri):
+    """构造「注册完成后回 magicbook」的 OIDC 授权跳转目标（Authentik 同域相对路径）。
+
+    Why：Authentik 的 flow 结束时从 session 取 ``next`` 跳走，而 ``next``
+        **只接受相对路径**（``executor._flow_done()`` 用 ``is_url_absolute()``
+        判定，带 netloc 会被拒为 "Invalid next URL"）。因此不能把
+        ``https://magicbook.haoshenqi.top/oidc/callback`` 直接塞进 next。
+        办法是让 next 指向 **Authentik 自己的授权端点**——它与 flow 同域，
+        可写成相对路径 ``/application/o/authorize/?...``。Authentik 此时已由
+        邀请 flow 末位的 UserLoginStage 建立登录态，会静默签发 code 并 302 回
+        magicbook 的 redirect_uri。magicbook 侧的 callback() 逻辑完全复用，
+        建号/绑号/角色判定不分叉。
+    How：authlib 生成授权 URL（含 state/nonce/PKCE）→ 剥掉 scheme+host 只留
+        path+query → 作为 next。state 等参数由 authlib 写入 Flask session，
+        与既有 /oidc/login 路径完全一致。
+    """
+    rv = oauth.authentik.create_authorization_url(redirect_uri)
+    # authlib 把 state/nonce/code_verifier 存入 session，回调时凭 state 取回
+    oauth.authentik.save_authorize_data(redirect_uri=redirect_uri, **rv)
+    parts = urlsplit(rv["url"])
+    if parts.scheme or parts.netloc:
+        # 同域相对路径：Authentik 的 next 硬约束要求不能带 netloc
+        return urlunsplit(("", "", parts.path, parts.query, ""))
+    return rv["url"]
+
+
+@oidc.get("/signup")
+def signup():
+    """注册入口：把 Authentik 邀请注册 flow 与 OIDC 授权串成一条链。
+
+    Why：R103 起注册按钮直连邀请 flow（``target="_blank``），用户注册完停在
+        Authentik 侧，必须切回 magicbook 再点一次「Log in」——注册与登录断开。
+        本端点把两者串起来：先在 magicbook 侧生成 OIDC 授权 URL（state 存
+        session），再把它作为 ``next`` 挂在邀请 flow 后面；用户在 Authentik
+        完成注册后，flow 直接跳到授权端点静默签发 code，回到 magicbook 时
+        **已经是登录态**，无需二次点击。
+    How：授权 URL 的 path+query 作为 next（相对路径，见
+        ``_signup_authorize_target``）；itoken 从既有 env 解析；用户指定的
+        「注册完回哪个页面」走 ``get_redirect_location`` 做站内校验。
+    """
+    if not current_app.config.get("AUTHENTIK_OIDC_ENABLED"):
+        flash("Authentik OIDC is not configured", "error")
+        return redirect(url_for("web.login"))
+
+    invite_token = _invite_token()
+    if not invite_token:
+        flash("Registration is temporarily unavailable", "error")
+        return redirect(url_for("web.login"))
+
+    redirect_uri = os.getenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI") or url_for("oidc.callback", _external=True)
+    try:
+        target = _signup_authorize_target(redirect_uri)
+    except Exception as exc:
+        log.error("OIDC signup: failed to build authorization URL: %s", exc)
+        flash("Registration is temporarily unavailable", "error")
+        return redirect(url_for("web.login"))
+
+    # 注册完成后回到 magicbook 的哪个页面（只允许站内相对路径）
+    # R213-C：默认落点跟随站点配置（/home 或原 / 发现页），不再写死 web.index——
+    # 否则「注册即登录」会与本地登录落点不一致（新用户注册完被扔回老首页）。
+    session["oidc_next"] = get_redirect_location(request.args.get("next"), landing_endpoint())
+
+    invite_base = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
+    parts = urlsplit(invite_base)
+    flow_path = parts.path or "/if/flow/invitation-enrollment/"
+    # R225: 顶层参数才是 Authentik 2025.10.2 接受的形态。邀请 flow 在
+    # executor 初始化时读取 itoken，并把它与 next 写入 flow session；再套一层
+    # ``query=`` 会让 API 收到的 query 变成 ``query=query%3D...``（无限 302）。
+    flow_query = urlencode({"itoken": invite_token, "next": target})
+    signup_url = urlunsplit((parts.scheme, parts.netloc, flow_path, flow_query, ""))
+    log.info("OIDC signup: redirect to invitation enrollment flow (flow=%s)", flow_path)
+    return redirect(signup_url)
 
 
 @oidc.get("/callback")
@@ -169,7 +352,8 @@ def callback():
             # R211：自助注册不再继承管理员权限——一律站点默认角色（已剔除管理员位），
             # 管理员由人在管理后台手动赋予（2026-10-23 用户拍板）。
             user = ub.User(name=username, email=email,
-                          role=resolve_new_user_role())
+                          role=resolve_new_user_role(),
+                          locale=new_user_locale(userinfo))
             ub.session.add(user)
         user.oidc_issuer = issuer
         user.oidc_subject = subject
@@ -198,4 +382,5 @@ def callback():
         except Exception as exc:
             log.warning("moon-well token exchange error: %s", exc)
 
-    return redirect(session.pop("oidc_next", url_for("web.index")))
+    # R213-C：oidc_next 丢失时也走站点默认落点（同样受 config_home_landing 控制）
+    return redirect(session.pop("oidc_next", url_for(landing_endpoint())))

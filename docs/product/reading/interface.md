@@ -52,7 +52,7 @@ TED/博客类书的内容是**一段连续原声**（`ted-audio/<slug>.aac`）�
 
 | magicbook 端点 | 上游 | 说明 |
 | --- | --- | --- |
-| `POST /ajax/reading-progress` | **无（本仓 app.db）** | 账号级阅读位置（R213 / MB-17）：`{book_id, format, position, percent, page_current, page_total}` → `{success, percent, last_read_at}`；按 `(user_id, book_id, book_format)` upsert，`percent` 夹取到 0–100，`page_current` 不得超过 `page_total`。**唯一不代理 moon-well 的 reading 端点**——位置是阅读器自身状态，读写都在本进程 |
+| `POST /ajax/reading-progress` | **无（本仓 app.db）** | 账号级阅读位置（R213 / MB-17）：`{book_id, format, position, percent, page_current, page_total}` → `{success, percent, last_read_at}`；按 `(user_id, book_id, book_format)` upsert，`percent` 夹取到 0–100，`page_current` 不得超过 `page_total`。总开关 `config_reading_progress_enabled=false` 时返回 `{success: true, disabled: true}` 且不写任何阅读表。**唯一不代理 moon-well 的 reading 端点**——位置是阅读器自身状态，读写都在本进程 |
 | 阅读位置恢复 | 同上表 | 阅读器进入时优先级：`reading_progress.position`（账户级，跨设备）→ 浏览器 localStorage（本机兜底）→ 书首 |
 | Kobo 同步位置 | Kobo 通道自有 | `KoboReadingState.current_bookmark`（`progress_percent` / `content_source_progress_percent`），由 `cps/kobo.py` 读写；**网页端不写它**，两套位置互不覆盖 |
 

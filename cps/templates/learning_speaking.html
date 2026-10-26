@@ -24,27 +24,32 @@
         </select>
         <input id="sw-s-book" class="form-control" style="width:200px"
                placeholder="{{_('Book title (optional)')}}">
-        <label class="sw-tts-toggle"><input type="checkbox" id="sw-s-tts" checked>
-          {{_('Read coach replies aloud')}}</label>
         <button type="button" id="sw-s-start" class="btn btn-primary">{{_('Start conversation')}}</button>
       </div>
-      <p class="text-muted sw-hint sw-mic-hint">{{_('Voice input: click the mic, speak, then click again — the transcript fills the input box for you to review before sending. First use asks for microphone permission.')}}</p>
+      <p class="text-muted sw-hint sw-mic-hint">{{_('Voice-first practice: the coach starts speaking and replies with voice. Tap "Show text" to read a message. For your turn, tap the mic to record, stop to transcribe, review the text, then send. First use asks for microphone permission.')}}</p>
     </div>
   </div>
 
   <div class="panel panel-default" id="sw-s-chat-panel" hidden>
     <div class="panel-body">
       <div id="sw-s-chat" class="sw-chat"></div>
-      <div class="sw-gap">
-        <input id="sw-s-input" class="form-control sw-chat-input"
-               placeholder="{{_('Type what you would say, in English')}}">
-        <select id="sw-s-mic-device" class="form-control sw-mic-device" style="max-width:240px"
-                title="{{_('Microphone device')}}"></select>
-        <button type="button" id="sw-s-mic" class="btn btn-default sw-mic"
-                title="{{_('Record voice')}}"><span class="glyphicon glyphicon-microphone"></span>
-          <span class="sw-mic-label">{{_('Voice input')}}</span></button>
+      <div id="sw-s-compose" class="sw-compose">
+        <textarea id="sw-s-input" class="form-control sw-chat-input" rows="2"
+                  placeholder="{{_('Your words will appear here after recording')}}" readonly></textarea>
+        <div class="sw-compose-actions">
+          <button type="button" id="sw-s-mic" class="btn btn-default sw-mic"
+                  title="{{_('Record voice')}}"><span class="glyphicon glyphicon-microphone"></span>
+            <span class="sw-mic-label">{{_('Tap to speak')}}</span></button>
+          <button type="button" id="sw-s-rerecord" class="btn btn-link" hidden>{{_('Record again')}}</button>
+          <button type="button" id="sw-s-send" class="btn btn-primary" disabled>{{_('Send')}}</button>
+          <button type="button" id="sw-s-text-toggle" class="btn btn-link">{{_('Type instead')}}</button>
+          <select id="sw-s-mic-device" class="form-control sw-mic-device" style="max-width:220px"
+                  title="{{_('Microphone device')}}"></select>
+        </div>
+        <div class="sw-voice-preview" id="sw-s-voice-preview" hidden>
+          <span class="sw-voice-preview-label">{{_('Review your transcript before sending')}}</span>
+        </div>
         <span id="sw-s-audio-status" class="sw-rec-status"></span>
-        <button type="button" id="sw-s-send" class="btn btn-primary">{{_('Send')}}</button>
         <button type="button" id="sw-s-report" class="btn btn-default">{{_('End & report')}}</button>
       </div>
     </div>
@@ -80,10 +85,13 @@
   window.learningUrls = {
     speakingSession: "{{ url_for('web.learning_speaking_session') }}",
     speakingMessage: "{{ url_for('web.learning_speaking_message') }}",
+    speakingRecordingUpload: "{{ url_for('web.learning_speaking_recording_upload') }}",
+    speakingRecordingAudio: "{{ url_for('web.learning_speaking_recording_audio') }}",
     speakingReport: "{{ url_for('web.learning_speaking_report') }}",
     speakingMessages: "{{ url_for('web.learning_speaking_messages') }}",
     speakingHistory: "{{ url_for('web.learning_speaking_history') }}",
     readingTts: "{{ url_for('web.reading_tts') }}",
+    readingTtsCached: "{{ url_for('web.reading_tts_cached') }}",
     asrTranscribe: "{{ url_for('web.learning_asr_transcribe') }}"
   };
 })();

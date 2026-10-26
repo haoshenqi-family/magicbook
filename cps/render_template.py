@@ -109,6 +109,12 @@ def get_sidebar_config(kwargs=None):
 # Returns the template for rendering and includes the instance name
 def render_title_template(*args, **kwargs):
     sidebar, simple = get_sidebar_config(kwargs)
+    if "available_translations" not in kwargs:
+        # R212：顶栏语言菜单全站可见。按请求取翻译目录（通常很小），避免每个
+        # 视图重复传参；页面显式传入时尊重调用方。
+        from .cw_babel import get_available_locale
+        kwargs["available_translations"] = get_available_locale()
+    kwargs.setdefault('ai_context_title', kwargs.get('title', ''))
     try:
         return render_template(instance=config.config_calibre_web_title, sidebar=sidebar, simple=simple,
                                accept=config.config_upload_formats.split(','),

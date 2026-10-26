@@ -4,9 +4,9 @@
 
 ## 能力边界
 
-每日学习中枢与七个子页面（复习队列、听写、口语陪练、复述训练、计时重读、写作工坊、选书难度匹配）的代理与前端接线。词汇、阅读、TTS 等相邻模块不在本文件范围。
+每日学习中枢与八个学习子页面（复习队列、听写、口语陪练、复述训练、计时重读、写作工坊、单词编故事、选书难度匹配）的代理与前端接线。词汇、阅读、TTS 等相邻模块不在本文件范围。
 
-本文件当前先补齐 **写作批改 SSE（R194）** 子集；其余学习子功能仍以 `docs/product/readme/learning.md` 与 moon-well L2 为准，后续随演进补齐。
+本文件当前补齐 **写作批改 SSE（R194）** 与 **口语陪练语音优先（R221）** 两个子集；其余学习子功能仍以 `docs/product/readme/learning.md` 与 moon-well L2 为准，后续随演进补齐。
 
 ## 写作工坊（writing）
 
@@ -48,6 +48,40 @@
 - 消费侧 `common/api.js`：JSON 端点走 `unwrapStrict`（非信封即抛）；SSE 的 `result`/`error` 也按同一信封解包。
 - 失败文案：前端直接展示 `message`；网络层错误由浏览器 `fetch` 抛出，SSE 已开始后提示「结果可能已保存，刷新历史」。
 
+## 口语陪练语音优先（R221）
+
+### 1. 代理端点
+
+| magicbook 端点 | moon-well 端点 | 超时 | 说明 |
+| --- | --- | --- | --- |
+| `POST /ajax/learning/speaking/session` | `POST /learning/speaking/session` | 210s | 开聊；响应含 `greetingAudioUrl` |
+| `POST /ajax/learning/speaking/message` | `POST /learning/speaking/message` | 210s | 白名单 `sessionId/text/voice/audioObject/durationMs` |
+| `POST /ajax/learning/speaking/report` | `POST /learning/speaking/report` | 210s | 会话报告；LLM 总结整场对话 |
+| `POST /ajax/learning/speaking/recording/upload` | `POST /learning/speaking/recording/upload` | 30s | multipart `sessionId` + `file`，返回对象名 |
+| `POST /ajax/learning/speaking/recording/audio` | `POST /learning/speaking/recording/audio` | 30s | `{sessionId,audioObject}` → 二进制音频 |
+| `POST /ajax/learning/speaking/messages` | `POST /learning/speaking/messages` | 15s | 历史消息，含语音元数据 |
+| `POST /ajax/reading-tts-cached` | `POST /tts/cached-audio` | 20s | 教练语音回读，不计费；miss 返回 404 |
+
+### 2. 前端消费契约
+
+- 教练开场与每轮回复先渲染语音条，原文默认折叠；点击「转文字」才展开。
+- 用户停止录音后先调 `/ajax/learning/asr/transcribe`，把结果写进可编辑 textarea；
+  只有点击发送才上传录音并调用 message。
+- 录音上传 multipart 字段固定为 `sessionId` 与 `file`；代理本地先校验数字 sessionId、
+  非空文件与 10MB 上限。
+- 发送失败保留 `speaking.pending`、转写与已上传对象名；重试复用对象名，不重复上传。
+- 音频回读是二进制，不能按 JSON `Result` 解包；错误时播放端显示失败提示。
+- 口语开聊、每轮回复与会话报告统一给 210s 代理预算：moon-well 的 LLM 单项预算为
+  120s，回复后还要同步合成教练语音；90s 会在后端仍成功时先被代理截成 503。
+
+### 3. 词条与页面
+
+- `learning-speaking.js` 的文案必须进 `i18n_seed.html` 与中文 PO，`messages.mo`
+  由 PO 重新编译；页面必须声明 `speakingRecordingUpload`、`speakingRecordingAudio`、
+  `readingTtsCached` 三条 URL。
+- 教练自动播放只在开聊/发送后的用户手势链中尝试；历史回放不自动播放，避免浏览器策略
+  造成失败弹窗。
+
 ## 计划设置与 banner 勾选（R208）
 
 | magicbook 端点 | moon-well 端点 | 超时 | 说明 |
@@ -69,3 +103,16 @@
 - 用户手册：[learning](../readme/learning.md)
 - 后端契约：moon-well `docs/product/learning/interface.md`
 - 本次实现：[writing-sse LLD](../../project/iterations/2026-10-writing-sse/writing-sse/lld.md)
+- 口语陪练语音优先：[r221-speaking-voice LLD](../../project/iterations/1.0/r221-speaking-voice/lld.md)
+
+## 学习数据导出（R230，入口在个人页 /me）
+
+| magicbook 端点 | moon-well 端点 | 超时 | 说明 |
+| --- | --- | --- | --- |
+| `POST /ajax/user-export/create` | `POST /export/learning-data` | 30s | 发起导出；密码**可选**（修订）：空=转发空 payload（不加密导出），提供则本地校验 6-128 后仅透传 `{password}`，非法类型/短密码本地 400 不触上游 |
+| `GET /ajax/user-export/tasks` | `GET /export/learning-data/tasks` | 30s | 近 30 天任务列表（5s 轮询，有进行中任务时） |
+| `GET /ajax/user-export/tasks/<id>/download` | `GET /export/learning-data/tasks/{id}/download` | 120s | **binary 透传** ZIP；attachment 文件名**透传上游**（`my-learning-data-<yyyyMMdd-HHmm>-<id>.zip`，2026-10-26 用户修订），上游未给回退本仓缺省；非 200 原样透传上游 Result 错误 |
+
+- 前端：`/me` 面板（me.html + me.js 追加段），文案走 i18n 种子五步链（me.js 在 i18n_js_files 清单内）。
+- 后端语义权威：moon-well `docs/product/export/interface.md`（错误码 50601-50605）。
+- 密码只透传不落任何本仓存储；下载文件名 `my-learning-data-<id>.zip`。

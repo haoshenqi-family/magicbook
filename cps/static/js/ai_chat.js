@@ -8,6 +8,13 @@
   "use strict";
   // R112: i18n 取词（种子缺失时回退 msgid 本身）
   var mbT = window.mbT || function (id) { return id; };
+  // R227：上面的 mbT 在脚本载入时就被固定成恒等函数——layout.html 的 i18n_seed
+  // 在本文件之后 include，读模块时 window.mbT 还不存在。既有文案因此恒回英文
+  //（见 LLD 遗留项，单独一轮处理）。新加的语音文案必须调用时取词，否则新词条
+  // 等于没加：用户点「朗读」得到的还是英文。
+  function t(id) {
+    return typeof window.mbT === "function" ? window.mbT(id) : id;
+  }
   if (!window.AICompanion) return;
 
   var BOOK_ID = null;
@@ -15,11 +22,91 @@
   var currentConversationId = null;
   var sending = false;
   var deleting = false;
-  var ttsAudio = null;
+  // R227：语音输入（麦克风按钮）与朗读（每条回复）的页面级状态
+  var micBtnEl = null;
+  var voiceStatusTimer = null;
 
   function getCsrfToken() {
     // R177：CSRF 单点迁 common/api.js（三形态链式探测，read.html 的隐藏域为第 3 形态）
     return window.MBApi.csrfToken();
+  }
+
+  // ------------------------------------------------------------------
+  // R227 语音播放基元（伴读工具朗读 + 每条回复朗读共用）
+  //
+  // Why 不用 <audio src=blob:>：media-src 目前只在阅读页与口语页放行 blob:
+  //（R181 / R221 刻意保持的窄面），而 Buddy 面板自 R220 起在全站挂载
+  //（layout.html + 三个 read 模板）。用 blob 音频要么改 CSP 全站放行 blob:，
+  // 要么「全站可用」在非阅读页静默无声——两个都不对。
+  // AudioContext.decodeAudioData 的字节来自 fetch（default-src 已含 'self'），
+  // 不受 media-src 约束，播放能力与页面无关，也不再依赖 CSP 放行面。
+  // ------------------------------------------------------------------
+  var speech = { ctx: null, source: null, btn: null, token: 0 };
+
+  function speechContext() {
+    if (!speech.ctx) {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      speech.ctx = new Ctx();
+    }
+    // 点击手势链里创建/恢复：无手势时浏览器把上下文留在 suspended，
+    // 届时播不出声，调用方按「被浏览器拦截」提示（与旧 Audio 路径同口径）。
+    if (speech.ctx.state === "suspended" && speech.ctx.resume) speech.ctx.resume();
+    return speech.ctx;
+  }
+
+  function stopSpeech() {
+    speech.token += 1;
+    if (speech.source) {
+      try { speech.source.onended = null; speech.source.stop(); } catch (e) { /* 已结束 */ }
+      speech.source = null;
+    }
+    if (speech.btn) markSpeakButton(speech.btn, false);
+    speech.btn = null;
+  }
+
+  function fetchSpeechBytes(url, text) {
+    return fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({ text: text }),
+    }).then(function (response) {
+      // 失败体是 moon-well 的 Result 信封（HTTP 500 + {success:false,message}），
+      // 典型是「积分不足，无法使用AI功能」。不带出 message 的话前端只能拿到
+      // 一段 JSON 字节去 decode，用户看到的是「解码失败」——把计费拒绝伪装成
+      // 播放器坏了，比不说更糟（R227）。
+      if (response.ok && isAudioResponse(response)) return response.arrayBuffer();
+      return response.text().then(function (raw) {
+        throw new Error(jsonMessage(raw) || t("Read-aloud audio is unavailable"));
+      });
+    });
+  }
+
+  function isAudioResponse(response) {
+    var type = (response.headers.get("Content-Type") || "").toLowerCase();
+    return type.indexOf("audio/") === 0 || type.indexOf("application/octet-stream") === 0;
+  }
+
+  function jsonMessage(raw) {
+    try {
+      var data = JSON.parse(raw);
+      if (!data) return "";
+      return String(data.message || (data.result && data.result.message) || "").trim();
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function decodeSpeech(ctx, bytes) {
+    return new Promise(function (resolve, reject) {
+      // 老 Safari 只有回调形态的 decodeAudioData，Promise 形态会被当成 undefined
+      var maybe = ctx.decodeAudioData(bytes, resolve, reject);
+      if (maybe && typeof maybe.then === "function") maybe.then(resolve, reject);
+    });
   }
 
   /**
@@ -37,28 +124,196 @@
       if (onError) onError(mbT("Nothing to read"));
       return;
     }
-    fetch("/ajax/reading-tts-cached", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
-      },
-      body: JSON.stringify({ text: text }),
-    }).then(function (response) {
-      if (!response.ok) throw new Error(mbT("Read-aloud audio is unavailable"));
-      return response.blob();
-    }).then(function (blob) {
-      if (ttsAudio) {
-        try { ttsAudio.pause(); } catch (e) { /* 上一段可能已释放 */ }
-      }
-      ttsAudio = new Audio(URL.createObjectURL(blob));
-      ttsAudio.play().catch(function () {
-        // Chrome 在无用户手势时拒播，必须说出来：不说就等于「扣了分却没声音」
+    stopSpeech();
+    var ctx = speechContext();
+    if (!ctx) {
+      if (onError) onError(t("Read-aloud audio is unavailable"));
+      return;
+    }
+    var token = speech.token;
+    fetchSpeechBytes("/ajax/reading-tts-cached", text).then(function (bytes) {
+      if (token !== speech.token) return null;
+      return decodeSpeech(ctx, bytes);
+    }).then(function (buffer) {
+      if (!buffer || token !== speech.token) return;
+      if (ctx.state === "suspended") {
         if (onError) onError(mbT("Browser blocked auto-play, interact with the page first"));
-      });
+        return;
+      }
+      var source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(ctx.destination);
+      speech.source = source;
+      source.start(0);
     }).catch(function (err) {
       if (onError) onError(err.message || String(err));
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // R227 每条回复朗读：/tts/speak（1 积分/次）按段合成，顺序播放
+  // ------------------------------------------------------------------
+  // /tts/speak 单次上限 2000 字（magicbook 代理与 moon-well 双端校验），1800 留余量。
+  // 先按空行分段，段仍超长再按句末标点切，最后才硬切——不把半句话读成两条。
+  var SPEECH_SEGMENT_MAX = 1800;
+
+  function splitForSpeech(text) {
+    var normalized = String(text || "").replace(/\r\n/g, "\n").trim();
+    if (!normalized) return [];
+    var out = [];
+    normalized.split(/\n{2,}/).forEach(function (para) {
+      para = para.trim();
+      if (!para) return;
+      if (para.length <= SPEECH_SEGMENT_MAX) { out.push(para); return; }
+      var sentences = para.match(/[^.!?。！？；;]+[.!?。！？；;]*/g) || [para];
+      var current = "";
+      sentences.forEach(function (sentence) {
+        if (sentence.length > SPEECH_SEGMENT_MAX) {
+          if (current) { out.push(current); current = ""; }
+          for (var i = 0; i < sentence.length; i += SPEECH_SEGMENT_MAX) {
+            out.push(sentence.slice(i, i + SPEECH_SEGMENT_MAX));
+          }
+          return;
+        }
+        if (current && (current + sentence).length > SPEECH_SEGMENT_MAX) {
+          out.push(current);
+          current = "";
+        }
+        current += sentence;
+      });
+      if (current) out.push(current);
+    });
+    return out;
+  }
+
+  /** 朗读正文取自渲染后的 DOM：工具芯片、思考占位、朗读按钮都不是回答。 */
+  function speechTextOf($msg) {
+    var $clone = $msg.clone();
+    $clone.find(".ai-tool-chip, .ai-chat-typing, .ai-chat-speak").remove();
+    // renderMarkdown 把换行渲染成 <br>、代码块渲染成 <pre>；直接 text() 会把它们
+    // 拼成一整行（"line oneLine two"），TTS 既没有停顿还会粘词，故先还原成换行。
+    $clone.find("br").replaceWith("\n");
+    $clone.find("p, pre, li, blockquote, h1, h2, h3, h4, h5, h6, tr").each(function () {
+      $(this).append("\n");
+    });
+    var text = ($clone.text() || "").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+    return text.split("\n").filter(function (line) {
+      return line.trim().indexOf("⚠") !== 0;
+    }).join("\n").trim();
+  }
+
+  function markSpeakButton(btn, playing) {
+    if (!btn) return;
+    var label = btn.querySelector(".ai-speak-label");
+    var text = playing ? t("Stop reading aloud") : t("Read reply aloud");
+    btn.classList.toggle("is-playing", !!playing);
+    if (label) label.textContent = text;
+    btn.setAttribute("aria-label", text);
+    btn.title = text;
+  }
+
+  function attachSpeakButton($msg) {
+    if (!$msg || !$msg.length) return;
+    $msg.find(".ai-chat-speak").remove();
+    var text = speechTextOf($msg);
+    if (!text) return;
+
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ai-chat-speak";
+    var icon = document.createElement("span");
+    icon.className = "ai-speak-icon";
+    icon.setAttribute("aria-hidden", "true");
+    icon.textContent = "🔊";
+    var label = document.createElement("span");
+    label.className = "ai-speak-label";
+    btn.appendChild(icon);
+    btn.appendChild(label);
+    markSpeakButton(btn, false);
+    btn.addEventListener("click", function () {
+      if (btn.classList.contains("is-playing")) { stopSpeech(); return; }
+      playReply(text, btn);
+    });
+    $msg.append(btn);
+  }
+
+  function playReply(text, btn) {
+    stopSpeech();
+    var segments = splitForSpeech(text);
+    if (!segments.length) { setVoiceStatus(t("Nothing to read")); return; }
+    var ctx = speechContext();
+    if (!ctx) { setVoiceStatus(t("Read-aloud audio is unavailable")); return; }
+
+    var token = speech.token;
+    speech.btn = btn;
+    markSpeakButton(btn, true);
+
+    (function playAt(index) {
+      if (token !== speech.token) return;
+      if (index >= segments.length) { stopSpeech(); return; }
+      if (segments.length > 1) {
+        setVoiceStatus(t("Reading… {{n}}/{{m}}")
+          .replace("{{n}}", index + 1).replace("{{m}}", segments.length));
+      }
+      // 走 /ajax/reading-tts（/tts/speak）：不带 bookName/chapter，让 moon-well 把音频
+      // 落「AI 临时语音」档（7 天清理），不污染书籍段落的永久缓存。
+      fetchSpeechBytes("/ajax/reading-tts", segments[index]).then(function (bytes) {
+        if (token !== speech.token) return null;
+        return decodeSpeech(ctx, bytes);
+      }).then(function (buffer) {
+        if (!buffer || token !== speech.token) return;
+        var source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+        speech.source = source;
+        source.onended = function () { playAt(index + 1); };
+        source.start(0);
+      }).catch(function (err) {
+        if (token !== speech.token) return;
+        stopSpeech();
+        setVoiceStatus("⚠ " + (err.message || String(err)));
+      });
+    })(0);
+  }
+
+  /** 语音/朗读状态行：屏幕可见，不在控制台里烂掉。 */
+  function setVoiceStatus(text) {
+    var node = document.getElementById("ai-chat-voice-status");
+    if (!node) return;
+    node.textContent = text || "";
+    if (voiceStatusTimer) { clearTimeout(voiceStatusTimer); voiceStatusTimer = null; }
+    if (text) {
+      voiceStatusTimer = setTimeout(function () {
+        node.textContent = "";
+        voiceStatusTimer = null;
+      }, 6000);
+    }
+  }
+
+  function initVoiceInput() {
+    var api = window.MBLearningVoice;
+    micBtnEl = document.getElementById("ai-chat-mic");
+    if (!micBtnEl || !api) return;
+    api.attach({
+      micBtn: micBtnEl,
+      statusEl: document.getElementById("ai-chat-voice-status"),
+      // 本站代理路由（与学习页同一条），面板不载 learningUrls，显式给死值
+      asrUrl: "/ajax/learning/asr/transcribe",
+      onRecording: function (recording) {
+        if (sending) return;   // 发送中不接受新转写，避免和上一条的落库打架
+        var text = String((recording && recording.text) || "").trim();
+        if (!text) return;
+        var $input = $("#ai-chat-input");
+        var current = String($input.val() || "").replace(/\s+$/, "");
+        // 有草稿时追加而不是覆盖：用户常常先打一半再补一句口头描述
+        $input.val(current ? current + " " + text : text);
+        var el = $input.get(0);
+        if (el) {
+          el.focus();
+          try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {}
+        }
+        setVoiceStatus(t("Transcript ready — edit it before sending"));
+      },
     });
   }
 
@@ -69,7 +324,7 @@
   }
 
   function storageKey() {
-    return "calibre.ai.conv." + BOOK_ID;
+    return "calibre.ai.conv." + (BOOK_ID || "site");
   }
 
   /** moon-well Result 包装解包：{success, result, message} → result（失败时抛错）。 */
@@ -114,6 +369,8 @@
 
     applyFormatPlaceholder();
     initFabLabel();
+    initBubbles();
+    initVoiceInput();
     loadConversations();
     loadBuddyFab();
   }
@@ -136,7 +393,8 @@
       ? window.AICompanion.detectFormat()
       : "epub";
     var key = fmt === "pdf" ? "Ask about the current page..."
-      : (fmt === "txt" ? "Ask about this text..." : "Ask about this chapter...");
+      : (fmt === "txt" ? "Ask about this text..."
+      : (fmt === "site" ? "Ask about this page..." : "Ask about this chapter..."));
     $("#ai-chat-input").attr("placeholder", mbT(key));
   }
 
@@ -145,19 +403,29 @@
   function openDrawer() {
     $("#ai-companion-drawer").addClass("open");
     markFabLabelSeen();
+    closeBubbles();
     if ($("#ai-memory-panel").hasClass("open")) loadMemoryPanel();
   }
 
   function closeDrawer() {
     $("#ai-companion-drawer").removeClass("open");
+    // 抽屉关掉还在念，用户找不到停止入口——关即停（R227）
+    stopSpeech();
   }
 
   // ------------------------------------------------------------------
   // R206 伙伴头像：把 AI 悬浮按钮换成当前装备伙伴头像（MinIO 匿名直读）。
+  // R220 验收现场：个别浏览器扩展会拦跨站图片子资源（ERR_BLOCKED_BY_CLIENT），
+  //   页内直连 MinIO 全裂图；改走本站同源代理 /ajax/buddy/image（登录可读）。
   // Why 先探测再切换：图片可能尚未上传到 MinIO（资产上传在部署期），直接设 src
   //   会裂图；用 new Image() 预载成功才加 has-buddy，失败/未装备一律保留「AI」文字兜底。
   // ------------------------------------------------------------------
   var fabIdleTimer = null;
+  function buddyImageProxyUrl(url) {
+    if (!url) { return ""; }
+    return "/ajax/buddy/image?src=" + encodeURIComponent(url);
+  }
+
   function loadBuddyFab() {
     $.getJSON("/ajax/buddy/catalog")
       .then(function (raw) {
@@ -166,45 +434,59 @@
         var equipped = null;
         (list || []).forEach(function (b) { if (b.equipped) { equipped = b; } });
         var imageUrl = equipped && (equipped.fullImageUrl || equipped.imageUrl);
-        if (!imageUrl) { return; }
+        var proxiedUrl = buddyImageProxyUrl(imageUrl);
+        if (!proxiedUrl) { return; }
         var probe = new Image();
         probe.onload = function () {
-          $("#ai-companion-fab-img").attr("src", imageUrl);
+          $("#ai-companion-fab-img").attr("src", proxiedUrl);
           $("#ai-companion-fab").addClass("has-buddy");
           startFabIdle();
         };
         probe.onerror = function () { /* 图片未就绪：保留文字兜底 */ };
-        probe.src = imageUrl;
+        probe.src = proxiedUrl;
       })
       .fail(function () { /* 代理不可达：静默保留文字兜底 */ });
   }
 
   // Keep the floating buddy reachable on small screens and remember its position per browser.
   function initBuddyFabDrag() {
-    var button = document.getElementById("ai-companion-fab");
+    // R223 定位/拖拽迁到 wrap：按钮本体透明化后仍需一块固定命中区。
+    var button = document.getElementById("ai-companion-fab-wrap");
     if (!button || !window.PointerEvent) return;
     var key = "calibre.ai.buddy.position";
+    var edgeGap = 10;
+    // 头像 img 的原生拖拽会中断 pointer 流；draggable=false 为主，这里兜底旧缓存。
+    button.addEventListener("dragstart", function (event) {
+      event.preventDefault();
+    });
     var saved;
     try { saved = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { saved = null; }
     if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-      button.style.left = saved.x + "px";
-      button.style.top = saved.y + "px";
+      var initial = snapFabPosition(button, saved.x, saved.y, edgeGap);
+      button.style.left = initial.x + "px";
+      button.style.top = initial.y + "px";
       button.style.right = "auto";
       button.style.bottom = "auto";
     }
     var startX, startY, originX, originY, moved = false;
     button.addEventListener("pointerdown", function (event) {
       if (event.button !== 0) return;
+      button.classList.remove("buddy-snapping");
+      closeBubbles();
       var rect = button.getBoundingClientRect();
       startX = event.clientX; startY = event.clientY;
       originX = rect.left; originY = rect.top; moved = false;
-      button.setPointerCapture(event.pointerId);
+      // 不能在 pointerdown 就捕获：捕获会把后续 click 重定向到 wrap，
+      // FAB 与气泡的 click 全部失效；捕获延迟到真正开始拖动时设置。
     });
     button.addEventListener("pointermove", function (event) {
-      if (!button.hasPointerCapture(event.pointerId)) return;
+      if (!(event.buttons & 1)) return; // 未按住左键的移动（含悬停）不拖拽
       var dx = event.clientX - startX, dy = event.clientY - startY;
-      if (!moved && Math.hypot(dx, dy) < 6) return;
-      moved = true;
+      if (!moved) {
+        if (Math.hypot(dx, dy) < 6) return;
+        moved = true;
+        button.setPointerCapture(event.pointerId);
+      }
       var x = Math.max(0, Math.min(window.innerWidth - button.offsetWidth, originX + dx));
       var y = Math.max(0, Math.min(window.innerHeight - button.offsetHeight, originY + dy));
       button.style.left = x + "px"; button.style.top = y + "px";
@@ -215,7 +497,11 @@
       if (moved) {
         event.preventDefault();
         var rect = button.getBoundingClientRect();
-        try { localStorage.setItem(key, JSON.stringify({ x: rect.left, y: rect.top })); } catch (e) {}
+        var snapped = snapFabPosition(button, rect.left, rect.top, edgeGap);
+        button.classList.add("buddy-snapping");
+        button.style.left = snapped.x + "px";
+        button.style.top = snapped.y + "px";
+        try { localStorage.setItem(key, JSON.stringify(snapped)); } catch (e) {}
         button.dataset.dragged = "1";
         setTimeout(function () { delete button.dataset.dragged; }, 0);
       }
@@ -223,6 +509,171 @@
     button.addEventListener("click", function (event) {
       if (button.dataset.dragged) { event.stopImmediatePropagation(); event.preventDefault(); }
     }, true);
+  }
+
+  function snapFabPosition(button, x, y, gap) {
+    var maxX = Math.max(gap, window.innerWidth - button.offsetWidth - gap);
+    var maxY = Math.max(gap, window.innerHeight - button.offsetHeight - gap);
+    return {
+      x: x + button.offsetWidth / 2 < window.innerWidth / 2 ? gap : maxX,
+      y: Math.max(gap, Math.min(maxY, y)),
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // R223 hover 快捷气泡（类 iPhone 悬浮球）：动作集 /buddy 可配置；
+  // 阅读页动作直接转发到顶栏同 ID 工具（原节点监听仍生效），站点页为导航；
+  // 「对话」恒在最内圈，点击即开抽屉。配置加载失败回落默认四项。
+  // 展开方向按 FAB 吸附位置自适应（iPhone 悬浮球同款）：朝屏幕内侧展开，
+  // 顶/底边距不足时整体下/上偏，保证气泡不伸出屏幕。
+  // ------------------------------------------------------------------
+  var BUBBLE_ICONS = {
+    chat: "💬", "immersive-translate": "译", "tts-book": "▶",
+    bookmark: "🔖", learning: "🎓", library: "📚", me: "👤",
+  };
+  // 延迟关闭定时器：FAB 与气泡间有空隙，鼠标穿越时会短暂 mouseleave。
+  var bubbleCloseTimer = null;
+
+  function bubbleHost() { return document.getElementById("ai-companion-bubbles"); }
+
+  function closeBubbles() {
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (wrap) wrap.classList.remove("bubbles-open");
+  }
+
+  // 朗读气泡是「播放/停止」双态，而非只有起播。状态唯一源是顶栏按钮：
+  // 阅读器 ttsButtonsRender 在播放中给 #tts-book 加 active 并显示 #tts-book-stop，
+  // 起播、暂停、自然播完、点停止都会更新它——不另建一份本地状态，避免与播放器漂移。
+  function readingAloudActive() {
+    var tool = document.getElementById("tts-book");
+    var stopBtn = document.getElementById("tts-book-stop");
+    if (!tool) return false;
+    return tool.classList.contains("active")
+      || !!(stopBtn && stopBtn.style.display !== "none");
+  }
+
+  function syncTtsBubble() {
+    var bubble = document.querySelector('.ai-bubble[data-action="tts-book"]');
+    if (!bubble) return;
+    var playing = readingAloudActive();
+    var icon = bubble.querySelector(".ai-bubble-icon");
+    var tip = bubble.querySelector(".ai-bubble-tip");
+    bubble.classList.toggle("is-playing", playing);
+    if (icon) icon.textContent = playing ? "■" : (BUBBLE_ICONS["tts-book"] || "▶");
+    var label = playing ? (window.mbT ? mbT("Stop reading aloud") : "Stop reading aloud")
+                        : (window.mbT ? mbT("Read aloud") : "Read aloud");
+    if (tip) tip.textContent = label;
+    bubble.setAttribute("aria-label", label);
+    bubble.title = label;
+  }
+
+  function dispatchBubbleAction(id) {
+    if (id === "chat") {
+      $("#ai-companion-fab").trigger("click");
+      return;
+    }
+    // 朗读中直接停止：顶栏的 ▶ 在播放时是「暂停」，用户要的是一键停掉。
+    if (id === "tts-book" && readingAloudActive()) {
+      var stopBtn = document.getElementById("tts-book-stop");
+      if (stopBtn) { stopBtn.click(); return; }
+    }
+    var tool = document.getElementById(id);
+    if (tool) { tool.click(); return; }
+    var routes = { learning: "/learning", library: "/", me: "/me" };
+    if (routes[id]) { window.location.href = routes[id]; }
+  }
+
+  function renderBubbles(selected, available) {
+    var host = bubbleHost();
+    if (!host) return;
+    host.innerHTML = "";
+    var labels = {};
+    (available || []).forEach(function (a) { labels[a.id] = a.label; });
+    var ordered = ["chat"].concat((selected || []).filter(function (a) { return a !== "chat"; }));
+    ordered.forEach(function (id, i) {
+      var bubble = document.createElement("button");
+      bubble.type = "button";
+      bubble.className = "ai-bubble";
+      bubble.dataset.action = id;
+      bubble.setAttribute("aria-label", labels[id] || id);
+      var tip = document.createElement("span");
+      tip.className = "ai-bubble-tip";
+      tip.textContent = labels[id] || id;
+      bubble.appendChild(tip);
+      var icon = document.createElement("span");
+      icon.className = "ai-bubble-icon";
+      icon.textContent = BUBBLE_ICONS[id] || "•";
+      bubble.appendChild(icon);
+      bubble.addEventListener("click", function (event) {
+        event.stopPropagation();
+        closeBubbles();
+        dispatchBubbleAction(id);
+      });
+      host.appendChild(bubble);
+    });
+    syncTtsBubble();
+  }
+
+  function openBubbles() {
+    if (bubbleCloseTimer) { clearTimeout(bubbleCloseTimer); bubbleCloseTimer = null; }
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (!wrap) return;
+    var host = bubbleHost();
+    if (host && host.children.length) {
+      var rect = wrap.getBoundingClientRect();
+      var centerX = rect.left + rect.width / 2;
+      var centerY = rect.top + rect.height / 2;
+      var clearRadius = 94; // 气泡半径 + 展开半径的余量
+      var inward = centerX > window.innerWidth / 2 ? -1 : 1;
+      var vertical = centerY < clearRadius ? -1 : (window.innerHeight - centerY < clearRadius ? 1 : 0);
+      // 顶/底空间不足时往反方向让位。屏幕方向向量 (dx,dy)=(inward,-vertical)；
+      // 气泡位移按 (cos a, -sin a) 存（数学角），故 a = -atan2(dy, dx)。
+      var baseDeg = vertical
+        ? -Math.atan2(-vertical, inward) * 180 / Math.PI
+        : (inward < 0 ? 180 : 0);
+      var spread = vertical ? 90 : 120;
+      var count = host.children.length;
+      Array.prototype.forEach.call(host.children, function (bubble, i) {
+        var off = count > 1 ? (i / (count - 1) - 0.5) * spread : 0;
+        var angle = (baseDeg + off) * Math.PI / 180;
+        bubble.style.setProperty("--bx", Math.round(Math.cos(angle) * 74) + "px");
+        bubble.style.setProperty("--by", Math.round(-Math.sin(angle) * 74) + "px");
+      });
+      wrap.classList.toggle("bubbles-left", inward > 0);
+      syncTtsBubble();
+    }
+    wrap.classList.add("bubbles-open");
+  }
+
+  function initBubbles() {
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (!wrap) return;
+    $.getJSON("/ajax/buddy/quick-actions")
+      .then(function (raw) {
+        var data = unwrap(raw) || {};
+        renderBubbles(data.selected, data.available);
+      })
+      .fail(function () {
+        renderBubbles(["chat", "immersive-translate", "tts-book", "bookmark"], []);
+      });
+    wrap.addEventListener("mouseenter", openBubbles);
+    function scheduleClose() {
+      if (bubbleCloseTimer) clearTimeout(bubbleCloseTimer);
+      bubbleCloseTimer = setTimeout(function () {
+        bubbleCloseTimer = null; closeBubbles();
+      }, 350);
+    }
+    wrap.addEventListener("mouseleave", scheduleClose);
+    wrap.addEventListener("focusin", openBubbles);
+    wrap.addEventListener("focusout", closeBubbles);
+    document.addEventListener("click", function (event) {
+      if (wrap.classList.contains("bubbles-open") && !wrap.contains(event.target)) {
+        closeBubbles();
+      }
+    });
+    // 播放状态由阅读器更新，气泡只在开启期间巡检；离开阅读页无 #tts-book 时为空转。
+    var ttsSyncTimer = setInterval(syncTtsBubble, 250);
+    window.addEventListener("pagehide", function () { clearInterval(ttsSyncTimer); });
   }
 
   function startFabIdle() {
@@ -264,8 +715,7 @@
   // 会话列表（moon-well MySQL 数据源，薄代理透传）
   // ------------------------------------------------------------------
   function loadConversations() {
-    if (!BOOK_ID) return;
-    $.getJSON("/ai/agent/conversations", { bookId: BOOK_ID })
+    $.getJSON("/ai/agent/conversations", BOOK_ID ? { bookId: BOOK_ID } : {})
       .then(function (raw) {
         var convs;
         try { convs = unwrap(raw) || []; } catch (e) { convs = []; }
@@ -278,7 +728,11 @@
           $sel.append($("<option>").val(c.id).text(c.title || mbT('New conversation')));
         });
         var preferred = parseInt(localStorage.getItem(storageKey()) || "", 10);
-        var target = convs.some(function (c) { return c.id === preferred; }) ? preferred : convs[0].id;
+        var scoped = convs.filter(function (c) {
+          return BOOK_ID ? c.bookId === BOOK_ID : (!c.bookId || c.bookId === 0);
+        });
+        var visible = scoped.length ? scoped : convs;
+        var target = visible.some(function (c) { return c.id === preferred; }) ? preferred : visible[0].id;
         selectConversation(target);
       })
       .fail(function (xhr) {
@@ -292,6 +746,7 @@
 
   /** 新会话 = 本地置空，首条消息由 moon-well 服务端建会话（final 事件回传 id）。 */
   function newConversation() {
+    stopSpeech();
     currentConversationId = null;
     persistSelection();
     $("#ai-chat-conversations").val(null);
@@ -301,6 +756,7 @@
 
   function selectConversation(conversationId) {
     if (!conversationId) return;
+    stopSpeech();
     currentConversationId = conversationId;
     persistSelection();
     $("#ai-chat-conversations").val(conversationId);
@@ -388,19 +844,104 @@
   function appendMessage(role, content) {
     var safe = renderMarkdown(content);
     var cls = role === "user" ? "user" : "assistant";
-    $('<div class="ai-chat-msg ' + cls + '"></div>').html(safe).appendTo("#ai-chat-messages");
+    var $msg = $('<div class="ai-chat-msg ' + cls + '"></div>').html(safe).appendTo("#ai-chat-messages");
+    // R227：历史里的助手消息同样可朗读（只给助手侧——读自己的提问没有意义）
+    if (cls === "assistant") attachSpeakButton($msg);
     scrollMessages();
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function decodeEscapedText(value) {
+    return String(value || "").replace(/&(amp|lt|gt|quot|#39);/g, function (_, name) {
+      return { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'" }[name];
+    });
+  }
+
+  /**
+   * R233：只把当前站点内的路径变成链接。
+   *
+   * Why 不复用 new URL 的 origin 判断就结束：`//evil.example` 与含用户名密码的
+   * 绝对 URL 也会被 URL 解析器接受。这里先拒绝控制字符/反斜杠，再要求输入以
+   * 单斜杠或当前 origin 开头，最后仍比对规范化后的 origin。
+   */
+  function normalizeSiteHref(raw) {
+    var value = decodeEscapedText(raw).trim();
+    var origin = window.location.origin;
+    if (!value || /[\u0000-\u001f\u007f\\]/.test(value)) return "";
+    if (value !== origin && value.indexOf(origin + "/") !== 0 && value.charAt(0) !== "/") return "";
+    if (value.indexOf("//") === 0) return "";
+    var url;
+    try { url = new URL(value, origin); } catch (e) { return ""; }
+    if (url.origin !== origin || url.username || url["password"]) return "";
+    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+    return url.pathname + url.search + url.hash;
+  }
+
+  function siteLink(href, labelHtml) {
+    return '<a class="ai-chat-site-link" href="' + escapeHtml(href) +
+      '" target="_blank" rel="noopener noreferrer">' + labelHtml + "</a>";
   }
 
   function renderMarkdown(text) {
     if (!text) return "";
-    var esc = $("<div>").text(text).html(); // escape HTML first
+    var esc = escapeHtml(text); // escape HTML before any markup is introduced
+    var held = [];
+    var marker = "\u0000";
+    while (esc.indexOf(marker) !== -1) marker += "\u0000";
+
+    // Hold code and Markdown links first: a URL-looking token inside code must
+    // never reach the bare-link pass, and an invalid link target must stay text.
+    // Plain-held text is restored before the final inline passes so bold that
+    // wraps a link still becomes one <strong> rather than two adjacent tags.
+    function hold(html, isFinal) {
+      held.push({ html: html, final: !!isFinal });
+      return marker + (held.length - 1) + marker;
+    }
+    function restore(finalOnly) {
+      for (var pass = 0; pass < held.length; pass += 1) {
+        held.forEach(function (item, index) {
+          if (!!item.final === finalOnly) esc = esc.split(marker + index + marker).join(item.html);
+        });
+      }
+    }
+
     esc = esc.replace(/```([\s\S]*?)```/g, function (_, code) {
-      return "<pre><code>" + code.replace(/^\n/, "") + "</code></pre>";
+      return hold("<pre><code>" + code.replace(/^\n/, "") + "</code></pre>", true);
     });
-    esc = esc.replace(/`([^`]+)`/g, "<code>$1</code>");
+    esc = esc.replace(/`([^`\n]+)`/g, function (_, code) {
+      var href = normalizeSiteHref(code);
+      return hold(href ? siteLink(href, "<code>" + code + "</code>") : "<code>" + code + "</code>", true);
+    });
+    esc = esc.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, function (whole, label, target) {
+      var href = normalizeSiteHref(target);
+      if (!href) return hold(whole, true);
+      var labelHtml = label.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+      return hold(siteLink(href, labelHtml), true);
+    });
+
+    // Bare site paths / same-origin absolute URLs. Trailing prose punctuation
+    // stays outside the anchor; external URLs never match normalizeSiteHref.
+    esc = esc.replace(/(^|[\s(（\[【:：,，;；、])(\/[^\s<>"'`、（）【】《》]+|https?:\/\/[^\s<>"'`、（）【】《》]+)/g,
+      function (_, prefix, target) {
+        var chain = target.match(/(?:[.,;:!?，。；：！？、）)\]}>】》]+)$/);
+        var trailing = chain ? chain[0] : "";
+        var trimmed = trailing ? target.slice(0, -trailing.length) : target;
+        var href = normalizeSiteHref(trimmed);
+        if (!href) return prefix + target;
+        return prefix + siteLink(href, escapeHtml(href)) + trailing;
+      });
+    restore(false);
     esc = esc.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     esc = esc.replace(/\n/g, "<br>");
+    restore(true);
     return esc;
   }
 
@@ -466,6 +1007,8 @@
   function beginThinking() {
     sending = true;
     $("#ai-chat-send").prop("disabled", true);
+    // 发送期间禁止录音：转写结果无处安放（输入框已清空、上一条正在落库）
+    if (micBtnEl) micBtnEl.disabled = true;
     $("#ai-companion-fab").addClass("buddy-thinking").removeClass("buddy-sleep");
     var started = Date.now();
     var $msg = $('<div class="ai-chat-msg assistant"><span class="ai-chat-typing">' + mbT("Thinking") +
@@ -496,7 +1039,7 @@
     if (sending) return;
     var $input = $("#ai-chat-input");
     var text = $input.val().trim();
-    if (!text || !BOOK_ID) return;
+    if (!text) return;
 
     appendMessage("user", text);
     $input.val("");
@@ -530,7 +1073,7 @@
         conversationId: currentConversationId,
         message: message,
         bookId: BOOK_ID,
-        bookTitle: BOOK_META.title,
+        bookTitle: BOOK_META.title || document.title,
         authors: BOOK_META.authors || [],
         chapter: typeof companion.getChapter === "function" ? (companion.getChapter() || "") : "",
         pageText: pageContext,
@@ -606,12 +1149,11 @@
             });
             break;
           case "final":
+            // R232：final 事件里的 usage 只用来收尾，**不再渲染**——用量是账务信息，
+            // 只在【设置】【积分】的消耗明细里看（moon-well 仍按 token 记流水并落
+            // total_tokens，记录侧一行未改）。聊天界面里逐轮浮一行 "tokens 8123/456"
+            // 对读者是噪音：它既不解释这条回答为什么好，也不影响下一次提问。
             conversationIdFromFinal = obj.conversationId || null;
-            if (obj.usage && (obj.usage.promptTokens || obj.usage.completionTokens)) {
-              var $usage = $('<span class="ai-chat-usage"></span>');
-              $usage.text("tokens " + (obj.usage.promptTokens || 0) + "/" + (obj.usage.completionTokens || 0));
-              $usage.appendTo($msg);
-            }
             break;
           case "error":
             fullText += (fullText ? "\n" : "") + "⚠ " + (obj.message || mbT('AI service error'));
@@ -637,8 +1179,11 @@
       } else if (!fullText) {
         $msg.html('<span class="ai-chat-typing">(no response)</span>');
       }
+      // 流式期间每帧都在重写 $msg 内容，按钮必须等收尾后再挂（否则下一个 delta 就抹掉）
+      attachSpeakButton($msg);
       sending = false;
       $("#ai-chat-send").prop("disabled", false);
+      if (micBtnEl) micBtnEl.disabled = false;
       if (conversationIdFromFinal) {
         var changed = conversationIdFromFinal !== currentConversationId;
         currentConversationId = conversationIdFromFinal;
@@ -659,7 +1204,8 @@
   }
 
   function loadMemoryPanel() {
-    loadBookProfile();
+    if (BOOK_ID) loadBookProfile();
+    else $("#ai-memory-profile").empty();
     loadMemories();
   }
 

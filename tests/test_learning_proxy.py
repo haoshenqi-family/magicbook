@@ -16,9 +16,12 @@ as test_vocab_test_proxy.py); network and moon-well semantics live in its tests.
 """
 import io
 import json
+from pathlib import Path
 
 import pytest
 from cps.moonwell.client import client as _mb_client
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
@@ -473,6 +476,28 @@ def test_writing_review_timeout_covers_backend_llm_budget(
     assert proxy.call_for("/learning/writing/revise")["timeout"] == 210
 
 
+def test_speaking_timeout_covers_llm_and_tts(admin_client, moonwell_configured,
+                                             monkeypatch):
+    """R221：口语链路的代理预算必须覆盖后端 LLM 120s + 同步 TTS。"""
+    proxy = RecordingProxy({
+        "/learning/speaking/session": (_envelope({}), 200),
+        "/learning/speaking/message": (_envelope({}), 200),
+        "/learning/speaking/report": (_envelope({}), 200),
+    })
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+
+    admin_client.post("/ajax/learning/speaking/session",
+                      json={"scenario": "COFFEE"})
+    admin_client.post("/ajax/learning/speaking/message",
+                      json={"sessionId": "42", "text": "Hello"})
+    admin_client.post("/ajax/learning/speaking/report",
+                      json={"sessionId": "42"})
+
+    assert proxy.call_for("/learning/speaking/session")["timeout"] == 210
+    assert proxy.call_for("/learning/speaking/message")["timeout"] == 210
+    assert proxy.call_for("/learning/speaking/report")["timeout"] == 210
+
+
 def test_b1_rejects_missing_required_fields_locally(admin_client,
                                                      moonwell_configured,
                                                      monkeypatch):
@@ -614,8 +639,12 @@ def test_reread_and_dictation_subpages_render(admin_client, moonwell_configured)
 
 def test_speaking_subpage_has_coach_tts_and_mic(admin_client, moonwell_configured):
     html = admin_client.get("/learning/speaking").data.decode("utf-8")
-    assert 'id="sw-s-tts"' in html
+    assert 'id="sw-s-tts"' not in html, "R212：教练语音是默认行为，不再给用户关闭开关"
     assert 'id="sw-s-mic"' in html
+    assert 'id="sw-s-voice-preview"' in html
+    assert 'id="sw-s-rerecord"' in html
+    assert "readingTtsCached" in html
+    assert "speakingRecordingUpload" in html
     assert "js/learning-voice.js" in html
     assert '"/ajax/learning/asr/transcribe"' in html
 
@@ -673,6 +702,88 @@ def test_asr_transcribe_forwards_file_bytes(admin_client, moonwell_configured,
     assert seen["filename"] == "recording.wav"
 
 
+def test_speaking_recording_upload_forwards_session_and_file(
+        admin_client, moonwell_configured, monkeypatch):
+    """发送语音前先存录音：sessionId 与文件必须在同一次 multipart 到达 moon-well。"""
+    seen = {}
+
+    def fake_multipart(path, file_bytes, filename, timeout, label, fields=None):
+        seen.update(path=path, file_bytes=file_bytes, filename=filename,
+                    timeout=timeout, fields=fields)
+        return _envelope("learning-speaking/11/42/2026-10-24/a.wav"), 200
+
+    monkeypatch.setattr(_mb_client, "multipart", fake_multipart)
+    response = admin_client.post(
+        "/ajax/learning/speaking/recording/upload",
+        data={"sessionId": "42",
+              "file": (io.BytesIO(b"RIFF...."), "recording.wav", "audio/wav")})
+
+    assert response.status_code == 200
+    assert seen["path"] == "/learning/speaking/recording/upload"
+    assert seen["file_bytes"] == b"RIFF...."
+    assert seen["fields"] == {"sessionId": "42"}
+    assert seen["timeout"] == 30
+
+
+def test_speaking_recording_upload_rejects_bad_session_locally(
+        admin_client, moonwell_configured, monkeypatch):
+    calls = []
+    monkeypatch.setattr(_mb_client, "multipart",
+                        lambda *a, **k: calls.append(a) or (_envelope(""), 200))
+
+    response = admin_client.post(
+        "/ajax/learning/speaking/recording/upload",
+        data={"sessionId": "../42",
+              "file": (io.BytesIO(b"RIFF"), "recording.wav", "audio/wav")})
+
+    assert response.status_code == 400
+    assert not calls
+
+
+def test_speaking_message_forwards_voice_metadata(admin_client,
+                                                  moonwell_configured,
+                                                  monkeypatch):
+    proxy = RecordingProxy({
+        "/learning/speaking/message": (_envelope({
+            "sessionId": "42", "round": 1, "reply": "Sure.",
+            "replyAudioUrl": "/ajax/reading-tts-cached",
+        }), 200),
+    })
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+
+    response = admin_client.post("/ajax/learning/speaking/message", json={
+        "sessionId": "42",
+        "text": "I would like a latte.",
+        "voice": True,
+        "audioObject": "learning-speaking/11/42/2026-10-24/a.wav",
+        "durationMs": 4200,
+        "unknown": "drop",
+    })
+
+    assert response.status_code == 200
+    payload = proxy.call_for("/learning/speaking/message")["payload"]
+    first_message = payload["text"]
+    assert first_message == "I would like a latte."
+    assert payload == {
+        "sessionId": "42",
+        "text": "I would like a latte.",
+        "voice": True,
+        "audioObject": "learning-speaking/11/42/2026-10-24/a.wav",
+        "durationMs": 4200,
+    }
+
+
+def test_speaking_send_failure_keeps_preview_in_source():
+    """发送失败必须保留待发送录音与转写，不能 alert 后让用户重录。"""
+    source = (ROOT / "cps/static/js/learning-speaking.js").read_text(encoding="utf-8")
+    start = source.index("function sendCurrent()")
+    end = source.index("function uploadRecording", start)
+    block = source[start:end]
+    assert "statusLine(err.message" in block
+    assert "speaking.pending = null" not in block
+    assert "els['sw-s-send'].disabled = !els['sw-s-input'].value.trim();" in block
+
+
 def test_mic_buttons_render_on_their_own_pages(admin_client, moonwell_configured):
     speaking = admin_client.get("/learning/speaking").data.decode("utf-8")
     assert 'id="sw-s-mic"' in speaking
@@ -690,7 +801,8 @@ def test_mic_buttons_have_labels_and_hint(admin_client, moonwell_configured):
     html = admin_client.get("/learning/speaking").data.decode("utf-8")
     # 空白按钮修正：麦克风按钮有文字标签，且面板有用法提示
     assert html.count('sw-mic-label') >= 1
-    assert "Voice input" in html
+    assert "Tap to speak" in html
+    assert "after recording" in html
     assert "sw-mic-hint" in html
 
 

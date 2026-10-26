@@ -18,8 +18,9 @@
 - 默认 dry-run，绝不写库；`--demote` 必须显式给 `--ids` 或 `--emails`，**不支持全量降级**
   —— 管理员位一旦被批量抹掉只能靠备份回滚，而且「谁是管理员」应由人点名，不由脚本猜。
 - 写库前把库文件复制为 `<db>.r211-bak-<时间戳>`，并回显备份路径。
-- 降级目标＝站点默认角色**剔除管理员位**：管理员只由管理后台手动赋予
-  （2026-10-23 用户拍板），脚本不会把任何人留在或推回管理员。
+- 降级目标＝站点默认角色**补阅读位并剔除管理员位**：管理员只由管理后台手动
+  赋予（2026-10-23 用户拍板），脚本不会把任何人留在或推回管理员，也不会
+  在降级时顺手把人的在线阅读能力关掉。
 
 不依赖 Flask 应用：只读 SQLite 的 `user` / `settings` 两张表，常量与
 `cps/constants.py` 同源（`tests/test_oidc_admin_role.py` 有对账守卫）。
@@ -32,9 +33,10 @@ import sqlite3
 import sys
 import time
 
-# 与 cps/constants.py:62 的 ROLE_ADMIN 同源；本脚本刻意不 import cps（导入包会
+# 与 cps/constants.py 的 ROLE_ADMIN / ROLE_VIEWER 同源；本脚本刻意不 import cps（导入包会
 # 触发整个 Flask 应用初始化），改由测试断言两者一致。
 ROLE_ADMIN = 1 << 0
+ROLE_VIEWER = 1 << 8
 
 
 def _resolve_db_path(explicit=None):
@@ -91,13 +93,15 @@ def load_default_role(conn):
 
 
 def demote_target_role(default_role):
-    """降级后的目标角色＝站点默认角色剔除管理员位。
+    """降级后的目标角色＝站点默认角色补阅读位并剔除管理员位。
 
     Why：2026-10-23 用户拍板「管理员由我手动赋予」，所以降级不能落回
         一个仍含 ROLE_ADMIN 的角色；站点默认角色若被误配成含管理员位，
-        这里同样剔除（与 cps/oidc.py 的 site_default_role 口径一致）。
+        这里同样剔除。R225 起在线阅读是基础能力，降级也不能让账号从
+        管理员变成「连书都打不开」，故与 site_default_role() 一样补
+        ROLE_VIEWER；下载仍是独立位，不随降级或阅读一起放开。
     """
-    return default_role & ~ROLE_ADMIN
+    return (default_role & ~ROLE_ADMIN) | ROLE_VIEWER
 
 
 def plan_demotions(rows, ids=None, emails=None, default_role=0):
@@ -193,7 +197,8 @@ def main(argv=None):
     print(f"数据库：{db_path}")
     print(f"站点默认角色：{default_role}"
           f"（{'含管理员位 → 建号/降级时剔除' if has_flag(default_role, ROLE_ADMIN) else '不含管理员位'}）")
-    print(f"降级目标角色：{target_role}（＝默认角色剔除管理员位；管理员只由管理后台手动赋予）")
+    print(f"降级目标角色：{target_role}"
+          "（＝默认角色补阅读位并剔除管理员位；管理员只由管理后台手动赋予）")
     print(f"账号总数 {len(rows)}｜管理员 {sum(1 for r in rows if r['is_admin'])}"
           f"｜其中经 OIDC 登录过 {len(oidc_admins)}")
     print()

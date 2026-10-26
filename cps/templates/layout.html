@@ -108,6 +108,24 @@
                  R112：标签走标准 Babel gettext（英文 msgid，中文词条在 zh_Hans_CN po），
                  随用户 locale 切换单语言显示，替代旧「中英双写」方案 #}
               {% if not current_user.is_anonymous %}
+                {# R212：语言入口前置到顶栏。只提交 locale，不触碰 /me 的书籍语言偏好。 #}
+                <li class="dropdown" id="top_language">
+                  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                    <span class="glyphicon glyphicon-globe"></span> {{_('Language')}} <span class="caret"></span>
+                  </a>
+                  <ul class="dropdown-menu">
+                    {% for translation in available_translations %}
+                    {% set locale_code = translation|string %}
+                    <li{% if locale_code == current_user.locale %} class="active"{% endif %}>
+                      <form method="POST" action="{{ url_for('web.update_preferences') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="locale" value="{{ locale_code }}">
+                        <button type="submit" class="btn btn-link navbar-language-option">{{ translation.display_name|capitalize }}</button>
+                      </form>
+                    </li>
+                    {% endfor %}
+                  </ul>
+                </li>
                 <li class="dropdown" id="top_mb_settings">
                   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
                     <span class="glyphicon glyphicon-cog"></span> {{_('Settings')}} <span class="caret"></span>
@@ -267,6 +285,9 @@
       <script src="{{ url_for('static', filename='js/caliBlur.js') }}"></script>
     {% endif %}
     {% block js %}{% endblock %}
+    {% if current_user.is_authenticated and not current_user.is_anonymous %}
+    {% include 'ai_chat_panel.html' %}
+    {% endif %}
     {# R109 引导模式：必须在 jQuery 之后（onboarding.js 依赖 $），故放在 block js 之后 #}
     {% include 'i18n_seed.html' %}
     {% include 'onboarding_mount.html' %}

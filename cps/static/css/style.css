@@ -37,6 +37,109 @@ body {
   margin-bottom: 40px;
 }
 
+.login-entry {
+  padding: clamp(24px, 5vw, 72px) 15px 8px;
+}
+
+.login-intro {
+  max-width: 900px;
+  margin-bottom: 24px;
+}
+
+.login-kicker {
+  margin: 0 0 10px;
+  color: #8a6135;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.login-intro h1 {
+  max-width: 760px;
+  margin: 0 0 14px;
+  color: #2f251d;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(32px, 5vw, 58px);
+  line-height: 1.04;
+  letter-spacing: -.025em;
+}
+
+.login-lead {
+  max-width: 680px;
+  margin: 0;
+  color: #65584d;
+  font-size: clamp(15px, 2vw, 19px);
+  line-height: 1.6;
+}
+
+.login-book-wall {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(10px, 2vw, 22px);
+  margin-top: 30px;
+}
+
+.login-book-cover {
+  display: block;
+  width: clamp(72px, 12vw, 132px);
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 2px;
+  box-shadow: 0 14px 28px rgba(47, 37, 29, .18);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.login-book-cover:nth-child(1) { transform: rotate(-3deg); }
+.login-book-cover:nth-child(2) { transform: translateY(-8px) rotate(1.5deg); }
+.login-book-cover:nth-child(3) { transform: rotate(-1deg); }
+.login-book-cover:nth-child(4) { transform: rotate(3deg); }
+.login-book-cover:hover,
+.login-book-cover:focus {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 20px 36px rgba(47, 37, 29, .28);
+  transform: translateY(-12px) rotate(0deg);
+}
+
+.login-book-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+#login-panel {
+  margin-top: 8px;
+}
+
+.navbar-language-option {
+  width: 100%;
+  padding: 3px 20px;
+  color: #333;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.navbar-language-option:hover,
+.navbar-language-option:focus {
+  color: #262626;
+  text-decoration: none;
+  background-color: #f5f5f5;
+}
+
+@media (max-width: 767px) {
+  .login-entry {
+    padding-top: 22px;
+  }
+  .login-book-wall {
+    margin-top: 22px;
+  }
+  .login-book-cover {
+    width: clamp(64px, 20vw, 92px);
+  }
+}
+
 .http-error body {
   margin: 0;
   height: 100%;
@@ -608,4 +711,95 @@ body > div.container-fluid  {
 .mb-bottom-item:focus {
   color: #45b29d;
   text-decoration: none;
+}
+
+/* ---------------- 首页 /home（R213-C / MB-18） ----------------
+   四块纵向排列：继续阅读 / 今日计划 / 分级推荐 / 随机发现。
+   卡片样式复用书库列表的 .book，这里只补模块间距与「继续阅读」的进度条。 */
+
+.home-page {
+  padding: 12px 0 24px;
+}
+
+.home-section {
+  margin-bottom: 28px;
+}
+
+.home-section-title {
+  font-size: 20px;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.home-level-group {
+  margin-bottom: 18px;
+}
+
+.home-level-label {
+  font-size: 15px;
+  color: #45b29d;
+  margin: 0 0 10px;
+  font-weight: 600;
+}
+
+/* 继续阅读：进度条压在书名下方，卡片高度与书库卡一致 */
+.home-progress {
+  margin-top: 6px;
+}
+
+.home-progress-pages {
+  display: block;
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 4px;
+}
+
+.home-progress-bar {
+  display: block;
+  height: 4px;
+  background: #eee;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.home-progress-bar > span {
+  display: block;
+  height: 100%;
+  background: #45b29d;
+}
+
+/* 今日计划卡 */
+.home-plan-card {
+  background: #f8f8f8;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+
+.home-plan-line {
+  font-size: 16px;
+  margin: 0 0 8px;
+  color: #333;
+}
+
+.home-plan-cell strong {
+  font-size: 20px;
+  color: #45b29d;
+  margin-right: 2px;
+}
+
+.home-plan-sep {
+  margin: 0 10px;
+  color: #bbb;
+}
+
+/* 两块都取不到时的降级文案：不是错误红，而是「暂时」的中性提示 + 仍然可点的链接 */
+.home-plan-degraded {
+  color: #777;
+  font-size: 14px;
+}
+
+.home-plan-link {
+  font-size: 13px;
 }

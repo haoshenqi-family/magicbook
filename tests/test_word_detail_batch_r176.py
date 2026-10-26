@@ -514,14 +514,23 @@ class TestTemplateContract:
             "入队必须带一次复述数字的确认，否则最贵的调用藏在一次 click 里"
 
     def test_detail_page_has_the_third_whole_book_button(self):
-        """详情页按钮位：整本翻译 / 整本朗读 / 全文单词详解 各一处。"""
+        """详情页按钮位：三个整本入口经 R214-C 收进「整本任务」面板，位置与数量不变。
+
+        Why 改形制（R214 子项 C）：三个并列按钮合并为单个入口 + 面板三 tab，一一对应；
+        守卫跟着变成「入口一处 + 面板里三个 tab」，否则它会替旧形制挡住新需求。
+        """
         with open(_DETAIL, encoding="utf-8") as handle:
             source = handle.read()
 
-        assert source.count('id="whole-book-translate"') == 1
-        assert source.count('id="whole-book-tts"') == 1
-        assert source.count("web.word_detail_batch_page") == 1
-        assert "全文单词详解" in source
+        assert source.count('id="whole-book-panel-open"') == 1
+        assert "partials/whole_book_panel.html" in source
+        assert 'id="whole-book-translate"' not in source
+
+        panel = os.path.join(os.path.dirname(_DETAIL), "partials", "whole_book_panel.html")
+        with open(panel, encoding="utf-8") as handle:
+            panel_source = handle.read()
+        assert panel_source.count("web.word_detail_batch_page") == 1
+        assert "全文单词详解" in panel_source
 
 
 class TestChineseRenderingIsLiveNotJustPo:

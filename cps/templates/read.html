@@ -198,8 +198,8 @@
             ttsConfigured: {{ current_user.is_authenticated | tojson }},
             bookId: {{ bookid }},
             bookName: {{ title|tojson }},
-            {# R213-B：服务端记录的阅读位置（跨设备），优先于 localStorage #}
-            readerPosition: {{ (reading_position or {})|tojson }},
+            {# R213-B：开关关闭时不注入服务端位置，epub.js 只走 localStorage #}
+            readerPosition: {{ (reading_position or {})|tojson if reading_progress_enabled else '{}' }},
             readingVocabularyEnabled: {{ current_user.is_authenticated|tojson }}
         };
 
@@ -595,8 +595,11 @@
       <script src="{{ url_for('static', filename='js/reading/reader-immersive.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/reader-ted-audio.js') }}"></script>
       <script src="{{ url_for('static', filename='js/reading/reader-tts.js') }}"></script>
-      {# R213-B：账号级阅读位置上报（须在 epub.js 之前，装配层 relocated 时调用） #}
+      {# R213-B：账号级阅读位置上报（须在 epub.js 之前，装配层 relocated 时调用）。
+         总开关关闭时不加载本模块，ReaderProgress 不存在，epub.js 自然只保留本地位置。 #}
+      {% if reading_progress_enabled %}
       <script src="{{ url_for('static', filename='js/reading/reader-progress.js') }}"></script>
+      {% endif %}
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
       {# R151 阅读活跃心跳：四股台账 INPUT 股信号源（可见 + 近 3 分钟有交互才计） #}
       <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>

@@ -248,9 +248,14 @@ def test_browse_step_anchors_exist_in_templates():
         assert anchor in src, "{0} 已从 layout 消失，需同步 onboarding.js".format(anchor)
 
     # index.html 同时服务首页（discover）与各浏览页；封面与排序条是导览锚点
+    # R213-C：书卡主体搬进 `partials/_book_card.html`（index 与 /home 共用），
+    # 故「卡片外层 class」这个锚点要在宏里找；排序条仍在 index.html 自己身上。
     with open(os.path.join(TEMPLATE_DIR, "index.html"), encoding="utf-8") as fh:
         src = fh.read()
-    for anchor in ('class="col-sm-3 col-lg-2 col-xs-6 book session', 'class="filterheader'):
+    with open(os.path.join(TEMPLATE_DIR, "partials", "_book_card.html"), encoding="utf-8") as fh:
+        card_src = fh.read()
+    assert 'class="col-sm-3 col-lg-2 col-xs-6 book session' in card_src
+    for anchor in ('class="filterheader',):
         assert anchor in src
 
     with open(os.path.join(TEMPLATE_DIR, "detail.html"), encoding="utf-8") as fh:
@@ -392,8 +397,8 @@ def test_i18n_seed_renders_chinese_for_zh_user(app):
     assert d["Book wall"] == "书墙"
     # 尾点这条曾出现「字典 key 带句点、_() 实参不带」的不一致：值非空但是英文，
     # 遍历断言查不出来，故逐字比对（同缺陷类由 test_i18n_seed_contract 从源码侧锁死）
-    assert d["Tap the “?” at the bottom-left any time to replay the tour."] == (
-        "想重看随时点左下角的「?」。")
+    replay = d["Use the “Onboarding Tour” button at the bottom-right any time to replay the tour."]
+    assert replay == "随时点右下角「使用引导」重看本段导览。"
     # 含 \n / 引号转义的长词条走运行时比对（源码转义形态不可靠）
     for key, val in d.items():
         assert val, f"词条 {key!r} 翻译为空"

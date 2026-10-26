@@ -14,6 +14,7 @@ from cps.web import (
     whole_book_tts_service,
 )
 from .. import ub
+from .. import config
 from ..admin import admin_required
 from ..cw_login import current_user
 from ..render_template import render_title_template
@@ -519,6 +520,10 @@ def reading_progress():
         payload = request.form
     if not hasattr(payload, "get"):
         return jsonify({"success": False, "message": "invalid payload"}), 400
+    # Kill switch：关闭时保留旧阅读器的本地位置能力，但服务端绝不写库
+    # （包括 ReadBook 的在读状态）。仍返回 2xx，避免旧缓存页面反复重试/弹错。
+    if not config.config_reading_progress_enabled:
+        return jsonify({"success": True, "disabled": True})
 
     book_id = _progress_int(payload, "book_id")
     if not book_id:
@@ -567,6 +572,36 @@ def reading_progress():
     row.page_total = page_total
     # 同一页反复开合时进度字段不变，但「最近阅读」语义要求时间推进
     row.last_read_at = now
+
+    # 顺手把这本书标成「在读」（2026-10-24 缺陷修复）。
+    #
+    # Why 必须在这里写：此前网页阅读器只写位置、不写状态，而
+    # `book_read_link.read_status = STATUS_IN_PROGRESS` 只有 Kobo 同步会写
+    # （cps/kobo.py:801），于是网页读者的书永远是「无记录」——高级搜索的
+    # 「在读」成了空集（生产库实测 status=2 共 0 行）。
+    #
+    # 三条边界，每条都有代价可查：
+    # 1. 只在 POST 里写，不在 read_book 的 GET 里写——GET 会被页面预取、刷新、
+    #    爬虫误触发，把「没真读」的书标成在读；
+    # 2. FINISHED 不回退——已读完的书回看不该撤销用户显式的完成标记；
+    # 3. 不碰 times_started_reading / last_time_started_reading——那是 Kobo 设备
+    #    的阅读统计（kobo.py:803 写、874 回给设备），网页侧写入会让设备端次数
+    #    凭空增长。KoboReadingState 也不用手工建：kobo.get_or_create_reading_state
+    #    在它为空时会自动补。
+    #
+    # 配置了 calibre 自定义阅读列时，状态真相在那个列里，不往 ReadBook 写，
+    # 否则同一个概念出现两个来源。
+    if not config.config_read_column:
+        read_book = ub.session.query(ub.ReadBook).filter(
+            ub.ReadBook.user_id == int(current_user.id),
+            ub.ReadBook.book_id == book_id).first()
+        if read_book is None:
+            ub.session.add(ub.ReadBook(user_id=int(current_user.id),
+                                       book_id=book_id,
+                                       read_status=ub.ReadBook.STATUS_IN_PROGRESS))
+        elif read_book.read_status == ub.ReadBook.STATUS_UNREAD:
+            read_book.read_status = ub.ReadBook.STATUS_IN_PROGRESS
+
     ub.session_commit("Reading progress user %s book %s %s" %
                       (current_user.id, book_id, book_format))
     return jsonify({"success": True,

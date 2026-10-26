@@ -112,6 +112,52 @@ def test_admin_adjust_forwards_payload(admin_client, moonwell_configured, monkey
     assert captured["payload"] == payload
 
 
+def test_admin_users_requires_login(app, moonwell_configured):
+    """Anonymous requests must be redirected to the login page."""
+    client = app.test_client()
+    assert client.post("/ajax/credit/admin-users", json={}).status_code == 302
+
+
+def test_admin_users_forwards_and_gates(admin_client, moonwell_configured, monkeypatch):
+    """admin-users 转发 /credit/admin/users；非管理员 403（moon-well 白名单再校验）。"""
+    import cps.web as w
+
+    captured = {}
+
+    def fake_proxy(path, payload, timeout, label, binary=False, method="POST", system_identity=False, bearer_token=None):
+        captured["path"] = path
+        captured["payload"] = payload
+        return (json.dumps({"success": True,
+                            "result": [{"userId": 1, "username": "admin", "nickname": None, "email": None}]}),
+                200, {"Content-Type": "application/json"})
+
+    monkeypatch.setattr(w._moonwell_client, "proxy", fake_proxy)
+
+    rv = admin_client.post("/ajax/credit/admin-users", json={})
+    assert rv.status_code == 200
+    assert captured["path"] == "/credit/admin/users"
+    assert captured["payload"] == {}
+
+    body = json.loads(rv.data.decode("utf-8"))
+    assert body["success"] is True
+    assert body["result"][0]["userId"] == 1
+
+
+def test_credits_page_renders_admin_user_dropdown(admin_client, moonwell_configured):
+    """调整表单的目标用户必须是下拉（同源防打错人），不再是手填数字输入。"""
+    rv = admin_client.get("/credits")
+    assert rv.status_code == 200
+    html = rv.data.decode("utf-8")
+    assert '<select id="credit-admin-user"' in html
+    assert 'type="number" id="credit-admin-user"' not in html
+    js = pathlib.Path(cps.__file__).parent / "static" / "js" / "credits.js"
+    js_text = js.read_text(encoding="utf-8")
+    assert "/ajax/credit/admin-users" in js_text
+    # 划线原价文案不再带「原到账」前缀（验收微调：baseTitle 服务端文案直接展示）
+    assert "'原到账 '" not in js_text
+    assert "pkg-base" in js_text
+
+
 def test_credits_page_renders_admin_panel_for_admin(admin_client, moonwell_configured):
     rv = admin_client.get("/credits")
     assert rv.status_code == 200

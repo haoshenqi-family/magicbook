@@ -1,10 +1,10 @@
-"""Tests for CSP headers that enable blob: media playback in the reader.
+"""Tests for CSP headers that enable blob: media playback in media pages.
 
-The reader plays AI TTS audio from a URL.createObjectURL(blob) URL. That is a
-"media" load, governed by the CSP media-src directive. If media-src is not set
-it falls back to default-src ('self' ...), which excludes blob:, so the browser
-blocks playback: "Loading media from 'blob:...' violates ... CSP". The reader
-page must therefore explicitly allow media-src 'self' blob:.
+The reader and speaking coach play AI TTS audio from URL.createObjectURL(blob)
+URLs. That is a "media" load, governed by the CSP media-src directive. If
+media-src is not set it falls back to default-src ('self' ...), which excludes
+blob:, so the browser blocks playback: "Loading media from 'blob:...' violates
+... CSP". Both pages must therefore explicitly allow media-src including blob:.
 """
 from unittest.mock import patch
 
@@ -27,7 +27,7 @@ def _set_html_desired(config_module, value):
 def make_response_headers(app):
     """Return a callable that runs add_security_headers for a given endpoint."""
 
-    def _run(endpoint_name):
+    def _run(endpoint_name, accept="text/html,application/xhtml+xml"):
         from cps import web
 
         # Simulate a request whose url_rule resolves to the given endpoint.
@@ -38,6 +38,7 @@ def make_response_headers(app):
             # Build a fake rule whose endpoint matches what flask gives us.
             rule = type("Rule", (), {"endpoint": endpoint_name, "methods": {"GET"}, "arguments": {"book_id", "book_format"}})()
             request.url_rule = rule
+            request.environ["HTTP_ACCEPT"] = accept
             # after_request hooks expect a response to decorate
             from flask import make_response
 
@@ -130,11 +131,47 @@ def test_reader_page_allows_ted_audio_minio_origin(app, make_response_headers):
         )
 
 
-def test_non_reader_pages_still_block_blob_media(app, make_response_headers):
-    """Any non-reader page keeps the stricter (no blob) CSP default.
+def test_speaking_page_allows_blob_audio_only(app, make_response_headers):
+    """Speaking must allow its blob: TTS/recording audio without widening to external origins.
 
-    blob: should stay blocked outside the reader so we do not widen the
-    security surface globally.
+    R221 converts both coach TTS and user recordings to Blob URLs in the browser.
+    Without an explicit media-src the page falls back to default-src, so the
+    coach returns valid audio but playback is blocked by CSP.
+    """
+    with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):
+        resp = make_response_headers("web.learning_speaking_page")
+
+    csp = resp.headers.get("Content-Security-Policy")
+    assert csp, "speaking page must set a Content-Security-Policy"
+    media_directive = [d.strip() for d in csp.split(";") if d.strip().startswith("media-src")]
+    assert media_directive, "speaking page CSP must explicitly set media-src: " + csp
+    assert media_directive[0] == "media-src 'self' blob:", (
+        "speaking media-src must stay narrow to self + blob:; directive was: "
+        + media_directive[0]
+    )
+    assert "https://dict.youdao.com" not in media_directive[0]
+    for origin in MINIO_ORIGINS:
+        assert origin not in media_directive[0]
+
+
+def test_speaking_route_sets_blob_media_csp(admin_client):
+    """The registered /learning/speaking route must emit the blob media policy."""
+    resp = admin_client.get("/learning/speaking")
+    assert resp.status_code == 200
+
+    csp = resp.headers.get("Content-Security-Policy")
+    assert csp, "speaking route must set a Content-Security-Policy"
+    media_directive = [d.strip() for d in csp.split(";") if d.strip().startswith("media-src")]
+    assert media_directive == ["media-src 'self' blob:"], (
+        "/learning/speaking must allow only self + blob: media; CSP was: " + csp
+    )
+
+
+def test_non_reader_pages_still_block_blob_media(app, make_response_headers):
+    """Pages without blob media keep the stricter (no media-src) CSP default.
+
+    blob: should stay blocked outside the reader and speaking pages so we do
+    not widen the security surface globally.
     """
     with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):
         resp = make_response_headers("web.index")
@@ -143,8 +180,8 @@ def test_non_reader_pages_still_block_blob_media(app, make_response_headers):
     assert csp
 
     media_directive = [d.strip() for d in csp.split(";") if d.strip().startswith("media-src")]
-    # Non-reader pages have no reason to emit media-src at all.
-    assert not media_directive, "non-reader pages should not emit media-src: " + csp
+    # The index page has no blob media requirement, so it must not emit media-src.
+    assert not media_directive, "non-media pages should not emit media-src: " + csp
 
 # R210：MinIO 对外入口迁移 home:9001 → minio.haoshenqi.top，过渡期两源并列。
 MINIO_NEW_ORIGIN = "https://minio.haoshenqi.top"
@@ -157,14 +194,12 @@ def _img_directive(csp):
 
 
 @pytest.mark.parametrize("endpoint", ["web.read_book", "web.buddy_page"])
-def test_buddy_image_origin_allowed_where_images_render(app, make_response_headers, endpoint):
-    """伙伴头像走 MinIO 跨源直链，渲染它的两个端点必须放行 img-src（R206/R207/R210）。
+def test_img_src_stays_same_origin_after_buddy_proxy(app, make_response_headers, endpoint):
+    """伙伴头像改走同源代理 /ajax/buddy/image（R220），img-src 不再放行 MinIO。
 
-    这条比 media-src 更难发现：`ai_chat.js` 用 new Image() 预载探测，被 CSP 拦时
-    onerror 分支静默保留「AI」文字兜底——页面看起来完全正常，只是换图永不生效。
-    头像 URL 由 moon-well 按 `minio.public-url`（Nacos 生产值）现拼，本仓只能硬编码同源
-    放行，所以**改基址必然两处一起失效**（R210 就是这么触发的）；源清单收敛到
-    `cps/web.py::MINIO_PUBLIC_ORIGINS` 单点，media-src 与 img-src 共用。
+    R220 验收现场：个别浏览器扩展拦跨站图片子资源（ERR_BLOCKED_BY_CLIENT），
+    MinIO 直链在页内全裂图且 CSP 无报错。头像改走本站同源代理后，img-src 收窄，
+    媒体面（media-src）仍按阅读页口径放行 MinIO——MINIO_PUBLIC_ORIGINS 继续单点共用。
     """
     with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):
         resp = make_response_headers(endpoint)
@@ -172,16 +207,16 @@ def test_buddy_image_origin_allowed_where_images_render(app, make_response_heade
     img = _img_directive(resp.headers.get("Content-Security-Policy"))
     assert img, "img-src must stay explicit; CSP was: " + resp.headers.get("Content-Security-Policy")
     for origin in MINIO_ORIGINS:
-        assert origin in img[0], (
-            "%s must allow the MinIO public origin %s for buddy images; got: %s"
-            % (endpoint, origin, img[0])
+        assert origin not in img[0], (
+            "%s img-src must NOT re-open MinIO origins after the buddy proxy; got: %s"
+            % (endpoint, img[0])
         )
 
 
-def test_buddy_image_origin_not_opened_site_wide(app, make_response_headers):
-    """其余页面维持 img-src 'self' … data:，不放行 MinIO——沿用 R181 的窄面口径。"""
+def test_buddy_image_origin_not_opened_for_non_html(app, make_response_headers):
+    """非 HTML 响应维持 img-src 'self' … data:，不放行 MinIO（代理后全站同口径）。"""
     with _set_html_desired(cw_config, "'self' 'unsafe-inline' 'unsafe-eval'"):
-        resp = make_response_headers("web.index")
+        resp = make_response_headers("web.index", accept="application/json")
 
     img = _img_directive(resp.headers.get("Content-Security-Policy"))
     assert img, "index page must keep an explicit img-src"

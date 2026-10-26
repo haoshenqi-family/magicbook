@@ -40,3 +40,13 @@
 .buddy-action .btn { width: 100%; }
 .buddy-state { font-size: 12px; color: #999; }
 .buddy-state.on { color: #4285f4; font-weight: 600; }
+
+/* R223 悬浮球快捷动作配置：chip 选择器，选中反白。 */
+.buddy-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.buddy-qa-chip {
+  padding: 6px 14px; border-radius: 999px; border: 1px solid #d0d5dd;
+  background: #fff; color: #444; font-size: 13px; cursor: pointer;
+}
+.buddy-qa-chip.on { background: #4285f4; border-color: #4285f4; color: #fff; }
+.buddy-qa-chip:disabled { opacity: 0.6; cursor: default; }
+.buddy-qa-state { margin-left: 10px; font-size: 12px; color: #188038; }

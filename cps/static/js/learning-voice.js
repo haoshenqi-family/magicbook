@@ -1,7 +1,8 @@
 // 语音输入（R166 自 speaking_writing.js 迁出；采集/转写链路属 R155/R158/R159/R160）。
 //
-// Why 单独一个文件：只有口语陪练与复述训练两页要麦克风，中枢与其余四页
+// Why 单独一个文件：早期只有口语陪练与复述训练两页要麦克风，中枢与其余四页
 // 不必载这 200 行 WebAudio。
+// R227 起 Buddy 面板（全站挂载）也用同一份：模块不再假定学习中枢存在，见下方依赖降级。
 //
 // Why 不用 MediaRecorder：其产物 webm/opus 在 SiliconFlow 转写端兼容性存疑，
 // 且浏览器间编码不可控；WebAudio 拿原始 PCM 后在采集端编码 16k 单声道 wav
@@ -10,10 +11,34 @@
 (function () {
   'use strict';
 
-  var MB = window.MBLearning;
-  if (!MB) return;
-  var mbT = MB.mbT, esc = MB.esc;
+  // R227：本模块从「学习中枢专用」升为通用语音输入件——Buddy 面板在全站挂载
+  //（layout.html + 三个 read 模板），那里既没有 learning-common.js，也没有
+  // window.learningUrls。Why 不另抄一份：R158 同步抛错必须复位按钮、R159 全静音
+  // 判定、R160 站内设备选择这三处坑都沉淀在这里，复制一份等于把坑一起复制。
+  // 所以依赖降级为「有则用、无则回退」：取词走全站 window.mbT（i18n_seed）、
+  // CSRF 走 window.MBApi（common/api.js 全站载入）、转写地址可被 options.asrUrl 覆盖。
+  var MB = window.MBLearning || {};
+  var mbT = MB.mbT || function (id) {
+    if (typeof window.mbT === 'function') return window.mbT(id);
+    return id;
+  };
+  var esc = MB.esc || function (node, text) {
+    if (node) node.textContent = text == null ? '' : String(text);
+  };
   var urls = window.learningUrls || {};
+
+  function csrfToken() {
+    if (typeof MB.csrfToken === 'function') return MB.csrfToken();
+    if (window.MBApi && typeof window.MBApi.csrfToken === 'function') return window.MBApi.csrfToken();
+    return '';
+  }
+
+  // 只有学习页会传 deviceSelect，但回退也要成立——缺 MBLearning 时 MB.clear 不存在，
+  // 真机上表现为「点开设备下拉直接 TypeError」，比不显示下拉更坏（R227）。
+  function clearNode(node) {
+    if (typeof MB.clear === 'function') return MB.clear(node);
+    while (node && node.firstChild) node.removeChild(node.firstChild);
+  }
 
   var DEVICE_KEY = 'sw-mic-device';   // 沿用 R160 的键，站内已存的设备选择继续生效
 
@@ -131,28 +156,9 @@
     return Promise.resolve(encodeWav(chunks, rate));
   }
 
-  function transcribeRecording() {
-    var seconds = Math.round((Date.now() - recorder.startedAt) / 1000);
-    if (seconds < 1) return Promise.reject(new Error(mbT('Recording too short')));
-    return recorderStop().then(function (blob) {
-      var form = new FormData();
-      form.append('file', blob, 'recording.wav');
-      return fetch(urls.asrTranscribe, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'X-CSRFToken': MB.csrfToken() },
-        body: form,
-      }).then(function (response) {
-        return response.json().then(function (data) {
-          if (!response.ok || !data || data.success !== true) {
-            throw new Error((data && data.message) || mbT('Something went wrong'));
-          }
-          var text = String(data.result && data.result.text || '').trim();
-          if (!text) throw new Error(mbT('No speech detected'));
-          return text;
-        });
-      });
-    });
+  /** 当前录音是否还在进行（页面可在发送/重录前判断，避免二次停止）。 */
+  function isRecording() {
+    return !!(recorder.ctx || recorder.stream);
   }
 
   function micLabel(btn, text) {
@@ -165,7 +171,7 @@
     navigator.mediaDevices.enumerateDevices().then(function (devices) {
       var mics = devices.filter(function (d) { return d.kind === 'audioinput'; });
       var saved = readDevice();
-      MB.clear(select);
+      clearNode(select);
       var def = document.createElement('option');
       def.value = '';
       def.textContent = mbT('Default (follow system)');
@@ -183,16 +189,20 @@
   }
 
   /**
-   * 挂一个麦克风按钮。状态全在按钮上自更新：语音输入 → 录音中 mm:ss（红底，
-   * 再点停止）→ 转写中…；图标字体缺失时按钮仍有文字，不再是「空白按钮」（R156）。
+   * 挂一个麦克风按钮。状态全在按钮上自更新：录音 → 录音中 mm:ss（红底，再点停止）→
+   * 转写中…。onRecording 回调拿到 {wav, text, durationMs}，由页面决定发送前如何确认。
    *
    * idleLabel 取按钮当前文案而非写死英文：R166 前复位用的是硬编码 'Voice input'，
    * 中文用户录完一次后标签会跳回英文。
+   *
+   * 可选 options.asrUrl：转写端点。学习页不传，走 window.learningUrls 注入值；
+   * Buddy 面板不载 learning-common，显式传本站代理路由（R227）。
    */
   function attach(options) {
     var btn = options.micBtn;
     var statusNode = options.statusEl;
     if (!btn) return;
+    var asrUrl = options.asrUrl || urls.asrTranscribe || '/ajax/learning/asr/transcribe';
     var idle = (btn.querySelector('.sw-mic-label') || {}).textContent || '';
     function reset() {
       micLabel(btn, idle);
@@ -232,12 +242,43 @@
       btn.disabled = true;
       micLabel(btn, mbT('Transcribing…'));
       if (statusNode) esc(statusNode, '');
+      var recordingMs = Math.round(Date.now() - recorder.startedAt);
+      if (recordingMs < 1000) {
+        reset();
+        try {
+          recorderStop().catch(function () { /* 清空过短录音 */ });
+        } catch (e) { /* 没有有效录音块时只需复位 UI */ }
+        window.alert(mbT('Recording too short'));
+        return;
+      }
       // R158：同步段抛错也必须复原按钮——此前 statusNode 未注册时同步 TypeError
       // 让按钮永远停在「转写中…」且无任何提示
+      var wavPromise = recorderStop();
       try {
-        transcribeRecording().then(function (text) {
+        wavPromise.then(function (wav) {
+          var form = new FormData();
+          form.append('file', wav, 'recording.wav');
+          return fetch(asrUrl, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'X-CSRFToken': csrfToken() },
+            body: form,
+          }).then(function (response) {
+            return response.json().then(function (data) {
+              if (!response.ok || !data || data.success !== true) {
+                throw new Error((data && data.message) || mbT('Something went wrong'));
+              }
+              var text = String(data.result && data.result.text || '').trim();
+              if (!text) throw new Error(mbT('No speech detected'));
+              return text;
+            });
+          }).then(function (text) {
+            return options.onRecording
+              ? options.onRecording({ wav: wav, text: text, durationMs: recordingMs })
+              : options.onText(text);
+          });
+        }).then(function () {
           reset();
-          options.onText(text);
         }).catch(function (err) {
           reset();
           window.alert(err.message);
@@ -249,5 +290,5 @@
     });
   }
 
-  window.MBLearningVoice = { attach: attach };
+  window.MBLearningVoice = { attach: attach, isRecording: isRecording };
 })();

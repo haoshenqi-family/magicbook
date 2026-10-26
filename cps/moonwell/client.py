@@ -207,7 +207,7 @@ class MoonWellClient:
             log.warning("moon-well %s request failed: %s", path, error)
             return _error_tuple(503, label + " service unavailable")
 
-    def multipart(self, path, file_bytes, filename, timeout, label):
+    def multipart(self, path, file_bytes, filename, timeout, label, fields=None):
         """转发 multipart 录音到 moon-well（R155 语音输入专用）。
 
         Why 独立小转发器而非扩展 proxy：后者契约是 JSON payload；
@@ -225,8 +225,10 @@ class MoonWellClient:
             "X-Trace-Id": self.trace_id(),
             "authorization": "Bearer " + token,
         }
+        form = dict(fields or {})
         try:
             response = requests.post(base + path,
+                                     data=form,
                                      files={"file": (filename, file_bytes)},
                                      headers=headers, timeout=timeout,
                                      proxies=NO_PROXY)

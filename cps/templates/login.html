@@ -1,7 +1,27 @@
 {% extends "layout.html" %}
+{% from 'image.html' import book_cover %}
 {% block body %}
-<div class="well col-sm-6 col-sm-offset-2">
-  <h2 style="margin-top: 0">{{_('Login')}}</h2>
+<div class="login-entry col-sm-9 col-sm-offset-1">
+  <section class="login-intro" id="login-value-proposition">
+    <p class="login-kicker">{{_('Your private reading room')}}</p>
+    <h1>{{_('Read deeper. Learn while you read.')}}</h1>
+    <p class="login-lead">
+      {{_('A personal library with instant translation, vocabulary help, and an AI reading companion — all in one quiet place.')}}
+    </p>
+    {% if login_books %}
+    <div class="login-book-wall" id="login-book-wall" aria-label="{{_('Books in the library')}}">
+      {% for book in login_books[:4] %}
+      <a class="login-book-cover" href="{{ url_for('web.login', next=next_url) }}"
+         title="{{ book.title }}" aria-label="{{ book.title }}">
+        {{ book_cover(book) }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+<div class="well col-sm-6 col-sm-offset-2" id="login-panel">
+  <h2 style="margin-top: 0">{{_('Sign in to your library')}}</h2>
   {% if authentik_oidc_enabled %}
     {# 统一账户体系：Authentik 启用后隐藏本地密码表单，仅保留 OIDC 登录 #}
     <p class="text-muted">{{_('Sign in')}}</p>
@@ -9,9 +29,13 @@
       {{_('Log in')}}
     </a>
     {# 邀请制注册：游客首页即本页（匿名浏览关闭时 / 302 到 /login），登录入口旁放注册入口；
-       链接来自 AUTHENTIK_ENROLLMENT_INVITE_URL；R112：标签走 Babel gettext，随 locale 切换 #}
-    {% if authentik_invite_url %}
-    <a id="authentik_invite_signup" href="{{ authentik_invite_url }}" target="_blank" rel="noopener"
+       R217：按钮指向 magicbook 侧的 /oidc/signup，由它把邀请注册与 OIDC 授权串成一条链
+       —— 用户注册完自动回到 magicbook 且已是登录态，无需再点一次登录。因此不再
+       target=_blank（那会让「注册完在哪」变成断点）。开关仍由
+       AUTHENTIK_ENROLLMENT_INVITE_URL 是否配置决定（沿用 R103 语义）；
+       R112：标签走 Babel gettext，随 locale 切换 #}
+    {% if authentik_invite_url and authentik_signup_url %}
+    <a id="authentik_invite_signup" href="{{ authentik_signup_url }}"
        class="btn btn-default btn-block" style="white-space:normal;margin-top:8px">
       {{_('Sign up')}}
     </a>

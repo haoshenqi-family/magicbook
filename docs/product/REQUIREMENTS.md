@@ -92,3 +92,8 @@
 | --- | --- | --- |
 | 2026-07-31 | 初始版本 | 依据用户原始需求整理：AI 伴读页面、AI 记忆系统、Authentik 登录、多 provider/多模型（初期 DeepSeek）、最小侵入原则；并记录 `/ai/admin` 报错待排查、deepseek V4 flash 模型名待澄清。 |
 | 2026-07-31 | 修复 `/ai/admin` 500 报错 | 根因：`cps.ai.models` 在 `create_app()` 的 `Base.metadata.create_all` 之后才被导入，导致 `ai_config`/`ai_provider` 等表从未创建，首次访问 `/ai/admin` 查询即抛 `OperationalError: no such table`。修复：在 `cps/ai/__init__.py` 导入时新增 `ensure_ai_tables()` 显式建表，并调用 `seed_default_config()` 写入默认配置。验证：模拟线上全新 DB 启动，`/ai/admin` 返回 200 且含 DeepSeek；测试套件 58 passed。 |
+| 2026-10-25 | R225 注册跳转 / 阅读权限 / 封面占位 | 注册邀请改回 Authentik 2025.10.2 接受的顶层 `?itoken=...&next=...`；新账号固定具备在线阅读位但不自动获得下载/管理员；存量账号用 `scripts/reader_role_audit.py` 点名补阅读位；无封面统一使用品牌深墨绿占位图。 |
+| 2026-10-25 | R226 阅读器验收缺陷 | 伙伴头像恢复透明无白底；阅读器导览入口由无文案「?」改为右下角「使用引导」；整页翻译改为请求期顶栏加载态、全部返回后一次渲染，避免逐段插入触发的连续重排。AI 面板 420px 覆盖式抽屉维持 R215 既有拍板。 |
+| 2026-10-25 | R227 Buddy 语音能力 | 伴读面板复用口语陪练的录音+ASR 链路：全站可语音提问（转写填输入框、编辑后发送，录音不留存）；每条助手回复可手动朗读（Web Audio 播放、长回复分段、不带书籍上下文以免污染段落缓存）。CSP 未放宽。 |
+| 2026-10-25 | moon-well R214 / magicbook R228 伴读 Agent Skills | 消费侧记录：伴读 Agent 可按需加载随服务发布的 MagicBook 全功能指南，用于页面导航、学习流程与能力边界说明；Skill 只读、不扩权。magicbook R214 仍为书籍详情，消费侧占 R228。 |
+| 2026-10-26 | R232 伴读面板不显示 token 用量 | 聊天界面不再渲染每轮「tokens 输入/输出」，正文保持干净；用量照常记录并按 token 扣积分，唯一可见入口是【设置】【积分】的消耗明细（「原因」列含 token 数）。记录侧（moon-well 流水 `total_tokens`）零改动。 |
