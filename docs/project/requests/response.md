@@ -206,6 +206,8 @@
 - **文档四问**：能力→L1 `readme/companion.md` 增「聊天里不显示用量」；契约→无变化（SSE 字段与积分接口均未动，故未改 L2）；实现/边界→LLD `iterations/1.0/r232-hide-token-usage/lld.md`；本次实现→同 LLD。需求基线 `REQUIREMENTS.md` 增一行。
 - **台账与驻留**：`claim.sh magicbook` 占号 **R232**（`2e48546f`，纯台账，已 push）；worktree `../magicbook-r232-hide-token-usage`（分支 `feat/r232-hide-token-usage`）驻留待验收；push 闸门留用户。
 - **窗口**：写入前 11 节（已超窗），写入后 12 节；按「写入即检查」把最早 R221、R222 两节原样搬至 `response-archive/response-R221-R222.md` 并登记索引，窗口回到 10。
+- **上线补记（同日，用户令「merge and push」）**：分支并 origin/develop（吸收 R233 的 `f68e39b3`+`a6b16e79` 两笔——合并时共享引用已被并行 fetch 推进到 `a6b16e79`，一并入并）。`ai_chat.js`/`ai_chat.css` 两需求改动无文本重叠、自动合并即语义正确（守卫复验：`ai-chat-usage`/`promptTokens` 零残留、`conversationIdFromFinal` 保留、R233 `normalizeSiteHref` 就位）。台账三处冲突对账：requests.md 取本分支 232 完整条目 + 远端 233 完整条目；`response-R221-R222.md` add/add 双方正文一致、取远端版；`response.md` 两节并存后窗口 11 → 续搬最旧 R223 至 `response-archive/response-R223.md`，窗口回 10。合并基全量 **999 passed / 0 failed**。**主检出 develop 有并行会话未提交的 `messages.po` 改动，快进会被并入的 R230 po 变更（+57 行）覆盖而中止，故按 R209 先例从 worktree 直推 `origin develop`＝`d1d6c84c`——主检出 develop 仍停在 `fe59ad54`（落后远端），messages.po 会话 pull 前需先 stash 该文件**。worktree 驻留待验收。
+
 ## 2026-10-26（R233：AI 回复中的本站链接可点击并在新窗口打开）
 
 ### R233（用户：「AI给出的本站链接应该可以直接跳转（在新窗口）。」）
