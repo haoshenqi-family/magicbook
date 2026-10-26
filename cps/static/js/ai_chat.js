@@ -186,10 +186,10 @@
     return out;
   }
 
-  /** 朗读正文取自渲染后的 DOM：工具芯片、tokens 计数、思考占位、告警行都不是回答。 */
+  /** 朗读正文取自渲染后的 DOM：工具芯片、思考占位、朗读按钮都不是回答。 */
   function speechTextOf($msg) {
     var $clone = $msg.clone();
-    $clone.find(".ai-tool-chip, .ai-chat-usage, .ai-chat-typing, .ai-chat-speak").remove();
+    $clone.find(".ai-tool-chip, .ai-chat-typing, .ai-chat-speak").remove();
     // renderMarkdown 把换行渲染成 <br>、代码块渲染成 <pre>；直接 text() 会把它们
     // 拼成一整行（"line oneLine two"），TTS 既没有停顿还会粘词，故先还原成换行。
     $clone.find("br").replaceWith("\n");
@@ -1066,12 +1066,11 @@
             });
             break;
           case "final":
+            // R232：final 事件里的 usage 只用来收尾，**不再渲染**——用量是账务信息，
+            // 只在【设置】【积分】的消耗明细里看（moon-well 仍按 token 记流水并落
+            // total_tokens，记录侧一行未改）。聊天界面里逐轮浮一行 "tokens 8123/456"
+            // 对读者是噪音：它既不解释这条回答为什么好，也不影响下一次提问。
             conversationIdFromFinal = obj.conversationId || null;
-            if (obj.usage && (obj.usage.promptTokens || obj.usage.completionTokens)) {
-              var $usage = $('<span class="ai-chat-usage"></span>');
-              $usage.text("tokens " + (obj.usage.promptTokens || 0) + "/" + (obj.usage.completionTokens || 0));
-              $usage.appendTo($msg);
-            }
             break;
           case "error":
             fullText += (fullText ? "\n" : "") + "⚠ " + (obj.message || mbT('AI service error'));

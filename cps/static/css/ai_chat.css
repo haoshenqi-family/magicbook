@@ -134,7 +134,7 @@
 .ai-chat-msg.assistant pre { background: #f0f0f0; padding: 8px; border-radius: 4px; overflow-x: auto; }
 .ai-chat-msg.assistant code { font-family: monospace; font-size: 13px; }
 .ai-chat-hint { text-align: center; color: #999; font-size: 12px; margin-bottom: 12px; }
-.ai-chat-usage { display: block; margin-top: 6px; color: #bbb; font-size: 11px; }
+/* R232 起面板不再有用量行样式：token 用量只在【设置】【积分】的消耗明细里看。 */
 
 /* ============ 工具芯片（tool_call / tool_result 分型事件渲染） ============ */
 .ai-tool-chip {

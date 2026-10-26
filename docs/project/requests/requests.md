@@ -240,4 +240,4 @@
 
 231. **删 Dockerfile 的 pip trusted-host（关闭 PyPI 镜像 TLS 校验＝构建链 MITM 投毒面，安全扫描高危6）**（占号 2026-10-26）：原占 R229，随后发现主线已有 R229 `/home` 随机发现缺陷；并行会话又把 R229 重占为 pip TLS、把 R230 给学习导出。按“不修改既有记录、续编下一个空号”处置：本条最终定为 **R231**，既有 R229（`/home`）与 R230（学习导出）原样保留。
 
-232. **AI 伴读面板不再显示 token 用量（仅保留后台记录，用量只在设置·积分查看）**（占号 2026-10-26，待回填）
+232. **AI 伴读面板不再显示 token 用量（仅保留后台记录，用量只在设置·积分查看）**（占号 2026-10-26）：用户原话「AI 伴读不要显示token 使用量（可以记录，但是不要显示）。积分token用量仅在【设置】【积分】那里查看即可。」做法：`ai_chat.js` final 分支删掉 `.ai-chat-usage` 渲染（`obj.usage` 不再进 DOM，会话 id 回传保留）；`ai_chat.css` 同步删样式；`speechTextOf` 的清洗选择器去掉该项。**记录侧零改动**：moon-well `CreditServiceImpl.consumeForLlmTask` 仍按 token 扣费并落 `total_tokens`，流水 remark「AI任务消耗 N token、每千 token 折 10 积分」，即积分页「原因」列。守卫 `tests/test_buddy_no_token_usage.py` 5 条（面板脚本与全站 JS 都不许读 usage 字段、final 仍回传会话 id、CSS 无残留样式、积分页保留原因列）。状态：**开发完成待验收**（worktree `../magicbook-r232-hide-token-usage`，分支 `feat/r232-hide-token-usage`，基线 `origin/develop` `2e48546f`；定向回归 22 passed；push 闸门留用户）。

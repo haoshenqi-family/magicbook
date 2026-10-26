@@ -18,6 +18,7 @@
 - `response-archive/response-R102-R110.md`：R102–R110（2026-09-30 ～ 2026-10-01；R110 条目含 R107/R109 代提交，R120 触发轮转搬入）
 - `response-archive/response-R111-R119.md`：R111–R119（2026-10-02 ～ 2026-10-05；2026-10-08 R129 补账搬移）
 - `response-archive/response-R120-R125.md`：R120–R125（2026-10-06 ～ 2026-10-07；R135 写入触发搬移，含 R134 登记的窗口欠账补账）
+- `response-archive/response-R221-R222.md`：R221 口语陪练语音优先 + R222 生成书籍简介 400（2026-10-26 R232 写入触发轮转搬移，原样搬移不改写）
 - `response-archive/response-R126-R131.md`：R126、R127、R128、R129、R131（2026-10-07 ～ 2026-10-08；2026-10-09 R141 写入触发轮转搬移，清掉 R134 登记的窗口欠账）
 - `response-archive/response-R132-R133.md`：R132、R133（2026-10-08；2026-10-10 R143 写入触发轮转搬移）
 - `response-archive/response-R134.md`：R134（2026-10-08；2026-10-10 R144 写入触发轮转搬移，其父级日期标题随节一并搬移）
@@ -57,59 +58,6 @@
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
-
-## 2026-10-24（R221：AI 口语陪练语音优先——教练默认语音条 + 用户录音转写预览）
-
-### R221（用户：修复口语陪练 500；随后「教练默认发语音，类似微信，可以点击语音转文字。同理，我发出去的也是语音，也可以转文字，发送之前先转文字看效果」）
-
-- **编号迁移**：本任务最初误占 **R212**（该号已属品牌资产），已按家族占号流程正式迁移为 **R221**；旧 worktree `../magicbook-r212-speaking-voice` 保留为迁移来源，未删除。R210 口语 403 修复已按用户指令放弃，不推送。
-- **教练语音**：开场与每轮回复默认语音条，点击播放、点「转文字」展开原文；自动播放只在开聊/发送的用户手势链中尝试，失败不弹误导框。后端复用阅读 TTS 缓存与计费，前端通过 `/ajax/reading-tts-cached` 不计费回读。
-- **用户语音**：录音停止 → ASR 转写 → 可编辑预览 → 点击发送才 multipart 上传并调 LLM；保留「Type instead」。发送失败保留预览与已上传对象名，重试不重复上传。历史会话的用户/教练语音均可回放。
-- **修正点**：教练语音合成与回读统一截取 1800 字，避免长回复缓存 miss 后重复扣费；语音按钮文案改为 `Tap to speak`，不暗示按住说话。
-- **测试**：JS `node --check` 通过；`tests/test_learning_proxy.py`、`test_learning_pages_static.py`、`test_i18n_seed_contract.py` 回归 **106 passed**。新增「发送失败保留预览」源码守卫。i18n 种子、中文 PO 与 `.mo` 已同步重编。
-- **验收缺陷（2026-10-24 续修）**：用户真机验收反馈 `/ajax/reading-tts-cached` 返回正常，但教练与用户语音均无法播放；Chrome 控制台为 `Loading media from 'blob:…' violates ... Content Security Policy`。根因是阅读页已显式放行 `media-src … blob:`，而口语页没有 `media-src`，媒体加载回退到不含 `blob:` 的 `default-src`。修法仅为 `web.learning_speaking_page` 增加 `media-src 'self' blob:`，不改 TTS 接口、不放宽全站 `default-src`，也不向口语页带入阅读页的有道 / MinIO 外源。
-- **修复回归**：`tests/test_csp_media.py` 新增「口语 endpoint 只允许 self + blob」与「真实 `/learning/speaking` 路由响应头」两条守卫，并保留无媒体页面不得产生 `media-src` 的反向断言。定向四文件 **116 passed**；JS `node --check` 通过；发布态全量 `pytest tests/` **903 passed / 0 failed**。
-- **文档四问**：能力变化 → L1 `docs/product/readme/learning.md`；契约变化 → L2 `docs/product/learning/interface.md`；实现与边界 → L3 `docs/product/learning/features/speaking-voice-first.md`；本次实现 → `docs/project/iterations/1.0/r221-speaking-voice/lld.md`。需求基线已追加 R221，迭代 plan 增 MB-19 工作项。
-- **驻留与边界（如实）**：worktree `../magicbook-r221-speaking-voice`，分支 `feat/r221-speaking-voice`；语音优先功能已合入 develop，CSP 验收缺陷修复提交后合并并推送 develop 触发自动上线，worktree 保留待真机验收。尚未完成真人登录态录音、自动播放、历史回放验收。
-- **总结**：requests.md 条目 221 为已占号需求；本条为回应。冲突记录：原误占 R212，已迁移 R221；R210 已放弃，不推送。
-
-## 2026-10-24（R222：R214 验收缺陷——生成书籍简介 400，上游 Magpie 403 被误报）
-
-### R222（用户：贴出 `POST https://magicbook.haoshenqi.top/ajax/book-summary 400 (Bad Request)`，「修复这个问题」）
-
-- **任务定位**：缺陷，挂 R214 子项 B / PJM MB-13 / Ship MAGICBOOK-221；不做无主修复。
-- **证据链（先查 ES 再读码）**：ES `app-log-moon-well` 在 18:33–18:36 连续记录
-  `Magpie call failed: HTTP 403`，同 trace 的 `/book/ai/ability/book-intro` 响应为 500；
-  Magpie 容器日志同一时段拒绝 `POST /v1/chat/completions from 172.28.0.1: not on the allow list`。
-  moon-well 在 `moon-well_moon-well-net`（172.29.0.2），Magpie 在 `magpie_default`（172.28.0.2），
-  跨网段请求到宿主端口时以 bridge 网关 `172.28.0.1` 为源地址，而 Magpie `allowIPs` 只有
-  `192.0.0.0/8`。因此 400 是两层误报叠加，不是书籍入参/文件问题。
-- **应用修复**：`cps/reading_insight/service.py` 新增 `UpstreamServiceError`（携带上游状态码），
-  `_unwrap_result()` 对非 2xx / `success:false` / 不可解析 / 空正文统一抛该异常；
-  `/ajax/book-summary` 新增 502 分支并记录上游状态与 message，本地入参/文件错误仍为 400。
-  `cps/static/js/book-insight.js` 原本已展示 `data.message`，无需改前端。
-- **运行修复**：fnOS `/app/magpie/config/magpie/settings.json` 备份为
-  `settings.json.bak-r222-20261024-184438`（600），`allowIPs` 增加 `172.28.0.0/16`；
-  `docker compose restart magpie` 后 healthcheck rc=0。未使用 `0.0.0.0/0`，未改端口绑定。
-- **验证**：`tests/test_book_detail_r222.py` 四条（上游 500→502 且 message 保留 / 成功仍 200 /
-  上游 302 不得当成功 / 非法 book_id 仍 400）+ `test_book_insight.py` +
-  `test_book_detail_r214.py`，共 **49 passed**。
-  真实链路：从 `moon-well-green` 容器带 gateway key 请求 Magpie `GET /v1/models` → HTTP 200；
-  Magpie 重启后无新的 allow-list 拒绝。未伪造生产 AI 简介调用（当前会话无管理员 JWT），
-  留给验收时在页面点「生成简介」确认最终 200 与简介落库。
-- **文档四问**：能力不变；契约变化 → `/ajax/book-summary` 失败状态从一律 400 改为上游故障 502；
-  实现/边界 → LLD §14 + §8；AC B5 改为明确要求 502。L1/L2 无需新增条目（用户操作不变）。
-- **窗口**：本条写入后窗口为 11 节，按「写入即检查」把最旧的 **R211** 原样搬至
-  `response-archive/response-R211.md` 并登记索引，窗口回 10；只搬移不改写。
-- **驻留与闸门**：worktree `../magicbook-r222-book-summary-400`，分支
-  `fix/r222-book-summary-400`，基线 `origin/develop` `643eddc8`（含 R222 占号提交），
-  实现提交 `b28d9240`，台账回填 `a2056ec5`。用户 2026-10-24 明确指令 push，
-  `a2056ec5` 已推送 `origin/develop`；fnOS 链构建/部署成功，运行镜像 label
-  `house.build-sha=a2056ec5`，容器 `healthy`。当前 worktree 驻留待真人验收；
-  验收通过后 `worktree remove` + `branch -d`。
-- **总结**：requests.md 条目 222 为已占号需求；本条为回应。冲突记录：无撞号；已有
-  `../magicbook-r214-detail-500` 属 R214 子项 A 的独立 worktree，本任务按新编号 R222 另建，
-  未改动既有工作树。
 
 ## 2026-10-24（R223：Buddy 悬浮球化——透明头像 + hover 径向快捷气泡，/buddy 可配置）
 
@@ -281,3 +229,19 @@
 
 **编号说明**：占号时发现 pip trusted-host 会话与 /home 会话存在既有漂移（origin 上 pip=229、本地记 230）——该漂移已由当事会话按「不修改既有记录、续编下一个空号」处置（pip 最终 R231，见台账 231 条），本轮 R230 在 origin 上为干净占位，无冲突。
 **台账总结**：requests.md R230 已回填完整状态；response.md 本条新增。
+
+## 2026-10-26（R232：伴读面板不再显示 token 用量——记录照旧，用量只在设置·积分看）
+
+### R232（用户：「AI 伴读不要显示token 使用量（可以记录，但是不要显示）。积分token用量仅在【设置】【积分】那里查看即可。」）
+
+- **任务定位**：需求（展示口径变更），单仓、纯前端；moon-well 零改动。
+- **改了什么**：`ai_chat.js` 的 `final` 分支删掉 `.ai-chat-usage` 渲染（原来读 `obj.usage.promptTokens/completionTokens` 拼 `tokens x/y`），**保留** `conversationIdFromFinal = obj.conversationId`（首条消息回传服务端建会话的唯一来源，删用量时最容易顺手删掉的就是它）；`ai_chat.css` 删对应样式；`speechTextOf()` 的朗读清洗选择器去掉该项（否则会留下一个永远匹配不到的死选择器）。
+- **「可以记录」是既成事实，本轮确认未受影响**：moon-well `CreditServiceImpl.consumeForLlmTask` 仍按 `total_tokens` 扣费并落库，流水 `remark = "AI任务消耗 N token、每千 token 折 10 积分"`；SSE `final` 事件里的 `usage` 字段也照旧下发，只是前端不再消费。要排查线上计费，抓包与流水都还在。
+- **「只在设置·积分看」也对得上**：`credits.html` 的消耗明细表（时间/类型/**原因**/功能/积分）里，「原因」列就是那条 remark，含 token 数；这一轮把用量的可见入口收敛到唯一一处，面板侧不留入口。守卫里专门钉了这张表不许被删/改名。
+- **否决了两种更「贴心」的做法**：① 默认折叠、点开才显示——用户要的是不显示，折叠仍占一行、仍要一句文案；② 悬浮提示（hover 出 token）——藏起来的数字更容易被误读成「这一轮花了多少积分」，而实际扣费口径是每千 token 折 10 积分、TTS 按字符、ASR 按秒，一个数说不清。
+- **测试**：新增 `tests/test_buddy_no_token_usage.py` 5 条——面板脚本不得含 `ai-chat-usage`/`promptTokens`/`completionTokens`；**全站** `cps/static/js/*.js` 均不得读这两个字段（面板自 R220 起全站挂载，漏一页就复现）；`final` 分支仍回传会话 id 且不再出现 `obj.usage`；CSS 无残留规则；积分页保留 `#credit-consume-rows` 与「原因/功能/积分」三列。定向回归 22 passed，**全量 986 passed / 0 failed**（`pytest tests/ -q`）。`node --check` 通过。
+- **踩坑记录**：CSS 注释里原本写了 `.ai-chat-usage` 类名，被第 4 条守卫直接判红——注释里的类名同样会误导后来者，守卫这种字面量断言的价值就在这。
+- **扩展侧已确认无需改**：magiclens 全仓（`*.js` / `*.html`）grep 无 `ai-chat-usage` / `promptTokens` / `tokens `，它不共用这份面板脚本。
+- **文档四问**：能力→L1 `readme/companion.md` 增「聊天里不显示用量」；契约→无变化（SSE 字段与积分接口均未动，故未改 L2）；实现/边界→LLD `iterations/1.0/r232-hide-token-usage/lld.md`；本次实现→同 LLD。需求基线 `REQUIREMENTS.md` 增一行。
+- **台账与驻留**：`claim.sh magicbook` 占号 **R232**（`2e48546f`，纯台账，已 push）；worktree `../magicbook-r232-hide-token-usage`（分支 `feat/r232-hide-token-usage`）驻留待验收；push 闸门留用户。
+- **窗口**：写入前 11 节（已超窗），写入后 12 节；按「写入即检查」把最早 R221、R222 两节原样搬至 `response-archive/response-R221-R222.md` 并登记索引，窗口回到 10。
