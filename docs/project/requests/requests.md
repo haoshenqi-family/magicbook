@@ -239,3 +239,5 @@
 230. **个人学习数据导出——入口与任务下载 UI（Anki 卡片与回顾报告，数据主体在 moon-well R220）**（占号 2026-10-26）：状态 **已上线待验收**。`cps/routes/user_export.py` 三代理端点（create 本地校验密码 6-128 仅透传 / tasks GET / download binary+attachment，上游错误原样透传）；`me.html` 新增「Export My Learning Data」面板 + `me.js` 追加导出交互（密码两遍、5s 轮询、过期置灰）；i18n 种子 +14 词条、zh po +19 条、mo 重编译（契约 5 项全绿）。测试：`tests/test_user_export_proxy.py` 8 例（鉴权/参数域/透传/attachment/错误透传），全量 **981 passed**。需求基线 `product/learning/requirements.md` §R230；L2 `product/learning/interface.md` 导出节；LLD `iterations/2026-10-user-data-export/r230-export-ui/lld.md`。worktree `../magicbook-r230-user-data-export`（分支 `feat/r230-user-data-export`）驻留待验收；部署顺序：moon-well R220 先、本仓后。
 
 231. **删 Dockerfile 的 pip trusted-host（关闭 PyPI 镜像 TLS 校验＝构建链 MITM 投毒面，安全扫描高危6）**（占号 2026-10-26）：原占 R229，随后发现主线已有 R229 `/home` 随机发现缺陷；并行会话又把 R229 重占为 pip TLS、把 R230 给学习导出。按“不修改既有记录、续编下一个空号”处置：本条最终定为 **R231**，既有 R229（`/home`）与 R230（学习导出）原样保留。
+
+232. **AI 伴读面板不再显示 token 用量（仅保留后台记录，用量只在设置·积分查看）**（占号 2026-10-26，待回填）
