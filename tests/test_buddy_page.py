@@ -86,3 +86,57 @@ def test_quick_actions_post_validates(admin_client):
                       json={"selected": ["chat", "nonsense", "learning", "me"]})
     after = admin_client.get("/ajax/buddy/quick-actions").get_json()["result"]["selected"]
     assert after == before
+
+
+def test_quick_actions_post_pins_chat_first(admin_client):
+    """R234：「AI 对话恒第一位且不可删」是服务端不变量，不只靠前端约定——
+    不带 chat 由服务端补回首位，chat 错位自动前移；以归一后结果落库并在 GET 读回。"""
+    rv = admin_client.post("/ajax/buddy/quick-actions",
+                           json={"selected": ["learning", "library", "me"]})
+    assert rv.status_code == 200
+    assert rv.get_json()["result"]["selected"] == ["chat", "learning", "library", "me"]
+    assert (admin_client.get("/ajax/buddy/quick-actions").get_json()["result"]["selected"]
+            == ["chat", "learning", "library", "me"])
+
+    rv = admin_client.post("/ajax/buddy/quick-actions",
+                           json={"selected": ["bookmark", "tts-book", "chat", "me", "library"]})
+    assert rv.status_code == 200
+    assert rv.get_json()["result"]["selected"] == ["chat", "bookmark", "tts-book", "me", "library"]
+
+
+def test_quick_actions_post_rejects_over_max_counting_pinned_chat(admin_client):
+    """数量口径连 chat 一起算：5 个非 chat 动作＝6 个，400 且不落库（不静默截断用户选择）。"""
+    before = admin_client.get("/ajax/buddy/quick-actions").get_json()["result"]["selected"]
+    rv = admin_client.post("/ajax/buddy/quick-actions",
+                           json={"selected": ["immersive-translate", "tts-book", "bookmark",
+                                              "learning", "library"]})
+    assert rv.status_code == 400
+    after = admin_client.get("/ajax/buddy/quick-actions").get_json()["result"]["selected"]
+    assert after == before
+
+
+def test_quick_actions_read_normalizes_legacy_values(admin_client, ub_session):
+    """R223 期服务端不校验 chat，存量 view_settings 可能缺 chat / chat 末位 / 连 chat 超 5：
+    读回时钉首位并截到上限，气泡永远 4-5 个且对话在第一位；坏数据回落默认四项。"""
+    from cps import ub
+    from cps.routes.buddy import QUICK_ACTION_DEFAULTS
+
+    admin = ub_session.query(ub.User).filter(ub.User.name == "admin").first()
+    cases = [
+        (["learning", "library", "me", "bookmark"],
+         ["chat", "learning", "library", "me", "bookmark"]),
+        (["learning", "library", "me", "chat"],
+         ["chat", "learning", "library", "me"]),
+        (["immersive-translate", "tts-book", "bookmark", "learning", "library"],
+         ["chat", "immersive-translate", "tts-book", "bookmark", "learning"]),
+    ]
+    try:
+        for legacy, expected in cases:
+            admin.set_view_property("buddy", "quickActions", legacy)
+            got = admin_client.get("/ajax/buddy/quick-actions").get_json()["result"]["selected"]
+            assert got == expected, legacy
+        admin.set_view_property("buddy", "quickActions", ["chat", "ghost-action"])
+        got = admin_client.get("/ajax/buddy/quick-actions").get_json()["result"]["selected"]
+        assert got == list(QUICK_ACTION_DEFAULTS)
+    finally:
+        admin.set_view_property("buddy", "quickActions", list(QUICK_ACTION_DEFAULTS))
