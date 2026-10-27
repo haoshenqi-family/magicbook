@@ -13,8 +13,9 @@
     {% endif %}
     <!-- Bootstrap -->
     <link rel="apple-touch-icon" sizes="140x140" href="{{ url_for('static', filename='favicon.ico') }}">
-    {# R212：站内图标换品牌圆章（与 authentik 的 branding_favicon 同一枚，同源静态文件，不受 img-src 跨源限制） #}
-    <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('static', filename='img/brand/favicon.png') }}">
+    {# R212-B：站内图标走同源代理 /brand/<name>，真源是 MinIO brand/（发布即换标）；
+       不直链 MinIO 以保住 img-src 'self' 守卫并避开拦截类扩展对跨站图片的 ERR_BLOCKED_BY_CLIENT #}
+    <link rel="icon" type="image/png" sizes="64x64" href="{{ url_for('web.brand_asset', name='favicon.png') }}">
     <link href="{{ url_for('static', filename='css/libs/bootstrap.min.css') }}" rel="stylesheet" media="screen">
     {% block header %}{% endblock %}
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
@@ -37,7 +38,7 @@
             <span class="icon-bar"></span>
           </button>
           {# R212 品牌圆章：alt="" 因紧邻的文字 wordmark 已承担名称，避免读屏念两遍 #}
-          <a class="navbar-brand" href="{{url_for('web.index')}}"><img class="brand-mark" src="{{ url_for('static', filename='img/brand/logo.png') }}" alt="">{{instance}}</a>
+          <a class="navbar-brand" href="{{url_for('web.index')}}"><img class="brand-mark" src="{{ url_for('web.brand_asset', name='favicon.png') }}" alt="">{{instance}}</a>
         </div>
         {% if g.current_theme == 1 %}
             <div class="home-btn"><a class="home-btn-tooltip" href="{{url_for("web.index", page=1)}}" data-toggle="tooltip" title="" data-placement="bottom" data-original-title="Home"></a></div>

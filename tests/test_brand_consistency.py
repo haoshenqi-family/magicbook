@@ -80,11 +80,21 @@ def test_renamed_msgids_resolve_to_chinese():
         "这些词条改了 msgid 却没同步 .po/未重编 .mo，中文界面会退回英文: %s" % untranslated)
 
 
-def test_brand_assets_exist_and_are_wired():
+def test_brand_assets_are_wired_via_same_origin_proxy():
+    """R212-B：顶栏徽章与 favicon 走同源代理 /brand/<name>（真源 MinIO），不再引仓内静态。
+
+    钉三件事：① layout 引代理路由而非 static img/brand（换了引用却留着旧文件/旧路径会静默 404）；
+    ② layout 不出现 MinIO 字面源——一旦直链就同时推翻 img-src 守卫并 reintroduce 扩展裂图；
+    ③ 代理白名单含 favicon.png 且顶栏 CSS 定位规则仍在。
+    """
     layout = open(os.path.join(TEMPLATES, "layout.html"), encoding="utf-8").read()
-    for name in ("logo.png", "favicon.png"):
-        assert os.path.isfile(os.path.join(BRAND_DIR, name)), "缺品牌资产 cps/static/img/brand/" + name
-        assert ("img/brand/" + name) in layout, "layout.html 未引用 " + name
+    assert layout.count("url_for('web.brand_asset', name='favicon.png')") >= 2, (
+        "favicon 与顶栏徽章都应引同源代理 web.brand_asset")
+    assert "img/brand/" not in layout, "layout 仍引用已删除的仓内静态 img/brand/"
+    assert "minio.haoshenqi.top" not in layout, "layout 不得直链 MinIO（CSP 守卫与扩展裂图）"
+    assert not os.path.isfile(os.path.join(BRAND_DIR, "logo.png")), "仓内静态品牌图应已移除"
+    brand = open(os.path.join(CPS, "routes", "brand.py"), encoding="utf-8").read()
+    assert '"favicon.png"' in brand and "BRAND_OBJECTS" in brand, "代理白名单形态变了，本守卫需随之更新"
     style = open(os.path.join(CPS, "static", "css", "style.css"), encoding="utf-8").read()
     assert ".navbar-brand .brand-mark" in style, "顶栏徽章缺 CSS 定位规则（会掉成块级换行）"
 
