@@ -36,6 +36,7 @@
 | MB-23 R232 伴读面板不显示 token 用量（用量只在设置·积分看） | 用户故事 | 待建 | [r232-hide-token-usage/lld.md](./r232-hide-token-usage/lld.md) | **开发完成待验收**（2026-10-26，worktree `../magicbook-r232-hide-token-usage`，分支 `feat/r232-hide-token-usage`）：`final` 分支删 usage 渲染、保留会话 id 回传；记录侧（moon-well `total_tokens` 流水）零改动；新增 5 条守卫，定向 22 passed，全量 986 passed；push 闸门留用户 |
 | moon-well R214 / magicbook R228 伴读 Agent Skills（消费侧） | 跨仓能力 | 无（后端主责 moon-well R214） | [r214-agent-skill/lld.md](./r214-agent-skill/lld.md) | **已上线，验收证据已补齐，待用户最终确认**（2026-10-26）：伴读可按需加载 MagicBook 全功能指南；magicbook 无代码改动，复用既有 `/ai/agent/*` 代理。新注册普通账号已验证权限、Skill、查词、记忆、批注、TTS 与当前用户积分；批注为段落共享边界。本仓 R214 仍为书籍详情 |
 | MB-23 R233 AI 回复中的本站链接可点击并在新窗口打开 | 用户故事 | 待建 | [r233-ai-links/lld.md](./r233-ai-links/lld.md) | **已上线待验收**（2026-10-26，实现 `f68e39b3`，worktree `../magicbook-r233-ai-links`，分支 `feat/r233-ai-links`）：`renderMarkdown()` 支持站内 Markdown/裸路径/同源 URL，统一 `target="_blank" rel="noopener noreferrer"`；外部 URL、危险协议、围栏代码与 HTML 注入保持纯文本；新增 Node 真执行测试 13 条，定向回归 36 passed；生产 `/book/252` 真回复中 `/credits` 与 `[我的页面](/me)` 均点击打开新标签，目标页正常且无法取得源页面 opener |
+| R223 修改意见 R234 悬浮球快捷动作：AI 对话恒第一位且不可删除（服务端不变量） | 修改意见 | 无（挂 R223，不建独立 idea） | [r234-buddy-qa-chat-first/lld.md](./r234-buddy-qa-chat-first/lld.md) | **已上线待验收**（2026-10-26，worktree `../magicbook-r234-buddy-qa-chat-first`，分支 `feat/r234-buddy-qa-chat-first`）：`_pin_chat_first()` 写入读回双归一，POST 数量按归一后 4–5 算，前端行为不变；守卫 +3，定向 26+50 passed |
 
 ## 版本
 

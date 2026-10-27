@@ -60,6 +60,6 @@
 
 - 触屏无 hover：移动端 FAB 点击仍开抽屉；气泡在移动端同样渲染但主要服务桌面 hover，后续如需移动端长按展开再迭代。
 - 气泡动作「转发 click」依赖顶栏工具节点存在；若未来改工具 id，`dispatchBubbleAction` 的白名单需同步。
-- 服务端不强制「chat 必须在 selected 里」：前端渲染恒定注入 chat，POST 即使不含 chat 也不会产生无对话入口的 UI（chat 由 `renderBubbles` 固定插入）。
-- 数量口径：用户原话「4-5 个」，服务端按 4–5 校验；2–3 个不落库。
+- ~~服务端不强制「chat 必须在 selected 里」：前端渲染恒定注入 chat，POST 即使不含 chat 也不会产生无对话入口的 UI（chat 由 `renderBubbles` 固定插入）。~~ **〔已被 R234 取代〕**服务端写入与读回均归一：chat 缺失补到首位、错位前移（见 [../r234-buddy-qa-chat-first/lld.md](../r234-buddy-qa-chat-first/lld.md)）。
+- 数量口径：用户原话「4-5 个」，服务端按 4–5 校验；2–3 个不落库。**〔R234 修订〕**数量改为按归一后算（连 chat 一起 4–5；发 5 个非 chat＝6 个，400 拒绝不静默截断）。
 - 展开方向自适应以 FAB 吸附后的几何位置判定（clearRadius 94px），极端小窗口未逐档验证。
