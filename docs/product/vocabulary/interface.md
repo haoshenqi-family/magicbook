@@ -35,12 +35,15 @@
 
 | 端点 | 副作用 | 说明 |
 | --- | --- | --- |
-| `POST /ajax/word-detail-preview` | **只读** | `{book_id, book_format}` → `{distinctWords, cachedWords, targetWords, notWordLike, estimatedTokens, missingSample}` |
+| `POST /ajax/word-detail-preview` | **只读** | `{book_id, book_format, force?}` → `RUNNING` / `READY` / `FAILED` 预览快照；首次未命中立即返回 `RUNNING`，页面轮询到 `READY` |
 | `POST /ajax/word-detail-start` | 建台账 + 后台分批入队 | `{book_id, book_format, force}` → 批次进度快照（立即返回，发布在 daemon 线程） |
 | `POST /ajax/word-detail-progress` | 只读 + 覆盖率懒回收 | `{job_id?}`（缺省按 `book_id` 取该书最新批次） |
 | `POST /ajax/word-detail-cancel` | 停本批次 | 已入队任务仍由队列消费者生成完毕 |
 | `GET /word-detail-batch` | 页面 | 管理员；`book_id` 非数字直接 400 |
 
+- **预览契约（R238）**：`/ajax/word-detail-preview` 不再要求请求线程算完整结果。`book_id` / `book_format` 校验通过后，未命中快照即返回 `status=RUNNING`；`stage=EXTRACTING` 表示读正文、`CHECKING` 表示比对详解缓存，`checkedWords/distinctWords` 可显示进度。完成后为 `status=READY`，返回 `distinctWords / checkedWords / cachedWords / targetWords / notWordLike / estimatedTokens / missingSample / computedAt`。失败为 `status=FAILED` 且带可展示的 `message`；入参或书文件错误仍为 HTTP 400。
+- **快照时效**：`READY` 快照 10 分钟内直接复用；`force=true` 绕过时效强制重算。`FAILED` 快照 60 秒内复用失败结果，避免页面轮询反复打 moon-well。
+- **只读边界不变**：预览只调用 `cached-check`，绝不调用生成端点；`start` 可复用刚完成且指纹一致的 `READY` 快照，避免用户点“开始”时再解析一遍整本、再扫一轮缓存。
 - 门禁：四个 ajax 端点返回 **JSON 403**（`_llm_task_admin_gate` 形制，页面路由仍用 `@admin_required`）；权威白名单在 moon-well 侧二检，与 R126 面板同一纵深防御。
 - **进度口径＝词覆盖率**（`coveredWords / targetWords`），不是任务状态：执行方是队列消费者，本站既非发起者也非唯一消费者，`COMPLETED` 不等于缓存里真有。
 - 上游业务文案不被吞：灌队闸门（在途上限、单次 2000 词上限）的 `Result.message` 经 `progress.lastError` 原样到达页面。
