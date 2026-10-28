@@ -41,6 +41,8 @@
     </div>
   </div>
 </div>
+{% endblock %}
+{% block js %}
 <script>
 (function () {
     // Why 内联脚本 + 自备 CSRF：沿用 translate_all.html/llm_tasks.html 的形制，
@@ -52,9 +54,14 @@
     // 服务端每次都是一趟索引级扫描（search_after 翻页）。4s 一轮等于拿管理页
     // 当 ES 人肉刷新器；整本翻译能 4s 是因为它的进度源是本地 SQLite 行计数。
     var POLL_MS = 30000;
+    var PREVIEW_POLL_MS = 2500;
+    var PREVIEW_RETRY_MS = 15000;
     var jobId = null;
     var preview = null;
+    var previewStatus = null;
     var timer = null;
+    var previewTimer = null;
+    var previewRetryCount = 0;
 
     function post(url, data, done) {
         $.ajax({url: url, method: 'POST', contentType: 'application/json',
@@ -74,16 +81,55 @@
         document.getElementById(node).textContent = value;
     }
 
-    function loadPreview() {
+    function schedulePreviewPoll(delay) {
+        if (previewTimer) clearTimeout(previewTimer);
+        previewTimer = setTimeout(function () {
+            if (!document.hidden) loadPreview(false);
+        }, delay);
+    }
+
+    function renderPreviewRunning(r) {
+        var checked = (r.checkedWords || 0).toLocaleString();
+        var total = (r.distinctWords || 0).toLocaleString();
+        var label = r.stage === 'CHECKING'
+            ? '{{_('Checking word-detail cache…')}} ' + checked + (r.distinctWords ? ' / ' + total : '')
+            : '{{_('Reading the book and counting distinct words…')}}';
+        text('wd-preview', label);
+        document.getElementById('wd-start').disabled = true;
+    }
+
+    function loadPreview(force) {
         text('wd-note', '');
         post('{{ url_for("web.reading_word_detail_preview") }}',
-             {book_id: bookId, book_format: bookFormat}, function (err, r) {
+             {book_id: bookId, book_format: bookFormat, force: !!force}, function (err, r) {
             if (err) {
                 text('wd-preview', err);
                 text('wd-note', err);
                 return;
             }
+            if (r.status === 'RUNNING') {
+                preview = null;
+                previewStatus = 'RUNNING';
+                renderPreviewRunning(r);
+                schedulePreviewPoll(PREVIEW_POLL_MS);
+                return;
+            }
+            if (r.status === 'FAILED') {
+                preview = null;
+                previewStatus = 'FAILED';
+                text('wd-preview', '{{_('Failed to load')}}');
+                text('wd-note', r.message || '{{_('Failed to load')}}');
+                document.getElementById('wd-start').disabled = true;
+                if (previewRetryCount < 4) {
+                    previewRetryCount += 1;
+                    schedulePreviewPoll(PREVIEW_RETRY_MS);
+                }
+                return;
+            }
+            previewRetryCount = 0;
+            if (previewTimer) clearTimeout(previewTimer);
             preview = r;
+            previewStatus = 'READY';
             text('wd-preview',
                  '{{_('Distinct words in this book')}}: ' + r.distinctWords +
                  ' · {{_('Already have details')}}: ' + r.cachedWords +
@@ -162,6 +208,7 @@
     document.getElementById('wd-refresh').addEventListener('click', refresh);
     document.addEventListener('visibilitychange', function () {
         if (!document.hidden && jobId) refresh();
+        if (!document.hidden && previewStatus === 'RUNNING') loadPreview(false);
     });
 
     document.getElementById('wd-start').addEventListener('click', function () {
@@ -203,7 +250,7 @@
         });
     });
 
-    loadPreview();
+    loadPreview(false);
     refresh();
     schedule();
 })();
