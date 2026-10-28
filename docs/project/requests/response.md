@@ -232,6 +232,10 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
   实现/边界 → L3 `vocabulary/features/word-detail-preview.md`；需求与本次实现 →
   `vocabulary/requirements.md` R239 与 `iterations/1.0/r239-word-detail-inflection/lld.md`。
   R238 LLD 只加“R226 后续修复”注记，不改写当时范围。
+- **调用方经验沉淀**：L2 新增 §5.1“调用方使用清单”，L3 新增 §6“覆盖率消费规则”，
+  明确本站只抽字面词且只信 `cached-check`；给出
+  `原始去重词数 = cachedWords + targetWords + notWordLike` 的可复算关系，禁止用
+  “原始词数 − cached”反推目标数，也禁止在前端复制屈折规则补救后端口径分叉。
 - **驻留与闸门**：R239 占号 `463c2f4d`；worktree
   `../magicbook-r239-word-detail-inflection`（分支 `fix/r239-word-detail-inflection`）保留。
   R238 worktree `../magicbook-r238-word-detail-preview` 另待验收，未复用、未清理。
