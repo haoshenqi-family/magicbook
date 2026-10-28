@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，待验收）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -440,3 +440,8 @@ SQLite 台账仍保留 `RUNNING`；`get_progress()` 只读台账，无法从 DB 
 **守卫**：`test_progress_can_resume_only_when_pending_and_no_live_worker` 钉住
 canResume 的服务端语义；`test_stalled_tts_batch_has_a_frontend_resume_entry` 钉住
 模板按钮、retry URL、JS 接线；路由测试补 `/retry` 转发。
+
+**上线**：实现 `b48a29ed` 已随 `a2a1e88f` 快进合入 `origin/develop`。fnOS 完整构建
+（非 docs-only）与 app-manager 部署均成功；生产镜像 label
+`house.build-sha=a2a1e88f...`，容器 `healthy`，线上 JS 已包含 `canResume` 与
+`.wb-progress-resume` 的 retry 接线。待管理员在 `/book/50` 的失联批次上真机点击「继续」验收。

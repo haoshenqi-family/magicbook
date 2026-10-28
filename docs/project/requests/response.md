@@ -191,6 +191,7 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **文档**：LLD `iterations/1.0/r214-book-detail/lld.md` §16 + 状态行。
 - **驻留与闸门**：worktree `../magicbook-r237-tts-proxy-unpack`（分支 `fix/r237-tts-proxy-unpack`，基线 origin/develop `a23c91ba`，实现 `f4d8b934` + `8c388234`）已合并、原样驻留待验收。真机验收项：打开 `/book/50` 发起整本朗读后正文仍完整可点，进度条吸在导航栏下方且高度正常；批次 done 稳定增长、failed 不再全量增长；moon-well 每段仅一次 `/tts/speak`。
 - **验收追加（部署重启后批次失联）**：上线后 `book 50` 批次停在 `RUNNING 1239/3007`，`PENDING 1768`、`FAILED 0`；最后推进 14:15:32，14:15:53 与 14:33:00 两次容器重启均发生在批次运行期间。根因是 worker 为进程内 daemon，重启即消失，而台账与页面仍显示 RUNNING；「开始」又被活跃批次禁用，前端无恢复入口。修法：`/ajax/reading-tts-book/status` 增发服务端判定的 `canResume`（未终态 + 有 PENDING + 本进程无活 worker），进度条据此显示「继续」，点击调用既有 retry 原地续跑；失败原因留在进度条内。新增服务/路由/模板 JS 守卫，恢复不新建台账、不重置进度、已完成段与音频缓存继续复用。
+- **继续入口合并与部署**：实现 `b48a29ed` 已快进推送 `origin/develop`（`bb6c66f6..a2a1e88f`）。fnOS 于 16:36 完整构建（非 docs-only），app-manager 返回 `deploy SUCCESS`；生产容器 `healthy`，镜像 label `house.build-sha=a2a1e88f...`，线上 `whole-book-panel.js` 已核验包含 `canResume`、`ttsRetry` 与 `.wb-progress-resume` 点击接线。待真机在 `/book/50` 的失联批次上点「继续」，确认 done 从 1239/3007 继续增长且 PENDING 下降。
 - **窗口**：写入前 10 节已满，按「写入即检查」把最早 R226 整节原样搬至 `response-archive/response-R226.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 237 已从占位回填；本条为回应。冲突记录：无撞号（claim.sh 占号 `a23c91ba`）。遗留登记：估算面板对 `reading_word_detail_job` 表缺失只 WARN 降级（该表在首次全文详解时由 `_ensure_tables` 创建），暂不处理。
 
