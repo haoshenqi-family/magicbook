@@ -247,3 +247,5 @@
 234. **伙伴悬浮球快捷动作：AI 对话恒在第一位且不可删除（R223 口径收紧，服务端不变量）**（占号 2026-10-26）：用户原话「伙伴悬浮球快捷动作，AI 对话始终在第一位切不可删除」。定性：R223 前端本已是该行为（chat chip 固定不可取消、`renderBubbles` 恒 chat 首位），缺口在服务端——POST 不校验 chat，直连 API 可存成缺失（气泡变 6 个破 4–5 口径）或末位，存量旧值读回也不归一。实现：`cps/routes/buddy.py` 新增 `_pin_chat_first()`，POST 归一后落库（缺 chat 补首位、错位前移、数量连 chat 一起算 4–5，5 个非 chat＝6 个 400 拒绝不静默截断），`current_user_view_settings()` 读回对存量旧值同样归一截上限、坏数据回落默认四项；前端行为不变，仅更正 `buddy.js` 注释（2-5→4-5）。测试：`tests/test_buddy_page.py` +3（写入归一 / 超上限拒绝不落库 / 存量读回归一），定向回归 26 passed + buddy 全家 50 passed。文档：L1 `readme/companion.md`、需求基线 `companion/requirements.md` §R234、L3 `companion/features/buddy-quick-actions.md`（新建）、LLD `iterations/1.0/r234-buddy-qa-chat-first/lld.md`、R223 LLD 边界标注取代、迭代 `plan.md`。状态：**已上线待验收**（实现 `bbd482ae`；worktree `../magicbook-r234-buddy-qa-chat-first`，分支 `feat/r234-buddy-qa-chat-first` 驻留待验收；挂 R223 修改意见不建独立 idea）。
 
 235. **伙伴快捷动作配置切 moon-well 单源——/ajax/buddy/quick-actions 改薄代理+存量懒迁移（与扩展共用配置）**（占号 2026-10-27，待回填）
+
+236. **弹层恢复「整本任务」入口：XHR 片段内改为跳完整详情页的普通链接（R214 可达性回退修复）**（占号 2026-10-28，待回填）
