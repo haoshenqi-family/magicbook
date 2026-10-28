@@ -110,7 +110,10 @@ class WholeBookTtsService(JobServiceBase):
         try:
             payload = dict(meta)
             payload["force"] = bool(force)
-            body, status = self._proxy(BOOK_VOICE_SELECT_PATH, payload, 60, "whole-book tts voice select")
+            # 真实 _moonwell_proxy 恒返回三元组 (body, status, headers)；二元组解包会抛
+            # ValueError 被上层吞成「选角失败」，2026-10-28 生产实测即此（R237）。
+            body, status, _headers = self._proxy(BOOK_VOICE_SELECT_PATH, payload, 60,
+                                                "whole-book tts voice select")
             if 200 <= status < 300:
                 import json
                 data = json.loads(body)
@@ -242,11 +245,13 @@ class WholeBookTtsService(JobServiceBase):
             error = None
             for attempt in (1, 2):
                 try:
-                    body, status = proxy(SPEAK_PATH,
-                                         {"text": item.text, "bookName": job.book_name,
-                                          "chapter": item.chapter, "source": SOURCE_BOOK_TTS_BATCH},
-                                         SYNTH_TIMEOUT_SECONDS, "whole-book tts synth",
-                                         binary=True)
+                    # 三元组契约同上：二元组解包抛 ValueError → 每段重试两次后全数
+                    # FAILED（R237 前生产形态：done=0、failed 全量、每段两次合成白烧）。
+                    body, status, _headers = proxy(SPEAK_PATH,
+                                                   {"text": item.text, "bookName": job.book_name,
+                                                    "chapter": item.chapter, "source": SOURCE_BOOK_TTS_BATCH},
+                                                   SYNTH_TIMEOUT_SECONDS, "whole-book tts synth",
+                                                   binary=True)
                     if 200 <= status < 300:
                         ok = True
                         break

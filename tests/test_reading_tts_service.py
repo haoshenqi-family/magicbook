@@ -92,7 +92,9 @@ def env(app, tmp_path, monkeypatch):
 
     def proxy(path, payload, timeout, label, binary=False, method="POST", **kwargs):
         calls.append({"path": path, "payload": payload, "timeout": timeout, "binary": binary})
-        return '{"voice":"Mia","style":"轻快清晰","reason":"儿童文学"}', 200
+        # 真实 _moonwell_proxy 的返回形态：三元组 (body, status, headers)——R237 前
+        # 桩只回二元组，service 的二元解包在单测里永远通过、一到生产就炸。
+        return '{"voice":"Mia","style":"轻快清晰","reason":"儿童文学"}', 200, {}
 
     return types_simple(calls=calls, proxy=proxy, original_proxy=proxy,
                         tmp_path=tmp_path, monkeypatch=monkeypatch)
@@ -157,7 +159,7 @@ def test_voice_select_failure_does_not_block_batch(env):
         if path == svc.BOOK_VOICE_SELECT_PATH:
             raise RuntimeError("moon-well down")
         env.calls.append({"path": path, "payload": payload, "timeout": timeout, "binary": binary})
-        return '{"ok":true}', 200
+        return '{"ok":true}', 200, {}
 
     service = svc.WholeBookTtsService(failing_proxy)
     env.monkeypatch.setattr(service, "_spawn_synth_worker",
@@ -176,8 +178,8 @@ def test_synth_worker_marks_failed_after_retry_and_retry_requeues(env):
     # 首轮：proxy 对 speak 持续 500 → 两段各重试 1 次后 FAILED
     def always_fail(path, payload, timeout, label, binary=False, method="POST", **kwargs):
         if path == svc.SPEAK_PATH:
-            return "boom", 500
-        return '{"ok":true}', 200
+            return "boom", 500, {}
+        return '{"ok":true}', 200, {}
 
     service._proxy = always_fail
     result = service.start(1, "EPUB")
@@ -366,3 +368,23 @@ def test_start_resumes_dead_batch_in_place_instead_of_new_ledger(env, monkeypatc
     assert spawned == [first["jobId"]]
     # 台账增量必须为 0（共享库夹具里绝对条数会含历史用例，只有增量可信）
     assert ub.session.query(ReadingTtsJob).count() == jobs_before
+
+
+# ---- R237 守卫：moonwell proxy 返回契约恒为三元组 ------------------------------
+def test_moonwell_proxy_contract_is_three_tuple():
+    """reading_tts 全链路按 (body, status, headers) 三元组解包。
+
+    Why 钉契约：R237 前事故＝service 按二元组解包 + 单测桩也回二元组——
+    单测永远绿、生产每段必炸（每段重试两次后 FAILED，双倍合成白烧）。
+    失败分支 _error_tuple 与成功分支 return 任何一边改形态，这里先报红。
+    反向变异：把 proxy 成功分支改成二元组返回 → 本条报红。
+    """
+    import inspect
+    from cps.moonwell.client import MoonWellClient, _error_tuple
+
+    body, status, headers = _error_tuple(503, "x")
+    assert status == 503 and isinstance(body, str) and isinstance(headers, dict)
+
+    src = inspect.getsource(MoonWellClient.proxy)
+    assert "return (body, response.status_code," in src, \
+        "MoonWellClient.proxy 成功分支不再是三元组——reading_tts 解包会先炸"

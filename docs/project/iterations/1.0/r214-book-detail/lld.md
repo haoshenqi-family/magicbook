@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**整本朗读批次全灭缺陷 R237 已修**（2026-10-28，§16：proxy 三元组被 tts 二元组解包，批次全 FAILED 双倍合成）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -372,3 +372,29 @@ href="{{ url_for('web.show_book', book_id=entry.id) }}">整本任务</a>`。
 **守卫**：`test_xhr_modal_entry_is_full_page_link`（链接指向 show_book、无
 data-api、role_admin + is_xhr 双门禁）；既有四条守卫（admin 门禁/data-api 禁用/
 XHR 隐藏/旧三按钮不复活）全部原样通过。回归：detail 相关 4 个测试文件 108 passed。
+
+## 16. 验收缺陷：整本朗读批次全灭——proxy 三元组被二元组解包（2026-10-28，R237，`fix/r237-tts-proxy-unpack`）
+
+**现象**：R236 入口恢复后真机验收，点「开始整本朗读」后批次受理成功（job 3007 段），但
+done 恒为 0、failed 全量增长；moon-well 侧每段收到**两次** `/tts/speak`（第一次真合成
+2~10s、约 1s 后同文本再命中缓存 6ms）。伴随日志 `voice select failed (too many values
+to unpack (expected 2))`。用户报告的「开始整本朗读后白屏」面板 JS 无白屏路径（成功/400/
+504 三变体真浏览器 harness 验证页面完好、零 JS 错误），最可能是批次空转双倍合成 +
+每段两次 sqlite 写把 fnOS CPU/DB 打满、后续页面加载长时间白屏等待所致。
+
+**根因**：`MoonWellClient.proxy` 恒返回三元组 `(body, status, headers)`（成功分支与
+`_error_tuple` 失败分支都是），而 `cps/reading_tts/service.py` 两处按二元组解包：
+①`_select_voice` 的 `body, status = self._proxy(...)`——ValueError 被 try 吞成 WARN
+「选角失败回退默认音色」；②`_synth_worker` 的 `body, status = proxy(...)`——每次调用
+抛 ValueError，被重试环 `for attempt in (1, 2)` 捕获、睡 1s 重发（第二次命中 moon-well
+缓存）后仍抛 → 每段 FAILED。**单测漏网根因**：`tests/test_reading_tts_service.py` 的
+桩 proxy 也只回二元组——桩没有镜像真实契约，service 的二元解包在单测里永远通过。
+
+**修法**：两处改为 `body, status, _headers = ...`；三个测试桩全部改为三元组返回
+（桩即契约镜像）；新增守卫 `test_moonwell_proxy_contract_is_three_tuple`（钉住
+proxy 成功分支 `return (body, response.status_code,` 与 `_error_tuple` 三元组形态，
+反向变异报红）。反向变异实测：改回二元组解包 → 3 failed。
+
+**止血与善后**：发现时 book 50（HP1，3007 段）批次已烧 208 段全 FAILED，已直接置
+`CANCELLED` 停止空转（done=0/failed=208 留档）；两次合成的音频均已落入 moon-well
+段落缓存，重启批次将全部缓存命中、不重复计费。测试：tts 全家 5 文件 50 passed。
