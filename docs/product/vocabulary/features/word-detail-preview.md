@@ -73,8 +73,34 @@
   并在页面可见，不能显示成“0 个词”或无限加载。
 - **旧结果可能保守**：READY 在 10 分钟内不刷新，期间新生成的详解不会立即从缺失数
   扣除；真正入队时 moon-well 仍按 `skipCached` 跳过，因此不会重复计费。
+- **上游算法更新也可能短暂滞后（R239）**：缓存命中集合由 moon-well 计算；其算法刚上线时，
+  10 分钟内的 READY 快照仍可能保留旧数字。验收或算法切换后用 `force=true` 强制刷新，
+  不以本仓缓存副本推断词形。magicbook 只展示上游 `cachedWords / targetWords / missingSample`。
 
-## 6. 测试锚点
+## 6. 覆盖率消费规则（R239 复盘）
+
+本仓是**纯消费方**，不得维护第二份词形判断。预览 worker 从正文抽取并去重字面词后，
+只把词表交给 moon-well `cached-check`；后台线程和页面都不得按后缀、词干或词频秩
+自行增减“已缓存”数量。
+
+一次完整计算的数字关系：
+
+```text
+原始去重词数 = cachedWords + targetWords + notWordLike
+覆盖率       = cachedWords / (cachedWords + targetWords)
+targetWords  = moon-well missing.length
+```
+
+`notWordLike` 是缩略形、连字符词和无义单字母，已经被 moon-well 排除在覆盖率分母外。
+因此不能写成 `原始去重词数 - cachedWords` 当目标数，也不能拿它反推 `cachedWords`；
+这类算法会把噪声误算成待生成词，并在进度条上制造无法解释的差额。
+
+排查“详情能查到、预览却说缺”时，先确认 moon-well 交互路径与索引扫描是否使用同一套
+查找键和完整 `_source` 投影，再检查 READY 快照是否过期。禁止在 magicbook 侧临时加
+屈折后缀表、stemming 或特判来“修数字”——那会把两仓口径永久分叉，并可能把已有详解
+重复入队。
+
+## 7. 测试锚点
 
 `tests/test_word_detail_batch_r176.py`：
 
@@ -84,6 +110,7 @@
 - 同一本书分批仍不超过 2000 词；预览路径不调用 publish。
 - start 复用新鲜 READY 快照，不产生第二趟 cached-check。
 - 迟到的补线程拿到 READY 行时直接退出，不重复计算。
+- 预览计数只来自上游；本仓不维护屈折后缀或派生规则的第二份实现。
 
 `tests/test_job_service_base.py`：`_ensure_tables()` 仍是三家唯一实现，附加表通过
 `extra_tables` 扩展而非子类覆盖。

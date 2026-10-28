@@ -116,6 +116,8 @@ worker（独立 DB session）
 - 不自动生成详解；预览只允许 cached-check。
 - 不改 moon-well `WordDetailService.cachedLookupKeys()` 的全索引扫描。后续可另立
   跨仓任务，把查找改为按输入词表 `terms` 查询或增加短 TTL 缓存。
+- **R239 备注**：上述“未改”只描述 R238 当时范围。后续 R226 已修复该扫描的
+  `forms.type` 投影，预览覆盖率随之纠正；magicbook 侧仍无代码改动。
 - 当前以 magicbook 单进程部署为前提使用进程内锁/花名册；多进程部署需另加 DB 租约。
 
 ## 9. 驻留与验收
