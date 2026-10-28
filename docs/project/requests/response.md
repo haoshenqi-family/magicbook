@@ -19,6 +19,10 @@
 - `response-archive/response-R111-R119.md`：R111–R119（2026-10-02 ～ 2026-10-05；2026-10-08 R129 补账搬移）
 - `response-archive/response-R120-R125.md`：R120–R125（2026-10-06 ～ 2026-10-07；R135 写入触发搬移，含 R134 登记的窗口欠账补账）
 - `response-archive/response-R221-R222.md`：R221 口语陪练语音优先 + R222 生成书籍简介 400（2026-10-26 R232 写入触发轮转搬移，原样搬移不改写）
+- `response-archive/response-R225.md`：R225 邀请注册跳转 + 普通账号阅读/下载 403 + 品牌封面占位（2026-10-28 R236 写入触发轮转搬移，原样搬移不改写）
+- `response-archive/response-R226.md`：R226 阅读器验收缺陷——伙伴白圆底/幽灵问号/翻译连续重排（2026-10-28 R237 写入触发轮转搬移，原样搬移不改写）
+- `response-archive/response-R227.md`：R227 Buddy 语音提问与回复朗读（2026-10-28 R238 写入触发轮转搬移，原样搬移不改写）
+- `response-archive/response-R228.md`：R228 moon-well R214 伴读 Agent Skills 的 magicbook 消费侧说明——2026-10-28 R239 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R126-R131.md`：R126、R127、R128、R129、R131（2026-10-07 ～ 2026-10-08；2026-10-09 R141 写入触发轮转搬移，清掉 R134 登记的窗口欠账）
 - `response-archive/response-R132-R133.md`：R132、R133（2026-10-08；2026-10-10 R143 写入触发轮转搬移）
 - `response-archive/response-R134.md`：R134（2026-10-08；2026-10-10 R144 写入触发轮转搬移，其父级日期标题随节一并搬移）
@@ -61,78 +65,6 @@
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
-
-## 2026-10-25（R225：邀请注册跳转、普通账号阅读/下载 403、品牌封面占位）
-
-### R225（用户：注册直接失败 + 普通账号阅读下载 403 + 无封面白字占位；「验证这些问题，如果确实存在修复他们」）
-
-- **结论先行**：三项均真实存在，已修复并上线。分类为缺陷，挂既有 R219（邀请注册）/ R211（OIDC 角色）/ R214（详情与读者入口）；PingCode 工作项待建。
-- **注册（已证伪「邀请过期」）**：`/oidc/signup` 原先把 `itoken` 与 `next` 组成内层 query，再整体塞进外层 `query`，实际跳转成 `?query=itoken%3D...%26next%3D...`。Authentik 2025.10.2 的 `FlowInterface` 又把浏览器原始 search 作为 executor API 的 `query` 入参，最终变成 `query=query%3D...`，无法解析邀请；顶层 `?itoken=...&next=...` 才能正常返回注册首步。修法：`cps/oidc.py::signup()` 与 `scripts/rotate_authentik_invite.py` 只生成顶层参数；`_invite_token()` 优先读顶层，仍兼容历史嵌套 env，避免部署瞬间关闭注册入口。
-- **阅读与下载（分开定性与修复）**：生产 `config_default_role=0`，而 OIDC 新账号严格继承该值，导致不含 `ROLE_VIEWER=256`，`/read/...` 的 `@viewer_required` 一律 403。R225 起 `site_default_role()` 强制补 `ROLE_VIEWER`，继续剔除 `ROLE_ADMIN`；**不自动补 `ROLE_DOWNLOAD=2`**，因为下载是独立的整本文件权限，不能借“修阅读”顺手放开。详情页现在分别在账号被关阅读位/下载位时显示锁定提示，并写明到「用户 → 编辑用户」开通 View / Download，而不是让用户撞 403 后猜。
-- **存量账号（未擅改生产库）**：新增 `scripts/reader_role_audit.py`，默认 dry-run 列缺阅读位账号；`--grant-viewer` 必须点名 `--ids` / `--emails`，只补 `ROLE_VIEWER`，写前备份 `.r225-bak-*`。只读核查时 `uxprobe2`（id=9）与 `uxprobe`（id=10）角色均为 0；建议验收时明确批准后执行 `python3 scripts/reader_role_audit.py --grant-viewer --ids 9,10`。同时修正 `oidc_admin_audit.py --demote` 的语义漂移：降级目标从“默认角色剔除管理员位”改为“默认角色补阅读位并剔除管理员位”，避免把存量超管降级后又变成读不了书的账号。
-- **封面**：确认 `cps/static/generic_cover.jpg` 原本就是白底黑字的 `Cover not available`。替换为 564×800 深墨绿品牌封面，沿用 `get_cover_on_failure()` 单点回落，首页、详情、OPDS 等所有缺封面路径共用，不改 URL 与缓存语义；已目视检查。
-- **测试**：定向回归 **90 passed / 0 failed**（`test_oidc_signup.py` / `test_oidc_admin_role.py` / `test_auth_reader_covers_r225.py` / `test_reader_role_audit_r225.py` / `test_book_detail_r214.py`），发布态全量 **961 passed / 0 failed**（4 个非阻断 warning）；另做反向变异：删除详情页 Download 提示后守卫报红，恢复后 27 passed。新增中文词条已进 `zh_Hans_CN` PO/MO，守卫从编译后 `.mo` 取词，防止“PO 正常、运行时英文”。
-- **文档四问**：能力 → L1 `readme/library.md` 补无封面品牌占位，`readme/admin.md` 说明新账号阅读/下载边界；契约/边界 → L3 `admin/features/oidc-self-registration.md` 与 KB `oidc-login.md` 修正邀请链接形式、角色语义与两个修正 CLI；本次实现 → LLD `iterations/1.0/r225-auth-reader-covers/lld.md`（状态：已上线待验收）；`REQUIREMENTS.md` 与迭代 `plan.md` 同步。
-- **上线实况**：修复提交 `53e2e662` 已 merge 到 `develop`（`b1f4d9e6`，最终 `890bc607`）并 push。GitHub webhook 对最终提交投递超时（500），fnOS 未自动接到构建；按脚本契约手动执行 `build-magicbook.sh refs/heads/develop 890bc607...` 补发成功。生产容器 `healthy`，`house.build-sha=890bc607...`；线上 `/oidc/signup` 已是顶层 `itoken` / `next` 且 Authentik 邀请页 200，品牌封面 81,048 字节并与仓库一致。
-- **驻留与闸门**：worktree `../magicbook-r225-auth-reader-covers`（分支 `fix/r225-auth-reader-covers`）原样保留待验收，验收通过后 `git worktree remove` + `git branch -d`。真机验收项：干净浏览器从 `/login` 完成注册并回站登录；批准后给 `uxprobe2`/`uxprobe` 开 View 再打开 `/read/223/epub`；首页无封面书检查品牌图。下载权限若也要开放，须单独授 `ROLE_DOWNLOAD`，不与阅读权限捆绑。
-- **窗口**：写入前已满 10 节，按「写入即检查」把最早 R217 整节原样搬至 `response-archive/response-R217.md` 并登记索引，窗口保持 10。
-- **总结**：requests.md 条目 225 已从占位回填；本条为回应。冲突记录：无撞号；生产存量账号未改，需按点名清单另行批准；R225 与此前 R219 的“嵌套 query”结论相反，已在 L3 / KB 明确标为现网 2025.10.2 复核后的现行口径，历史 R219 记录保留不改写。
-
-## 2026-10-25（R226：阅读器验收缺陷——伙伴白圆底 / 幽灵问号 / 翻译连续重排）
-
-### R226（用户：补验上一轮被 403 挡住的阅读器问题——顶栏、伙伴入口、AI 面板、段落按钮提示、翻译抖动、幽灵问号）
-
-- **任务定位**：缺陷，挂 MB-14 / R215 阅读器验收，关联 R223 伙伴透明悬浮球与 R216 引导入口。先复验再修，不把「需求已拍板」误当回归。
-- **复验证据（生产 `https://magicbook.haoshenqi.top/read/223/epub`，普通读者会话）**：正文可打开，页码正常，403 已消失；桌面顶栏实际为「译 翻译 / 整 翻译本书 / ▶ 朗读 / 书签 / 设置 / 全屏」，CSS 为 24px 图标、12px 标签、36px 最小触达盒；段落四枚控件（朗读/翻译/批注/AI 伴读）在 AX 树中均有完整名称，源码 `createParaButton()` 同时写 `title` 与 `aria-label`；AI 头部新建/重命名/删除/记忆按钮也都有 `title` 与 `aria-label`。✓ 是主题选中标记，不是操作按钮，不应强加 tooltip。
-- **AI 面板遮正文不是本轮缺陷**：真机为 420px 右侧覆盖式抽屉，打开时确实覆盖正文右缘。该形态是用户 2026-10-23 明确否决停靠方案后拍板的 R215 C1，不能因本轮一句「还遮不遮正文」擅自反转；已写进 R226 回应与 LLD，留待用户若改口径再立新需求。
-- **已修一：伙伴白圆底**。根因是 `ai_chat.css` 中 `.has-buddy { background: transparent; box-shadow: none; }` 之后又有同特异度 `.has-buddy { background: #fff; padding: 0; }`，后写白底覆盖 R223 的透明契约。修复为后写规则只保留 `padding: 0`，透明背景与无阴影仍由前一条唯一声明；无头像兜底蓝底不受影响。
-- **已修二：幽灵「?」**。根因是 `onboarding.js` 动态创建的常驻按钮可见文本只有 `?`，含义藏在只有悬停才出现的 `title` 中。修复为按钮可见文本直接使用本地化「使用引导」，右下位置保留、改成 40px 高胶囊；导览收尾文案同步从「左下角 ?」改为右下角「Onboarding Tour」，i18n 种子与 zh PO/MO 成对更新，旧词条移除。
-- **已修三：整页翻译连续重排**。根因是批量翻译先给最多 20 个可见段插 `Translating…`，随后每个请求完成就逐段替换，连续改变 iframe 高度；用户接受的是最终译文内联导致的一次重分页，不是请求期的二十次抖动。修复：请求期不再插正文占位，只给顶栏「译」加 `is-loading`/`aria-busy` 轻脉冲（reduced-motion 下关闭动画）；并发仍为 4，全部返回后在同一个 JS 任务里按原顺序一次性插入、缓存只写一次；失败段仍按既有可重试错误块渲染；请求中关闭翻译则迟到结果不写正文。
-- **测试与上线**：新增 `tests/test_reader_r226_acceptance.py` 3 条源码守卫（透明优先级、导览入口文案、批量翻译一次渲染与加载态）。定向回归 **62 passed / 0 failed**（R226 + R215 UI + 引导导览 + 导览视觉 + 导航下拉），随后翻译/模块面/i18n 回归 **34 passed / 0 failed**；`node --check` 与 `git diff --check` 通过；发布态全量 **964 passed / 4 warnings / 0 failed**。实现提交 `261d9aee` 已合并为 `0b666d77` 并推送 `develop`；fnOS 于 18:36:22 构建、18:36:43 `build END OK`，容器 `healthy`，标签 `house.build-sha=0b666d77...`。推送后首页短暂 502 已恢复为 302 登录跳转。
-- **文档四问**：能力 → L1 `readme/readme.md`、`readme/reading.md`、`readme/companion.md` 更新「右下使用引导」、翻译等待反馈与伙伴入口位置；契约 → 无接口变化；实现/边界 → L3 `reading/features/companion-panel.md`、`learning/features/onboarding.md`；本次实现 → `iterations/1.0/r226-reader-verify/lld.md`（状态：已上线待验收）；`REQUIREMENTS.md` 与迭代 `plan.md` 同步。
-- **新代码真机复验（已补）**：部署完成后用普通读者登录态打开生产 `/read/223/epub`，确认：① 伙伴头像透明、无白圆底；② 右下角为带明确文案的「使用引导」胶囊，AX 树不再出现「?」；③ 点击顶栏「译」后请求期正文不动、顶栏进入加载态，译文完成后一次出现，未见逐段插入导致的连续重排；④ 顶栏图标与文字、段落四按钮名称正常；⑤ AI 面板仍为 420px 覆盖式抽屉，覆盖正文右缘，属 R215 既有拍板。上述均有本轮生产截图 / AX 证据；整本 384 段的等待全程未做逐帧录屏，下载权限未代验。
-- **驻留与闸门**：worktree `../magicbook-r226-reader-verify`（分支 `fix/r226-reader-verify`，基线 `origin/develop` `a5fe007f`）原样保留，合并提交 `0b666d77` 已上线，等待用户最终验收；验收通过后再 `worktree remove` + `branch -d`。
-- **窗口**：写入前已有 10 节，按「写入即检查」把最早 R218 整节原样搬至 `response-archive/response-R218.md` 并登记索引，窗口保持 10。
-- **总结**：requests.md 条目 226 已回填；本条为回应。冲突记录：无撞号；唯一口径冲突是「AI 面板遮正文」——R215 已明确选择覆盖式抽屉，本轮不擅自回滚，需用户另下新口径才会改。
-
-## 2026-10-25（R227：Buddy 对话复用口语陪练语音能力——全站语音提问 + 每条回复手动朗读）
-
-### R227（用户：「我想要 AI 伴读 Buddy 对话也可以复用 AI 口语陪练 陪练的语音能力。」）
-
-- **任务定位**：需求（跨功能复用，不是缺陷）；**单仓交付**——moon-well 侧零改动，ASR 与 TTS 端点都已在线（R221 前端 / moon-well R212 后端）。
-- **四问四答拍板（2026-10-25）**：① 范围＝**输入+朗读双向**（不是只做输入或只做朗读）；② 回复朗读＝**每条手动点「朗读本条」**（不自动播——回复普遍 800–2000 字，自动播既慢又按次扣费）；③ 用户语音＝**只转成文字**、不留可回放语音条（否则要给 `ai_message` 加音频字段 + 走 MinIO 上传，跨仓改动不划算）；④ 生效面＝**全站**（Buddy 自 R220 起是全站助手）。
-- **复用面（先查后写，不是凭印象）**：`learning-voice.js`（WebAudio→16k wav→ASR，R158/R159/R160 三处坑都在里面）、`/ajax/learning/asr/transcribe`（登录鉴权、10MB、60s、不扣积分）、`/ajax/reading-tts`→moon-well `/tts/speak`（**1 积分/次含命中**、≤2000 字、65s）、`/ajax/reading-tts-cached`（只读缓存不计费）。**不复用**：录音上传/语音条（要改 `ai_message`）、教练回复的服务端同步合成（Buddy 是 SSE 流式，会把 `final` 拖长且长回复必撞 2000 字上限）。
-- **三处不能照搬，各自有解**：① `learning-voice.js` 原硬依赖 `window.MBLearning`（`if (!MB) return;`），Buddy 面板在全站挂载、没有 learning-common → **依赖降级为「有则用、无则回退」**（`window.mbT` / `window.MBApi.csrfToken()` / `options.asrUrl`），学习页零改动；另补 `clearNode` 回退——缺 `MBLearning` 时 `MB.clear(select)` 会在设备下拉处直接 TypeError。② 朗读不能用 `<audio src=blob:>`：`media-src blob:` 目前只在阅读页/口语页放行，照搬要把 CSP 铺到全站，而 `test_non_reader_pages_still_block_blob_media` 正是拦这条的守卫 → **改走 Web Audio**（`fetch` 取字节 + `decodeAudioData`，受 `connect-src` 回退 `default-src 'self'` 约束，**不受 media-src 管辖**），`web.py` **一行未改**。③ 长回复撞 2000 字上限 → 分段 1800（空行→句末标点→硬切），顺序播放并在状态行显示「朗读中 n/m」。
-- **顺带修掉一个既有静默故障**：伴读工具 `synthesize_tts` 的 `audio` SSE 事件原本也用 `new Audio(blob:)`，在非阅读页会被 CSP 拦掉且几乎没有可见提示（R220 把面板铺到全站之后就该暴露）。改成同一条 Web Audio 路径后，全站都能响。
-- **缓存档位**：朗读**不带** `bookName`/`chapter`，让 moon-well 按「AI 临时语音」档（7 天清理）落盘，不把一次性回复写进书籍段落的永久缓存；与 `synthesize_tts` 的既有口径一致。
-- **一处存量缺陷（本轮不擅自改）**：`ai_chat.js` 顶部的 `var mbT = window.mbT || identity` 在脚本载入时就被固定成恒等函数——`layout.html` 把 `i18n_seed.html` 排在 `ai_chat_panel.html` **之后**，所以面板既有动态文案实际上是英文。修法只有一行（改成调用时解析），但会让一批既有文案突然变中文，属可见行为变化，需单独一轮带验收。本轮新增文案改用本地 `t(id)`，词条手工进种子（生成器只扫 `mbT(`），并由新测试同时守种子/PO/MO。
-- **测试**：新增 `tests/test_buddy_voice.py` 7 条（面板挂载与脚本顺序、录音模块解耦、转写不自动发送、朗读不带书籍上下文、朗读不用 blob 媒体、分段上限 <2000、`t()` 词条三处齐全）；定向回归 **117 passed / 0 failed**（buddy 两套 + 页面冒烟 + i18n 契约 + CSP + 阅读器 R226/R215 + 学习页静态 + common api + 引导）；`node --check` 两个 JS；`splitForSpeech` 另用 node 直跑边界（1900 字无标点→[1800,101,223]、纯中文 3000 字→2 段、空串→[]）。
-- **真机验收未做（6 项）**：阅读页录音转写并编辑发送、首页同样可录可转（验证全站而非只在阅读页）、点朗读出声/再点停止、长回复两段连播、关抽屉即停、中文界面下按钮与状态行为中文。
-- **文档四问**：能力→L1 `readme/companion.md` 增「说话提问」「朗读回复」；契约→无接口变化（复用既有代理，故未改 L2）；实现/边界→新建 L3 `companion/features/buddy-voice.md`；本次实现→`iterations/1.0/r227-buddy-voice/lld.md`（状态：开发完成待验收）。另按「模块无基线则补建」新建需求基线 `companion/requirements.md`（R227 起）。
-- **台账与驻留**：R227 由 `claim.sh` 占号并 push（`a7eecd0c`，纯台账）；worktree `../magicbook-r227-buddy-voice`（分支 `feat/r227-buddy-voice`，基线 `origin/develop` `a7eecd0c`）已于 2026-10-26 用户确认收尾时删除（`worktree remove` + `branch -d`，删前仅清掉 `.pytest_cache/` 测试缓存），无残留、无未合并提交。
-- **窗口**：写入前已有 10 节，按「写入即检查」把最早 R212 整节原样搬至 `response-archive/response-R212.md` 并登记索引，窗口保持 10。
-- **总结**：requests.md 条目 227 已从占位回填；本条为回应。冲突记录：无撞号；唯一保留项是 `mbT` 冻结问题（存量、影响面大，另立一轮），不在本轮顺带改。
-- **上线实况（2026-10-25 21:27）**：用户令「上线」→ 主检出 `develop` 上 `a7eecd0c..cb198e00` 快进合并并 push（17 files / +774）。fnOS 自动构建，约 35 秒后生产静态资源即为新版：`/static/js/ai_chat.js` 含 `decodeAudioData` 与 `ai-chat-speak`、`/static/js/learning-voice.js` 含 `window.MBLearning || {}` 且旧 `if (!MB) return` 已消失、`ai_chat.css` 含 `.ai-chat-mic`、`/login` 渲染出的 i18n 种子里有 `Read reply aloud`（顺带证明模板没被字典改动搞坏）。`/` 仍 302 → `/login?next=%2F`，与改动前一致。
-- **补丁（同日 21:3x，计费拒绝要说人话）**：核账时发现「积分不足」的失败体是 HTTP 500 + `Result` 信封，原实现只看 `resp.ok` 就直接 `arrayBuffer()` 去 decode，用户会看到「解码失败」——把计费拒绝伪装成播放器坏了。`fetchSpeechBytes` 改为：成功且 `Content-Type` 是音频才解字节，否则读文本、取 `Result.message` 抛出（典型文案「积分不足，无法使用AI功能」）；新增第 8 条守卫钉住「失败分支必须走 `.text()`」。属同一需求内的缺陷修补，不另占号。
-- **计费口径变更（2026-10-25 晚，承接 moon-well R213）**：用户指正「1 积分/段只针对缓存命中，真实生成走正常计费，TTS/ASR 都要收，参考阿里云标价」。moon-well 侧据此改成：**命中 1 积分/段、首次生成按 50 字符/积分**（cosyvoice-v3-flash 1 元/万字符 ×2）、**ASR 22 秒/积分且最少 1 积分**，并修掉「真实合成双扣」「预检在调用之后」「ASR 实际从未收费」三处缺陷。magicbook 侧代码零改动（费率由 `/credit/billing` 下发、朗读走既有代理），只更新 L1/L3/LLD 的计费描述；**用户可见变化**：一条 1800 字新回复首读约 36 积分、重听 1 积分，一句语音提问约 1 积分，整本任务面板的朗读预估因费率真源变化会放大约 20 倍（预期行为，非缺陷）。
-
-## 2026-10-25（R228：moon-well R214 伴读 Agent Skills 的 magicbook 消费侧说明）
-
-### R228（承接 moon-well R214；用户：「把magic book 所有的功能 总结一下，做成一个skill 给 AI伴读的agent使用。先判断AI伴读的agent 是否支持skill」）
-
-- **任务定位**：跨仓消费说明，magicbook **零代码改动**。后端主责 moon-well R214；本仓 R214 已被“书籍详情”占用，故消费侧顺延占 **R228**，不覆盖既有编号。
-- **支持判断**：原 AI 伴读 Agent **不支持 Codex / Claude 原生 Skill**；它是 moon-well 内有界工具循环 + `AgentToolRegistry` 白名单 + Nacos 提示词。直接放 `SKILL.md` 不会生效，因此 moon-well R214 实现的是产品内只读、无脚本、渐进披露的 Skill 机制。
-- **消费侧交付**：`companion` L1 说明伴读可按需加载 MagicBook 全功能指南并强调不扩权；`companion/requirements.md` 记录 moon-well R214 / magicbook R228；`iterations/1.0/r214-agent-skill/lld.md` 写明真实页面路径、不可执行动作、失败退化与验收清单；迭代 `plan.md` 增跨仓工作项。
-- **用户可见范围**：涉及阅读、翻译、查词、词汇、学习计划、朗读、积分或伙伴的问题，助手可先取指南再给具体页面/操作；指南按需读取、不占每轮上下文；不会因此获得点按钮、改设置、下单、启动整本任务或管用户的新权限。
-- **不变量**：不改前端模板、不改 `/ai/agent/*` 代理、不改 SSE/会话/消息结构、不改工具白名单或写确认门配置；moon-well 关闭 Skill 或白名单未放行时，magicbook 无需变化。
-- **验收（2026-10-26 生产真机）**：① 每日学习回答覆盖当前八项（写作、口语、复述 4-3-2、计时重读、听写、复习队列、Word Story、选书难度匹配），并给出 `/learning` 及各活动入口；② 改难度 / 买积分 / 启动整本翻译均拒绝代执行，给出 `/reading/settings`、`/credits`、书籍详情页真实路线，轨迹无写工具；③ 价格、倍率和活动结束时间明确以页面为准，未编造数值；④ 普通寒暄未加载 Skill。新词查询与 TTS 首次 miss 3 积分、第二次命中 1 积分也已实测。
-- **新注册普通账号补测**：`r214probe-20261026-6457`（moon-well userId 15）的 `/admin` 404、`/admin/user/1` 403、`/shelf/create` 可访问、下载按钮显示未开通；每日学习加载正文与参考，寒暄不加载，查词走 `read_skill` + `lookup_word`，记忆初始为空、明确要求后 `save_memory ✓`，书 252 批注写入并由 `list_annotations` 回读成功。
-- **TTS / 积分补测**：新文本首次提示本次 3 积分、二次缓存命中 1 积分；账本 `15:07:27 reading-tts -3`、`15:07:57 reading-tts -1`（此前 181 字符段另有 `13:58:41 -3`、`14:00:41 -1`）。赠送 10000、余额 7972、账本累计 2028；分组 `ai-agent-step` 1840/40 次、`ai-agent-memory` 180/18 次、`reading-tts` 8/4 次，证明 Skill、function call 与 Agent 内部调用均消耗当前登录用户积分。
-- **隔离与边界（如实）**：会话与长期记忆按用户隔离成立（userId 15 有 3 个会话、4 条记忆；其他用户 24 个会话、8 条记忆；带唯一标记的 2 条记忆只属于 userId 15）；批注按既有设计为段落级共享，`ReadingAnnotationService.listByParagraph()` 不按 `userId` 过滤，不能写成私有隔离。生产写确认门为 `false`，写工具真实成功；`requireConfirm()` 只影响前端醒目样式，不是执行确认。
-- **验收结果**：TTS 计费文案 GUI 补测通过；会话/长期记忆用户隔离通过；批注段落共享作为既有设计边界单独列明；当前用户积分对账通过。生产写工具真实成功，不能写成“被确认门拦截”。未发现 Skill 新增权限、系统身份调用或隐藏接口路径。
-- **能力与计费边界**：生产白名单共 10 项，只有 `add_annotation` / `save_memory` 两个写工具；所有业务工具使用当前登录用户的真实能力、`UserContext` 与积分链路，不注入系统身份，也不提供脚本、任意文件或未注册接口。
-- **上线与台账**：moon-well 代码提交 `05ed7fd` 已推送 `origin/develop` 并部署，生产健康 `UP`；验收文档 `f0bafad` 为 docs-only。正式发布态全量 **1559 tests / 0 failures / 0 errors / 0 skipped**。本仓 R228 为 docs-only，无代码 worktree；moon-well 原 worktree `../moon-well-r214-agent-skill` 与分支 `feat/r214-agent-skill` 已不存在，旧驻留记录不破坏性重建。
-- **窗口**：写入前 10 节；按“写入即检查”把最早 R213-C 整节原样搬至 `response-archive/response-R213-C.md` 并登记索引，窗口保持 10。
 
 ## 2026-10-25（R229：缺陷修复——/home 随机发现 linked Row 致生产登录落点 500，挂 R213）
 
@@ -230,3 +162,85 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 
 
 **验收与清理（2026-10-26 晚）**：用户确认「可以了」，验收通过。驻留 worktree 与分支已按闸门清理（本轮功能跨两仓，登记于此两处）：`moon-well-r220-user-data-export`（feat/r220-user-data-export @ df72cc4）与 `magicbook-r230-user-data-export`（feat/r230-user-data-export @ eecc514b）均已 `git worktree remove` + `git branch -d`（-d 通过=确认已合并），树与分支核验清净。PingCode MB-230 → Completed。
+## 2026-10-28（R236：弹层恢复「整本任务」入口——跳完整详情页的普通链接）
+
+### R236（用户：「弹层里恢复『整本任务』按钮。不要做其他的」）
+
+- **结论先行**：已完成并上线待验收。范围严格限定为用户点名的这一件事：弹层里恢复入口；未动弹层书名链接、未做「面板进弹层」方案、未改门禁拍板。
+- **定性**：R214 子项 C 的修复 `42ddfb19`（开面板按钮加 `not is_xhr` 门禁）引入的可达性回退——完整详情页在 UI 里没有普通左键可达路径（书卡封面/书名链接全部被 `data-toggle="modal"` 截去 `#bookDetailsModal`），管理员入口事实不可达。挂 R214 修复，不建独立 idea。
+- **实现**（`detail.html`，最小 diff）：原开面板按钮行（`whole-book-panel-open`）原样不动；紧随其后新增 `{% if current_user.role_admin() and is_xhr %}` 分支渲染普通链接 `<a class="btn btn-default" id="whole-book-panel-link" href="{{ url_for('web.show_book', book_id=entry.id) }}">整本任务</a>`。同 URL 不带 `X-Requested-With` 头即渲染完整详情页，面板在完整页内照常打开；不挂 `data-toggle`/`data-target`（data-api 与 `#bookDetailsModal` 抢点击，`42ddfb19` 同款教训）。门禁不变：仍是管理员专属（R214 拍板①）。
+- **守卫**：新增 `test_xhr_modal_entry_is_full_page_link`（链接指向 `web.show_book`、无 data-api、`role_admin` + `is_xhr` 双门禁，反向变异报红）；既有四条守卫（admin 门禁 / data-api 禁用 / XHR 隐藏开面板按钮 / 旧三按钮不复活）原样通过、语义未动。
+- **测试**：定向回归 `test_book_detail_r214.py` + `test_whole_book_estimate.py` 50 passed；detail/show_book 相关全量 4 文件（含 `test_word_detail_batch_r176.py`、`test_onboarding_tour.py`、`test_auth_reader_covers_r225.py`）108 passed / 0 failed。
+- **文档四问**：能力/契约未变（入口可达性恢复，L1/L2 无需动）；实现与边界 → LLD `iterations/1.0/r214-book-detail/lld.md` §15 + 状态行回填。
+- **驻留与闸门**：worktree `../magicbook-r236-wholebook-modal-entry`（分支 `fix/r236-wholebook-modal-entry`，实现 `6180c6bc`，基线 origin/develop `ffc70a3e`）merge 后原样保留待验收；验收通过后 `git worktree remove` + `git branch -d`。真机验收项：管理员账号在书库列表点开任意 epub 书弹层 → 按钮行出现「整本任务」→ 点击落在完整详情页且页内「整本任务」按钮可开面板；普通账号弹层内不出现该入口。
+- **窗口**：写入前 10 节已满，按「写入即检查」把最早 R225 整节原样搬至 `response-archive/response-R225.md` 并登记索引，窗口保持 10。
+- **总结**：requests.md 条目 236 已从占位回填；本条为回应。冲突记录：无撞号（claim.sh 占号 `ffc70a3e`）；R235 为并行会话占号，未触碰。
+
+## 2026-10-28（R237：整本朗读批次全灭——proxy 三元组被二元组解包；兼答「开始整本朗读后白屏」）
+
+### R237（用户报告：「点击开始整本朗读后白屏」）
+
+- **结论先行**：同一请求下有两个独立缺陷，均已修复：①整本朗读批次 100% 全灭（proxy 三元组被二元组解包）；②进度条外层被浮动列撑成整屏透明层，正文看似白屏、实际是被它覆盖并截走点击。前一轮把白屏仅归因于批次资源耗尽的判断已被 CSSOM/盒模型实测推翻，以下补记真因。
+- **证据链**：①生产日志 `voice select failed (too many values to unpack (expected 2))`；②moon-well 侧每段两次 `/tts/speak`（第一次 2~10s 真合成、约 1s 后同文本 6ms 缓存命中）＝worker 重试环的指纹；③app.db 批次台账 done=0 / failed 全量增长；④`MoonWellClient.proxy` 源码恒返回 `(body, status, headers)` 三元组，`cps/reading_tts/service.py` 两处按二元组解包。
+- **单测为何漏网**：桩 proxy 也只回二元组——桩没有镜像真实契约，service 的二元解包在单测里永远通过、一到生产就炸。本轮把三个桩全部改为三元组并新增契约守卫（反向变异实测 3 failed）。
+- **止血**：发现时 book 50（HP1，3007 段）批次已烧 208 段全 FAILED，已直接置 CANCELLED 停止空转；已合成的音频都在 moon-well 段落缓存里，重新发起批次将全部缓存命中、几乎零成本走完。
+- **白屏真因（R237 验收追加）**：生产页 DOM 实测 `.wb-progress` 位于详情页 `.container-fluid` 内；容器中的 Bootstrap 浮动列高 775px 且未清除。进度条外层从容器顶部起算、内层被浮动推到底部：外层 `813px` 高、内层仅 `37px` 且在 y=846，页面中心的 `elementFromPoint()` 命中进度条。正文没有丢失，只是被透明层覆盖；`clear:both` 试验可恢复 38px，但会把吸顶条落到文档底部。
+- **白屏修法**：`whole-book-panel.js` 初始化时执行 `$progress.insertAfter($nav)`，把 `#whole-book-progress` 从浮动容器移到导航栏之后，保留原 sticky 吸顶语义。实测重挂后外层 38px、内层 37px、页面中心重新命中 `.book-meta`；新增守卫 `test_progress_bar_is_moved_out_of_float_layout`。
+- **测试**：detail 39 passed；整本估算 + tts 5 文件 62 passed；i18n / 重复 JS 行 6 passed。既有反向变异仍成立：worker 解包改回二元组 → 3 failed。
+- **合并与部署**：实现 `8c388234` 已 fast-forward 合入 `origin/develop`；推送约 30 秒后生产静态资源包含新逻辑。用该生产资源在真实详情页结构内重放：进度条父节点为 `BODY.book`，外层 38px、内层 37px，页面中心命中 `.book-meta`。
+- **文档**：LLD `iterations/1.0/r214-book-detail/lld.md` §16 + 状态行。
+- **驻留与闸门**：worktree `../magicbook-r237-tts-proxy-unpack`（分支 `fix/r237-tts-proxy-unpack`，基线 origin/develop `a23c91ba`，实现 `f4d8b934` + `8c388234`）已合并、原样驻留待验收。真机验收项：打开 `/book/50` 发起整本朗读后正文仍完整可点，进度条吸在导航栏下方且高度正常；批次 done 稳定增长、failed 不再全量增长；moon-well 每段仅一次 `/tts/speak`。
+- **验收追加（部署重启后批次失联）**：上线后 `book 50` 批次停在 `RUNNING 1239/3007`，`PENDING 1768`、`FAILED 0`；最后推进 14:15:32，14:15:53 与 14:33:00 两次容器重启均发生在批次运行期间。根因是 worker 为进程内 daemon，重启即消失，而台账与页面仍显示 RUNNING；「开始」又被活跃批次禁用，前端无恢复入口。修法：`/ajax/reading-tts-book/status` 增发服务端判定的 `canResume`（未终态 + 有 PENDING + 本进程无活 worker），进度条据此显示「继续」，点击调用既有 retry 原地续跑；失败原因留在进度条内。新增服务/路由/模板 JS 守卫，恢复不新建台账、不重置进度、已完成段与音频缓存继续复用。
+- **继续入口合并与部署**：实现 `b48a29ed` 已快进推送 `origin/develop`（`bb6c66f6..a2a1e88f`）。fnOS 于 16:36 完整构建（非 docs-only），app-manager 返回 `deploy SUCCESS`；生产容器 `healthy`，镜像 label `house.build-sha=a2a1e88f...`，线上 `whole-book-panel.js` 已核验包含 `canResume`、`ttsRetry` 与 `.wb-progress-resume` 点击接线。待真机在 `/book/50` 的失联批次上点「继续」，确认 done 从 1239/3007 继续增长且 PENDING 下降。
+- **窗口**：写入前 10 节已满，按「写入即检查」把最早 R226 整节原样搬至 `response-archive/response-R226.md` 并登记索引，窗口保持 10。
+- **总结**：requests.md 条目 237 已从占位回填；本条为回应。冲突记录：无撞号（claim.sh 占号 `a23c91ba`）。遗留登记：估算面板对 `reading_word_detail_job` 表缺失只 WARN 降级（该表在首次全文详解时由 `_ensure_tables` 创建），暂不处理。
+
+## 2026-10-28（R238：全文单词详解预览卡死——所有书共有的 jQuery 顺序缺陷 + 后台预计算）
+
+### R238（用户：「magicbook 全文单词详解 卡在预览加载中。booi_id=145 这是为什么？所有的书是否都会这样？能否加一个异步任务，后天提前把这个算出来」）
+
+- **结论先行**：卡住的主因不是 `book_id=145`，也不是计算慢，而是页面脚本根本没执行。模板把预览脚本放在 `{% block body %}`，早于 `layout.html` 底部 jQuery；浏览器控制台报 `ReferenceError: $ is not defined`，`/ajax/word-detail-preview` 一次都没发出，所以开始按钮永远禁用。该模板为所有书共用，**所有书都会中招**，只是短书、缓存或人工验证可能没把问题暴露出来。
+- **慢链路是第二层问题**：修掉脚本后，原实现仍会在请求线程解析整本 EPUB，再按 2000 词一批串行调用 moon-well `cached-check`；moon-well 每次检查又会做索引级扫描，期间没有持久化快照或中间进度。即使最终能算，体验也可能长时间只有静态「预览加载中…」。
+- **实现（`5bb6336e`）**：① 内联脚本移入 `{% block js %}`，由实际渲染顺序守卫钉住「jQuery 先于本页脚本」；② 新增 `reading_word_detail_preview` 快照表（按 `(book_id, book_format)` 唯一）与后台 worker，首请求只校验书目/指纹并立即返回 `RUNNING`，页面每 2.5 秒轮询 `EXTRACTING/CHECKING` 与已检查词数；③ `READY` 10 分钟内直接复用，`FAILED` 60 秒内复用失败，`force=true` 可绕过；④ `start()` 复用同指纹、新鲜 READY 的 `missing_json` 与计数，不再二次解析整本、重扫缓存；⑤ 建表通过 `JobServiceBase.extra_tables` 扩展，保持 B6「建表原语只有一份」。
+- **费用与只读边界**：后台预计算只调用 `cached-check`，不会自动生成单词详解；真正生成仍需管理员看过数字后二次确认。没有对全库做自动预热，只有实际打开某本书预览页才计算该书，避免「看管理页就产生全库扫描」。
+- **测试**：定向台账/估算/公共骨架 **68 passed / 0 failed**；扩展回归（详解、整本估算、书籍详情、翻译/朗读共用骨架、i18n）**179 passed / 0 failed**；`py_compile`、`pybabel compile`、`git diff --check` 通过。新增守卫覆盖渲染顺序、首请求不跑上游、READY/TTL/force、FAILED 退避、start 复用、迟到 worker 不重算、2000 词分批与建表原语不外叉。
+- **文档四问**：能力 → L1 `docs/product/readme/vocabulary.md`；契约 → L2 `docs/product/vocabulary/interface.md`（新增 RUNNING/READY/FAILED、force、10 分钟 TTL、60 秒失败退避）；实现/边界 → L3 `docs/product/vocabulary/features/word-detail-preview.md`；本次实现 → `docs/project/iterations/1.0/r238-word-detail-preview/lld.md`（状态：已上线待用户最终验收）。另补建 vocabulary 需求基线并同步 `plan.md`。
+- **驻留与上线**：R238 占号为 `c90ce790`，实现 `5bb6336e`，merge `9577c541`。用户已授权全量测试、push 与生产验收；正式发布态全量 **1014 passed / 0 failed / 4 warnings**，merge 后定向 **68 passed / 0 failed**。已 push `origin/develop`（`c0f4f598`），fnOS build `c0f4f5982d02de4c1e41e05ebb2da5939255db04` 于 2026-10-28 14:33 部署成功，容器 running，build SHA 与登记一致。worktree `../magicbook-r238-word-detail-preview`（分支 `fix/r238-word-detail-preview`）按闸门保留，待用户最终验收后再清理。
+- **生产验收（2026-10-28）**：`book_id=145&book_format=epub` 从「正在读取正文」自动进入 READY，去重 4,345 / 已有 1,952 / 待生成 2,043，开始按钮启用；另一本 `book_id=50&book_format=epub` 为 6,111 / 2,269 / 3,411，按钮启用。两本书均实际发出预览 AJAX 并落库，控制台无 `$ is not defined`。`book_id=50` 在 10 分钟窗口内刷新后立即显示 READY，数据库 `computed_at=2026-10-28 06:36:00.278545` 未变化，确认命中同一快照。验收未点击「开始补缺」，未触发生成或 token 费用。
+- **后续**：moon-well `cachedLookupKeys()` 的全索引扫描优化未夹带在本任务，建议另立跨仓编号改为按输入词表 `terms` 查询或加短 TTL 缓存。
+- **窗口**：写入前 10 节已满，按「写入即检查」把最早 R227 整节原样搬至 `response-archive/response-R227.md` 并登记索引，窗口保持 10。
+- **总结**：requests.md 条目 238 已从占位回填；本条为回应。冲突记录：无撞号；本轮把用户所写「后天」按「后台」理解。
+
+## 2026-10-28（R239：全文单词详解预览屈折词覆盖漏算）
+
+### R239（用户：「这个计算不对，完全没有考虑曲折变形。」）
+
+- **结论先行**：用户判断正确。R238 的后台 worker 与页面轮询没有失败，错的是它读取的
+  moon-well 覆盖率：`cachedLookupKeys()` 的 ES `_source` 只取 `forms.form`，把判定所需的
+  `forms.type` 裁掉了，`books / children / going / beasts / witches / revolting` 等因此全部
+  被列为缺失。扫描是全局词库视图，**所有含屈折形式的书都会高估待生成量**，不是 book 145 单书问题。
+- **为什么详情面板是对的**：交互查词读完整文档，能按 `forms.type` 把 `books` 还原为 `book`；
+  预览走全索引扫描，受另一条投影限制，两条链路口径分叉。详情面板显示“books 是 book 的三单”
+  恰好证明缓存内容存在。
+- **修复归属**：主责 moon-well R226，扫描同时投影 `forms.form` 与 `forms.type`。magicbook
+  **零代码**：不复制屈折规则、不改 worker/快照/分批，也不新增生成调用。
+- **快照边界**：READY 有 10 分钟 TTL；moon-well 部署后可能短暂显示旧数字。验收必须用
+  `{book_id:145, book_format:"epub", force:true}` 强制刷新，再看 `missingSample` 与新计数。
+  这不是再算错一次，而是既有快照尚未过期。
+- **测试**：本仓无功能代码，保留预览链路定向回归
+  `test_word_detail_batch_r176.py + test_job_service_base.py`：**56 passed / 0 failed**。
+  上游修复的请求投影与七类屈折回归由 moon-well R226 的 54 例覆盖。
+- **文档四问**：能力形态未变，L1 不改；契约补充 → L2 `vocabulary/interface.md` 的覆盖率权威；
+  实现/边界 → L3 `vocabulary/features/word-detail-preview.md`；需求与本次实现 →
+  `vocabulary/requirements.md` R239 与 `iterations/1.0/r239-word-detail-inflection/lld.md`。
+  R238 LLD 只加“R226 后续修复”注记，不改写当时范围。
+- **调用方经验沉淀**：L2 新增 §5.1“调用方使用清单”，L3 新增 §6“覆盖率消费规则”，
+  明确本站只抽字面词且只信 `cached-check`；给出
+  `原始去重词数 = cachedWords + targetWords + notWordLike` 的可复算关系，禁止用
+  “原始词数 − cached”反推目标数，也禁止在前端复制屈折规则补救后端口径分叉。
+- **驻留与闸门**：R239 占号 `463c2f4d`；worktree
+  `../magicbook-r239-word-detail-inflection`（分支 `fix/r239-word-detail-inflection`）保留。
+  R238 worktree `../magicbook-r238-word-detail-preview` 另待验收，未复用、未清理。
+- **待验**：moon-well 上线后 force 刷新 book 145，确认六个代表词移出缺失样例，
+  `cachedWords` 上升、`targetWords` 下降，预览仍不产生 token 费用。
+- **冲突记录**：无撞号；与 moon-well R226 是同一缺陷的两仓记录，算法权威只在 moon-well。

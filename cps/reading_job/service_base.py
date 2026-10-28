@@ -44,6 +44,9 @@ class JobServiceBase:
 
     job_model = None
     item_model = None
+    # 子类可声明随台账一起懒建的附加表。R238 的预览快照即一本书一条，
+    # 与 job/item 同生命周期入口创建；建表原语仍只保留在这一处。
+    extra_tables = ()
     active_statuses = ACTIVE_STATUSES
     # 查无批次时的报错文案（三家不同且已上线，逐字保留）
     missing_job_error = "job is unavailable"
@@ -72,8 +75,9 @@ class JobServiceBase:
 
     def _ensure_tables(self):
         bind = ub.session.get_bind()
-        ub.Base.metadata.create_all(bind, tables=[self.job_model.__table__,
-                                                  self.item_model.__table__])
+        tables = [self.job_model.__table__, self.item_model.__table__]
+        tables.extend(model.__table__ for model in self.extra_tables)
+        ub.Base.metadata.create_all(bind, tables=tables)
 
     def _book_file(self, book_id, book_format):
         book = calibre_db.get_filtered_book(book_id)

@@ -704,10 +704,11 @@ def _word_detail_closures():
 @web.route("/ajax/word-detail-preview", methods=["POST"])
 @user_login_required
 def reading_word_detail_preview():
-    """只读预览：这本书的去重词数 / 已缓存 / 待生成 / 粗算 tokens。
+    """只读预览：缓存命中直接返回；未命中立即建后台预计算并返回 RUNNING。
 
     Why 只拿 check 闭包：预览路径**没有** publish 能力，把「不产生副作用」做成
     结构约束而不是靠约定（单测据此断言 warm-publish-by-words 一次都没被调）。
+    Why 允许 force：快照有 10 分钟命中窗口；用户主动刷新时不应等过期才重算。
     """
     denied = _llm_task_admin_gate()
     if denied is not None:
@@ -716,8 +717,10 @@ def reading_word_detail_preview():
     try:
         book_id = int(payload.get("book_id"))
         book_format = str(payload.get("book_format") or "epub").lower()
+        force = bool(payload.get("force", False))
         check, _ = _word_detail_closures()
-        return jsonify(word_detail_batch_service.preview(book_id, book_format, check))
+        return jsonify(word_detail_batch_service.preview(
+            book_id, book_format, check, force=force))
     except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
         return jsonify({"success": False, "message": str(error)}), 400
 

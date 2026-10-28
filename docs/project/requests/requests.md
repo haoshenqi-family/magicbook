@@ -247,3 +247,19 @@
 234. **伙伴悬浮球快捷动作：AI 对话恒在第一位且不可删除（R223 口径收紧，服务端不变量）**（占号 2026-10-26）：用户原话「伙伴悬浮球快捷动作，AI 对话始终在第一位切不可删除」。定性：R223 前端本已是该行为（chat chip 固定不可取消、`renderBubbles` 恒 chat 首位），缺口在服务端——POST 不校验 chat，直连 API 可存成缺失（气泡变 6 个破 4–5 口径）或末位，存量旧值读回也不归一。实现：`cps/routes/buddy.py` 新增 `_pin_chat_first()`，POST 归一后落库（缺 chat 补首位、错位前移、数量连 chat 一起算 4–5，5 个非 chat＝6 个 400 拒绝不静默截断），`current_user_view_settings()` 读回对存量旧值同样归一截上限、坏数据回落默认四项；前端行为不变，仅更正 `buddy.js` 注释（2-5→4-5）。测试：`tests/test_buddy_page.py` +3（写入归一 / 超上限拒绝不落库 / 存量读回归一），定向回归 26 passed + buddy 全家 50 passed。文档：L1 `readme/companion.md`、需求基线 `companion/requirements.md` §R234、L3 `companion/features/buddy-quick-actions.md`（新建）、LLD `iterations/1.0/r234-buddy-qa-chat-first/lld.md`、R223 LLD 边界标注取代、迭代 `plan.md`。状态：**已上线待验收**（实现 `bbd482ae`；worktree `../magicbook-r234-buddy-qa-chat-first`，分支 `feat/r234-buddy-qa-chat-first` 驻留待验收；挂 R223 修改意见不建独立 idea）。
 
 235. **伙伴快捷动作配置切 moon-well 单源——/ajax/buddy/quick-actions 改薄代理+存量懒迁移（与扩展共用配置）**（占号 2026-10-27，待回填）
+
+236. **弹层恢复「整本任务」入口：XHR 片段内改为跳完整详情页的普通链接（R214 可达性回退修复）**（2026-10-28）：用户原话「弹层里恢复『整本任务』按钮。不要做其他的」。定性：R214 子项 C 修复（42ddfb19）给开面板按钮加 `not is_xhr` 门禁引入的可达性回退——完整详情页在 UI 里无普通左键路径（书卡链接全被 data-toggle 弹层截走），管理员入口事实不可达。实现（严格限定范围，未动其他）：`detail.html` 弹层分支新增同门禁普通链接 `id=whole-book-panel-link` → `/book/<id>`（同 URL 无 XHR 头即渲染完整页，面板在完整页内打开；不挂 data-api）；开面板按钮行原样不动。守卫 +1（`test_xhr_modal_entry_is_full_page_link`），既有四条守卫原样通过，detail 相关 4 文件 108 passed。文档：LLD §15 + 状态行。状态：**已上线待验收**（实现 `6180c6bc`；worktree `../magicbook-r236-wholebook-modal-entry`，分支 `fix/r236-wholebook-modal-entry` 驻留待验收；挂 R214 修复不建独立 idea）。
+
+237. **整本朗读批次全灭修复：moonwell proxy 三元组被 tts 选角与合成 worker 二元组解包**（2026-10-28）：R236 验收时用户报「点击开始整本朗读后白屏」。诊断：服务端无 500、面板 JS 三变体（成功/400/504）真浏览器 harness 验证无白屏路径；真缺陷在服务端——`MoonWellClient.proxy` 恒返回三元组 `(body, status, headers)`，`cps/reading_tts/service.py` 选角与合成 worker 两处二元组解包，每段两次合成后全数 FAILED（生产 book 50 批次 3007 段 done=0，已止血置 CANCELLED，此时 208 段全 FAILED；两次合成音频均已入 moon-well 缓存，重启批次缓存命中不重复计费）。白屏最可能是批次空转双倍合成+每段两次写库把页面加载拖死的表现。修法：两处改三元组解包；测试桩全部改三元组（桩即契约镜像——单测漏网正因桩也回二元组）；新增契约守卫 `test_moonwell_proxy_contract_is_three_tuple`，反向变异 3 failed 报红。tts 全家 5 文件 50 passed。**验收追加（同日）**：部署重启杀掉进程内 worker 后，`RUNNING 1239/3007` 批次失去前端恢复入口；状态接口增发 `canResume`，进度条在「无活 worker 且仍有 PENDING」时显示「继续」，调用既有 `/retry` 原地续跑。文档：LLD §16–§17。状态：**已上线待验收**（实现 `b48a29ed`，合并/部署 `a2a1e88f`；worktree `../magicbook-r237-tts-proxy-unpack`，分支 `fix/r237-tts-proxy-unpack` 驻留待验收；挂 R214 整本任务验收链）。
+
+238. **全文单词详解预览加载缺陷修复与后台预计算**（2026-10-28）：用户原话「magicbook 全文单词详解 卡在预览加载中。booi_id=145 这是为什么？所有的书是否都会这样？能否加一个异步任务，后天提前把这个算出来」（“后天”按“后台”理解）。根因不是 book 145：页面内联脚本放在 `block body`，早于 layout 底部 jQuery 执行，浏览器以 `$ is not defined` 中断，`/ajax/word-detail-preview` 从未发出，所以所有书共用该缺陷；同时原同步链路会在请求线程解析整本 EPUB、串行分批扫 moon-well 缓存，慢时也没有进度或快照。修法：脚本移入 `block js`；新增 `reading_word_detail_preview` 快照表与后台 worker，首请求立即返回 RUNNING，页面轮询 EXTRACTING/CHECKING 进度，READY 后自动显示数字，READY 10 分钟复用、FAILED 60 秒退避，`force` 可重算；`start` 复用新鲜 READY 的 missing 词表，避免二次整本解析+缓存扫描。预览仍只调 cached-check，不自动生成详解、不产生生成费用。状态：**开发完成待验收**（worktree `../magicbook-r238-word-detail-preview`，分支 `fix/r238-word-detail-preview`；挂 R176 缺陷修复）。
+
+239. **全文单词详解预览屈折词覆盖漏算**（2026-10-28）：用户反馈预览「这个计算不对，完全没有考虑曲折变形」（按“屈折”理解）。根因不在 magicbook R238 的后台 worker，而在 moon-well `cachedLookupKeys` 的 ES `_source` 只取 `forms.form`、漏掉判定用的 `forms.type`，导致 `books / children / going / beasts / witches / revolting` 等词目覆盖形全被列为缺失；扫描是全局视图，所有书都受影响。修复主责 moon-well R226；本仓零代码，补 L2 覆盖率权威、L3 快照边界、需求 R239 与 LLD，并规定上游部署后用 `force=true` 刷新 book 145 验收。状态：**已合并待上线验收**（worktree `../magicbook-r239-word-detail-inflection`，分支 `fix/r239-word-detail-inflection`；R238 worktree 保留另待验收）。
+
+240. **核心异步任务体系设计与强制规范**（占号 2026-10-28，待回填）
+
+241. **整本能力缓存齐备标识：整本翻译/整本朗读/全文单词详解都有缓存时给书目标识，提示可低成本学习**（占号 2026-10-28，待回填）
+
+242. **积分卡：购买、兑换与管理员发卡入口**（占号 2026-10-28，待回填）
+
+243. **站内信邮件系统前端：伙伴信封、抽屉 Mail、独立邮件页**（占号 2026-10-28，待回填）

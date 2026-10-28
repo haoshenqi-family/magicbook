@@ -115,3 +115,7 @@ def test_status_and_cancel_forward(admin_client, moonwell_configured, stub_batch
     rv = admin_client.post("/ajax/reading-tts-book/cancel", json={"job_id": "j9"})
     assert rv.status_code == 200
     assert stub_batches.captured["cancel"] == "j9"
+
+    rv = admin_client.post("/ajax/reading-tts-book/retry", json={"job_id": "j9"})
+    assert rv.status_code == 200
+    assert stub_batches.captured["retry"] == "j9"

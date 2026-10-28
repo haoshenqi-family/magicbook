@@ -5472,6 +5472,12 @@ msgstr "只给这本书补「还没有单词详解」的词。第一步是只读
 msgid "Loading preview…"
 msgstr "预览加载中…"
 
+msgid "Reading the book and counting distinct words…"
+msgstr "正在读取正文并统计去重词…"
+
+msgid "Checking word-detail cache…"
+msgstr "正在比对单词详解缓存…"
+
 msgid "Distinct words in this book"
 msgstr "本书去重词数"
 

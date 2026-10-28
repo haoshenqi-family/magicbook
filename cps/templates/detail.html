@@ -105,10 +105,19 @@
                                Why `not is_xhr`：书目列表里点书卡走的是 XHR 片段（detail.html
                                改 extends fragment.html），片段的 block js 整个不下发 ⇒ 面板骨架
                                与 JS 都不在，按钮点了只会落到 Bootstrap 的 data-api 空转（验收实测：
-                               在「书籍详情」弹层里点它，页面被套进另一个弹层）。整本任务只在
-                               完整详情页提供；弹层里的读者要么关掉弹层进详情页，要么用列表操作。 #}
+                               在「书籍详情」弹层里点它，页面被套进另一个弹层）。开面板的按钮只在
+                               完整详情页渲染；弹层内的入口见下方 R236 链接。 #}
                             {% if current_user.role_admin() and not is_xhr %}<button type="button"
                                     class="btn btn-default" id="whole-book-panel-open">整本任务</button>{% endif %}
+                            {# R236：弹层里恢复整本任务入口。`not is_xhr` 门禁把入口收走后，
+                               完整详情页在 UI 里没有普通左键可达的路径（书卡全被 data-toggle
+                               弹层截走），管理员入口事实上不可达。弹层（XHR 片段）内改为同门禁的
+                               普通链接跳转完整详情页——同 URL 无 X-Requested-With 头即渲染完整页，
+                               面板在完整页内打开；不挂 data-toggle/data-target，避免与
+                               #bookDetailsModal 抢点击（42ddfb19 同款教训）。 #}
+                            {% if current_user.role_admin() and is_xhr %}<a
+                                    class="btn btn-default" id="whole-book-panel-link"
+                                    href="{{ url_for('web.show_book', book_id=entry.id) }}">整本任务</a>{% endif %}
                         {% endif %}
                         <div class="btn-group" role="group">
                             {% if entry.reader_list|length > 1 %}

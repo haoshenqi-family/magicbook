@@ -110,7 +110,10 @@ class WholeBookTtsService(JobServiceBase):
         try:
             payload = dict(meta)
             payload["force"] = bool(force)
-            body, status = self._proxy(BOOK_VOICE_SELECT_PATH, payload, 60, "whole-book tts voice select")
+            # 真实 _moonwell_proxy 恒返回三元组 (body, status, headers)；二元组解包会抛
+            # ValueError 被上层吞成「选角失败」，2026-10-28 生产实测即此（R237）。
+            body, status, _headers = self._proxy(BOOK_VOICE_SELECT_PATH, payload, 60,
+                                                "whole-book tts voice select")
             if 200 <= status < 300:
                 import json
                 data = json.loads(body)
@@ -242,11 +245,13 @@ class WholeBookTtsService(JobServiceBase):
             error = None
             for attempt in (1, 2):
                 try:
-                    body, status = proxy(SPEAK_PATH,
-                                         {"text": item.text, "bookName": job.book_name,
-                                          "chapter": item.chapter, "source": SOURCE_BOOK_TTS_BATCH},
-                                         SYNTH_TIMEOUT_SECONDS, "whole-book tts synth",
-                                         binary=True)
+                    # 三元组契约同上：二元组解包抛 ValueError → 每段重试两次后全数
+                    # FAILED（R237 前生产形态：done=0、failed 全量、每段两次合成白烧）。
+                    body, status, _headers = proxy(SPEAK_PATH,
+                                                   {"text": item.text, "bookName": job.book_name,
+                                                    "chapter": item.chapter, "source": SOURCE_BOOK_TTS_BATCH},
+                                                   SYNTH_TIMEOUT_SECONDS, "whole-book tts synth",
+                                                   binary=True)
                     if 200 <= status < 300:
                         ok = True
                         break
@@ -281,6 +286,10 @@ class WholeBookTtsService(JobServiceBase):
         ub.session.commit()
         done = job.done_count
         failed = job.failed_count
+        # Why 由服务端判定：页面只能看到 DB 状态，无法知道 daemon 线程是否随容器重启
+        # 消失。canResume=true 的唯一含义是「仍有待跑段，且当前进程没有活 worker」，
+        # 前端据此显示「继续」，点击后走 retry 的原地续跑分支。
+        can_resume = job.status in self.active_statuses and self._needs_worker(job)
         return {
             "jobId": job.id,
             "bookId": job.book_id,
@@ -291,6 +300,7 @@ class WholeBookTtsService(JobServiceBase):
             "failed": failed,
             "voice": job.voice,
             "style": job.style,
+            "canResume": bool(can_resume),
         }
 
     def get_progress(self, job_id):

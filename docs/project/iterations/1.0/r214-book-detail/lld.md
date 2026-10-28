@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -350,3 +350,98 @@ JS 侧 `String(kind).toLowerCase()`。守卫：`test_start_label_keys_are_lowerc
   Magpie 文件为 `65532:65532`（settings 700、备份 600），healthcheck rc=0；
   moon-well/magicbook 近 20 分钟无新的 allow-list 拒绝或 book-intro 403。
   最终「生成简介」200 与简介落库仍需管理员登录页面验收。
+
+## 15. 入口可达性缺陷：弹层里整本任务入口不可达（2026-10-28，R236，`fix/r236-wholebook-modal-entry`）
+
+**现象**：管理员在书库列表找不到「整本任务」入口。§13 的修法把开面板按钮加
+`not is_xhr` 门禁收进完整详情页后，完整详情页在 UI 里**没有任何普通左键可达的路径**——
+书卡（封面/书名）链接全部被 `data-toggle="modal"` 截去 `#bookDetailsModal`，弹层即
+XHR 片段；只有 Cmd+点击/中键/手输 `/book/<id>` 才能到达。入口事实上对所有人隐藏。
+
+**根因**：§13 修复选了「把按钮从弹层里拿掉」而非「让面板在弹层里可用」，且弹层内
+没有任何通往完整详情页的链接——可达性缺口是那次修复引入的回退（`42ddfb19`）。
+
+**修法（用户拍板：只做弹层恢复入口，不改其他）**：`detail.html` 新增
+`{% if current_user.role_admin() and is_xhr %}` 分支，渲染同款样式的普通链接
+`<a class="btn btn-default" id="whole-book-panel-link"
+href="{{ url_for('web.show_book', book_id=entry.id) }}">整本任务</a>`。
+同 URL 不带 `X-Requested-With` 头即渲染完整详情页，面板在完整页内照常打开；
+不挂 `data-toggle`/`data-target`（§13 data-api 抢点击教训）。开面板按钮行
+（`whole-book-panel-open`）原样不动，`not is_xhr` 语义不变。
+
+**守卫**：`test_xhr_modal_entry_is_full_page_link`（链接指向 show_book、无
+data-api、role_admin + is_xhr 双门禁）；既有四条守卫（admin 门禁/data-api 禁用/
+XHR 隐藏/旧三按钮不复活）全部原样通过。回归：detail 相关 4 个测试文件 108 passed。
+
+## 16. 验收缺陷：整本朗读批次全灭——proxy 三元组被二元组解包（2026-10-28，R237，`fix/r237-tts-proxy-unpack`）
+
+**现象**：R236 入口恢复后真机验收，点「开始整本朗读」后批次受理成功（job 3007 段），但
+done 恒为 0、failed 全量增长；moon-well 侧每段收到**两次** `/tts/speak`（第一次真合成
+2~10s、约 1s 后同文本再命中缓存 6ms）。伴随日志 `voice select failed (too many values
+to unpack (expected 2))`。用户报告的「开始整本朗读后白屏」面板 JS 无白屏路径（成功/400/
+504 三变体真浏览器 harness 验证页面完好、零 JS 错误），最可能是批次空转双倍合成 +
+每段两次 sqlite 写把 fnOS CPU/DB 打满、后续页面加载长时间白屏等待所致。
+
+**根因**：`MoonWellClient.proxy` 恒返回三元组 `(body, status, headers)`（成功分支与
+`_error_tuple` 失败分支都是），而 `cps/reading_tts/service.py` 两处按二元组解包：
+①`_select_voice` 的 `body, status = self._proxy(...)`——ValueError 被 try 吞成 WARN
+「选角失败回退默认音色」；②`_synth_worker` 的 `body, status = proxy(...)`——每次调用
+抛 ValueError，被重试环 `for attempt in (1, 2)` 捕获、睡 1s 重发（第二次命中 moon-well
+缓存）后仍抛 → 每段 FAILED。**单测漏网根因**：`tests/test_reading_tts_service.py` 的
+桩 proxy 也只回二元组——桩没有镜像真实契约，service 的二元解包在单测里永远通过。
+
+**修法**：两处改为 `body, status, _headers = ...`；三个测试桩全部改为三元组返回
+（桩即契约镜像）；新增守卫 `test_moonwell_proxy_contract_is_three_tuple`（钉住
+proxy 成功分支 `return (body, response.status_code,` 与 `_error_tuple` 三元组形态，
+反向变异报红）。反向变异实测：改回二元组解包 → 3 failed。
+
+**止血与善后**：发现时 book 50（HP1，3007 段）批次已烧 208 段全 FAILED，已直接置
+`CANCELLED` 停止空转（done=0/failed=208 留档）；两次合成的音频均已落入 moon-well
+段落缓存，重启批次将全部缓存命中、不重复计费。测试：tts 全家 5 文件 50 passed。
+
+**验收追加：白屏的真因是进度条覆盖整页（2026-10-28）**。前文「批次资源耗尽拖成白屏」
+的假设已被生产页 CSSOM/盒模型实测推翻；后端 proxy 解包缺陷仍真实存在且必须保留修复。
+真机 DOM 显示 `whole_book_panel.html` 的 `block js` 实际落在详情页
+`.container-fluid` 内，该容器的 Bootstrap 浮动列高 775px 且未清除；
+`.wb-progress` 外层的 border box 从容器顶部起算，内层却被浮动推到 y=846，导致外层
+`getBoundingClientRect()` 为 `813px` 高、页面中心 `elementFromPoint()` 命中进度条，
+正文并未丢失，只是被透明层覆盖。临时设 `clear:both` 可让外层回到 38px，但会把吸顶
+进度条固定到文档底部；最终修法是在 `whole-book-panel.js` 初始化时把 `#whole-book-progress`
+`insertAfter(body > .navbar)`，回正常文档流并保留原 sticky 吸顶语义。实测重挂后外层
+38px、内层 37px，页面中心重新命中 `.book-meta`。守卫：
+`test_progress_bar_is_moved_out_of_float_layout`。回归：detail 39 passed；整本估算 +
+tts 5 文件 62 passed；i18n / 重复 JS 行 6 passed。
+
+## 17. 验收缺陷：部署重启后批次失联——进度条「继续」入口（2026-10-28，R237，`fix/r237-tts-proxy-unpack`）
+
+**现象**：R237 修复部署后，`book 50` 的整本朗读批次停在 `RUNNING 1239/3007`，
+`PENDING 1768`、`FAILED 0`；最后推进 14:15:32，14:15:53 与 14:33:00 两次容器重启
+均发生在批次运行期间。页面仍轮询状态，但「开始」在活跃批次下被禁用，用户没有恢复入口。
+
+**根因**：整本朗读 worker 是 magicbook 进程内 daemon 线程。部署重启会杀掉线程，
+SQLite 台账仍保留 `RUNNING`；`get_progress()` 只读台账，无法从 DB 判断线程是否还活着。
+服务已有 `_needs_worker()` 自愈判据（未取消 + 无活线程 + 仍有 PENDING），但此前只有
+`start/retry` 请求会触发它，页面状态轮询不会。
+
+**实现**：
+
+- `WholeBookTtsService.progress()` 增发 `canResume`：仅当状态属于 `RUNNING/PARTIAL_FAILED`
+  且 `_needs_worker(job)` 为真时返回 `true`。该字段是对「当前进程是否真的还有 worker」
+  的服务端判定，不是单纯根据 `updated_at` 猜测停滞。
+- `whole_book_panel.html` 在进度条增加隐藏的「继续」按钮与错误行，
+  `data-url-tts-retry` 指向既有 `/ajax/reading-tts-book/retry`。
+- `whole-book-panel.js` 在状态轮询返回 `canResume=true` 时显示按钮；点击后调用 retry，
+  成功后用返回快照恢复轮询，失败原因留在进度条内。恢复使用原批次台账，不新建 job，
+  不重置进度，已完成段与 moon-well 音频缓存继续复用。
+
+**边界**：活线程仍在时不显示「继续」；`CANCELLED` 不复活；`COMPLETED` 不显示；
+`retry` 的后端原子 spawn 仍负责防止并发双开。
+
+**守卫**：`test_progress_can_resume_only_when_pending_and_no_live_worker` 钉住
+canResume 的服务端语义；`test_stalled_tts_batch_has_a_frontend_resume_entry` 钉住
+模板按钮、retry URL、JS 接线；路由测试补 `/retry` 转发。
+
+**上线**：实现 `b48a29ed` 已随 `a2a1e88f` 快进合入 `origin/develop`。fnOS 完整构建
+（非 docs-only）与 app-manager 部署均成功；生产镜像 label
+`house.build-sha=a2a1e88f...`，容器 `healthy`，线上 JS 已包含 `canResume` 与
+`.wb-progress-resume` 的 retry 接线。待管理员在 `/book/50` 的失联批次上真机点击「继续」验收。

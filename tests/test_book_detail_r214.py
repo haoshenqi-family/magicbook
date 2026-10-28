@@ -399,10 +399,31 @@ def test_entry_button_does_not_use_bootstrap_data_api():
 
 
 def test_entry_button_hidden_in_xhr_fragment():
-    """XHR 片段里不下发面板骨架，入口按钮必须一起收掉（靠 is_xhr 门禁）。"""
+    """XHR 片段里不下发面板骨架，开面板按钮必须一起收掉（靠 is_xhr 门禁）。"""
     gates = _enclosing_conditions(_read(), 'id="whole-book-panel-open"')
     assert any("is_xhr" in g for g in gates), \
-        "书卡弹层（XHR 片段）里仍会渲染整本任务按钮: {0}".format(gates)
+        "书卡弹层（XHR 片段）里仍会渲染开面板按钮: {0}".format(gates)
+
+
+def test_xhr_modal_entry_is_full_page_link():
+    """R236：XHR 片段（书卡弹层）里的整本任务入口必须是跳完整详情页的普通 <a>。
+
+    Why：`not is_xhr` 门禁把入口收进完整详情页后，UI 里没有普通左键可达的路径
+         （书卡链接全被 data-toggle 弹层截走），管理员入口事实上不可达。弹层内
+         改为同门禁的链接——同 URL 不带 X-Requested-With 头即渲染完整页。
+         反向变异：删链接 / 挪出 admin 块 / 挂回 data-toggle → 报红。
+    """
+    src = _read()
+    link_idx = src.index('id="whole-book-panel-link"')
+    tag = src[src.rindex("<a", 0, link_idx):src.index(">", link_idx) + 1]
+    assert "url_for('web.show_book'" in tag, "弹层入口没有指向完整详情页"
+    assert "data-toggle" not in tag, "弹层入口不得走 data-api（与详情弹层抢点击）"
+    assert "data-target" not in tag, "弹层入口不得走 data-api（与详情弹层抢点击）"
+    gates = _enclosing_conditions(src, 'id="whole-book-panel-link"')
+    assert any("role_admin" in g for g in gates), \
+        "弹层整本任务入口不在 role_admin 门禁内: {0}".format(gates)
+    assert any("is_xhr" in g for g in gates), \
+        "弹层整本任务入口不在 is_xhr 分支内: {0}".format(gates)
 
 
 def test_panel_open_is_bound_explicitly():
@@ -422,6 +443,33 @@ def test_start_label_keys_are_lowercase():
     assert 'data-t-start-worddetail=' in panel
     assert 'data-t-start-wordDetail=' not in panel, "属性名带大写，解析后取不到"
     assert "toLowerCase()" in _read_panel_js()
+
+
+def test_stalled_tts_batch_has_a_frontend_resume_entry():
+    """R237 验收缺陷：容器重启杀掉 worker 后，页面必须能原地续跑。
+
+    Why 钉三件事：状态接口下发 canResume；进度条有「继续」按钮；点击后调用
+    retry 而不是 start（start 在活跃批次下被禁用，正是本次卡死的入口）。
+    """
+    panel = _read_panel()
+    js = _read_panel_js()
+    assert "wb-progress-resume" in panel
+    assert "data-url-tts-retry" in panel
+    assert "canResume" in js
+    assert "cfg.urls.ttsRetry" in js
+    assert "'#whole-book-progress .wb-progress-resume'" in js
+
+
+def test_progress_bar_is_moved_out_of_float_layout():
+    """R237：进度条必须移出详情页浮动列所在的 .container-fluid。
+
+    Why：block js 的 DOM 实际落在该容器内；容器里的 Bootstrap 浮动列未被清除时，
+         进度条会被撑成整屏透明层并拦住正文点击。只把 partial 放回 block js 不够，
+         必须显式移到导航栏之后，回到不带浮动影响的正常文档流。
+    """
+    js = _read_panel_js()
+    assert "$progress.insertAfter($nav)" in js
+    assert "$('body > .navbar')" in js
 
 
 def test_estimate_route_reports_instead_of_bare_500():

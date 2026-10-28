@@ -35,17 +35,41 @@
 
 | 端点 | 副作用 | 说明 |
 | --- | --- | --- |
-| `POST /ajax/word-detail-preview` | **只读** | `{book_id, book_format}` → `{distinctWords, cachedWords, targetWords, notWordLike, estimatedTokens, missingSample}` |
+| `POST /ajax/word-detail-preview` | **只读** | `{book_id, book_format, force?}` → `RUNNING` / `READY` / `FAILED` 预览快照；首次未命中立即返回 `RUNNING`，页面轮询到 `READY` |
 | `POST /ajax/word-detail-start` | 建台账 + 后台分批入队 | `{book_id, book_format, force}` → 批次进度快照（立即返回，发布在 daemon 线程） |
 | `POST /ajax/word-detail-progress` | 只读 + 覆盖率懒回收 | `{job_id?}`（缺省按 `book_id` 取该书最新批次） |
 | `POST /ajax/word-detail-cancel` | 停本批次 | 已入队任务仍由队列消费者生成完毕 |
 | `GET /word-detail-batch` | 页面 | 管理员；`book_id` 非数字直接 400 |
 
+- **预览契约（R238）**：`/ajax/word-detail-preview` 不再要求请求线程算完整结果。`book_id` / `book_format` 校验通过后，未命中快照即返回 `status=RUNNING`；`stage=EXTRACTING` 表示读正文、`CHECKING` 表示比对详解缓存，`checkedWords/distinctWords` 可显示进度。完成后为 `status=READY`，返回 `distinctWords / checkedWords / cachedWords / targetWords / notWordLike / estimatedTokens / missingSample / computedAt`。失败为 `status=FAILED` 且带可展示的 `message`；入参或书文件错误仍为 HTTP 400。
+- **快照时效**：`READY` 快照 10 分钟内直接复用；`force=true` 绕过时效强制重算。`FAILED` 快照 60 秒内复用失败结果，避免页面轮询反复打 moon-well。
+- **只读边界不变**：预览只调用 `cached-check`，绝不调用生成端点；`start` 可复用刚完成且指纹一致的 `READY` 快照，避免用户点“开始”时再解析一遍整本、再扫一轮缓存。
+- **覆盖率权威（R239）**：`cachedWords / targetWords / missingSample` 完全取 moon-well
+  `cached-check`；词目文档覆盖其七类屈折形式（如 `books` 命中 `book`），派生词不自成误命中。
+  本站不得自行还原词形。上游算法更新后，使用 `force=true` 刷新 READY 快照再验收。
 - 门禁：四个 ajax 端点返回 **JSON 403**（`_llm_task_admin_gate` 形制，页面路由仍用 `@admin_required`）；权威白名单在 moon-well 侧二检，与 R126 面板同一纵深防御。
 - **进度口径＝词覆盖率**（`coveredWords / targetWords`），不是任务状态：执行方是队列消费者，本站既非发起者也非唯一消费者，`COMPLETED` 不等于缓存里真有。
 - 上游业务文案不被吞：灌队闸门（在途上限、单次 2000 词上限）的 `Result.message` 经 `progress.lastError` 原样到达页面。
 - 台账 `reading_word_detail_job` / `reading_word_detail_job_item`，**item 粒度＝一批 200 词**（不是一词一行）；词形过滤（缩略形/连字符/单字母噪声）只存在于 moon-well 发布内核一处，本站照抽不滤，避免同一本书在两入口得出不同集合。
 - 轮询 **30s** 且仅页面可见时：覆盖率源是 moon-well 的索引级扫描，不同于整本翻译的本地行计数（4s）。
+
+#### 5.1 调用方使用清单（R239 复盘）
+
+1. **只抽字面词，不做词形处理**：`books / children / went` 原样送入；不 stemming、
+   不自行转 lemma、不按后缀猜屈折。派生词也保持原样，让 moon-well 判断它是否有
+   自己的词目文档。
+2. **只用 `cached-check` 查覆盖率**：不得用 `GET /vocabulary/detail/{word}` 探缓存
+   （miss 会生成并计费），也不得用 `warm-publish-by-words` 探进度（会入队）。
+3. **按响应字段算数**：`requested = cached + missing.length`；
+   `notWordLike` 单独计数，不进入覆盖率分母。待生成数取 `missing.length`，
+   不要用“原始去重词数 − cached”反推，否则会把缩略形、连字符词和单字母噪声算成缺口。
+4. **预览与执行分两步**：预览只读；只有管理员确认后才把缺失词交给补缺入口。
+   单批建议 200 词、上限 2,000 词。
+5. **上游算法切换后强制刷新**：READY 快照默认复用 10 分钟；部署新覆盖率算法后用
+   `force=true` 重算，不能拿旧快照证明新算法仍有问题。
+6. **遇到口径矛盾不要在前端补救**：同一词交互详情命中、预览却报 missing，说明
+   moon-well 交互查找与索引扫描已分叉。应回后端修共享查找键/字段投影，本站不得
+   增加第二套屈折规则。
 
 ## 调用方契约
 

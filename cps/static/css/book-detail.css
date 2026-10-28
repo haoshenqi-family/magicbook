@@ -132,6 +132,15 @@
   color: #666;
 }
 
+.wb-progress-resume[hidden],
+.wb-progress-error[hidden] {
+  display: none;
+}
+
+.wb-progress-error {
+  white-space: nowrap;
+}
+
 .wb-progress-done .progress-bar {
   background-color: #449d44;
 }
