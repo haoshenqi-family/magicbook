@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -350,3 +350,25 @@ JS 侧 `String(kind).toLowerCase()`。守卫：`test_start_label_keys_are_lowerc
   Magpie 文件为 `65532:65532`（settings 700、备份 600），healthcheck rc=0；
   moon-well/magicbook 近 20 分钟无新的 allow-list 拒绝或 book-intro 403。
   最终「生成简介」200 与简介落库仍需管理员登录页面验收。
+
+## 15. 入口可达性缺陷：弹层里整本任务入口不可达（2026-10-28，R236，`fix/r236-wholebook-modal-entry`）
+
+**现象**：管理员在书库列表找不到「整本任务」入口。§13 的修法把开面板按钮加
+`not is_xhr` 门禁收进完整详情页后，完整详情页在 UI 里**没有任何普通左键可达的路径**——
+书卡（封面/书名）链接全部被 `data-toggle="modal"` 截去 `#bookDetailsModal`，弹层即
+XHR 片段；只有 Cmd+点击/中键/手输 `/book/<id>` 才能到达。入口事实上对所有人隐藏。
+
+**根因**：§13 修复选了「把按钮从弹层里拿掉」而非「让面板在弹层里可用」，且弹层内
+没有任何通往完整详情页的链接——可达性缺口是那次修复引入的回退（`42ddfb19`）。
+
+**修法（用户拍板：只做弹层恢复入口，不改其他）**：`detail.html` 新增
+`{% if current_user.role_admin() and is_xhr %}` 分支，渲染同款样式的普通链接
+`<a class="btn btn-default" id="whole-book-panel-link"
+href="{{ url_for('web.show_book', book_id=entry.id) }}">整本任务</a>`。
+同 URL 不带 `X-Requested-With` 头即渲染完整详情页，面板在完整页内照常打开；
+不挂 `data-toggle`/`data-target`（§13 data-api 抢点击教训）。开面板按钮行
+（`whole-book-panel-open`）原样不动，`not is_xhr` 语义不变。
+
+**守卫**：`test_xhr_modal_entry_is_full_page_link`（链接指向 show_book、无
+data-api、role_admin + is_xhr 双门禁）；既有四条守卫（admin 门禁/data-api 禁用/
+XHR 隐藏/旧三按钮不复活）全部原样通过。回归：detail 相关 4 个测试文件 108 passed。
