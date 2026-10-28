@@ -353,6 +353,39 @@ def test_retry_does_not_double_spawn_while_worker_is_live(env, monkeypatch):
     assert result["status"] == "RUNNING"
 
 
+def test_progress_can_resume_only_when_pending_and_no_live_worker(env, monkeypatch):
+    """R237 验收缺陷：页面要能区分「真在跑」与「容器重启后没人跑」。
+
+    Why 由服务端给 canResume：DB 的 RUNNING 只能说明批次没终止，不能说明当前
+    进程还有 daemon 线程。反向变异：去掉 _needs_worker 判定后，活线程在跑时
+    也会显示「继续」。
+    """
+    service = _make_service(env, sync_worker=False)
+    monkeypatch.setattr(service, "_spawn_synth_worker", lambda job_id: None)
+    result = service.start(1, "EPUB")
+    job_id = result["jobId"]
+
+    assert result["status"] == "RUNNING"
+    assert result["canResume"] is True
+
+    with service._workers_lock:
+        service._live_workers.add(job_id)
+    assert service.get_progress(job_id)["canResume"] is False
+
+    with service._workers_lock:
+        service._live_workers.discard(job_id)
+    job = ub.session.query(ReadingTtsJob).get(job_id)
+    job.status = "CANCELLED"
+    ub.session.commit()
+    assert service.get_progress(job_id)["canResume"] is False
+
+    for item in _items(job_id):
+        item.status = "DONE"
+    job.status = "COMPLETED"
+    ub.session.commit()
+    assert service.get_progress(job_id)["canResume"] is False
+
+
 def test_start_resumes_dead_batch_in_place_instead_of_new_ledger(env, monkeypatch):
     """再次点按钮：原地续跑旧台账，不换新的（断点台账不许因自愈而作废）。"""
     service = svc.WholeBookTtsService(env.proxy)

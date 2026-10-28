@@ -4,7 +4,7 @@
  * Why：JS 里硬编码中文会绕开 i18n 契约（tests/test_i18n_seed_contract.py 校验 msgid
  * 清单），B 轮的 book-insight.js 同一纪律。
  *
- * 只读边界：本文件只调 /ajax/whole-book-estimate（估算）与既有 start/status 端点；
+ * 只读边界：本文件只调 /ajax/whole-book-estimate（估算）与既有 start/status/retry 端点；
  * 估算路径绝不建批次——「先看代价再决定」是这块存在的唯一理由。
  */
 (function () {
@@ -64,6 +64,7 @@
                 translateStatus: $panel.data('url-translate-status'),
                 ttsStart: $panel.data('url-tts-start'),
                 ttsStatus: $panel.data('url-tts-status'),
+                ttsRetry: $panel.data('url-tts-retry'),
                 wordDetailProgress: $panel.data('url-word-detail-progress'),
                 wordDetailPage: $panel.data('url-word-detail-page')
             }
@@ -266,6 +267,11 @@
                 label = t('progress-failed');
             }
             $progress.find('.wb-progress-title').text(label);
+            var $resume = $progress.find('.wb-progress-resume');
+            // Why 只在服务端说「有 PENDING 且没有活 worker」时出现：活线程仍在跑时
+            // 重复点击 retry 不会双开（后端有锁），但把按钮露出来只会制造误解。
+            $resume.prop('hidden', !(kind === 'tts' && job.canResume === true));
+            $resume.text(t('progress-resume'));
             $progress.toggleClass('wb-progress-done', job.status === 'COMPLETED');
         }
 
@@ -289,7 +295,8 @@
                 jobId: snapshot.jobId || current.jobId,
                 status: snapshot.status || 'RUNNING',
                 total: Number(total) || 0,
-                done: Number(done) || 0
+                done: Number(done) || 0,
+                canResume: snapshot.canResume === true
             };
             renderProgress(kind);
             if (ACTIVE_STATUSES.indexOf(state.job[kind].status) === -1) {
@@ -364,7 +371,8 @@
                     jobId: snapshot.jobId,
                     status: snapshot.status || 'RUNNING',
                     total: Number(total) || 0,
-                    done: Number(done) || 0
+                    done: Number(done) || 0,
+                    canResume: snapshot.canResume === true
                 };
                 renderProgress(kind);
                 poll(kind);
@@ -413,6 +421,36 @@
             $(this).closest('#whole-book-progress').prop('hidden', true);
         });
 
+        $('#whole-book-progress .wb-progress-resume').on('click', function () {
+            var job = state.job.tts;
+            if (!job || !job.jobId) {
+                return;
+            }
+            var $btn = $(this);
+            var $error = $progress.find('.wb-progress-error');
+            $btn.prop('disabled', true);
+            $error.prop('hidden', true).text('');
+            $.ajax({
+                url: cfg.urls.ttsRetry,
+                method: 'POST',
+                contentType: 'application/json',
+                headers: {'X-CSRFToken': cfg.csrf},
+                data: JSON.stringify({job_id: job.jobId})
+            }).done(function (snapshot) {
+                applyProgress('tts', snapshot);
+                if (state.job.tts && ACTIVE_STATUSES.indexOf(state.job.tts.status) !== -1) {
+                    poll('tts');
+                }
+            }).fail(function (xhr) {
+                var message = (xhr.responseJSON && xhr.responseJSON.message) ||
+                    (xhr.status + ' ' + (xhr.statusText || ''));
+                // 失败必须留在进度条上，不能点完没反应。
+                $error.text(t('progress-resume-failed', {message: message})).prop('hidden', false);
+            }).always(function () {
+                $btn.prop('disabled', false);
+            });
+        });
+
         // 页面加载时有活跃批次 → 直接进度态（LLD §7.5），不再显示「开始」。
         (function bootstrap() {
             var raw = $('#whole-book-active').text();
@@ -435,7 +473,8 @@
                     jobId: job.jobId,
                     status: job.status || 'RUNNING',
                     total: Number(job.total) || 0,
-                    done: Number(job.done) || 0
+                    done: Number(job.done) || 0,
+                    canResume: job.canResume === true
                 };
                 renderProgress(kind);
                 poll(kind);

@@ -18,6 +18,8 @@
                  style="width: 0%"></div>
         </div>
         <span class="wb-progress-count"></span>
+        <span class="wb-progress-error text-danger" hidden></span>
+        <button type="button" class="btn btn-default btn-xs wb-progress-resume" hidden>继续</button>
         <button type="button" class="close wb-progress-close" aria-label="收起">&times;</button>
     </div>
 </div>
@@ -32,6 +34,7 @@
      data-url-translate-status="{{ url_for('web.reading_translate_book_status') }}"
      data-url-tts-start="{{ url_for('web.reading_tts_book_start') }}"
      data-url-tts-status="{{ url_for('web.reading_tts_book_status') }}"
+     data-url-tts-retry="{{ url_for('web.reading_tts_book_retry') }}"
      data-url-word-detail-progress="{{ url_for('web.reading_word_detail_progress') }}"
      data-url-word-detail-page="{{ url_for('web.word_detail_batch_page', book_id=entry.id, book_format=('epub' if 'epub' in entry.reader_list else 'kepub')) }}"
      data-t-loading="计算中…"
@@ -53,6 +56,8 @@
      data-t-progress-done="整本任务已完成"
      data-t-progress-failed="整本任务已结束（有失败段落）"
      data-t-progress-cancelled="整本任务已取消"
+     data-t-progress-resume="继续"
+     data-t-progress-resume-failed="继续失败：{message}"
      data-t-unit-second="秒"
      data-t-unit-minute="分钟"
      data-t-unit-hour="小时"

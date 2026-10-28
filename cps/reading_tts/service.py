@@ -286,6 +286,10 @@ class WholeBookTtsService(JobServiceBase):
         ub.session.commit()
         done = job.done_count
         failed = job.failed_count
+        # Why 由服务端判定：页面只能看到 DB 状态，无法知道 daemon 线程是否随容器重启
+        # 消失。canResume=true 的唯一含义是「仍有待跑段，且当前进程没有活 worker」，
+        # 前端据此显示「继续」，点击后走 retry 的原地续跑分支。
+        can_resume = job.status in self.active_statuses and self._needs_worker(job)
         return {
             "jobId": job.id,
             "bookId": job.book_id,
@@ -296,6 +300,7 @@ class WholeBookTtsService(JobServiceBase):
             "failed": failed,
             "voice": job.voice,
             "style": job.style,
+            "canResume": bool(can_resume),
         }
 
     def get_progress(self, job_id):

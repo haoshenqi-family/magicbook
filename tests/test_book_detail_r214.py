@@ -445,6 +445,21 @@ def test_start_label_keys_are_lowercase():
     assert "toLowerCase()" in _read_panel_js()
 
 
+def test_stalled_tts_batch_has_a_frontend_resume_entry():
+    """R237 验收缺陷：容器重启杀掉 worker 后，页面必须能原地续跑。
+
+    Why 钉三件事：状态接口下发 canResume；进度条有「继续」按钮；点击后调用
+    retry 而不是 start（start 在活跃批次下被禁用，正是本次卡死的入口）。
+    """
+    panel = _read_panel()
+    js = _read_panel_js()
+    assert "wb-progress-resume" in panel
+    assert "data-url-tts-retry" in panel
+    assert "canResume" in js
+    assert "cfg.urls.ttsRetry" in js
+    assert "'#whole-book-progress .wb-progress-resume'" in js
+
+
 def test_progress_bar_is_moved_out_of_float_layout():
     """R237：进度条必须移出详情页浮动列所在的 .container-fluid。
 

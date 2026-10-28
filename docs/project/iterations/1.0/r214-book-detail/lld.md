@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，待验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -411,3 +411,32 @@ proxy 成功分支 `return (body, response.status_code,` 与 `_error_tuple` 三�
 38px、内层 37px，页面中心重新命中 `.book-meta`。守卫：
 `test_progress_bar_is_moved_out_of_float_layout`。回归：detail 39 passed；整本估算 +
 tts 5 文件 62 passed；i18n / 重复 JS 行 6 passed。
+
+## 17. 验收缺陷：部署重启后批次失联——进度条「继续」入口（2026-10-28，R237，`fix/r237-tts-proxy-unpack`）
+
+**现象**：R237 修复部署后，`book 50` 的整本朗读批次停在 `RUNNING 1239/3007`，
+`PENDING 1768`、`FAILED 0`；最后推进 14:15:32，14:15:53 与 14:33:00 两次容器重启
+均发生在批次运行期间。页面仍轮询状态，但「开始」在活跃批次下被禁用，用户没有恢复入口。
+
+**根因**：整本朗读 worker 是 magicbook 进程内 daemon 线程。部署重启会杀掉线程，
+SQLite 台账仍保留 `RUNNING`；`get_progress()` 只读台账，无法从 DB 判断线程是否还活着。
+服务已有 `_needs_worker()` 自愈判据（未取消 + 无活线程 + 仍有 PENDING），但此前只有
+`start/retry` 请求会触发它，页面状态轮询不会。
+
+**实现**：
+
+- `WholeBookTtsService.progress()` 增发 `canResume`：仅当状态属于 `RUNNING/PARTIAL_FAILED`
+  且 `_needs_worker(job)` 为真时返回 `true`。该字段是对「当前进程是否真的还有 worker」
+  的服务端判定，不是单纯根据 `updated_at` 猜测停滞。
+- `whole_book_panel.html` 在进度条增加隐藏的「继续」按钮与错误行，
+  `data-url-tts-retry` 指向既有 `/ajax/reading-tts-book/retry`。
+- `whole-book-panel.js` 在状态轮询返回 `canResume=true` 时显示按钮；点击后调用 retry，
+  成功后用返回快照恢复轮询，失败原因留在进度条内。恢复使用原批次台账，不新建 job，
+  不重置进度，已完成段与 moon-well 音频缓存继续复用。
+
+**边界**：活线程仍在时不显示「继续」；`CANCELLED` 不复活；`COMPLETED` 不显示；
+`retry` 的后端原子 spawn 仍负责防止并发双开。
+
+**守卫**：`test_progress_can_resume_only_when_pending_and_no_live_worker` 钉住
+canResume 的服务端语义；`test_stalled_tts_batch_has_a_frontend_resume_entry` 钉住
+模板按钮、retry URL、JS 接线；路由测试补 `/retry` 转发。
