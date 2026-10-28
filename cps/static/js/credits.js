@@ -404,7 +404,7 @@
     function renderAdminCards(cards, batchId) {
         var tbody = $('#credit-card-admin-cards-rows').empty();
         if (!cards || !cards.length) {
-            tbody.html('<tr><td colspan="3" class="text-muted">该批次没有卡密。</td></tr>');
+            tbody.html('<tr><td colspan="5" class="text-muted">该批次没有卡密。</td></tr>');
         } else {
             cards.forEach(function (card) {
                 tbody.append(cardRow(card, {
@@ -424,7 +424,7 @@
         }).catch(function (error) {
             $('#credit-card-admin-cards').show();
             $('#credit-card-admin-cards-rows').html(
-                '<tr><td colspan="3" class="text-danger">卡密加载失败：' +
+                '<tr><td colspan="5" class="text-danger">卡密加载失败：' +
                 $('<span>').text(error.message).html() + '</td></tr>');
         });
     }
@@ -598,7 +598,7 @@
     function buy(packageId, kind, orderUrl) {
         hideMessages();
         stopAllTimers(); // 入口统一清场：旧订单的轮询/倒计时不再存活
-        var buyButtons = $('.pkg-buy-btn').prop('disabled', true);
+        var buyButtons = $('.pkg-buy-btn, .credit-card-buy-btn').prop('disabled', true);
         var createdOrder = null;
         ajax(orderUrl || '/ajax/credit/recharge-order', 'POST', { packageId: packageId }).then(function (response) {
             createdOrder = unwrap(response);

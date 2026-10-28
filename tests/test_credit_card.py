@@ -117,10 +117,11 @@ def test_admin_card_routes_reject_logged_in_non_admin(app, moonwell_configured,
 def test_admin_card_routes_forward_for_admin(admin_client, moonwell_configured, monkeypatch):
     captured = _proxy_capture(monkeypatch, {"id": "3"})
     payload = {"credits": 1000, "count": 2, "validityDays": 30,
-               "longTerm": False, "reason": "家人"}
+               "longTerm": False, "reason": "家人", "unexpected": "ignored"}
     assert admin_client.post("/ajax/credit/card/admin-issue", json=payload).status_code == 200
     assert captured["path"] == "/credit/card/admin/batches"
-    assert captured["payload"] == payload
+    assert captured["payload"] == {"credits": 1000, "count": 2, "validityDays": 30,
+                                   "longTerm": False, "reason": "家人"}
 
     admin_client.post("/ajax/credit/card/admin-batches", json={})
     assert captured["path"] == "/credit/card/admin/batches/list"
@@ -129,8 +130,9 @@ def test_admin_card_routes_forward_for_admin(admin_client, moonwell_configured, 
     assert captured["path"] == "/credit/card/admin/cards"
 
     admin_client.post("/ajax/credit/card/admin-void",
-                      json={"cardId": "9", "reason": "发错"})
+                      json={"cardId": "9", "reason": "发错", "unexpected": "ignored"})
     assert captured["path"] == "/credit/card/admin/void"
+    assert captured["payload"] == {"cardId": "9", "reason": "发错"}
 
 
 def test_export_is_binary_proxy(admin_client, moonwell_configured, monkeypatch):
@@ -151,6 +153,9 @@ def test_credit_page_contains_card_sections(admin_client, moonwell_configured):
                   "credit-card-admin-issue-form", "credit-card-admin-long-term"):
         assert token in html
     assert html.count("credit-card-admin-panel") == 1
+    assert html.count("credit-card-admin-cards-rows") == 1
+    assert html.index("credit-card-admin-cards-rows") > \
+        html.index("credit-card-admin-batches-rows")
     js = pathlib.Path(cps.__file__).parent / "static" / "js" / "credits.js"
     text = js.read_text(encoding="utf-8")
     for endpoint in ("/ajax/credit/card/redeem", "/ajax/credit/card/purchase-order",
@@ -159,5 +164,7 @@ def test_credit_page_contains_card_sections(admin_client, moonwell_configured):
                      "/ajax/credit/card/admin-void", "/ajax/credit/card/admin-export"):
         assert endpoint in text
     assert "navigator.clipboard" in text or "execCommand('copy')" in text
+    assert "if (document.execCommand('copy'))" in text
+    assert ".pkg-buy-btn, .credit-card-buy-btn" in text
     assert "CARD_REDEEM: '积分卡兑换'" in text
     assert "purchaseOrderNo" in text

@@ -19,7 +19,7 @@
 | `/ajax/credit/card/admin-void` | `/credit/card/admin/void` | POST | 10s | 登录 + admin |
 | `/ajax/credit/card/admin-export` | `/credit/card/admin/export` | POST | 15s | 登录 + admin + binary |
 
-代理只转发白名单字段：
+代理只转发白名单字段（不透传请求体多余键）：
 
 - 购卡 `{packageId}`；卡密 `{key}`。
 - 管理 `{credits,count,validityDays,longTerm,reason}`、`{batchId}`、`{cardId,reason}`。

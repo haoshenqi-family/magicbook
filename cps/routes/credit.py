@@ -321,7 +321,9 @@ def credit_card_admin_issue():
     if not current_user.role_admin():
         return jsonify({"success": False, "message": "admin only"}), 403
     payload = request.get_json(silent=True) or {}
-    return _moonwell_proxy("/credit/card/admin/batches", payload, 10,
+    issue = {key: payload.get(key) for key in
+             ("credits", "count", "validityDays", "longTerm", "reason")}
+    return _moonwell_proxy("/credit/card/admin/batches", issue, 10,
                            "credit card admin issue")
 
 
@@ -353,7 +355,8 @@ def credit_card_admin_void():
     if not current_user.role_admin():
         return jsonify({"success": False, "message": "admin only"}), 403
     payload = request.get_json(silent=True) or {}
-    return _moonwell_proxy("/credit/card/admin/void", payload, 10,
+    void = {key: payload.get(key) for key in ("cardId", "reason")}
+    return _moonwell_proxy("/credit/card/admin/void", void, 10,
                            "credit card admin void")
 
 
