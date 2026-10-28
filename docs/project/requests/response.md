@@ -245,6 +245,6 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **i18n**：模板新增词条已补 `zh_Hans_CN/messages.po` 并只重编译中文 `messages.mo`；JS 动态文案直写中文；`CARD_REDEEM` 显示「积分卡兑换」。
 - **测试**：`tests/test_credit_card.py + test_credit_consume.py` **23 passed**；契约/i18n 回归 **11 passed**；`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。开发态未跑全量。
 - **文档四问**：L1 `readme/credit.md`、L2 `credit/interface.md`、L3 `credit/features/credit-card.md`、需求基线 `credit/requirements.md`、本次 HLD/LLD/AC 与迭代 `plan.md` 均已回填。
-- **状态与驻留**：R242 占号 `03df95b5`；PingCode MB-233 已流转 `In progress`；worktree `../magicbook-r242-credit-card`（分支 `feat/r242-credit-card`，提交 `7364b00f`）保留，待 moon-well R227 先上线后真机验收；**未 push**。主检出仍有并行未提交改动，本轮未在共享检出 merge。
+- **状态与驻留**：R242 占号 `03df95b5`；PingCode MB-233 已流转 `In progress`；worktree `../magicbook-r242-credit-card`（分支 `feat/r242-credit-card`，功能 `7364b00f` + 收口修复 `d990f38d`）保留，待 moon-well R227 先上线后真机验收；**未 push**。主检出仍有并行未提交改动，本轮未在共享检出 merge。
 - **窗口**：写入前 10 节，按「写入即检查」把最早 R229 整节原样搬至 `response-archive/response-R229.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 242 已从占位回填；本条为回应。冲突记录：无撞号。
