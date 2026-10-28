@@ -1,6 +1,6 @@
 # 写作工坊放开修订次数（magicbook R190）· LLD
 
-**状态**：已上线（2026-10-21，develop `977636ee`，fnOS 构建 END OK + 部署 SUCCESS，容器 healthy；线上 `learning-writing.js` 已含新状态机）
+**状态**：已上线（2026-10-21，R190 `977636ee`；R191 补丁 `a070a9fe`，fnOS 构建 END OK、容器 healthy；线上源码已含 `_WRITING_LLM_TIMEOUT = 210`）
 
 ## 1. 问题与承接
 
