@@ -62,21 +62,10 @@
 - `response-archive/response-R221-R222.md`：R221 AI 口语陪练语音优先 + R222 书籍简介验收缺陷——2026-10-26 R233 写入触发轮转搬移，原文无改写
 - `response-archive/response-R223.md`：R223 Buddy 悬浮球化（透明头像 + hover 径向快捷气泡）——2026-10-26 R232 会话合并 origin/develop（R233 一节并入）后窗口达 11 节，原样搬移不改写
 - `response-archive/response-R224.md`：R224 本轮测试修复未完成项收口（R219 / R212 / R213-B6 / R214-C）——2026-10-26 R234 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R229.md`：R229 `/home` 随机发现 linked Row 致生产登录落点 500——2026-10-28 R242 写入触发轮转搬移，原样搬移不改写
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
-
-## 2026-10-25（R229：缺陷修复——/home 随机发现 linked Row 致生产登录落点 500，挂 R213）
-
-### R229（博客截图会话中发现的生产缺陷）
-
-- **任务定位**：缺陷修复（挂 R213 首页）。发现路径：为写产品功能博客做生产截图，打开 `/home` 直接 500（traceback 落在 `home.html` 随机发现块 `book_card(book)` 的 `url_for(book.id)`）；对所有开启「随机发现」的用户均复现，当晚 R227 镜像上线后被掩盖的窗口未知，属生产登录落点级故障。
-- **根因**：`random_discover_books` 复用 `generate_linked_query`（返回 `(Books, is_archived, read_status)` 三元组）；旧 `index.html` 侧取 `entry.Books`，R213-C 的 `home.html` 把 Row 原样传给共享宏 `_book_card.html`（只认 Books 实体）。既有测试对 `random_discover_books` 全部打桩，真实返回形状从未被守卫——打桩护住了组装、漏了形状。
-- **修复**：`cps/routes/home.py` 取 `row.Books`（Python 侧收敛形状，模板契约与其余两块一致）；新增回归测试 2 条：`test_random_discover_returns_books_entities`（仿 linked Row 断言必须返回 Books 实体）、`test_random_discover_swallows_upstream_failure`（上游抖动返回空列表，登录落点不许 500）。
-- **验证**：`tests/test_home_route.py` 定向回归 **29 passed / 0 failed**（27 旧 + 2 新）。push `develop`（`c0a7311c`，经 `fix/r229-home-random-row` 分支直推 origin，未动被并行会话占用且处于 detached HEAD 的主检出）；fnOS 自动构建部署，生产实测 `/home` 四块完整渲染（继续阅读带 `186/1467` 进度、今日计划、阶推荐、随机发现）。
-- **过程合规备注**：主检出当时为并行会话 detached HEAD（R228 本地未推 2 提交），merge 冲突后立即 `--abort` 并还原现场，改从 worktree 直推 origin/develop（与 `claim.sh` 同款姿势，fast-forward 无历史改写）；主检出已还原为 972b3830。
-- **窗口**：写入前已有 10 节，按「写入即检查」把最早 R214 子项 C 整节原样搬至 `response-archive/response-R214.md` 并登记索引，窗口保持 10。
-- **总结**：requests.md 条目 229 已回填；本条为回应。冲突记录：无撞号；与 R228 并行会话无 git 冲突（分支隔离 + 直推 fast-forward）。
 
 ## 2026-10-26（R231：去掉 pip `trusted-host`——构建链不再关闭 TLS 校验）
 
@@ -244,3 +233,18 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **待验**：moon-well 上线后 force 刷新 book 145，确认六个代表词移出缺失样例，
   `cachedWords` 上升、`targetWords` 下降，预览仍不产生 token 费用。
 - **冲突记录**：无撞号；与 moon-well R226 是同一缺陷的两仓记录，算法权威只在 moon-well。
+
+## 2026-10-28（R242：积分卡购买、兑换与管理员发卡入口）
+
+### R242（用户：「我想增加一个积分兑换卡服务……也可以在积分页面买积分卡送人」）
+
+- **交付**：积分页新增兑换框、三档购卡、已购卡密复制与管理员发卡面板。购卡复用既有支付宝二维码和轮询状态机，`orderType=CARD` 支付成功只生成一张卡，买家积分不变；按 `purchaseOrderNo` 定位并高亮新卡。
+- **代理**：`cps/routes/credit.py` 新增九条 `/ajax/credit/card/*` 路由；用户端点登录保护，兑换与建单限流 10/min；五个管理员端点在代理层先 `role_admin()` 403，moon-well 白名单再校验。
+- **安全**：本仓不保存卡密、不生成卡密、不计算价格；页面只显示文本与复制按钮，不渲染二维码/图片。复制优先 Clipboard API，失败回退 `execCommand('copy')` 并给可见错误。
+- **管理员**：批量发卡默认 30 天，可设 1–3650 天或长期；批次列表、查看卡密、作废未使用卡、下载 `credit-cards-batch-<id>.txt` 全部接通。
+- **i18n**：模板新增词条已补 `zh_Hans_CN/messages.po` 并只重编译中文 `messages.mo`；JS 动态文案直写中文；`CARD_REDEEM` 显示「积分卡兑换」。
+- **测试**：`tests/test_credit_card.py + test_credit_consume.py` **23 passed**；契约/i18n 回归 **11 passed**；`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。开发态未跑全量。
+- **文档四问**：L1 `readme/credit.md`、L2 `credit/interface.md`、L3 `credit/features/credit-card.md`、需求基线 `credit/requirements.md`、本次 HLD/LLD/AC 与迭代 `plan.md` 均已回填。
+- **状态与驻留**：R242 占号 `03df95b5`；worktree `../magicbook-r242-credit-card`（分支 `feat/r242-credit-card`）保留，待 moon-well R227 先上线后真机验收；**未 push**。
+- **窗口**：写入前 10 节，按「写入即检查」把最早 R229 整节原样搬至 `response-archive/response-R229.md` 并登记索引，窗口保持 10。
+- **总结**：requests.md 条目 242 已从占位回填；本条为回应。冲突记录：无撞号。

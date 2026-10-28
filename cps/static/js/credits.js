@@ -1,5 +1,7 @@
 /*
  * Credits page: balance + recharge packages -> Alipay face-to-face QR checkout -> poll order status.
+ * R242 also adds transferable credit cards: buy a card (settles to a key, not buyer credits),
+ * redeem any valid key, copy purchased keys, and admin batch issue/export/void.
  * All calls go through magicbook backend proxies (/ajax/credit-*) which forward
  * to moon-well with the session-bound JWT (see _moonwell_proxy in web.py).
  * moon-well grants credits immediately when the payment settles (notify or poll compensation).
@@ -19,6 +21,7 @@
     var promoCountdownTimer = null;
     var consecutiveErrors = 0;
     var currentOrder = null; // precreate 成功前不赋值，避免失败后残留半初始化订单
+    var currentBatchId = null;
 
     function showError(message) {
         var alertBox = $('#credit-alert');
@@ -68,6 +71,30 @@
                 }
                 throw new Error('HTTP ' + resp.status);
             });
+        });
+    }
+
+    // Why separate from ajax(): export returns text/plain, not the Result JSON envelope.
+    function ajaxBlob(url, method, payload) {
+        var options = {
+            method: method || 'POST',
+            headers: { 'X-CSRFToken': CSRF }
+        };
+        if (options.method === 'POST') {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(payload || {});
+        }
+        return fetch(url, options).then(function (resp) {
+            if (!resp.ok) {
+                return resp.text().then(function (text) {
+                    var message = 'HTTP ' + resp.status;
+                    try {
+                        message = JSON.parse(text).message || message;
+                    } catch (e) { /* non-JSON error */ }
+                    throw new Error(message);
+                });
+            }
+            return resp.blob();
         });
     }
 
@@ -168,6 +195,275 @@
         });
     }
 
+    // ---------- R242: credit cards ----------
+    function copyText(text, button) {
+        function done() {
+            var original = button.text();
+            button.text('已复制');
+            setTimeout(function () { button.text(original); }, 1500);
+        }
+        function fallback() {
+            var area = document.createElement('textarea');
+            area.value = text;
+            area.setAttribute('readonly', '');
+            area.style.position = 'fixed';
+            area.style.opacity = '0';
+            document.body.appendChild(area);
+            area.select();
+            try {
+                // execCommand 返回 false 表示浏览器拒绝复制，不能伪装成成功。
+                if (document.execCommand('copy')) {
+                    done();
+                } else {
+                    showError('复制失败，请手动选择卡密复制。');
+                }
+            } catch (e) {
+                showError('复制失败，请手动选择卡密复制。');
+            }
+            document.body.removeChild(area);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(fallback);
+        } else {
+            fallback();
+        }
+    }
+
+    function renderCardPackages(packages) {
+        var container = $('#credit-card-packages').empty();
+        if (!packages || !packages.length) {
+            container.append($('<p>').addClass('text-muted').text('暂无可购买的积分卡。'));
+            return;
+        }
+        packages.forEach(function (pkg) {
+            var card = $('<div>').addClass('credit-package-card');
+            card.append($('<div>').addClass('pkg-name').text(pkg.title + ' 积分卡'));
+            card.append($('<div>').addClass('pkg-price').text(formatMoney(pkg.price)));
+            card.append($('<div>').addClass('pkg-desc')
+                .text('支付后生成一张可转赠的卡密，购买者积分不变。'));
+            card.append($('<button>').addClass('btn btn-primary btn-sm credit-card-buy-btn')
+                .attr('data-package-id', pkg.id)
+                .text('购买并赠送'));
+            container.append(card);
+        });
+    }
+
+    function loadCardPackages() {
+        ajax('/ajax/credit/card/packages').then(function (response) {
+            renderCardPackages(unwrap(response) || []);
+        }).catch(function (error) {
+            $('#credit-card-packages').empty()
+                .append($('<p>').addClass('text-danger').text('积分卡档位加载失败：' + error.message));
+        });
+    }
+
+    function cardRow(card, options) {
+        var row = $('<tr>').addClass('credit-card-row');
+        row.append($('<td>').addClass('credit-card-key').text(card.key || '-'));
+        row.append($('<td>').text(card.credits == null ? '-' : card.credits));
+        row.append($('<td>').text(card.statusText || card.status || '-'));
+        row.append($('<td>').text(card.expiresAt || '长期有效'));
+        var actions = $('<td>');
+        if (card.key) {
+            var copyButton = $('<button>').addClass('btn btn-default btn-xs').text('复制')
+                .on('click', function () { copyText(card.key, copyButton); });
+            actions.append(copyButton);
+        }
+        if (options && options.voidable && card.status === 'ACTIVE') {
+            var voidButton = $('<button>').addClass('btn btn-danger btn-xs')
+                .css('margin-left', '5px').text('作废')
+                .on('click', function () { voidCard(card, options.reload); });
+            actions.append(voidButton);
+        }
+        row.append(actions);
+        return row;
+    }
+
+    function renderPurchasedCards(cards, highlightOrderNo) {
+        var tbody = $('#credit-card-purchased-rows').empty();
+        if (!cards || !cards.length) {
+            tbody.html('<tr><td colspan="5" class="text-muted">还没有购买过积分卡。</td></tr>');
+            return;
+        }
+        cards.forEach(function (card) {
+            var row = cardRow(card);
+            if (highlightOrderNo && card.purchaseOrderNo === highlightOrderNo) {
+                row.addClass('success');
+            }
+            tbody.append(row);
+        });
+    }
+
+    function loadPurchasedCards(highlightOrderNo) {
+        return ajax('/ajax/credit/card/purchase-list', 'POST', {}).then(function (response) {
+            renderPurchasedCards(unwrap(response) || [], highlightOrderNo);
+            return true;
+        }).catch(function (error) {
+            $('#credit-card-purchased-rows').html(
+                '<tr><td colspan="5" class="text-danger">卡密列表加载失败：' +
+                $('<span>').text(error.message).html() + '</td></tr>');
+            return false;
+        });
+    }
+
+    function redeemCard() {
+        var input = $('#credit-card-redeem-key');
+        var key = $.trim(input.val());
+        var result = $('#credit-card-redeem-result');
+        if (!key) {
+            result.removeClass('text-success').addClass('text-danger').text('请输入卡密。');
+            return;
+        }
+        var button = $('#credit-card-redeem-form button[type=submit]').prop('disabled', true);
+        result.removeClass('text-success text-danger').addClass('text-muted').text('兑换中...');
+        ajax('/ajax/credit/card/redeem', 'POST', { key: key }).then(function (response) {
+            var redeemed = unwrap(response);
+            input.val('');
+            result.removeClass('text-muted text-danger').addClass('text-success')
+                .text('兑换成功：+' + redeemed.credits + ' 积分，当前余额 ' + redeemed.balanceAfter + '。');
+            loadBalance();
+            loadConsumeDetail();
+            loadPurchasedCards();
+        }).catch(function (error) {
+            result.removeClass('text-muted text-success').addClass('text-danger')
+                .text(error.message || '兑换失败。');
+        }).finally(function () {
+            button.prop('disabled', false);
+        });
+    }
+
+    function issueCardBatch() {
+        var longTerm = $('#credit-card-admin-long-term').is(':checked');
+        var payload = {
+            credits: parseInt($('#credit-card-admin-credits').val(), 10),
+            count: parseInt($('#credit-card-admin-count').val(), 10),
+            validityDays: longTerm ? null : parseInt($('#credit-card-admin-validity').val(), 10),
+            longTerm: longTerm,
+            reason: $.trim($('#credit-card-admin-reason').val())
+        };
+        if (!payload.reason) {
+            window.alert('发卡原因必填。');
+            return;
+        }
+        if (!longTerm && (!payload.validityDays || payload.validityDays < 1)) {
+            window.alert('有效期天数必须在 1-3650 之间，或勾选长期有效。');
+            return;
+        }
+        if (!window.confirm('确认发放 ' + payload.count + ' 张 ' + payload.credits + ' 积分卡？')) {
+            return;
+        }
+        ajax('/ajax/credit/card/admin-issue', 'POST', payload).then(function (response) {
+            var batch = unwrap(response);
+            window.alert('已生成批次 ' + batch.id + '，共 ' + batch.totalCount + ' 张。');
+            $('#credit-card-admin-issue-form')[0].reset();
+            $('#credit-card-admin-long-term').prop('checked', false);
+            $('#credit-card-admin-validity').prop('disabled', false).val('30');
+            loadAdminBatches();
+            loadAdminCards(batch.id);
+        }).catch(function (error) {
+            window.alert('发卡失败：' + error.message);
+        });
+    }
+
+    function renderAdminBatches(batches) {
+        var tbody = $('#credit-card-admin-batches-rows').empty();
+        if (!batches || !batches.length) {
+            tbody.html('<tr><td colspan="7" class="text-muted">暂无发卡批次。</td></tr>');
+            return;
+        }
+        batches.forEach(function (batch) {
+            var row = $('<tr>');
+            row.append($('<td>').text(batch.id));
+            row.append($('<td>').text(batch.credits));
+            row.append($('<td>').text(batch.totalCount));
+            row.append($('<td>').text(batch.longTerm ? '长期有效' : (batch.validityDays + ' 天')));
+            row.append($('<td>').text(batch.source === 'PURCHASE' ? '购卡' : '管理员'));
+            row.append($('<td>').text(batch.createdAt || '-'));
+            var actions = $('<td>');
+            actions.append($('<button>').addClass('btn btn-default btn-xs').text('查看')
+                .on('click', function () { loadAdminCards(batch.id); }));
+            actions.append($('<button>').addClass('btn btn-default btn-xs')
+                .css('margin-left', '5px').text('导出')
+                .on('click', function () { exportBatch(batch.id); }));
+            row.append(actions);
+            tbody.append(row);
+        });
+    }
+
+    function loadAdminBatches() {
+        if (!IS_ADMIN) { return; }
+        ajax('/ajax/credit/card/admin-batches', 'POST', {}).then(function (response) {
+            renderAdminBatches(unwrap(response) || []);
+        }).catch(function (error) {
+            $('#credit-card-admin-batches-rows').html(
+                '<tr><td colspan="7" class="text-danger">批次加载失败：' +
+                $('<span>').text(error.message).html() + '</td></tr>');
+        });
+    }
+
+    function renderAdminCards(cards, batchId) {
+        var tbody = $('#credit-card-admin-cards-rows').empty();
+        if (!cards || !cards.length) {
+            tbody.html('<tr><td colspan="3" class="text-muted">该批次没有卡密。</td></tr>');
+        } else {
+            cards.forEach(function (card) {
+                tbody.append(cardRow(card, {
+                    voidable: true,
+                    reload: function () { loadAdminCards(batchId); }
+                }));
+            });
+        }
+        $('#credit-card-admin-cards').show();
+    }
+
+    function loadAdminCards(batchId) {
+        if (!IS_ADMIN || !batchId) { return; }
+        currentBatchId = batchId;
+        ajax('/ajax/credit/card/admin-cards', 'POST', { batchId: batchId }).then(function (response) {
+            renderAdminCards(unwrap(response) || [], batchId);
+        }).catch(function (error) {
+            $('#credit-card-admin-cards').show();
+            $('#credit-card-admin-cards-rows').html(
+                '<tr><td colspan="3" class="text-danger">卡密加载失败：' +
+                $('<span>').text(error.message).html() + '</td></tr>');
+        });
+    }
+
+    function voidCard(card, reload) {
+        var reason = window.prompt('作废原因（必填）：', '');
+        if (reason === null) { return; }
+        reason = $.trim(reason);
+        if (!reason) {
+            window.alert('作废原因必填。');
+            return;
+        }
+        ajax('/ajax/credit/card/admin-void', 'POST', { cardId: card.id, reason: reason })
+            .then(function () {
+                window.alert('卡密已作废。');
+                if (reload) { reload(); }
+                loadAdminBatches();
+                loadPurchasedCards();
+            }).catch(function (error) {
+                window.alert('作废失败：' + error.message);
+            });
+    }
+
+    function exportBatch(batchId) {
+        ajaxBlob('/ajax/credit/card/admin-export', 'POST', { batchId: batchId })
+            .then(function (blob) {
+                var url = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = url;
+                link.download = 'credit-cards-batch-' + batchId + '.txt';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }).catch(function (error) {
+                window.alert('导出失败：' + error.message);
+            });
+    }
+
     function stopPolling() {
         if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     }
@@ -187,13 +483,24 @@
         // 避免页面停留在"扫码中"的观感（用户感知为"没有正确跳转"）
         $('#credit-checkout').hide();
         var grantedCredits = currentOrder ? currentOrder.credits : null;
-        ajax('/ajax/credit/account', 'POST').then(function (response) {
-            var account = unwrap(response);
-            renderBalance(account);
+        var isCard = currentOrder && currentOrder.kind === 'CARD';
+        var accountRequest = ajax('/ajax/credit/account', 'POST').then(function (response) {
+            renderBalance(unwrap(response));
+        });
+        if (isCard) {
+            // Why 两条刷新互不依赖: 卡已由支付回调生成，余额接口抖动不应让买家看不到新卡密。
+            accountRequest.catch(function () { /* 卡密列表仍继续刷新 */ });
+            loadPurchasedCards(currentOrder.orderNo).then(function (loaded) {
+                showSuccess(loaded
+                    ? '支付成功，积分卡已生成，请复制卡密。'
+                    : '支付成功，积分卡已生成；卡密列表刷新失败，请刷新页面后复制。');
+            });
+            return;
+        }
+        accountRequest.then(function () {
             showSuccess('充值成功：' + (grantedCredits ? grantedCredits + ' 积分已到账，' : '积分已到账，') +
-                '当前余额 ' + (account && account.balance !== undefined ? account.balance : '-') + '。');
+                '当前余额 ' + ($('#credit-balance').text() || '-') + '。');
         }).catch(function () {
-            // 余额刷新失败不掩盖到账事实
             showSuccess('充值成功，积分已到账（余额刷新失败，可刷新页面查看）。');
         });
     }
@@ -208,7 +515,8 @@
     function renderCheckout(order, qrCode) {
         $('#credit-checkout').show();
         $('#credit-checkout-info').html('Pay <strong>' + formatMoney(order.amount) +
-            '</strong> for ' + $('<span>').text(order.credits).html() + ' credits');
+            '</strong> for ' + $('<span>').text(order.credits).html() +
+            (order.kind === 'CARD' ? ' credit card' : ' credits'));
         $('#credit-status').text('Waiting for payment...').removeClass().addClass('text-muted');
         $('#credit-regenerate').hide();
         var qrTarget = $('#credit-qr').empty()[0];
@@ -287,12 +595,12 @@
         pollTimer = setInterval(pollOrderStatus, POLL_INTERVAL_MS);
     }
 
-    function buy(packageId) {
+    function buy(packageId, kind, orderUrl) {
         hideMessages();
         stopAllTimers(); // 入口统一清场：旧订单的轮询/倒计时不再存活
         var buyButtons = $('.pkg-buy-btn').prop('disabled', true);
         var createdOrder = null;
-        ajax('/ajax/credit/recharge-order', 'POST', { packageId: packageId }).then(function (response) {
+        ajax(orderUrl || '/ajax/credit/recharge-order', 'POST', { packageId: packageId }).then(function (response) {
             createdOrder = unwrap(response);
             return ajax('/ajax/credit/recharge-pay', 'POST', { orderNo: createdOrder.orderNo });
         }).then(function (response) {
@@ -305,7 +613,8 @@
                 amount: createdOrder.amount,
                 expireTime: createdOrder.expireTime,
                 qrCode: precreate.qrCode,
-                createdAtMs: Date.now()
+                createdAtMs: Date.now(),
+                kind: kind || 'CREDIT'
             };
             renderCheckout(currentOrder, currentOrder.qrCode);
             startCountdown();
@@ -324,7 +633,7 @@
     var consumeType = ''; // ''-全部 / INCOME-获取 / CONSUME-消耗
 
     var TYPE_LABELS = {
-        GRANT: '获取', RECHARGE: '充值', CONSUME: '消耗'
+        GRANT: '获取', RECHARGE: '充值', CARD_REDEEM: '积分卡兑换', CONSUME: '消耗'
     };
 
     function consumeFilters() {
@@ -596,8 +905,18 @@
         sessionStorage.removeItem(CSRF_RELOAD_FLAG);
         loadBalance();
         loadPackages();
+        loadCardPackages();
+        loadPurchasedCards();
         loadConsumeDetail();
 
+        $('#credit-card-redeem-form').on('submit', function (e) {
+            e.preventDefault();
+            redeemCard();
+        });
+        $(document).on('click', '.credit-card-buy-btn', function () {
+            buy($(this).attr('data-package-id'), 'CARD',
+                '/ajax/credit/card/purchase-order');
+        });
         $('#credit-consume-apply').on('click', resetConsumePage);
         $('#credit-consume-apply').on('click', loadConsumeDetail);
         // R205：管理员活动发布（入口仅管理员可见；moon-well 白名单二次校验）
@@ -605,6 +924,20 @@
             fillPromotionDefaults();
             loadPromotions();
             loadAdminUserOptions();
+            loadAdminBatches();
+            $('#credit-card-admin-issue-form').on('submit', function (e) {
+                e.preventDefault();
+                issueCardBatch();
+            });
+            $('#credit-card-admin-long-term').on('change', function () {
+                var longTerm = $(this).is(':checked');
+                $('#credit-card-admin-validity').prop('disabled', longTerm);
+                if (longTerm) {
+                    $('#credit-card-admin-validity').val('');
+                } else if (!$('#credit-card-admin-validity').val()) {
+                    $('#credit-card-admin-validity').val('30');
+                }
+            });
             $('#credit-promo-form').on('submit', function (e) {
                 e.preventDefault();
                 submitPromotion();
@@ -654,11 +987,15 @@
         });
 
         $(document).on('click', '.pkg-buy-btn', function () {
-            buy($(this).attr('data-package-id'));
+            buy($(this).attr('data-package-id'), 'CREDIT',
+                '/ajax/credit/recharge-order');
         });
         $('#credit-regenerate').on('click', function () {
             if (currentOrder && currentOrder.packageId) {
-                buy(currentOrder.packageId);
+                buy(currentOrder.packageId, currentOrder.kind,
+                    currentOrder.kind === 'CARD'
+                        ? '/ajax/credit/card/purchase-order'
+                        : '/ajax/credit/recharge-order');
             }
         });
     });
