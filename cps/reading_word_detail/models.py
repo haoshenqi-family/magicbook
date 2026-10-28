@@ -61,3 +61,36 @@ class WordDetailJobItem(ub.Base):
     error_message = Column(Text)
     created_at = Column(DateTime(timezone=True), default=now_utc, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc, nullable=False)
+
+
+class WordDetailPreview(ub.Base):
+    """一本书的只读预览快照（R238）。
+
+    Why 单独落一张表：预览要解析整本 EPUB，再按 2000 词一批访问 moon-well；
+    放在请求线程里会让页面长时间停在「预览加载中」。快照按书缓存，后台刷新，
+    打开页面只读当前状态；正文指纹变化时自动失效。
+    """
+
+    __tablename__ = "reading_word_detail_preview"
+    __table_args__ = (
+        UniqueConstraint("book_id", "book_format", name="uq_word_detail_preview_book"),
+    )
+
+    id = Column(String(64), primary_key=True)
+    book_id = Column(Integer, nullable=False, index=True)
+    book_format = Column(String(20), nullable=False)
+    book_name = Column(String(500), nullable=False, default="")
+    book_fingerprint = Column(String(64), nullable=False)
+    status = Column(String(24), nullable=False, default="RUNNING", index=True)
+    stage = Column(String(24), nullable=False, default="EXTRACTING")
+    distinct_words = Column(Integer, nullable=False, default=0)
+    checked_words = Column(Integer, nullable=False, default=0)
+    cached_words = Column(Integer, nullable=False, default=0)
+    not_word_like = Column(Integer, nullable=False, default=0)
+    target_words = Column(Integer, nullable=False, default=0)
+    # 完整 missing 词表只服务「预览完成后立即开始」：开始按钮无需再解析/扫描一次。
+    missing_json = Column(Text)
+    error_message = Column(Text)
+    computed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), default=now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=now_utc, onupdate=now_utc, nullable=False)

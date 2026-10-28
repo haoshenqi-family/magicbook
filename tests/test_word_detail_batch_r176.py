@@ -47,12 +47,13 @@ def _clean_ledger(app):
     """
     from cps import ub
 
-    from cps.reading_word_detail.models import WordDetailJob, WordDetailJobItem
+    from cps.reading_word_detail.models import WordDetailJob, WordDetailJobItem, WordDetailPreview
     from cps.reading_word_detail.service import WordDetailBatchService
 
     WordDetailBatchService()._ensure_tables()
     ub.session.query(WordDetailJobItem).delete()
     ub.session.query(WordDetailJob).delete()
+    ub.session.query(WordDetailPreview).delete()
     ub.session.commit()
     yield
 
@@ -131,6 +132,17 @@ def no_publish(monkeypatch):
 
     monkeypatch.setattr(WordDetailBatchService, "_spawn_publish_worker",
                         lambda self, job_id, book_title, publish: None)
+
+
+@pytest.fixture(autouse=True)
+def synchronous_preview(monkeypatch):
+    """绝大多数用例通过路由断言最终数字；预览线程在请求线程里跑完。"""
+    from cps.reading_word_detail.service import WordDetailBatchService
+
+    monkeypatch.setattr(
+        WordDetailBatchService, "_spawn_preview_worker",
+        lambda self, preview_id, path, book_name, check:
+        self._preview_worker(preview_id, path, book_name, check))
 
 
 def _sessions():
@@ -269,8 +281,114 @@ class TestUpstreamErrorsAreVisible:
 
         rv = admin_client.post("/ajax/word-detail-preview", json={"book_id": 7})
 
-        assert rv.status_code == 400
+        assert rv.status_code == 200
+        assert rv.get_json()["status"] == "FAILED"
         assert "cached-check" in rv.get_json()["message"]
+
+
+class TestAsyncPreview:
+    def test_first_request_returns_running_and_does_no_work_in_request(
+            self, admin_client, stubbed_book, fake_moonwell, monkeypatch):
+        from cps.reading_word_detail.service import WordDetailBatchService
+
+        monkeypatch.setattr(WordDetailBatchService, "_spawn_preview_worker",
+                            lambda self, *args, **kwargs: None)
+
+        body = admin_client.post("/ajax/word-detail-preview",
+                                 json={"book_id": 7}).get_json()
+
+        assert body["status"] == "RUNNING"
+        assert body["stage"] == "EXTRACTING"
+        assert not fake_moonwell.calls, "预览请求只受理后台任务，不能在请求线程打上游"
+
+    def test_ready_snapshot_is_reused_then_force_recomputes(
+            self, admin_client, stubbed_book, fake_moonwell):
+        first = admin_client.post("/ajax/word-detail-preview",
+                                  json={"book_id": 7}).get_json()
+        before = len(fake_moonwell.calls)
+        second = admin_client.post("/ajax/word-detail-preview",
+                                   json={"book_id": 7}).get_json()
+
+        assert first["status"] == second["status"] == "READY"
+        assert len(fake_moonwell.calls) == before, "10 分钟窗口内应直接命中预览快照"
+
+        admin_client.post("/ajax/word-detail-preview",
+                          json={"book_id": 7, "force": True})
+        assert len(fake_moonwell.calls) > before, "force 必须绕过快照重新计算"
+
+    def test_expired_ready_snapshot_recomputes_in_background(
+            self, admin_client, stubbed_book, fake_moonwell):
+        from datetime import timedelta
+
+        from cps import ub
+        from cps.reading_translation.timeutil import now_utc
+        from cps.reading_word_detail.models import WordDetailPreview
+
+        admin_client.post("/ajax/word-detail-preview", json={"book_id": 7})
+        before = len(fake_moonwell.calls)
+        row = ub.session.query(WordDetailPreview).one()
+        row.computed_at = now_utc() - timedelta(minutes=11)
+        ub.session.commit()
+
+        refreshed = admin_client.post("/ajax/word-detail-preview",
+                                      json={"book_id": 7}).get_json()
+
+        assert refreshed["status"] == "READY"
+        assert len(fake_moonwell.calls) > before, "过期快照必须后台刷新，不能永久复用"
+
+    def test_failed_snapshot_retries_after_backoff(
+            self, admin_client, stubbed_book, monkeypatch):
+        from datetime import timedelta
+
+        from cps import ub, web
+        from cps.reading_translation.timeutil import now_utc
+        from cps.reading_word_detail.models import WordDetailPreview
+
+        calls = []
+
+        def broken(path, payload, timeout, label, **kwargs):
+            calls.append(path)
+            return ("<html>502</html>", 502, {"Content-Type": "text/html"})
+
+        monkeypatch.setattr(web, "_moonwell_proxy", broken)
+
+        first = admin_client.post("/ajax/word-detail-preview", json={"book_id": 7}).get_json()
+        second = admin_client.post("/ajax/word-detail-preview", json={"book_id": 7}).get_json()
+        assert first["status"] == second["status"] == "FAILED"
+        assert len(calls) == 1, "失败后 60 秒内重复打开页面不应反复打 moon-well"
+
+        row = ub.session.query(WordDetailPreview).one()
+        row.updated_at = now_utc() - timedelta(minutes=2)
+        ub.session.commit()
+        admin_client.post("/ajax/word-detail-preview", json={"book_id": 7})
+
+        assert len(calls) == 2, "退避窗口过后应允许下一次后台重试"
+
+    def test_start_reuses_ready_snapshot_without_second_probe(
+            self, admin_client, stubbed_book, fake_moonwell, synchronous_publish):
+        admin_client.post("/ajax/word-detail-preview", json={"book_id": 7})
+        probes = len([c for c in fake_moonwell.calls if c["path"] == CHECK_PATH])
+
+        admin_client.post("/ajax/word-detail-start", json={"book_id": 7})
+
+        assert len([c for c in fake_moonwell.calls if c["path"] == CHECK_PATH]) == probes, \
+            "预览刚算完就点开始，不应再解析一遍正文并重扫缓存"
+
+    def test_late_worker_spawn_does_not_recompute_a_ready_snapshot(
+            self, admin_client, stubbed_book, fake_moonwell):
+        from cps import ub
+        from cps.reading_word_detail.models import WordDetailPreview
+        from cps.reading_word_detail.service import WordDetailBatchService
+
+        admin_client.post("/ajax/word-detail-preview", json={"book_id": 7})
+        row = ub.session.query(WordDetailPreview).one()
+        before = len(fake_moonwell.calls)
+
+        WordDetailBatchService()._preview_worker(
+            row.id, "/tmp/sticky.epub", row.book_name, lambda words: pytest.fail("不应重算"))
+
+        assert len(fake_moonwell.calls) == before
+        assert ub.session.get(WordDetailPreview, row.id).status == "READY"
 
 
 class TestStartLedger:
@@ -506,6 +624,20 @@ class TestTemplateContract:
         assert re.search(r'id="wd-start"[^>]*\bdisabled', page), "预览回来之前按钮必须是灰的"
         assert "var POLL_MS = 30000;" in page, \
             "覆盖率探针服务端是索引级扫描，轮询只能是 30s（整本翻译的 4s 源是本地行计数）"
+
+    def test_page_script_runs_after_layout_jquery(self, admin_client):
+        """R238：内联脚本在 block body 里会早于 layout 底部 jQuery，`$` 必然未定义。"""
+        with open(_TEMPLATE, encoding="utf-8") as handle:
+            source = handle.read()
+
+        body_end = source.index("{% endblock %}", source.index("{% block body %}"))
+        script_at = source.index("<script>")
+        js_block = source.index("{% block js %}")
+        assert body_end < js_block < script_at, "页面 AJAX 脚本必须放进 block js，晚于 jQuery"
+
+        page = admin_client.get("/word-detail-batch?book_id=7").data.decode("utf-8")
+        assert page.index("jquery.min.js") < page.index("function schedulePreviewPoll"), \
+            "实际渲染顺序必须保证 jQuery 先于本页 AJAX 脚本执行"
 
     def test_start_button_is_not_a_one_click_purchase(self, admin_client):
         page = admin_client.get("/word-detail-batch?book_id=7").data.decode("utf-8")

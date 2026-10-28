@@ -14,14 +14,15 @@ import json
 import re
 import threading
 import uuid
+from datetime import timedelta
 
 from .. import logger, ub
 from ..cw_login import current_user
 from ..reading_job.service_base import JobServiceBase
 from ..reading_translation.parser import extract_epub_paragraphs
 from ..reading_translation.service import _commit_with_retry, _thread_db_session
-from ..reading_translation.timeutil import now_utc
-from .models import WordDetailJob, WordDetailJobItem
+from ..reading_translation.timeutil import as_utc, now_utc
+from .models import WordDetailJob, WordDetailJobItem, WordDetailPreview
 
 log = logger.create()
 
@@ -37,6 +38,11 @@ PROBE_CHUNK = 2000
 # 单词详解的粗算 token：R109 生产实测均值（单次 ~21.6s、约 4,000 tokens）。
 # UI 上必须标成「粗算」，它是决策用的量级，不是账单。
 ESTIMATED_TOKENS_PER_WORD = 4000
+# 预览快照命中窗口。缓存只会增长，过期后返回旧「缺失数」会持续高估成本；
+# 因此过期后由下一次打开页面在后台刷新，而不是永久复用第一份结果。
+PREVIEW_READY_TTL_SECONDS = 10 * 60
+# 失败后短时间内重复打开页面不反复打 moon-well；用户显式刷新或窗口过后再试。
+PREVIEW_RETRY_SECONDS = 60
 
 
 class WordDetailBatchService(JobServiceBase):
@@ -48,9 +54,16 @@ class WordDetailBatchService(JobServiceBase):
 
     job_model = WordDetailJob
     item_model = WordDetailJobItem
+    extra_tables = (WordDetailPreview,)
     missing_job_error = "word detail job is unavailable"
     log_prefix = "word-detail batch:"
     job_log = log
+
+    def __init__(self):
+        super().__init__()
+        # 预览建行/失效/起线程必须在同一进程内串行，避免两个标签页同时把同一本书
+        # 重新初始化成两条后台任务。
+        self._preview_lock = threading.Lock()
 
     @staticmethod
     def distinct_words(paragraphs):
@@ -82,26 +95,187 @@ class WordDetailBatchService(JobServiceBase):
     # ① 预览：只读，绝不入队、绝不触发生成
     # ------------------------------------------------------------------
 
-    def preview(self, book_id, book_format, check):
-        """返回这本书的补缺规模：去重词数 / 已缓存 / 待生成 / 粗算 tokens。
+    def preview(self, book_id, book_format, check, force=False):
+        """返回预览快照；缓存未命中时立即建后台任务并返回 RUNNING。
 
         Why 必须有这一步：真小说的去重词通常 5k~15k，扣掉已缓存还剩多少**没有实测样本**，
         而详解是全仓最贵的调用且按发起者计费。管理员必须看到数字之后再点第二次
         （沿用 R118 US4「先预案后执行」的同一原则）。
-        How 覆盖率只走 moonwell 的 cached-check：`GET /vocabulary/detail/{word}` 在 miss 时
-        会现场生成并计费，用它探进度等于把「查进度」变成「下单」。
+        Why 不在请求线程里算：整本 EPUB 解析 + 多批 cached-check 可能远超网关超时，
+        页面只会永远停在「预览加载中」。后台算完落 `reading_word_detail_preview`，
+        后续打开同一本书直接命中快照。
+        How 覆盖率只走 moon-well 的 cached-check：`GET /vocabulary/detail/{word}` 在 miss
+        时会现场生成并计费，用它探进度等于把「查进度」变成「下单」。
         """
         self._ensure_tables()
-        book, _, words = self._book_words(book_id, book_format)
-        probe = self._probe(check, words)
-        missing = probe.get("missing") or []
-        return {"bookId": int(book_id), "bookName": book.title,
-                "distinctWords": len(words),
-                "cachedWords": probe.get("cached", 0),
-                "notWordLike": len(probe.get("notWordLike") or []),
-                "targetWords": len(missing),
-                "estimatedTokens": len(missing) * ESTIMATED_TOKENS_PER_WORD,
-                "missingSample": missing[:20]}
+        # 这里只取书目与文件，不能为了拿指纹先解析一次整本 EPUB。
+        book, path = self._book_file(book_id, book_format)
+        fingerprint = self._fingerprint(path)
+        normalized = (book_format or "epub").lower()
+        with self._preview_lock:
+            row = self._preview_row(book_id, normalized)
+            if row and row.book_fingerprint == fingerprint:
+                if row.status == "READY" and not force and self._preview_ready_is_fresh(row):
+                    return self._preview_payload(row)
+                if row.status == "FAILED" and not force and not self._preview_retry_is_due(row):
+                    return self._preview_payload(row)
+                if row.status == "RUNNING":
+                    self._spawn_preview_worker(row.id, path, book.title, check)
+                    ub.session.expire_all()
+                    row = self._preview_row(book_id, normalized)
+                    return self._preview_payload(row)
+
+            if row is None:
+                row = WordDetailPreview(id=uuid.uuid4().hex, book_id=int(book_id),
+                                        book_format=normalized)
+                ub.session.add(row)
+            row.book_name = book.title or ""
+            row.book_fingerprint = fingerprint
+            row.status = "RUNNING"
+            row.stage = "EXTRACTING"
+            row.distinct_words = 0
+            row.checked_words = 0
+            row.cached_words = 0
+            row.not_word_like = 0
+            row.target_words = 0
+            row.missing_json = None
+            row.error_message = None
+            row.computed_at = None
+            row.updated_at = now_utc()
+            _commit_with_retry(ub.session)
+            preview_id = row.id
+            self._spawn_preview_worker(preview_id, path, book.title, check)
+
+        # 测试里会把 _spawn_preview_worker 换成同步执行；expire_all 保证这里能读到
+        # 后台会话刚写回的 READY 或 FAILED，而不是请求线程的旧身份映射。
+        ub.session.expire_all()
+        row = self._preview_row(book_id, normalized)
+        return self._preview_payload(row)
+
+    def _preview_row(self, book_id, book_format):
+        return (ub.session.query(WordDetailPreview)
+                .filter(WordDetailPreview.book_id == int(book_id),
+                        WordDetailPreview.book_format == book_format)
+                .one_or_none())
+
+    @staticmethod
+    def _preview_ready_is_fresh(row, seconds=PREVIEW_READY_TTL_SECONDS):
+        return bool(row.computed_at) and (
+            now_utc() - as_utc(row.computed_at) <= timedelta(seconds=seconds))
+
+    @staticmethod
+    def _preview_retry_is_due(row, seconds=PREVIEW_RETRY_SECONDS):
+        return now_utc() - as_utc(row.updated_at) >= timedelta(seconds=seconds)
+
+    @staticmethod
+    def _preview_payload(row):
+        if row is None:
+            raise ValueError("word detail preview is unavailable")
+        missing = []
+        if row.missing_json:
+            try:
+                missing = json.loads(row.missing_json) or []
+            except (TypeError, ValueError):
+                missing = []
+        payload = {
+            "status": row.status,
+            "stage": row.stage,
+            "bookId": row.book_id,
+            "bookName": row.book_name,
+            "distinctWords": row.distinct_words,
+            "checkedWords": row.checked_words,
+            "cachedWords": row.cached_words,
+            "notWordLike": row.not_word_like,
+            "targetWords": row.target_words,
+            "estimatedTokens": row.target_words * ESTIMATED_TOKENS_PER_WORD,
+            "missingSample": missing[:20],
+            "computedAt": row.computed_at.isoformat() if row.computed_at else None,
+        }
+        if row.status == "FAILED":
+            payload["message"] = row.error_message or "word detail preview failed"
+        return payload
+
+    def _fresh_preview_for_start(self, book_id, book_format, fingerprint):
+        """预览刚算完时直接复用结果，避免「点开始」再解析/扫描一遍。"""
+        row = self._preview_row(book_id, book_format)
+        if (row is None or row.book_fingerprint != fingerprint or row.status != "READY"
+                or not self._preview_ready_is_fresh(row) or row.missing_json is None):
+            return None
+        try:
+            missing = json.loads(row.missing_json) or []
+        except (TypeError, ValueError):
+            return None
+        return row, missing
+
+    def _spawn_preview_worker(self, preview_id, path, book_name, check):
+        return self._spawn_worker(
+            preview_id,
+            lambda job_id: self._preview_worker(job_id, path, book_name, check),
+        )
+
+    def _preview_worker(self, preview_id, path, book_name, check):
+        """后台解析正文并分批探缓存，状态与阶段逐步落库。"""
+        with _thread_db_session() as session:
+            row = session.query(WordDetailPreview).filter_by(id=preview_id).one()
+            # RUNNING 快照的每次轮询都会尝试补线程；线程刚好完成并注销花名册时，
+            # 下一次补线程可能晚一步拿到 READY 行。这里二次判态，避免把已完成的预览重算一遍。
+            if row.status != "RUNNING":
+                return
+            try:
+                row.stage = "EXTRACTING"
+                row.updated_at = now_utc()
+                _commit_with_retry(session)
+
+                paragraphs = extract_epub_paragraphs(path)
+                words = self.distinct_words(paragraphs)
+                if not words:
+                    raise ValueError("no extractable words found")
+
+                row.distinct_words = len(words)
+                row.stage = "CHECKING"
+                row.checked_words = 0
+                row.updated_at = now_utc()
+                _commit_with_retry(session)
+
+                missing = []
+                not_word_like = []
+                seen = {"missing": set(), "notWordLike": set()}
+                cached = 0
+                for start in range(0, len(words), PROBE_CHUNK):
+                    chunk = words[start:start + PROBE_CHUNK]
+                    result = check(chunk) or {}
+                    cached += int(result.get("cached") or 0)
+                    for key in ("missing", "notWordLike"):
+                        for word in result.get(key) or []:
+                            if word not in seen[key]:
+                                seen[key].add(word)
+                                (missing if key == "missing" else not_word_like).append(word)
+                    row.checked_words = min(start + len(chunk), len(words))
+                    row.cached_words = cached
+                    row.updated_at = now_utc()
+                    _commit_with_retry(session)
+
+                row.status = "READY"
+                row.stage = "READY"
+                row.cached_words = cached
+                row.not_word_like = len(not_word_like)
+                row.target_words = len(missing)
+                row.missing_json = json.dumps(missing, ensure_ascii=False)
+                row.error_message = None
+                row.computed_at = now_utc()
+                row.updated_at = row.computed_at
+                _commit_with_retry(session)
+                log.info("word-detail preview: ready book=%s name=%s distinct=%s cached=%s target=%s",
+                         row.book_id, book_name, row.distinct_words, row.cached_words,
+                         row.target_words)
+            except Exception as error:
+                row.status = "FAILED"
+                row.stage = "FAILED"
+                row.error_message = str(error)[:1000]
+                row.updated_at = now_utc()
+                _commit_with_retry(session)
+                log.exception("word-detail preview: failed book=%s name=%s",
+                              row.book_id, book_name)
 
     def _probe(self, check, words):
         """分批调 cached-check 并合并结果。
@@ -158,20 +332,31 @@ class WordDetailBatchService(JobServiceBase):
                          existing.id, book_id, existing.status)
                 return self.progress(existing)
 
-        words = self.distinct_words(extract_epub_paragraphs(path))
-        if not words:
-            raise ValueError("no extractable words found")
-        probe = self._probe(check, words)
-        missing = probe.get("missing") or []
+        preview_snapshot = self._fresh_preview_for_start(
+            book_id, (book_format or "epub").lower(), fingerprint)
+        if preview_snapshot:
+            preview_row, missing = preview_snapshot
+            distinct_words = preview_row.distinct_words
+            cached_words = preview_row.cached_words
+            skipped_not_word_like = preview_row.not_word_like
+        else:
+            words = self.distinct_words(extract_epub_paragraphs(path))
+            if not words:
+                raise ValueError("no extractable words found")
+            probe = self._probe(check, words)
+            missing = probe.get("missing") or []
+            distinct_words = len(words)
+            cached_words = probe.get("cached", 0)
+            skipped_not_word_like = len(probe.get("notWordLike") or [])
         if not missing:
             raise ValueError("这本书的正文词已全部有详解，无需补缺")
 
         job = WordDetailJob(id=uuid.uuid4().hex, user_id=user_id, book_id=int(book_id),
                             book_format=(book_format or "epub").upper(), book_name=book.title,
                             book_fingerprint=fingerprint, status="RUNNING",
-                            distinct_words=len(words), cached_words=probe.get("cached", 0),
+                            distinct_words=distinct_words, cached_words=cached_words,
                             target_words=len(missing),
-                            skipped_not_word_like=len(probe.get("notWordLike") or []))
+                            skipped_not_word_like=skipped_not_word_like)
         ub.session.add(job)
         for seq, offset in enumerate(range(0, len(missing), BATCH_SIZE)):
             batch = missing[offset:offset + BATCH_SIZE]
