@@ -220,7 +220,7 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **费用与只读边界**：后台预计算只调用 `cached-check`，不会自动生成单词详解；真正生成仍需管理员看过数字后二次确认。没有对全库做自动预热，只有实际打开某本书预览页才计算该书，避免「看管理页就产生全库扫描」。
 - **测试**：定向台账/估算/公共骨架 **68 passed / 0 failed**；扩展回归（详解、整本估算、书籍详情、翻译/朗读共用骨架、i18n）**179 passed / 0 failed**；`py_compile`、`pybabel compile`、`git diff --check` 通过。新增守卫覆盖渲染顺序、首请求不跑上游、READY/TTL/force、FAILED 退避、start 复用、迟到 worker 不重算、2000 词分批与建表原语不外叉。
 - **文档四问**：能力 → L1 `docs/product/readme/vocabulary.md`；契约 → L2 `docs/product/vocabulary/interface.md`（新增 RUNNING/READY/FAILED、force、10 分钟 TTL、60 秒失败退避）；实现/边界 → 新建 L3 `docs/product/vocabulary/features/word-detail-preview.md`；本次实现 → `docs/project/iterations/1.0/r238-word-detail-preview/lld.md`（状态：开发完成待验收）。另补建 vocabulary 需求基线并同步迭代 `plan.md`。
-- **驻留与上线**：R238 占号为 `c90ce790`，实现 commit `5bb6336e`。worktree `../magicbook-r238-word-detail-preview`（分支 `fix/r238-word-detail-preview`）按闸门保留；当前**只在本地分支，未 push、未上线**。push `develop` 会触发 fnOS 自动构建，需用户明确授权后再执行。
+- **驻留与上线**：R238 占号为 `c90ce790`，实现 `5bb6336e`，已合入本地 `develop`（merge `9577c541`）。worktree `../magicbook-r238-word-detail-preview`（分支 `fix/r238-word-detail-preview`）按闸门保留；当前**未 push、未上线**。push `develop` 会触发 fnOS 自动构建，需用户明确授权后再执行。
 - **待验收 / 后续**：真机需验证 `book_id=145` 控制台无 `$ is not defined`、首屏进入后台阶段并自动出数字、另一本书同样正常、刷新命中快照、上游故障有可见文案。moon-well `cachedLookupKeys()` 的全索引扫描优化未夹带在本任务，建议另立跨仓编号改为按输入词表 `terms` 查询或加短 TTL 缓存。
 - **窗口**：写入前 10 节已满，按「写入即检查」把最早 R227 整节原样搬至 `response-archive/response-R227.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 238 已从占位回填；本条为回应。冲突记录：无撞号；本轮把用户所写「后天」按「后台」理解。

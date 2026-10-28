@@ -122,7 +122,8 @@ worker（独立 DB session）
 - worktree：`../magicbook-r238-word-detail-preview`
 - 分支：`fix/r238-word-detail-preview`
 - 实现：`5bb6336e`
-- 状态：开发完成，待合并与真机验收。
+- 合并：`9577c541` 已合入本地 `develop`，未 push/未上线
+- 状态：已合入待真机验收；worktree 原样驻留。
 - 真机验收项：`/word-detail-batch?book_id=145&book_format=epub` 控制台无
   `$ is not defined`；首屏进入后台阶段并最终自动出数字；另一本文本正常；刷新命中
   10 分钟快照；故意断上游时页面显示错误而非无限加载。
