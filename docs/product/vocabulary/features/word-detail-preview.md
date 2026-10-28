@@ -73,6 +73,9 @@
   并在页面可见，不能显示成“0 个词”或无限加载。
 - **旧结果可能保守**：READY 在 10 分钟内不刷新，期间新生成的详解不会立即从缺失数
   扣除；真正入队时 moon-well 仍按 `skipCached` 跳过，因此不会重复计费。
+- **上游算法更新也可能短暂滞后（R239）**：缓存命中集合由 moon-well 计算；其算法刚上线时，
+  10 分钟内的 READY 快照仍可能保留旧数字。验收或算法切换后用 `force=true` 强制刷新，
+  不以本仓缓存副本推断词形。magicbook 只展示上游 `cachedWords / targetWords / missingSample`。
 
 ## 6. 测试锚点
 
@@ -84,6 +87,7 @@
 - 同一本书分批仍不超过 2000 词；预览路径不调用 publish。
 - start 复用新鲜 READY 快照，不产生第二趟 cached-check。
 - 迟到的补线程拿到 READY 行时直接退出，不重复计算。
+- 预览计数只来自上游；本仓不维护屈折后缀或派生规则的第二份实现。
 
 `tests/test_job_service_base.py`：`_ensure_tables()` 仍是三家唯一实现，附加表通过
 `extra_tables` 扩展而非子类覆盖。

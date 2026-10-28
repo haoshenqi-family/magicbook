@@ -22,6 +22,7 @@
 - `response-archive/response-R225.md`：R225 邀请注册跳转 + 普通账号阅读/下载 403 + 品牌封面占位（2026-10-28 R236 写入触发轮转搬移，原样搬移不改写）
 - `response-archive/response-R226.md`：R226 阅读器验收缺陷——伙伴白圆底/幽灵问号/翻译连续重排（2026-10-28 R237 写入触发轮转搬移，原样搬移不改写）
 - `response-archive/response-R227.md`：R227 Buddy 语音提问与回复朗读（2026-10-28 R238 写入触发轮转搬移，原样搬移不改写）
+- `response-archive/response-R228.md`：R228 moon-well R214 伴读 Agent Skills 的 magicbook 消费侧说明——2026-10-28 R239 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R126-R131.md`：R126、R127、R128、R129、R131（2026-10-07 ～ 2026-10-08；2026-10-09 R141 写入触发轮转搬移，清掉 R134 登记的窗口欠账）
 - `response-archive/response-R132-R133.md`：R132、R133（2026-10-08；2026-10-10 R143 写入触发轮转搬移）
 - `response-archive/response-R134.md`：R134（2026-10-08；2026-10-10 R144 写入触发轮转搬移，其父级日期标题随节一并搬移）
@@ -64,24 +65,6 @@
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
-
-## 2026-10-25（R228：moon-well R214 伴读 Agent Skills 的 magicbook 消费侧说明）
-
-### R228（承接 moon-well R214；用户：「把magic book 所有的功能 总结一下，做成一个skill 给 AI伴读的agent使用。先判断AI伴读的agent 是否支持skill」）
-
-- **任务定位**：跨仓消费说明，magicbook **零代码改动**。后端主责 moon-well R214；本仓 R214 已被“书籍详情”占用，故消费侧顺延占 **R228**，不覆盖既有编号。
-- **支持判断**：原 AI 伴读 Agent **不支持 Codex / Claude 原生 Skill**；它是 moon-well 内有界工具循环 + `AgentToolRegistry` 白名单 + Nacos 提示词。直接放 `SKILL.md` 不会生效，因此 moon-well R214 实现的是产品内只读、无脚本、渐进披露的 Skill 机制。
-- **消费侧交付**：`companion` L1 说明伴读可按需加载 MagicBook 全功能指南并强调不扩权；`companion/requirements.md` 记录 moon-well R214 / magicbook R228；`iterations/1.0/r214-agent-skill/lld.md` 写明真实页面路径、不可执行动作、失败退化与验收清单；迭代 `plan.md` 增跨仓工作项。
-- **用户可见范围**：涉及阅读、翻译、查词、词汇、学习计划、朗读、积分或伙伴的问题，助手可先取指南再给具体页面/操作；指南按需读取、不占每轮上下文；不会因此获得点按钮、改设置、下单、启动整本任务或管用户的新权限。
-- **不变量**：不改前端模板、不改 `/ai/agent/*` 代理、不改 SSE/会话/消息结构、不改工具白名单或写确认门配置；moon-well 关闭 Skill 或白名单未放行时，magicbook 无需变化。
-- **验收（2026-10-26 生产真机）**：① 每日学习回答覆盖当前八项（写作、口语、复述 4-3-2、计时重读、听写、复习队列、Word Story、选书难度匹配），并给出 `/learning` 及各活动入口；② 改难度 / 买积分 / 启动整本翻译均拒绝代执行，给出 `/reading/settings`、`/credits`、书籍详情页真实路线，轨迹无写工具；③ 价格、倍率和活动结束时间明确以页面为准，未编造数值；④ 普通寒暄未加载 Skill。新词查询与 TTS 首次 miss 3 积分、第二次命中 1 积分也已实测。
-- **新注册普通账号补测**：`r214probe-20261026-6457`（moon-well userId 15）的 `/admin` 404、`/admin/user/1` 403、`/shelf/create` 可访问、下载按钮显示未开通；每日学习加载正文与参考，寒暄不加载，查词走 `read_skill` + `lookup_word`，记忆初始为空、明确要求后 `save_memory ✓`，书 252 批注写入并由 `list_annotations` 回读成功。
-- **TTS / 积分补测**：新文本首次提示本次 3 积分、二次缓存命中 1 积分；账本 `15:07:27 reading-tts -3`、`15:07:57 reading-tts -1`（此前 181 字符段另有 `13:58:41 -3`、`14:00:41 -1`）。赠送 10000、余额 7972、账本累计 2028；分组 `ai-agent-step` 1840/40 次、`ai-agent-memory` 180/18 次、`reading-tts` 8/4 次，证明 Skill、function call 与 Agent 内部调用均消耗当前登录用户积分。
-- **隔离与边界（如实）**：会话与长期记忆按用户隔离成立（userId 15 有 3 个会话、4 条记忆；其他用户 24 个会话、8 条记忆；带唯一标记的 2 条记忆只属于 userId 15）；批注按既有设计为段落级共享，`ReadingAnnotationService.listByParagraph()` 不按 `userId` 过滤，不能写成私有隔离。生产写确认门为 `false`，写工具真实成功；`requireConfirm()` 只影响前端醒目样式，不是执行确认。
-- **验收结果**：TTS 计费文案 GUI 补测通过；会话/长期记忆用户隔离通过；批注段落共享作为既有设计边界单独列明；当前用户积分对账通过。生产写工具真实成功，不能写成“被确认门拦截”。未发现 Skill 新增权限、系统身份调用或隐藏接口路径。
-- **能力与计费边界**：生产白名单共 10 项，只有 `add_annotation` / `save_memory` 两个写工具；所有业务工具使用当前登录用户的真实能力、`UserContext` 与积分链路，不注入系统身份，也不提供脚本、任意文件或未注册接口。
-- **上线与台账**：moon-well 代码提交 `05ed7fd` 已推送 `origin/develop` 并部署，生产健康 `UP`；验收文档 `f0bafad` 为 docs-only。正式发布态全量 **1559 tests / 0 failures / 0 errors / 0 skipped**。本仓 R228 为 docs-only，无代码 worktree；moon-well 原 worktree `../moon-well-r214-agent-skill` 与分支 `feat/r214-agent-skill` 已不存在，旧驻留记录不破坏性重建。
-- **窗口**：写入前 10 节；按“写入即检查”把最早 R213-C 整节原样搬至 `response-archive/response-R213-C.md` 并登记索引，窗口保持 10。
 
 ## 2026-10-25（R229：缺陷修复——/home 随机发现 linked Row 致生产登录落点 500，挂 R213）
 
@@ -225,3 +208,33 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **后续**：moon-well `cachedLookupKeys()` 的全索引扫描优化未夹带在本任务，建议另立跨仓编号改为按输入词表 `terms` 查询或加短 TTL 缓存。
 - **窗口**：写入前 10 节已满，按「写入即检查」把最早 R227 整节原样搬至 `response-archive/response-R227.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 238 已从占位回填；本条为回应。冲突记录：无撞号；本轮把用户所写「后天」按「后台」理解。
+
+## 2026-10-28（R239：全文单词详解预览屈折词覆盖漏算）
+
+### R239（用户：「这个计算不对，完全没有考虑曲折变形。」）
+
+- **结论先行**：用户判断正确。R238 的后台 worker 与页面轮询没有失败，错的是它读取的
+  moon-well 覆盖率：`cachedLookupKeys()` 的 ES `_source` 只取 `forms.form`，把判定所需的
+  `forms.type` 裁掉了，`books / children / going / beasts / witches / revolting` 等因此全部
+  被列为缺失。扫描是全局词库视图，**所有含屈折形式的书都会高估待生成量**，不是 book 145 单书问题。
+- **为什么详情面板是对的**：交互查词读完整文档，能按 `forms.type` 把 `books` 还原为 `book`；
+  预览走全索引扫描，受另一条投影限制，两条链路口径分叉。详情面板显示“books 是 book 的三单”
+  恰好证明缓存内容存在。
+- **修复归属**：主责 moon-well R226，扫描同时投影 `forms.form` 与 `forms.type`。magicbook
+  **零代码**：不复制屈折规则、不改 worker/快照/分批，也不新增生成调用。
+- **快照边界**：READY 有 10 分钟 TTL；moon-well 部署后可能短暂显示旧数字。验收必须用
+  `{book_id:145, book_format:"epub", force:true}` 强制刷新，再看 `missingSample` 与新计数。
+  这不是再算错一次，而是既有快照尚未过期。
+- **测试**：本仓无功能代码，保留预览链路定向回归
+  `test_word_detail_batch_r176.py + test_job_service_base.py`：**56 passed / 0 failed**。
+  上游修复的请求投影与七类屈折回归由 moon-well R226 的 54 例覆盖。
+- **文档四问**：能力形态未变，L1 不改；契约补充 → L2 `vocabulary/interface.md` 的覆盖率权威；
+  实现/边界 → L3 `vocabulary/features/word-detail-preview.md`；需求与本次实现 →
+  `vocabulary/requirements.md` R239 与 `iterations/1.0/r239-word-detail-inflection/lld.md`。
+  R238 LLD 只加“R226 后续修复”注记，不改写当时范围。
+- **驻留与闸门**：R239 占号 `463c2f4d`；worktree
+  `../magicbook-r239-word-detail-inflection`（分支 `fix/r239-word-detail-inflection`）保留。
+  R238 worktree `../magicbook-r238-word-detail-preview` 另待验收，未复用、未清理。
+- **待验**：moon-well 上线后 force 刷新 book 145，确认六个代表词移出缺失样例，
+  `cachedWords` 上升、`targetWords` 下降，预览仍不产生 token 费用。
+- **冲突记录**：无撞号；与 moon-well R226 是同一缺陷的两仓记录，算法权威只在 moon-well。

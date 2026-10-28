@@ -44,6 +44,9 @@
 - **预览契约（R238）**：`/ajax/word-detail-preview` 不再要求请求线程算完整结果。`book_id` / `book_format` 校验通过后，未命中快照即返回 `status=RUNNING`；`stage=EXTRACTING` 表示读正文、`CHECKING` 表示比对详解缓存，`checkedWords/distinctWords` 可显示进度。完成后为 `status=READY`，返回 `distinctWords / checkedWords / cachedWords / targetWords / notWordLike / estimatedTokens / missingSample / computedAt`。失败为 `status=FAILED` 且带可展示的 `message`；入参或书文件错误仍为 HTTP 400。
 - **快照时效**：`READY` 快照 10 分钟内直接复用；`force=true` 绕过时效强制重算。`FAILED` 快照 60 秒内复用失败结果，避免页面轮询反复打 moon-well。
 - **只读边界不变**：预览只调用 `cached-check`，绝不调用生成端点；`start` 可复用刚完成且指纹一致的 `READY` 快照，避免用户点“开始”时再解析一遍整本、再扫一轮缓存。
+- **覆盖率权威（R239）**：`cachedWords / targetWords / missingSample` 完全取 moon-well
+  `cached-check`；词目文档覆盖其七类屈折形式（如 `books` 命中 `book`），派生词不自成误命中。
+  本站不得自行还原词形。上游算法更新后，使用 `force=true` 刷新 READY 快照再验收。
 - 门禁：四个 ajax 端点返回 **JSON 403**（`_llm_task_admin_gate` 形制，页面路由仍用 `@admin_required`）；权威白名单在 moon-well 侧二检，与 R126 面板同一纵深防御。
 - **进度口径＝词覆盖率**（`coveredWords / targetWords`），不是任务状态：执行方是队列消费者，本站既非发起者也非唯一消费者，`COMPLETED` 不等于缓存里真有。
 - 上游业务文案不被吞：灌队闸门（在途上限、单次 2000 词上限）的 `Result.message` 经 `progress.lastError` 原样到达页面。
