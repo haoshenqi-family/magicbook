@@ -34,6 +34,17 @@
         if (!$panel.length) {
             return;
         }
+
+        // Why：partial 从 block js 下发，实际 DOM 会落在详情页的 .container-fluid 内。
+        // 该容器的 Bootstrap 浮动列尚未清除，进度条外层会从容器顶部盒起算、内层被
+        // 浮动挤到底部，最终变成一个覆盖整页的透明层（R237 验收：只剩进度条可点）。
+        // 移到导航栏之后即可回到正常文档流，sticky 仍按原设计吸在页顶。
+        var $progress = $('#whole-book-progress');
+        var $nav = $('body > .navbar').first();
+        if ($progress.length && $nav.length) {
+            $progress.insertAfter($nav);
+        }
+
         var el = $panel[0];
 
         var texts = {};
@@ -238,14 +249,13 @@
             if (!job) {
                 return;
             }
-            var $bar = $('#whole-book-progress');
-            $bar.prop('hidden', false);
+            $progress.prop('hidden', false);
             var percent = job.total > 0 ? Math.min(100, Math.round(job.done * 100 / job.total)) : 0;
-            $bar.find('.progress-bar')
+            $progress.find('.progress-bar')
                 .css('width', percent + '%')
                 .attr('aria-valuenow', percent)
                 .text(percent + '%');
-            $bar.find('.wb-progress-count').text(fmtNum(job.done) + ' / ' + fmtNum(job.total));
+            $progress.find('.wb-progress-count').text(fmtNum(job.done) + ' / ' + fmtNum(job.total));
 
             var label = t('start-' + kind);
             if (job.status === 'COMPLETED') {
@@ -255,8 +265,8 @@
             } else if (job.status === 'PARTIAL_FAILED') {
                 label = t('progress-failed');
             }
-            $bar.find('.wb-progress-title').text(label);
-            $bar.toggleClass('wb-progress-done', job.status === 'COMPLETED');
+            $progress.find('.wb-progress-title').text(label);
+            $progress.toggleClass('wb-progress-done', job.status === 'COMPLETED');
         }
 
         function stopPoll(kind) {

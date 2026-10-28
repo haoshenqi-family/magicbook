@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**整本朗读批次全灭缺陷 R237 已修**（2026-10-28，§16：proxy 三元组被 tts 二元组解包，批次全 FAILED 双倍合成）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -398,3 +398,16 @@ proxy 成功分支 `return (body, response.status_code,` 与 `_error_tuple` 三�
 **止血与善后**：发现时 book 50（HP1，3007 段）批次已烧 208 段全 FAILED，已直接置
 `CANCELLED` 停止空转（done=0/failed=208 留档）；两次合成的音频均已落入 moon-well
 段落缓存，重启批次将全部缓存命中、不重复计费。测试：tts 全家 5 文件 50 passed。
+
+**验收追加：白屏的真因是进度条覆盖整页（2026-10-28）**。前文「批次资源耗尽拖成白屏」
+的假设已被生产页 CSSOM/盒模型实测推翻；后端 proxy 解包缺陷仍真实存在且必须保留修复。
+真机 DOM 显示 `whole_book_panel.html` 的 `block js` 实际落在详情页
+`.container-fluid` 内，该容器的 Bootstrap 浮动列高 775px 且未清除；
+`.wb-progress` 外层的 border box 从容器顶部起算，内层却被浮动推到 y=846，导致外层
+`getBoundingClientRect()` 为 `813px` 高、页面中心 `elementFromPoint()` 命中进度条，
+正文并未丢失，只是被透明层覆盖。临时设 `clear:both` 可让外层回到 38px，但会把吸顶
+进度条固定到文档底部；最终修法是在 `whole-book-panel.js` 初始化时把 `#whole-book-progress`
+`insertAfter(body > .navbar)`，回正常文档流并保留原 sticky 吸顶语义。实测重挂后外层
+38px、内层 37px，页面中心重新命中 `.book-meta`。守卫：
+`test_progress_bar_is_moved_out_of_float_layout`。回归：detail 39 passed；整本估算 +
+tts 5 文件 62 passed；i18n / 重复 JS 行 6 passed。

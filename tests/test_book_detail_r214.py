@@ -445,6 +445,18 @@ def test_start_label_keys_are_lowercase():
     assert "toLowerCase()" in _read_panel_js()
 
 
+def test_progress_bar_is_moved_out_of_float_layout():
+    """R237：进度条必须移出详情页浮动列所在的 .container-fluid。
+
+    Why：block js 的 DOM 实际落在该容器内；容器里的 Bootstrap 浮动列未被清除时，
+         进度条会被撑成整屏透明层并拦住正文点击。只把 partial 放回 block js 不够，
+         必须显式移到导航栏之后，回到不带浮动影响的正常文档流。
+    """
+    js = _read_panel_js()
+    assert "$progress.insertAfter($nav)" in js
+    assert "$('body > .navbar')" in js
+
+
 def test_estimate_route_reports_instead_of_bare_500():
     """估算路由必须有兜底：落 traceback 并把异常类型回给前端。
 
