@@ -1,6 +1,6 @@
 # R238 全文单词详解预览卡死修复 + 后台预计算 · LLD
 
-> 状态：**开发完成，待验收**（2026-10-28）
+> 状态：**已上线，待用户最终验收**（2026-10-28）
 > 工作项：R238（magicbook 单仓交付）· 迭代 1.0
 > 用户原话：「magicbook 全文单词详解 卡在预览加载中。booi_id=145 这是为什么？所有的书是否都会这样？能否加一个异步任务，后天提前把这个算出来」（“后天”按“后台”理解）
 
@@ -104,6 +104,8 @@ worker（独立 DB session）
 - 守卫覆盖：实际渲染 jQuery 顺序、首请求不跑上游、READY/TTL/force、FAILED 退避、
   start 复用、迟到 worker 不重算、2000 词分批、公共建表原语不外叉。
 - `py_compile`、`pybabel compile`、`git diff --check` 通过。
+- 正式发布态全量回归：**1014 passed / 0 failed / 4 warnings**；并入
+  `origin/develop` 后定向复跑 **68 passed / 0 failed**。
 - 交付四问：L1 `readme/vocabulary.md`；L2 `vocabulary/interface.md`；L3
   `vocabulary/features/word-detail-preview.md`；本次实现即本 LLD。需求基线
   `vocabulary/requirements.md` 与迭代 `plan.md` 同步。
@@ -115,15 +117,20 @@ worker（独立 DB session）
 - 不改 moon-well `WordDetailService.cachedLookupKeys()` 的全索引扫描。后续可另立
   跨仓任务，把查找改为按输入词表 `terms` 查询或增加短 TTL 缓存。
 - 当前以 magicbook 单进程部署为前提使用进程内锁/花名册；多进程部署需另加 DB 租约。
-- 尚未 push/上线，也未做生产真机验收。
 
 ## 9. 驻留与验收
 
 - worktree：`../magicbook-r238-word-detail-preview`
 - 分支：`fix/r238-word-detail-preview`
-- 实现：`5bb6336e`
-- 合并：`9577c541` 已合入本地 `develop`，未 push/未上线
-- 状态：已合入待真机验收；worktree 原样驻留。
-- 真机验收项：`/word-detail-batch?book_id=145&book_format=epub` 控制台无
-  `$ is not defined`；首屏进入后台阶段并最终自动出数字；另一本文本正常；刷新命中
-  10 分钟快照；故意断上游时页面显示错误而非无限加载。
+- 实现：`5bb6336e`；merge：`9577c541`；上线登记：`c0f4f598`。
+- 状态：已推送 `origin/develop`，fnOS build `c0f4f5982d02de4c1e41e05ebb2da5939255db04`
+  于 2026-10-28 14:33 部署成功，容器 running；worktree 原样驻留待用户最终验收。
+- 生产真机（2026-10-28）：
+  - `book_id=145&book_format=epub`：页面经历「正在读取正文」后自动显示 READY；
+    去重 4,345、已有 1,952、待生成 2,043，按钮启用。
+  - `book_id=50&book_format=epub`：去重 6,111、已有 2,269、待生成 3,411，按钮启用。
+  - 两本书均实际发出 `/ajax/word-detail-preview` 并落库为 READY；控制台无
+    `$ is not defined`。
+  - `book_id=50` 在 10 分钟窗口内刷新后立即显示 READY，数据库 `computed_at` 保持
+    `2026-10-28 06:36:00.278545`，确认命中同一快照。
+  - 验收未点击「开始补缺」，未触发单词详解生成或 token 费用。

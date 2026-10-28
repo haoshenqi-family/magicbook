@@ -1,6 +1,6 @@
 # 全文单词详解预览（L3）
 
-> 状态：现行（2026-10-28 R238，开发完成待验收）。
+> 状态：现行（2026-10-28 R238，已上线待用户验收；生产已验 `book_id=145/50`）。
 > 读者：修改 `word_detail_batch.html`、`reading_word_detail` 预览链路或台账建表逻辑的人。
 > 需求基线：[`../requirements.md`](../requirements.md) R238；接口契约：[`../interface.md`](../interface.md) §5；
 > 本次实现：[`../../../project/iterations/1.0/r238-word-detail-preview/lld.md`](../../../project/iterations/1.0/r238-word-detail-preview/lld.md)。
