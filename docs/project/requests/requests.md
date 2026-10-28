@@ -257,3 +257,5 @@
 239. **全文单词详解预览屈折词覆盖漏算**（2026-10-28）：用户反馈预览「这个计算不对，完全没有考虑曲折变形」（按“屈折”理解）。根因不在 magicbook R238 的后台 worker，而在 moon-well `cachedLookupKeys` 的 ES `_source` 只取 `forms.form`、漏掉判定用的 `forms.type`，导致 `books / children / going / beasts / witches / revolting` 等词目覆盖形全被列为缺失；扫描是全局视图，所有书都受影响。修复主责 moon-well R226；本仓零代码，补 L2 覆盖率权威、L3 快照边界、需求 R239 与 LLD，并规定上游部署后用 `force=true` 刷新 book 145 验收。状态：**已合并待上线验收**（worktree `../magicbook-r239-word-detail-inflection`，分支 `fix/r239-word-detail-inflection`；R238 worktree 保留另待验收）。
 
 240. **核心异步任务体系设计与强制规范**（占号 2026-10-28，待回填）
+
+241. **整本能力缓存齐备标识：整本翻译/整本朗读/全文单词详解都有缓存时给书目标识，提示可低成本学习**（占号 2026-10-28，待回填）
