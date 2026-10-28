@@ -248,4 +248,4 @@
 
 235. **伙伴快捷动作配置切 moon-well 单源——/ajax/buddy/quick-actions 改薄代理+存量懒迁移（与扩展共用配置）**（占号 2026-10-27，待回填）
 
-236. **弹层恢复「整本任务」入口：XHR 片段内改为跳完整详情页的普通链接（R214 可达性回退修复）**（占号 2026-10-28，待回填）
+236. **弹层恢复「整本任务」入口：XHR 片段内改为跳完整详情页的普通链接（R214 可达性回退修复）**（2026-10-28）：用户原话「弹层里恢复『整本任务』按钮。不要做其他的」。定性：R214 子项 C 修复（42ddfb19）给开面板按钮加 `not is_xhr` 门禁引入的可达性回退——完整详情页在 UI 里无普通左键路径（书卡链接全被 data-toggle 弹层截走），管理员入口事实不可达。实现（严格限定范围，未动其他）：`detail.html` 弹层分支新增同门禁普通链接 `id=whole-book-panel-link` → `/book/<id>`（同 URL 无 XHR 头即渲染完整页，面板在完整页内打开；不挂 data-api）；开面板按钮行原样不动。守卫 +1（`test_xhr_modal_entry_is_full_page_link`），既有四条守卫原样通过，detail 相关 4 文件 108 passed。文档：LLD §15 + 状态行。状态：**已上线待验收**（实现 `6180c6bc`；worktree `../magicbook-r236-wholebook-modal-entry`，分支 `fix/r236-wholebook-modal-entry` 驻留待验收；挂 R214 修复不建独立 idea）。
