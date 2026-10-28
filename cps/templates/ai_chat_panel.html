@@ -13,7 +13,17 @@
       <span id="ai-companion-fab-text">AI</span>
       <img id="ai-companion-fab-img" alt="" draggable="false">
     </button>
+    {# R223 快捷气泡占位；R244 隐藏入口与收信信封层。hide 按钮 hover/focus 才显形，
+       平时不抢视线；letter 是纯装饰动画层，恒 aria-hidden。 #}
+    <button id="ai-companion-hide" type="button" title="{{_('Close')}}" aria-label="{{_('Close')}}">&times;</button>
+    <div id="ai-companion-letter" aria-hidden="true"><span class="ai-letter-seal"></span></div>
   </div>
+  {# R244：伙伴被隐藏后的唤回小标签（贴右缘、低存在感），点开即复原悬浮球。 #}
+  <button id="ai-companion-restore" type="button" hidden>
+    <span class="ai-restore-spark" aria-hidden="true">✦</span>
+    <span class="ai-restore-label">{{_('AI Companion')}}</span>
+    <span class="ai-letter-badge" hidden aria-hidden="true"></span>
+  </button>
   <div id="ai-companion-drawer">
     <header>
       <h3>{{_('AI Reading Companion')}}</h3>

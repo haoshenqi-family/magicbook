@@ -371,6 +371,7 @@
     initFabLabel();
     initBubbles();
     initVoiceInput();
+    initBuddyVisibility();
     loadConversations();
     loadBuddyFab();
   }
@@ -404,6 +405,7 @@
     $("#ai-companion-drawer").addClass("open");
     markFabLabelSeen();
     closeBubbles();
+    clearLetterBadge();
     if ($("#ai-memory-panel").hasClass("open")) loadMemoryPanel();
   }
 
@@ -692,6 +694,98 @@
     });
     resetIdle();
   }
+
+  // ------------------------------------------------------------------
+  // R244 伙伴消失/复原动画 + 收信动画钩子。
+  // 消失＝用户点悬浮球上的隐藏 ✕，播一段金光消散后收起，右缘留一枚唤回小标签（可逆）；
+  // 隐藏态记进 localStorage，跨页保持。收信＝纯展示层：金色信封飞入球心、球轻 peek、
+  // 落一个未读角标（开抽屉即清）。本轮不接数据源，暴露 window.AICompanion.showLetter()
+  // 与自定义事件 'mb:buddy-letter'，供未来站内信（R243）在有信时调用。
+  // ------------------------------------------------------------------
+  var BUDDY_HIDDEN_KEY = "calibre.ai.buddy.hidden";
+  var BUDDY_ANIM_MS = 700;   // 动画时长兜底：reduced-motion 或 animationend 丢失时仍能落定
+
+  function buddyReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
+  function setRestoreTab(on) {
+    var tab = document.getElementById("ai-companion-restore");
+    if (tab) tab.hidden = !on;
+  }
+
+  function hideBuddy() {
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (!wrap || wrap.classList.contains("buddy-hidden")) return;
+    closeBubbles();
+    var done = function () {
+      wrap.classList.remove("buddy-vanishing");
+      wrap.classList.add("buddy-hidden");
+      setRestoreTab(true);
+      try { localStorage.setItem(BUDDY_HIDDEN_KEY, "1"); } catch (e) {}
+    };
+    if (buddyReducedMotion()) { done(); return; }
+    wrap.classList.add("buddy-vanishing");
+    var fired = false;
+    var finish = function () { if (!fired) { fired = true; done(); } };
+    var fab = document.getElementById("ai-companion-fab");
+    fab.addEventListener("animationend", finish, { once: true });
+    setTimeout(finish, BUDDY_ANIM_MS);
+  }
+
+  function restoreBuddy() {
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (!wrap) return;
+    setRestoreTab(false);
+    wrap.classList.remove("buddy-hidden");
+    try { localStorage.setItem(BUDDY_HIDDEN_KEY, "0"); } catch (e) {}
+    if (buddyReducedMotion()) return;
+    wrap.classList.add("buddy-appearing");
+    var cleared = false;
+    var clr = function () { if (!cleared) { cleared = true; wrap.classList.remove("buddy-appearing"); } };
+    var fab = document.getElementById("ai-companion-fab");
+    fab.addEventListener("animationend", clr, { once: true });
+    setTimeout(clr, BUDDY_ANIM_MS);
+  }
+
+  function initBuddyVisibility() {
+    var hidden = false;
+    try { hidden = localStorage.getItem(BUDDY_HIDDEN_KEY) === "1"; } catch (e) {}
+    if (hidden) {
+      var wrap = document.getElementById("ai-companion-fab-wrap");
+      if (wrap) wrap.classList.add("buddy-hidden");
+      setRestoreTab(true);
+    }
+    $("#ai-companion-hide").on("click", function (e) { e.stopPropagation(); hideBuddy(); });
+    $("#ai-companion-restore").on("click", restoreBuddy);
+  }
+
+  function clearLetterBadge() {
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (wrap) wrap.classList.remove("buddy-has-letter");
+    var badge = document.querySelector("#ai-companion-restore .ai-letter-badge");
+    if (badge) badge.hidden = true;
+  }
+
+  function showLetter() {
+    var wrap = document.getElementById("ai-companion-fab-wrap");
+    if (!wrap) return;
+    wrap.classList.add("buddy-has-letter");
+    // 伙伴已隐藏：不演飞信，只在唤回标签上打角标，避免用户看不到主体动画却以为没到信。
+    if (wrap.classList.contains("buddy-hidden")) {
+      var badge = document.querySelector("#ai-companion-restore .ai-letter-badge");
+      if (badge) badge.hidden = false;
+      return;
+    }
+    if (buddyReducedMotion()) return;
+    wrap.classList.remove("buddy-lettering");
+    void wrap.offsetWidth;   // 强制重排，连发两封也能重播动画
+    wrap.classList.add("buddy-lettering");
+    setTimeout(function () { wrap.classList.remove("buddy-lettering"); }, 1600);
+  }
+
+  window.AICompanion.showLetter = showLetter;
+  window.addEventListener("mb:buddy-letter", function () { showLetter(); });
 
   // 阅读器划词右键菜单入口：把选中文本以「」引用形式追加到输入框（不发送），
   // 打开抽屉并把光标放到末尾——用户接着补提示词，写完自己按发送
