@@ -1,6 +1,6 @@
 # AC - R254 伙伴邮件弹层与 AI 对话抽屉分离
 
-> 状态：**开发完成待部署**（2026-10-29；定向 138 passed，正式发布态全量 1203 passed / 0 failed）
+> 状态：**已上线待验收**（2026-10-29；实现/部署 `96a75611`；定向 138 passed，正式发布态全量 1203 passed / 0 failed；容器 healthy）
 > 上层设计：[lld.md](../lld.md)
 
 ## A. 浮层结构
@@ -33,4 +33,4 @@
 - [x] 邮件、代理、管理员发信、伙伴动效、i18n、账号 IA、首页壳与 API 契约合计 138 passed。
 - [x] `node --check` 与 `git diff --check` 全绿。
 - [x] 正式发布态全量 `pytest tests/` 为 1203 passed / 0 failed。
-- [ ] merge/push 后 fnOS 构建、app-manager 部署、容器健康与镜像 SHA 核验通过，状态回填为“已上线待验收”。
+- [x] merge/push 后 fnOS `build END OK`、app-manager `deploy SUCCESS`、容器 `running/healthy`，`house.build-sha=96a75611...`；生产 `/login` 200，匿名 `/buddy` 302。

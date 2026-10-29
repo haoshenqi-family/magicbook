@@ -1,6 +1,6 @@
 # LLD - R254 伙伴邮件弹层与 AI 对话抽屉分离
 
-> 状态：**开发完成待部署**（2026-10-29；定向 138 passed，正式发布态全量 1203 passed / 0 failed）
+> 状态：**已上线待验收**（2026-10-29；实现/部署 `96a75611`；定向 138 passed，正式发布态全量 1203 passed / 0 failed；容器 healthy）
 > 需求基线：[companion R254](../../../../product/companion/requirements.md)
 > 验收：[ac/acceptance.md](./ac/acceptance.md)
 
