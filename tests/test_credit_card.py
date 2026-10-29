@@ -169,8 +169,7 @@ def test_credit_page_contains_card_sections(admin_client, moonwell_configured):
     assert 'class="modal fade" id="credit-checkout"' in html
     assert 'id="credit-checkout-title"' in html
     assert 'id="credit-checkout-help"' in html
-    assert 'data-card-share-url=' in html
-    assert '/credit-card/share' in html
+    assert 'data-card-share-url="/credit-card/share"' in html
     assert html.count("credit-card-admin-panel") == 1
     assert html.count("credit-card-admin-cards-rows") == 1
     assert html.index("credit-card-admin-cards-rows") > \

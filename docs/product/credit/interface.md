@@ -49,6 +49,7 @@
 
 - 分享页：`GET /credit-card/share`，公开访问，不需要登录。
 - 卡密只放在 URL fragment：`/credit-card/share#key=<encodeURIComponent(key)>&credits=<credits>`；fragment 不发送给 Flask、反向代理或访问日志。
+- 页面只下发相对路径，前端用 `window.location.origin` 拼绝对链接，避免反向代理协议头不一致时生成 `http://`。
 - 分享页不自动兑换，只展示卡密、复制按钮和使用步骤。已登录用户可跳转 `/credits#redeem=<encoded key>`；匿名用户先复制卡密并登录，登录后积分页会从同一标签页的 `sessionStorage` 恢复待兑换卡密。
 - 分享页返回 `Cache-Control: no-store`、`Referrer-Policy: no-referrer`、`X-Robots-Tag: noindex, nofollow`。
 

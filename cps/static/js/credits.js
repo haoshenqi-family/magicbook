@@ -240,8 +240,8 @@
     }
 
     function cardShareUrl(card) {
-        var base = $('#credit-page').attr('data-card-share-url') ||
-            (window.location.origin + '/credit-card/share');
+        var path = $('#credit-page').attr('data-card-share-url') || '/credit-card/share';
+        var base = new URL(path, window.location.origin).href;
         var params = new URLSearchParams();
         params.set('key', card.key);
         if (card.credits !== null && card.credits !== undefined) {

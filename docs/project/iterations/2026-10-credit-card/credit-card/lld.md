@@ -35,7 +35,7 @@
 - `#credit-card-admin-panel`：仅在管理员时渲染，包含发卡表单、批次表和卡密明细。
 - `#credit-checkout`：Bootstrap 模态收银台，创建订单并拿到二维码后自动弹出。
 - 收银台内容使用 Flex 双列布局，不复用 Bootstrap 浮动栅格；生产实测该页面全局样式会让 `.row` 高度塌陷，导致正文溢出到遮罩。
-- `#credit-page[data-card-share-url]` 提供分享落地页公网 URL，前端只拼 fragment。
+- `#credit-page[data-card-share-url]` 提供分享落地页相对路径；前端用 `window.location.origin` 补成当前协议下的绝对 URL，再拼 fragment。
 
 `#credit-page[data-is-admin]` 只用于前端显隐，不承担权限。
 
