@@ -234,7 +234,8 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **测试与发布**：正式发布态全量 `1033 passed / 0 failed / 4 warnings`；`tests/test_credit_card.py + test_credit_consume.py` 23 passed、契约/i18n 11 passed，`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。远端新增 R243 文档后合并为 `8e0efe95` 并 push `origin/develop`；fnOS 于 2026-10-29 09:41:54 返回 `deploy SUCCESS`、`build END OK (8e0efe95...)`。
 - **文档四问**：L1 `readme/credit.md`、L2 `credit/interface.md`、L3 `credit/features/credit-card.md`、需求基线 `credit/requirements.md`、本次 HLD/LLD/AC 与迭代 `plan.md` 均已回填。
 - **状态与驻留**：R242 已上线待验收。现网 `magicbook` 容器 `running/healthy`，`house.build-sha=8e0efe95...`；`/credits` 与卡密代理按预期重定向登录，生产的 `credits.js` 已包含兑换、购卡与管理导出接线。PingCode MB-233 保持 `In progress`；worktree `../magicbook-r242-credit-card`（分支 `feat/r242-credit-card`）保留待真机验收，验收后再清理。
-- **验收缺陷修复（2026-10-29）**：用户反馈点击「购买并赠送」无感知。生产 DOM 实测订单已创建，但原收银台顶部位于 `1292px`、视口仅 `886px`，页面没有自动滚动，属于可见性缺陷而非接口失败。改为 Bootstrap 模态收银台：点击后按钮就地显示「正在创建订单...」，二维码生成后立即弹窗；建单失败会滚动到可见告警。定向与契约回归 34 passed，`node --check`、`git diff --check` 通过。
+- **验收缺陷修复（2026-10-29）**：用户反馈点击「购买并赠送」无感知。生产 DOM 实测订单已创建，但原收银台顶部位于 `1292px`、视口仅 `886px`，页面没有自动滚动，属于可见性缺陷而非接口失败。改为 Bootstrap 模态收银台：点击后按钮就地显示「正在创建订单...」，二维码生成后立即弹窗；建单失败会滚动到可见告警。首轮上线后发现页面全局样式使 Bootstrap 浮动栅格高度塌陷，正文溢出遮罩，已改用 Flex 双列布局。定向与契约回归 34 passed，`node --check`、`git diff --check` 通过。
+- **弹窗发布验证（2026-10-29）**：修复提交 `12555764` 已 push `origin/develop`；fnOS 构建 `END OK`，app-manager `deploy SUCCESS`，容器 `running/healthy`，`house.build-sha=125557644f1047809304399fa166049ac51a703d`。生产页真实点击「购买并赠送」后弹窗正常打开，二维码 `200×200`、倒计时 `29:53` 启动、正文高度 `230px` 且无溢出，控制台无 error/warn。
 - **窗口**：写入前 10 节，按「写入即检查」把最早 R229 整节原样搬至 `response-archive/response-R229.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 242 已从占位回填；本条为回应。冲突记录：无撞号。
 
