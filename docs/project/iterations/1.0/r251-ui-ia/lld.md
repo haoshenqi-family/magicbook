@@ -1,6 +1,6 @@
 # LLD — R251 MagicBook UI 信息架构与导航分组
 
-> 状态：**开发完成待验收**（2026-10-29；实现 `1910fce7`，定向 12 passed / 0 failed，正式发布态全量 1188 passed / 0 failed）
+> 状态：**已上线待验收**（2026-10-29；实现 `1910fce7`，移动账号标签修正 `70aa636c`；定向 12 passed / 0 failed，正式发布态全量 1188 passed / 0 failed）
 > 工作项：R251 · 迭代 1.0
 > 需求基线：[library requirements](../../../../product/library/requirements.md) · 验收：[acceptance.md](./ac/acceptance.md)
 
@@ -72,6 +72,7 @@ nav_domain(path, page)      # home / library / learning / account / admin / ""
 - 以 `current_domain` 单一值驱动 `active` 与 `aria-current="page"`；
 - Calibre Browse 项只在当前域确实为书库时点亮；
 - 移动底栏复用同一域判定，不再维护第二套页面名单；
+- 移动底栏第四项固定显示“账号”，不直接渲染可能过长的用户名；
 - 书架按展示规则分组并显示数量，创建书架/关于归入系统组。
 
 ### 3.3 样式
@@ -161,6 +162,16 @@ tests/test_home_nav_shell.py
 pytest tests/ -q
 1188 passed / 0 failed / 4 warnings
 ```
+
+发布验证：
+
+- `48327926..70aa636c` 已推送 `origin/develop`；
+- fnOS `build END OK (70aa636c58df969e68ce80ec55dcfcee01b8dc38)`；
+- app-manager `deploy SUCCESS`，容器 `running / healthy`；
+- `house.build-sha=70aa636c58df969e68ce80ec55dcfcee01b8dc38`，
+  `house.code-digest=165b49e82f6aa555`；
+- 本机与生产 `/login` 均为 HTTP 200。生产登录态未保留，`/reading/settings`
+  正确 302 到登录页，因此桌面/移动视觉证据以本地真实模板 Chromium 验收为准。
 
 ## 7. 后续边界
 

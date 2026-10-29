@@ -60,6 +60,7 @@ def test_mobile_bottom_nav_present():
     assert "mb-bottom-nav" in html, "移动端底部导航缺失"
     assert html.count("mb-bottom-item") >= 3, "底部导航少于三个入口"
     assert "web.learning_page" in html, "学习入口缺失"
+    assert "{{_('Account')}}" in html, "移动底栏应显示稳定的账号标签，而不是用户名"
     css = _CSS.read_text(encoding="utf-8")
     assert ".mb-bottom-nav" in css
 
