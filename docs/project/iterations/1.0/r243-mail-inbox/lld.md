@@ -1,6 +1,6 @@
 # LLD — R243 站内信前端：伙伴信封、抽屉 Mail 与独立收件箱
 
-> 状态：**前后端已实现，待验收**（2026-10-29；moon-well R228 + magicbook R243，未 push、未部署）
+> 状态：**前后端已实现，待验收**（2026-10-29；moon-well R228 + magicbook R243；合并 R244 `a241f287`；未 push、未部署）
 > 上层设计：[hld.md](./hld.md) · 验收：[ac/acceptance.md](./ac/acceptance.md)
 > 需求基线：[companion R243](../../../../product/companion/requirements.md)
 > 后端契约：`moon-well` 仓库 `docs/project/iterations/1.0/r228-mail-inbox/lld.md`（跨仓文档不写相对链接）
