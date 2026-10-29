@@ -34,6 +34,16 @@
         }
     }
 
+    function showCreditTab(selector) {
+        var link = $('#credit-tabs a[href="' + selector + '"]');
+        if (!link.length) { return; }
+        link.tab('show');
+        var pane = $(selector);
+        if (pane.length && pane[0].scrollIntoView) {
+            pane[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
     function showError(message, reveal) {
         var alertBox = $('#credit-alert');
         alertBox.removeClass('alert-success').addClass('alert-danger')
@@ -283,6 +293,7 @@
             .removeClass('text-danger text-success').addClass('text-muted')
             .text((credits ? credits + ' 积分卡密' : '卡密') +
                 '已从分享链接填入，请确认后点击「兑换」。');
+        showCreditTab('#credit-pane-cards');
         revealElement($('#credit-card-redeem')[0]);
         if (window.history && window.history.replaceState) {
             // Remove the bearer key from the visible URL after moving it to the form.
@@ -893,6 +904,16 @@
             'T' + pad2(date.getHours()) + ':' + pad2(date.getMinutes()) + ':' + pad2(date.getSeconds());
     }
 
+    // Why: datetime-local 的值形如 2026-10-29T00:00[:ss]，而 moon-well 的通用
+    // LocalDateTime 契约是 yyyy-MM-dd HH:mm:ss。这里只换分隔符、不 new Date()，
+    // 保留管理员看到的东八区墙上时间；后端也兼容 ISO，作为部署顺序错位的兜底。
+    function promotionWireTime(value) {
+        var raw = String(value || '').trim();
+        var match = raw.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::(\d{2}))?/);
+        if (!match) { return raw; }
+        return match[1] + ' ' + match[2] + ':' + (match[3] || '00');
+    }
+
     function fillPromotionDefaults() {
         if (!$('#credit-promo-start').val()) {
             var today = new Date();
@@ -954,29 +975,30 @@
     }
 
     function submitPromotion() {
-        var start = $('#credit-promo-start').val();
-        var end = $('#credit-promo-end').val();
+        var start = promotionWireTime($('#credit-promo-start').val());
+        var end = promotionWireTime($('#credit-promo-end').val());
         var multiplier = parseInt($('#credit-promo-multiplier').val(), 10);
-        if (!start || !end || !multiplier) { return; }
+        var feedback = $('#credit-promo-feedback');
+        feedback.removeClass('is-error is-success').text('');
+        if (!start || !end || !multiplier) {
+            feedback.addClass('is-error').text('请填写开始时间、结束时间与倍率。');
+            return;
+        }
         // Why 二次确认：活动发布后不可编辑/撤销（用户拍板），配错只能改库
-        var summary = '倍率 ×' + multiplier + '，' + start.replace('T', ' ') + ' ~ ' +
-            end.replace('T', ' ') + '（东八区）';
+        var summary = '倍率 ×' + multiplier + '，' + start + ' ~ ' + end + '（东八区）';
         if (!window.confirm('发布后不可修改或撤销，确认发布活动？\n' + summary)) {
             return;
         }
-        $.ajax({
-            url: '/ajax/credit/admin-promotion-create', method: 'POST',
-            contentType: 'application/json',
-            data: JSON.stringify({ startTime: start, endTime: end, multiplier: multiplier })
-        }).done(function () {
-            window.alert('活动已发布。');
+        ajax('/ajax/credit/admin-promotion-create', 'POST',
+             { startTime: start, endTime: end, multiplier: multiplier }).then(function (response) {
+            unwrap(response);
+            feedback.removeClass('is-error').addClass('is-success').text('活动已发布。');
             loadPromotions();
             // 活动即刻影响档位展示与下单倍率，必须刷新卡片，否则管理员会以为没生效
             loadPackages();
-        }).fail(function (xhr) {
-            var msg = '发布失败';
-            try { msg = (JSON.parse(xhr.responseText).message) || msg; } catch (err) { /* ignore */ }
-            window.alert(msg);
+        }).catch(function (error) {
+            feedback.removeClass('is-success').addClass('is-error')
+                .text('发布失败：' + (error.message || '请稍后重试。'));
         });
     }
 
@@ -1012,6 +1034,9 @@
         loadPurchasedCards();
         loadConsumeDetail();
 
+        $(document).on('click', '.credit-jump', function () {
+            showCreditTab($(this).attr('data-credit-tab'));
+        });
         $('#credit-card-redeem-form').on('submit', function (e) {
             e.preventDefault();
             redeemCard();

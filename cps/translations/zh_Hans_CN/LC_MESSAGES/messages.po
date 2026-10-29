@@ -6454,3 +6454,30 @@ msgstr "有效期"
 
 msgid "Cards in this batch"
 msgstr "本批次卡密"
+
+msgid "Recharge"
+msgstr "充值"
+
+msgid "Credit Cards"
+msgstr "积分卡"
+
+msgid "Credit Details"
+msgstr "明细"
+
+msgid "Management"
+msgstr "管理"
+
+msgid "Credit adjustment"
+msgstr "积分调整"
+
+msgid "Credit Management"
+msgstr "积分管理"
+
+msgid "See where credits came from and where they were spent."
+msgstr "查看积分从哪里来、花到了哪里。"
+
+msgid "Redeem a card someone sent you, or buy a fixed-price card to gift."
+msgstr "兑换别人送你的卡密，或购买固定面额积分卡送人。"
+
+msgid "Copy a key or share a link. The recipient redeems it after signing in."
+msgstr "复制卡密或分享链接；对方登录后即可兑换。"

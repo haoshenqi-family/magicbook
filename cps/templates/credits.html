@@ -2,6 +2,51 @@
 
 {% block header %}
 <style>
+  /* R245：积分页按任务分区，先给余额与入口，再按 Tab 进入充值/积分卡/明细/管理。 */
+  #credit-page {
+    --credit-ink: #263238;
+    --credit-muted: #667377;
+    --credit-accent: #2f6f5e;
+    --credit-accent-soft: #eaf3ef;
+    --credit-paper: #fbfaf7;
+    --credit-line: #ded8cc;
+  }
+  .credit-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+                 padding: 22px 24px; margin: 8px 0 18px; border: 1px solid var(--credit-line);
+                 border-radius: 10px; background:
+                   radial-gradient(circle at 92% 10%, rgba(47, 111, 94, .14), transparent 30%),
+                   linear-gradient(135deg, #fffdf8 0%, var(--credit-paper) 58%, #f1eee6 100%); }
+  .credit-hero-main { min-width: 0; }
+  .credit-hero .credit-balance-label { margin: 0 0 2px; color: var(--credit-muted);
+                                      font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+  .credit-hero .credit-balance-value { margin: 0; color: var(--credit-ink); font-size: 38px;
+                                      font-weight: 700; line-height: 1.1; }
+  .credit-hero .credit-hero-help { max-width: 620px; margin: 8px 0 0; color: var(--credit-muted); }
+  .credit-hero-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  .credit-hero-actions .btn { border-color: var(--credit-line); background: rgba(255,255,255,.82); color: var(--credit-ink); }
+  .credit-hero-actions .btn-primary { border-color: var(--credit-accent); background: var(--credit-accent); color: #fff; }
+  #credit-tabs { margin-top: 4px; }
+  #credit-tabs > li > a { color: var(--credit-muted); font-weight: 600; }
+  #credit-tabs > li.active > a,
+  #credit-tabs > li.active > a:hover,
+  #credit-tabs > li.active > a:focus { color: var(--credit-accent); }
+  #credit-tabs > li.active > a { border-top: 3px solid var(--credit-accent); }
+  #credit-tab-content { padding-top: 18px; }
+  .credit-section-head { display: flex; align-items: flex-start; justify-content: space-between;
+                         gap: 18px; margin-bottom: 12px; }
+  .credit-section-head h3 { margin: 0 0 4px; }
+  .credit-section-head p { margin: 0; color: var(--credit-muted); }
+  .credit-card-layout { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+                        gap: 18px; align-items: start; }
+  .credit-card-layout > .panel { margin-bottom: 0; }
+  .credit-card-purchase-block { padding: 14px 16px; border: 1px solid #b9d7c9;
+                                border-radius: 8px; background: #fbfdfc; }
+  .credit-card-purchase-block h3 { margin-top: 0; }
+  .credit-admin-tabs { margin: 0 0 18px; }
+  .credit-admin-pane { padding-top: 2px; }
+  .credit-inline-feedback { min-height: 20px; margin: 8px 0 0; font-size: 13px; }
+  .credit-inline-feedback.is-error { color: #a94442; }
+  .credit-inline-feedback.is-success { color: #3c763d; }
   .credit-packages { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
   .credit-package-card { flex: 1 1 220px; max-width: 320px; border: 1px solid #ddd;
                          border-radius: 6px; padding: 15px; display: flex; flex-direction: column; }
@@ -40,6 +85,10 @@
   .credit-checkout-layout .credit-checkout-qr { flex: 0 0 200px; text-align: center; }
   .credit-checkout-layout .credit-checkout-copy { flex: 1 1 auto; min-width: 0; }
   @media (max-width: 600px) {
+    .credit-hero { display: block; padding: 18px; }
+    .credit-hero-actions { justify-content: flex-start; margin-top: 16px; }
+    .credit-card-layout { display: block; }
+    .credit-card-layout > .panel { margin-bottom: 16px; }
     .credit-checkout-layout { display: block; }
     .credit-checkout-layout .credit-checkout-qr { margin: 0 auto 16px; }
   }
@@ -52,67 +101,178 @@
      data-card-share-url="{{ url_for('web.credit_card_share_page') }}">
   <h1>{{_('Credits')}}</h1>
 
-  <div class="panel panel-default">
-    <div class="panel-heading">
-      <h3 class="panel-title">{{_('My Credit Balance')}}</h3>
-    </div>
-    <div class="panel-body">
-      <p id="credit-balance" class="lead" style="margin:0">{{_('Loading...')}}</p>
-      <p class="help-block" style="margin-bottom:0">
+  <section class="credit-hero" aria-labelledby="credit-balance-label">
+    <div class="credit-hero-main">
+      <p class="credit-balance-label" id="credit-balance-label">{{_('My Credit Balance')}}</p>
+      <p id="credit-balance" class="credit-balance-value">{{_('Loading...')}}</p>
+      <p class="credit-hero-help">
         {{_('Credits are consumed by AI features (about 1 credit per 1k tokens). Recharge is credited instantly after payment.')}}
       </p>
     </div>
-  </div>
+    <div class="credit-hero-actions">
+      <button type="button" class="btn btn-primary credit-jump" data-credit-tab="#credit-pane-recharge">
+        {{_('Recharge')}}
+      </button>
+      <button type="button" class="btn btn-default credit-jump" data-credit-tab="#credit-pane-cards">
+        {{_('Credit Cards')}}
+      </button>
+      <button type="button" class="btn btn-default credit-jump" data-credit-tab="#credit-pane-details">
+        {{_('Credit Details')}}
+      </button>
+    </div>
+  </section>
 
   <div id="credit-alert" style="display:none" class="alert" role="alert"></div>
 
-  <h3>{{_('Redeem a Credit Card')}}</h3>
-  <div class="panel panel-default" id="credit-card-redeem">
-    <div class="panel-body">
-      <p class="help-block" style="margin-top:0">
-        {{_('Anyone signed in can redeem a valid card key. Keys are transferable; paste the full text and redeem once.')}}
-      </p>
-      <form id="credit-card-redeem-form" class="form-inline">
-        <input type="text" id="credit-card-redeem-key" class="form-control"
-               placeholder="MB-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" required>
-        <button type="submit" class="btn btn-success">{{_('Redeem')}}</button>
-      </form>
-      <p id="credit-card-redeem-result" class="help-block" style="margin:8px 0 0"></p>
-    </div>
-  </div>
+  <ul class="nav nav-tabs" id="credit-tabs" role="tablist">
+    <li role="presentation" class="active">
+      <a href="#credit-pane-recharge" aria-controls="credit-pane-recharge" role="tab" data-toggle="tab">
+        {{_('Recharge')}}
+      </a>
+    </li>
+    <li role="presentation">
+      <a href="#credit-pane-cards" aria-controls="credit-pane-cards" role="tab" data-toggle="tab">
+        {{_('Credit Cards')}}
+      </a>
+    </li>
+    <li role="presentation">
+      <a href="#credit-pane-details" aria-controls="credit-pane-details" role="tab" data-toggle="tab">
+        {{_('Credit Details')}}
+      </a>
+    </li>
+    {% if current_user.role_admin() %}
+    <li role="presentation">
+      <a href="#credit-pane-admin" aria-controls="credit-pane-admin" role="tab" data-toggle="tab">
+        {{_('Management')}}
+      </a>
+    </li>
+    {% endif %}
+  </ul>
 
-  <h3>{{_('Buy a Credit Card to Gift')}}</h3>
-  <p class="help-block">
-    {{_('Fixed-price cards do not receive recharge promotion multipliers. After payment, copy the card key and send it to anyone.')}}
-  </p>
-  <div id="credit-card-packages" class="credit-packages">
-    <p class="text-muted">{{_('Loading...')}}</p>
-  </div>
+  <div class="tab-content" id="credit-tab-content">
+    <section role="tabpanel" class="tab-pane active" id="credit-pane-recharge">
+      <div class="credit-section-head">
+        <div>
+          <h3>{{_('Choose a Recharge Package')}}</h3>
+          <p>{{_('Credits are consumed by AI features (about 1 credit per 1k tokens). Recharge is credited instantly after payment.')}}</p>
+        </div>
+      </div>
+      <div id="credit-packages" class="credit-packages">
+        <p class="text-muted">{{_('Loading...')}}</p>
+      </div>
+    </section>
 
-  <h3>{{_('My Purchased Card Keys')}}</h3>
-  <div class="panel panel-default" id="credit-card-purchased">
-    <div class="table-responsive">
-      <table class="table table-condensed table-striped" style="margin:0">
-        <thead>
-          <tr>
-            <th>{{_('Card Key')}}</th>
-            <th>{{_('Credits')}}</th>
-            <th>{{_('Status')}}</th>
-            <th>{{_('Expires')}}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="credit-card-purchased-rows">
-          <tr><td colspan="5" class="text-muted">{{_('Loading...')}}</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+    <section role="tabpanel" class="tab-pane" id="credit-pane-cards">
+      <div class="credit-section-head">
+        <div>
+          <h3>{{_('Credit Cards')}}</h3>
+          <p>{{_('Redeem a card someone sent you, or buy a fixed-price card to gift.')}}</p>
+        </div>
+      </div>
+      <div class="credit-card-layout">
+        <div class="panel panel-default" id="credit-card-redeem">
+          <div class="panel-heading">{{_('Redeem a Credit Card')}}</div>
+          <div class="panel-body">
+            <p class="help-block" style="margin-top:0">
+              {{_('Anyone signed in can redeem a valid card key. Keys are transferable; paste the full text and redeem once.')}}
+            </p>
+            <form id="credit-card-redeem-form">
+              <div class="input-group">
+                <input type="text" id="credit-card-redeem-key" class="form-control"
+                       placeholder="MB-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" required>
+                <span class="input-group-btn">
+                  <button type="submit" class="btn btn-success">{{_('Redeem')}}</button>
+                </span>
+              </div>
+            </form>
+            <p id="credit-card-redeem-result" class="help-block" style="margin:8px 0 0"></p>
+          </div>
+        </div>
 
-  <h3>{{_('Choose a Recharge Package')}}</h3>
-  <div id="credit-packages" class="credit-packages">
-    <p class="text-muted">{{_('Loading...')}}</p>
-  </div>
+        <div class="credit-card-purchase-block">
+          <h3>{{_('Buy a Credit Card to Gift')}}</h3>
+          <p class="help-block">
+            {{_('Fixed-price cards do not receive recharge promotion multipliers. After payment, copy the card key and send it to anyone.')}}
+          </p>
+          <div id="credit-card-packages" class="credit-packages">
+            <p class="text-muted">{{_('Loading...')}}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="credit-section-head" style="margin-top:24px">
+        <div>
+          <h3>{{_('My Purchased Card Keys')}}</h3>
+          <p>{{_('Copy a key or share a link. The recipient redeems it after signing in.')}}</p>
+        </div>
+      </div>
+      <div class="panel panel-default" id="credit-card-purchased">
+        <div class="table-responsive">
+          <table class="table table-condensed table-striped" style="margin:0">
+            <thead>
+              <tr>
+                <th>{{_('Card Key')}}</th>
+                <th>{{_('Credits')}}</th>
+                <th>{{_('Status')}}</th>
+                <th>{{_('Expires')}}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="credit-card-purchased-rows">
+              <tr><td colspan="5" class="text-muted">{{_('Loading...')}}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section role="tabpanel" class="tab-pane" id="credit-pane-details">
+      <div class="credit-section-head">
+        <div>
+          <h3>{{_('Credit Consumption Detail')}}</h3>
+          <p>{{_('See where credits came from and where they were spent.')}}</p>
+        </div>
+      </div>
+      <div class="panel panel-default">
+        <div class="panel-body">
+          <div id="credit-consume-summary" class="credit-consume-summary">
+            <p class="text-muted" style="margin:0">{{_('Loading...')}}</p>
+          </div>
+          <div id="credit-consume-groups"></div>
+          <div class="credit-consume-filters" style="margin-top:12px">
+            <div class="btn-group" role="group" style="margin-right:10px;margin-bottom:5px">
+              <button type="button" class="btn btn-sm btn-default credit-type-btn active" data-type="">{{_('All')}}</button>
+              <button type="button" class="btn btn-sm btn-default credit-type-btn" data-type="INCOME">{{_('Income')}}</button>
+              <button type="button" class="btn btn-sm btn-default credit-type-btn" data-type="CONSUME">{{_('Consume')}}</button>
+            </div>
+            <select id="credit-consume-caller" class="form-control" style="display:inline-block;width:auto">
+              <option value="">{{_('All Features')}}</option>
+            </select>
+            <input type="date" id="credit-consume-start" class="form-control" style="display:inline-block;width:auto">
+            <input type="date" id="credit-consume-end" class="form-control" style="display:inline-block;width:auto">
+            <button id="credit-consume-apply" class="btn btn-default btn-sm">{{_('Apply')}}</button>
+            <button id="credit-consume-reset" class="btn btn-link btn-sm">{{_('Reset')}}</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-striped" id="credit-consume-table">
+              <thead>
+                <tr>
+                  <th>{{_('Time')}}</th>
+                  <th>{{_('Type')}}</th>
+                  <th>{{_('Reason')}}</th>
+                  <th>{{_('Feature')}}</th>
+                  <th class="text-right">{{_('Credits')}}</th>
+                </tr>
+              </thead>
+              <tbody id="credit-consume-rows">
+                <tr><td colspan="5" class="text-muted">{{_('Loading...')}}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="credit-consume-pager" class="text-center"></div>
+        </div>
+      </div>
+    </section>
 
   <div class="modal fade" id="credit-checkout" tabindex="-1" role="dialog"
        aria-labelledby="credit-checkout-title">
@@ -148,9 +308,29 @@
 
 
   {% if current_user.role_admin() %}
+    <section role="tabpanel" class="tab-pane" id="credit-pane-admin">
   <div class="panel panel-danger" id="credit-admin-panel">
-    <div class="panel-heading">{{_('Admin: Adjust Credits')}}</div>
+    <div class="panel-heading">{{_('Credit Management')}}</div>
     <div class="panel-body">
+      <ul class="nav nav-tabs credit-admin-tabs" id="credit-admin-tabs" role="tablist">
+        <li role="presentation" class="active">
+          <a href="#credit-admin-adjust" aria-controls="credit-admin-adjust" role="tab" data-toggle="tab">
+            {{_('Credit adjustment')}}
+          </a>
+        </li>
+        <li role="presentation">
+          <a href="#credit-admin-promotion" aria-controls="credit-admin-promotion" role="tab" data-toggle="tab">
+            {{_('Credit Promotion (Multiplier)')}}
+          </a>
+        </li>
+        <li role="presentation">
+          <a href="#credit-admin-cards" aria-controls="credit-admin-cards" role="tab" data-toggle="tab">
+            {{_('Credit Cards: Issue Batch')}}
+          </a>
+        </li>
+      </ul>
+      <div class="tab-content">
+      <div role="tabpanel" class="tab-pane active credit-admin-pane" id="credit-admin-adjust">
       <form id="credit-admin-adjust-form" class="form-inline" style="margin-bottom:0">
         <select id="credit-admin-user" class="form-control" style="width:220px" required>
           <option value="">{{_('Select user...')}}</option>
@@ -174,8 +354,9 @@
       <p class="text-muted" style="margin-top:8px;margin-bottom:0;font-size:12px">
         {{_('Positive amount adds credits, negative deducts. Every adjustment is recorded in the ledger with your user id.')}}
       </p>
+      </div>
 
-      <hr>
+      <div role="tabpanel" class="tab-pane credit-admin-pane" id="credit-admin-promotion">
       <h4 style="margin-top:0">{{_('Credit Promotion (Multiplier)')}}</h4>
       <form id="credit-promo-form" class="form-inline" style="margin-bottom:0">
         <input type="datetime-local" id="credit-promo-start" class="form-control" step="1"
@@ -190,6 +371,7 @@
       <p class="text-muted" style="margin-top:8px;margin-bottom:6px;font-size:12px">
         {{_('Times are Beijing time (UTC+8). Credits granted = base credits × multiplier. A published promotion cannot be edited or revoked — verify the window and multiplier before publishing.')}}
       </p>
+      <p id="credit-promo-feedback" class="credit-inline-feedback" role="status" aria-live="polite"></p>
       <div class="table-responsive">
         <table class="table table-condensed table-striped" id="credit-promo-table">
           <thead>
@@ -205,8 +387,9 @@
           </tbody>
         </table>
       </div>
+      </div>
 
-      <hr>
+      <div role="tabpanel" class="tab-pane credit-admin-pane" id="credit-admin-cards">
       <div id="credit-card-admin-panel">
         <h4 style="margin-top:0">{{_('Credit Cards: Issue Batch')}}</h4>
         <form id="credit-card-admin-issue-form" class="form-inline">
@@ -261,49 +444,12 @@
           </div>
         </div>
       </div>
+      </div>
+      </div>
     </div>
   </div>
+    </section>
   {% endif %}
-
-  <h3>{{_('Credit Consumption Detail')}}</h3>
-  <div class="panel panel-default">
-    <div class="panel-body">
-      <div id="credit-consume-summary" class="credit-consume-summary">
-        <p class="text-muted" style="margin:0">{{_('Loading...')}}</p>
-      </div>
-      <div id="credit-consume-groups"></div>
-      <div class="credit-consume-filters" style="margin-top:12px">
-        <div class="btn-group" role="group" style="margin-right:10px;margin-bottom:5px">
-          <button type="button" class="btn btn-sm btn-default credit-type-btn active" data-type="">{{_('All')}}</button>
-          <button type="button" class="btn btn-sm btn-default credit-type-btn" data-type="INCOME">{{_('Income')}}</button>
-          <button type="button" class="btn btn-sm btn-default credit-type-btn" data-type="CONSUME">{{_('Consume')}}</button>
-        </div>
-        <select id="credit-consume-caller" class="form-control" style="display:inline-block;width:auto">
-          <option value="">{{_('All Features')}}</option>
-        </select>
-        <input type="date" id="credit-consume-start" class="form-control" style="display:inline-block;width:auto">
-        <input type="date" id="credit-consume-end" class="form-control" style="display:inline-block;width:auto">
-        <button id="credit-consume-apply" class="btn btn-default btn-sm">{{_('Apply')}}</button>
-        <button id="credit-consume-reset" class="btn btn-link btn-sm">{{_('Reset')}}</button>
-      </div>
-      <div class="table-responsive">
-        <table class="table table-striped" id="credit-consume-table">
-          <thead>
-            <tr>
-              <th>{{_('Time')}}</th>
-              <th>{{_('Type')}}</th>
-              <th>{{_('Reason')}}</th>
-              <th>{{_('Feature')}}</th>
-              <th class="text-right">{{_('Credits')}}</th>
-            </tr>
-          </thead>
-          <tbody id="credit-consume-rows">
-            <tr><td colspan="5" class="text-muted">{{_('Loading...')}}</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div id="credit-consume-pager" class="text-center"></div>
-    </div>
   </div>
 
   <input type="hidden" id="credit-csrf" value="{{ csrf_token() }}">
