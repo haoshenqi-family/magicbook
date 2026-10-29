@@ -31,6 +31,28 @@
   border-top: 1px solid #eee;
 }
 
+/* R241：整本能力缓存齐备标识。总标用 success 色的 label（与「双语」同级），
+   逐项明细用 default 色并留一点间距——一屏里信息密度已经很高，明细只需可扫读。 */
+.book-cache-ready {
+  margin: 4px 0 8px;
+}
+
+.book-cache-ready p {
+  margin-bottom: 4px;
+}
+
+.cache-ready-chip {
+  margin-left: 4px;
+  font-weight: normal;
+}
+
+.wb-tab-cached {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: normal;
+  vertical-align: middle;
+}
+
 .admin-tools p {
   margin-bottom: 4px;
 }
