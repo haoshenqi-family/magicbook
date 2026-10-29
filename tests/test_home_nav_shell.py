@@ -93,14 +93,19 @@ def test_r251_sidebar_groups_render_without_dropping_shelves(admin_client, ub_se
     ])
     ub_session.commit()
 
-    rv = admin_client.get("/reading/settings")
-    assert rv.status_code == 200
-    html = rv.data.decode("utf-8")
-    assert html.count('href="/shelf/') == 4, (
-        "三个书架 + Create a Shelf 入口都应存在；少一个即分组丢入口"
-    )
-    for label in ("Levels", "Media", "Shelves"):
-        assert label in html, f"侧栏分组标题未渲染：{label}"
+    try:
+        rv = admin_client.get("/reading/settings")
+        assert rv.status_code == 200
+        html = rv.data.decode("utf-8")
+        assert html.count('href="/shelf/') == 4, (
+            "三个书架 + Create a Shelf 入口都应存在；少一个即分组丢入口"
+        )
+        for label in ("Levels", "Media", "Shelves"):
+            assert label in html, f"侧栏分组标题未渲染：{label}"
+    finally:
+        for shelf in ub_session.query(ub.Shelf).all():
+            ub_session.delete(shelf)
+        ub_session.commit()
 
 
 def test_create_shelf_cut_fix():
