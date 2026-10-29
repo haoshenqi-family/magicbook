@@ -1,6 +1,6 @@
-# LLD — R251 MagicBook UI 信息架构与导航分组
+# LLD — R251 MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页
 
-> 状态：**已上线待验收**（2026-10-29；实现 `1910fce7`，移动账号标签修正 `70aa636c`；定向 12 passed / 0 failed，正式发布态全量 1188 passed / 0 failed）
+> 状态：**开发完成待发布（第二轮）**（2026-10-29；第一轮 `70aa636c` 已上线；本轮补账号/管理 L2 拆页、完整功能树与长期原则）
 > 工作项：R251 · 迭代 1.0
 > 需求基线：[library requirements](../../../../product/library/requirements.md) · 验收：[acceptance.md](./ac/acceptance.md)
 
@@ -187,4 +187,146 @@ pytest tests/ -q
 - 契约变了：无对外 HTTP 契约变化。
 - 实现/边界变了：L3 `docs/product/library/features/ui-information-architecture.md`。
 - 本次怎么实现：本 LLD 与同目录 AC；长期原则见
+  `docs/kb/instructions/coding/ui-information-architecture.md`。
+
+## 9. 第二轮用户补充
+
+> 「先找到 magicbook（非 calibre 的部分）所有的功能（小功能，比如单词难度设置和单词量测试算两个功能），
+> 然后列出来。把这些功能分类，分级，列出树状结构。A 账号的各个 L2 现在都堆在一个页面，
+> 过于拥挤，改成类似 S 学习的 L2，不用卡片，但是不要把多个 L2 放在一起。
+> M 管理也跟 A 账号一样改造一下。按照以上讨论，重新整理一下 UI 功能路由和排列方式。」
+
+第一轮解决了“顶栏 + 侧栏 + active”外壳问题，但账号与管理仍有两个结构性缺陷：
+
+1. 账号能力分散在 `/me`、Settings、伙伴页和积分页，`/me` 自己还堆了难度、主题、伙伴、导出；
+2. 管理只有旧仪表盘与零散入口，没有稳定、可枚举的 L2 路由。
+
+第二轮把“功能发现”改成“先建功能树，再一页一任务”，并把长期原则固化为以后 UI 需求的评审入口。
+
+## 10. 功能树与路由定稿
+
+完整 MagicBook 非 Calibre 功能树落在 L3
+[`ui-information-architecture.md` §4](../../../../product/library/features/ui-information-architecture.md#4-magicbook-自有功能树)。
+树按用户任务分为首页、书库增强、阅读器增强、词汇、学习、伙伴与 AI 伴读、账号、管理八支；
+叶节点是可独立理解和操作的“小功能”，例如难度档位与词汇量测试分别成叶。
+
+账号 A1–A7：
+
+| 编号 | 路由 | 单页任务 |
+| --- | --- | --- |
+| A1 | `/me` | 资料、OIDC 绑定、界面/书籍语言 |
+| A2 | `/buddy` | 伙伴花名册、装备、快捷动作、AI 伴读入口 |
+| A3 | `/mail` | 站内信收件箱 |
+| A4 | `/reading/settings` | 难度、词汇量测试/细筛、主题、使用引导 |
+| A5 | `/credits` | 用户余额、充值、积分卡、明细 |
+| A6 | `/achievements` | 成就 |
+| A7 | `/me/export` | 学习数据导出 |
+
+管理 M1–M13：
+
+| 编号 | 路由 | 单页任务 |
+| --- | --- | --- |
+| M1 | `/admin/usertable` | 用户与权限 |
+| M2 | `/admin/config` | 站点与注册 |
+| M3 | `/translate-all` | 整本翻译 |
+| M4 | `/word-detail-batch` | 全文单词详解 |
+| M5 | `/llm-tasks` | LLM 任务中心 |
+| M6 | `/admin/credits` | 积分治理 |
+| M7 | `/admin/mail` | 运营站内信 |
+| M8 | `/admin/viewconfig` | UI 配置 |
+| M9 | `/admin/dbconfig` | 数据库配置 |
+| M10 | `/admin/mailsettings` | 邮件服务器 |
+| M11 | `/admin/scheduledtasks` | 计划任务 |
+| M12 | `/admin/logfile` | 日志 |
+| M13 | `/admin/debug` | 调试 |
+
+## 11. 第二轮实现
+
+### 11.1 L2 导航单一来源
+
+- `cps/ui_ia.py` 新增 `ACCOUNT_L2_GROUPS`、`ADMIN_L2_GROUPS` 与 `l2_nav_groups(domain, path)`。
+- 导航元数据同时包含 id、标签、endpoint 和路径匹配规则；active 只从这一份数据计算。
+- `partials/l2_nav.html` 只渲染分组纯文字链接，不使用卡片和页内仪表盘。
+- `jinjia.py` 新增 `l2_nav_groups` filter；模板不复制第二份 A/M 路由表。
+
+### 11.2 账号拆页
+
+- `/me` 只保留资料、OIDC 绑定和语言；移除难度、词汇量测试、主题、伙伴、导出。
+- 难度、词测、主题与使用引导迁入 `/reading/settings`；新增独立 `reading-preferences.js`。
+- 学习数据导出迁入 `/me/export`，复用原 R230 的 create/tasks/download 接口。
+- `/buddy` 增加“打开 AI 伴读”按钮，调用 `window.AICompanion.openChat()`，不复制聊天 DOM。
+
+### 11.3 管理拆页
+
+- 旧 `/admin/view` 由 `admin.admin()` 302 到 M1，保留 Calibre 原生 Back/Cancel endpoint 的兼容。
+- 顶栏“管理”直接指向 `/admin/usertable`，不再经过旧仪表盘。
+- M4 `/word-detail-batch` 在缺少 `book_id` 时渲染选书说明页，不再返回 400；从书籍详情进入时仍走预览/入队。
+- 用户 `/credits` 与 `/admin/credits` 拆为两个模板；新增 `data-credit-mode` 分流加载，
+  用户页不渲染任何治理表单，管理页只加载治理数据。
+
+### 11.4 最小侵入
+
+- 继续复用 Calibre 的 Bootstrap 外壳、路由命名和关键 DOM ID；只重组 MagicBook 自有页面。
+- 新页面只增加产品层模板/CSS/JS；没有修改 vendored Calibre CSS、基座模型或数据库 schema。
+- 旧的顶层 Settings 入口改为最小 Help 菜单，只保留使用引导；L2 入口统一由账号/管理页头承接。
+
+## 12. 第二轮验证
+
+定向回归：
+
+```text
+tests/test_account_admin_ia_r251.py
+tests/test_home_nav_shell.py
+tests/test_buddy_page.py
+tests/test_credit_card.py
+tests/test_credit_consume.py
+tests/test_credit_page_r245.py
+tests/test_admin_mail_r250.py
+tests/test_mail_ui_r243.py
+tests/test_me_preferences.py
+tests/test_nav_settings_dropdown.py
+tests/test_reader_theme_sync.py
+
+150 passed / 0 failed / 2 warnings
+```
+
+新增 R251 守卫覆盖：
+
+- A1–A7 / M1–M13 数量、唯一 id、每条 owned route 恰好一个 active；
+- `/me` 不再含难度/词测/主题/导出，`/reading/settings` 与 `/me/export` 各自承接；
+- `/buddy` 只有一个“打开 AI 伴读”，脚本复用共享 `AICompanion.openChat`；
+- 用户积分与管理员积分治理 DOM/权限物理分离；
+- 顶栏管理直达 M1，旧 `/admin/view` 仍 302；
+- M4 无 `book_id` 有有效落地页。
+
+正式发布态全量回归：
+
+```text
+pytest tests/ -q
+1201 passed / 0 failed / 4 warnings
+```
+
+其中收尾修复了 JS i18n 清单仍引用已删除 `me.js`、旧 Help 下拉导航断言、
+`Help` 缺少中文词条三条契约链；新增 `reading-preferences.js` 的 `mbT()` 词条
+全部进入种子、PO/MO。
+
+真实 Chromium：
+
+- 抓取时必须用 CDP `Emulation.setDeviceMetricsOverride` 设置 390×844；直接给
+  Headless Chrome `--window-size=390` 仍可能得到 500px 布局视口，再把 PNG 裁成 390px，
+  会制造“横向溢出 + 第四项底栏消失”的假缺陷。
+- 设备模拟下 `/me`、`/reading/settings`、`/me/export`、`/buddy`、`/credits` 的
+  `document.documentElement.scrollWidth == 390`，移动底栏四项都在视口内。
+- 1440px 下账号 L2 单行/自然换行，页面内容保持左侧阅读宽度，不横向滚动。
+
+## 13. 文档四问（第二轮）
+
+- 能力变了：L1 `readme/{readme,library,reading,vocabulary,companion,credit,admin,learning}.md`
+  同步账号/管理拆页、伙伴入口、主题与积分页归属。
+- 契约变了：`credit/interface.md` 更新用户积分页与 `/admin/credits` 的页面/DOM 边界；
+  HTTP 代理端点本身不变。
+- 实现/边界变了：L3 `product/library/features/ui-information-architecture.md` 增加完整功能树、
+  A/M 路由表、伙伴关系与用户/管理治理分离；`reading/features/reader-theme-sync.md`、
+  `credit/features/page-layout.md`、`credit/features/credit-card.md` 同步迁页。
+- 本次怎么实现：本 LLD、AC、需求基线与 `REQUIREMENTS.md`；长期原则追加到
   `docs/kb/instructions/coding/ui-information-architecture.md`。

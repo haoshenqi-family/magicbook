@@ -4,6 +4,8 @@ Why: /buddy 由前端异步拉 catalog，既有全量用例一个都不覆盖它
      渲染错误会让所有 extends layout 的页面一起 500，必须有断言站住这条路。
 """
 
+from pathlib import Path
+
 
 def test_buddy_page_renders(admin_client):
     rv = admin_client.get("/buddy")
@@ -15,7 +17,12 @@ def test_buddy_page_renders(admin_client):
 
 def test_buddy_nav_entry_present_once(admin_client):
     body = admin_client.get("/buddy").data.decode("utf-8")
-    assert body.count('id="top_buddy"') == 1
+    assert body.count('id="account-buddy"') == 1
+    assert 'id="account-buddy"\n           class="mb-l2-link active"' in body
+    assert 'id="buddy-open-chat"' in body
+    assert "window.AICompanion.openChat" in (
+        Path(__file__).resolve().parents[1] / "cps/static/js/buddy.js"
+    ).read_text(encoding="utf-8")
 
 
 def test_buddy_image_proxy_whitelist(admin_client, monkeypatch):

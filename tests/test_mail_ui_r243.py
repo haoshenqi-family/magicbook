@@ -48,12 +48,12 @@ def test_mail_page_renders_only_for_logged_in_user(client, admin_client):
     assert 'id="mail-csrf"' not in body
 
 
-def test_settings_mail_entry_is_logged_in_only(admin_client, client):
+def test_account_mail_entry_is_logged_in_only(admin_client, client):
     body = admin_client.get("/reading/settings").get_data(as_text=True)
-    assert body.count('id="top_mail"') == 1
-    assert 'id="top-mail-badge"' in body
+    assert body.count('id="account-mail"') == 1
+    assert 'href="/mail"' in body
     anonymous = client.get("/login").get_data(as_text=True)
-    assert 'id="top_mail"' not in anonymous
+    assert 'id="account-mail"' not in anonymous
     assert "js/mail.js" not in anonymous
 
 
@@ -344,7 +344,7 @@ def test_chat_bubble_always_explicitly_opens_chat():
 
 
 def test_credits_admin_notification_form_and_payload():
-    template = _read("cps", "templates", "credits.html")
+    template = _read("cps", "templates", "admin_credits.html")
     assert 'id="credit-admin-notify"' in template
     assert 'id="credit-admin-notification-message"' in template
     assert 'maxlength="500"' in template

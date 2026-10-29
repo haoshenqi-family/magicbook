@@ -3093,6 +3093,10 @@ msgstr "简易主题"
 msgid "Account"
 msgstr "账号"
 
+# R251: Help is the only global utility menu; account and admin items use L2 strips.
+msgid "Help"
+msgstr "帮助"
+
 #: cps/templates/layout.html:93 cps/templates/read.html:83
 #: cps/templates/readcbr.html:70 cps/templates/readcbr.html:96
 msgid "Settings"
@@ -5899,9 +5903,9 @@ msgid "Claim your first companion — a snowy owl is waiting for new readers."
 msgstr "领取你的第一位伙伴——一只雪鸮正在等新读者。"
 
 msgid ""
-"Reading settings, achievements, credits and your Buddies all live in this"
-" dropdown."
-msgstr "阅读设置、成就、积分和你的伙伴都在这个下拉菜单里。"
+"Replay this tour here. Daily settings and records are grouped under Account;"
+" site-wide tools are grouped under Admin."
+msgstr "在这里重播本导览。日常设置与记录统一放在「账号」；站点级工具统一放在「管理」。"
 
 # R208: banner 管理抽屉（learning hub）
 msgid "Manage banner cards"

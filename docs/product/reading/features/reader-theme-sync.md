@@ -15,7 +15,7 @@
 | 纯黑 | `blackTheme` | ✅ | |
 | 自定义 | `customTheme` | ❌ | 色值存本机 `localStorage`，不上传 |
 
-`/me` 只提供 5 个内置主题的原生 `radio`；阅读器工具栏保留自定义颜色入口。
+账号 L2「阅读与词汇」`/reading/settings` 提供 5 个内置主题的原生 `radio`；阅读器工具栏保留自定义颜色入口。
 
 ## 2. 读取链路
 
@@ -83,7 +83,7 @@ epub.js 初始化
 - `ui-prefs.js` 有 `__mbReaderThemePicked` 守卫与子路径 base 推导。
 - 5 个内置主题按钮都传 `true` 触发同步；自定义主题只置 picked。
 - epub.js 初始值优先账号同步值，并监听 `magicbook:reader-theme`。
-- `/me` 提供 5 个内置主题、读取账号值、保存后写本机并显示状态。
+- `/reading/settings` 提供 5 个内置主题、读取账号值、保存后写本机并显示状态。
 
 ## 6. 已知不做
 

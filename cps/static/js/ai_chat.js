@@ -959,6 +959,8 @@
   window.AICompanion.showLetter = showLetter;
   window.AICompanion.clearLetter = clearLetterBadge;
   window.AICompanion.syncLetterBadge = syncLetterBadge;
+  // Partner pages can open the shared drawer without creating a second chat UI.
+  window.AICompanion.openChat = function () { openDrawer("chat"); };
   window.addEventListener("mb:buddy-letter", function () { showLetter(); });
 
   // 阅读器划词右键菜单入口：把选中文本以「」引用形式追加到输入框（不发送），

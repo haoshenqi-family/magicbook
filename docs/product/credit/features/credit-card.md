@@ -11,13 +11,14 @@
 | 购买积分卡 | 积分页「Buy a Credit Card to Gift」 | 三档固定价格，购买后走支付宝扫码，支付成功生成一张卡 |
 | 已购卡密 | 积分页「My Purchased Card Keys」 | 显示本人购买的卡密、面额、状态、有效期，以及「复制卡密」「复制并分享」按钮 |
 | 分享落地页 | `/credit-card/share` | 显示卡密、复制按钮、兑换步骤；不自动兑换 |
-| 管理员发卡 | 积分页管理员面板 | 批量发卡、查看批次、查看卡密、作废、文本导出 |
+| 管理员发卡 | `/admin/credits` 积分治理页 | 批量发卡、查看批次、查看卡密、作废、文本导出 |
 
 ## 2. 前端实现
 
 **模板** `cps/templates/credits.html`
 
-- 页面根节点 `#credit-page` 通过 `data-is-admin` 暴露当前角色，仅供显隐使用，不替代服务端门禁。
+- 用户页根节点 `#credit-page[data-credit-mode="user"]` 不含管理 DOM；管理页根节点为
+  `#credit-page[data-credit-mode="admin"]`。模式只用于前端初始化分流，不替代服务端门禁。
 - 兑换表单 `#credit-card-redeem-form`，输入框关闭自动完成与拼写检查。
 - 购卡容器 `#credit-card-packages` 由 JS 动态渲染，不在模板硬编码价格。
 - 已购表 `#credit-card-purchased-rows` 展示 `key/credits/statusText/expiresAt`。

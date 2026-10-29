@@ -5,6 +5,7 @@ from cps.web import (
     _moonwell_proxy,
     web,
 )
+from ..admin import admin_required
 from ..cw_login import current_user
 from ..render_template import render_title_template
 from ..usermanagement import user_login_required
@@ -130,8 +131,17 @@ def subscription_order_status():
 @web.route("/credits", methods=["GET"])
 @user_login_required
 def credits_page():
-    """积分充值页：余额 + 档位 + 支付宝扫码收银台，数据经 /ajax/credit-* 异步加载。"""
+    """A4 user credits only: balance, recharge, cards and ledger."""
     return render_title_template("credits.html", title=_("Credits"))
+
+
+@web.route("/admin/credits", methods=["GET"])
+@user_login_required
+@admin_required
+def admin_credits_page():
+    """M6 credit governance, split out of the user-facing A4 page."""
+    return render_title_template("admin_credits.html", title="积分治理",
+                                 page="admin_credits")
 
 
 @web.route("/credit-card/share", methods=["GET"])

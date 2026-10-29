@@ -145,7 +145,7 @@ def test_admin_users_forwards_and_gates(admin_client, moonwell_configured, monke
 
 def test_credits_page_renders_admin_user_dropdown(admin_client, moonwell_configured):
     """调整表单的目标用户必须是下拉（同源防打错人），不再是手填数字输入。"""
-    rv = admin_client.get("/credits")
+    rv = admin_client.get("/admin/credits")
     assert rv.status_code == 200
     html = rv.data.decode("utf-8")
     assert '<select id="credit-admin-user"' in html
@@ -159,8 +159,11 @@ def test_credits_page_renders_admin_user_dropdown(admin_client, moonwell_configu
 
 
 def test_credits_page_renders_admin_panel_for_admin(admin_client, moonwell_configured):
-    rv = admin_client.get("/credits")
+    rv = admin_client.get("/admin/credits")
     assert rv.status_code == 200
-    assert "credit-admin-panel" in rv.data.decode("utf-8")
+    html = rv.data.decode("utf-8")
+    assert 'data-credit-mode="admin"' in html
+    assert 'id="credit-admin-tabs"' in html
+    assert 'id="credit-admin-adjust"' in html
     js = pathlib.Path(cps.__file__).parent / "static" / "js" / "credits.js"
     assert "/ajax/credit/admin-adjust" in js.read_text(encoding="utf-8")

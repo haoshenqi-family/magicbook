@@ -66,8 +66,8 @@
       title: "Mark as read",
       body: "Tick it when you finish; read/unread filters and stats rely on it." },
     { id: "settings_menu", sel: "#top_mb_settings",
-      title: "Settings",
-      body: "Reading settings, achievements, credits and your Buddies all live in this dropdown." },
+      title: "Help",
+      body: "Replay this tour here. Daily settings and records are grouped under Account; site-wide tools are grouped under Admin." },
     { id: "finish", sel: null, guide: true,
       title: "Done",
       body: "Leave the rest to habit. A second tour awaits inside the reader." }
@@ -695,6 +695,10 @@
   cfg.onRosterReady = function () {
     if (detectSegment() !== "buddy") return;
     fetchUiSettings().always(function () { runSegment("buddy"); });
+  };
+  // A3 的手动入口不依赖顶栏 help 菜单，便于窄屏和后续页头改版继续复用。
+  cfg.start = function () {
+    startTour(detectSegment());
   };
 
   $(document).on("keydown.onboarding", function (e) {

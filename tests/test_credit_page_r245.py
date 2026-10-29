@@ -26,21 +26,33 @@ def _login_plain(app):
     return client
 
 
-def test_admin_credit_page_is_split_by_task(admin_client):
+def test_user_credit_page_contains_only_user_tasks(admin_client):
     html = admin_client.get("/credits").data.decode("utf-8")
 
-    for pane in ("credit-pane-recharge", "credit-pane-cards",
-                 "credit-pane-details", "credit-pane-admin"):
+    for pane in ("credit-pane-recharge", "credit-pane-cards", "credit-pane-details"):
         assert 'id="%s"' % pane in html
 
-    for admin_pane in ("credit-admin-adjust", "credit-admin-promotion",
-                       "credit-admin-cards"):
-        assert 'id="%s"' % admin_pane in html
+    assert 'data-credit-mode="user"' in html
+    for admin_pane in ("credit-pane-admin", "credit-admin-adjust",
+                       "credit-admin-promotion", "credit-admin-cards"):
+        assert 'id="%s"' % admin_pane not in html
 
     assert html.count('id="credit-packages"') == 1
     assert html.count('id="credit-card-redeem"') == 1
     assert html.count('id="credit-consume-table"') == 1
+
+
+def test_admin_credit_page_is_its_own_l2(admin_client):
+    html = admin_client.get("/admin/credits").data.decode("utf-8")
+
+    assert 'data-credit-mode="admin"' in html
+    for admin_pane in ("credit-admin-adjust", "credit-admin-promotion",
+                       "credit-admin-cards"):
+        assert 'id="%s"' % admin_pane in html
     assert html.count('id="credit-card-admin-panel"') == 1
+    assert 'id="credit-pane-recharge"' not in html
+    assert 'id="account-credits"' not in html
+    assert 'id="admin-credits"\n           class="mb-l2-link active"' in html
 
 
 def test_non_admin_credit_page_hides_management(app):
@@ -73,7 +85,7 @@ def test_promotion_submit_normalizes_datetime_local_and_reports_inline():
 
 def test_consume_rows_use_high_contrast_classes_instead_of_inline_colors():
     root = pathlib.Path(cps.__file__).parent
-    html = (root / "templates" / "credits.html").read_text(encoding="utf-8")
+    html = (root / "static" / "css" / "credits.css").read_text(encoding="utf-8")
     js = (root / "static" / "js" / "credits.js").read_text(encoding="utf-8")
 
     assert ".credit-type-badge.consume { background: #f3cf7a; color: #5c3500;" in html

@@ -202,19 +202,25 @@
 - **窗口与驻留**：写入前窗口 10 节，新增后 11；按「写入即检查」把最旧 R239 整节原样搬至 `response-archive/response-R239.md` 并登记索引，窗口恢复 10。worktree `../magicbook-r253-cached-translation-billing`（分支 `feat/r253-cached-translation-billing`）按闸门保留待验收。
 - **总结**：requests.md 条目 253 已从占位回填；本条为回应。冲突记录：无撞号。
 
-## 2026-10-29（R251：MagicBook UI 信息架构与导航分组）
+## 2026-10-29（R251：MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页）
 
-### R251（用户：「目前的UI系统有一点乱，帮我设计一个更好看更合理的分组，显示。并总结经验教训，设计原则。以后按照这个来。magicbook 的UI系统，尽量少修改 calibre 的UI系统。先按照你的设计做一版」）
+### R251（用户：「目前的UI系统有一点乱，帮我设计一个更好看更合理的分组，显示。并总结经验教训，设计原则。以后按照这个来。magicbook 的UI系统，尽量少修改 calibre的UI系统。先按照你的设计做一版」；补充：「先找到magicbook（非calibre的部分）所有的功能，列出来；分类分级成树状结构；A账号的各个L2现在都堆在一个页面，改成类似S学习的L2，不用卡片，但不要把多个L2放在一起；M管理也跟A账号一样改造」）
 
-- **结论先行**：已按第一版方案完成开发、部署并上线待验收。顶栏收敛为首页 / 书库 / 学习 / 账号 / 管理五个一级域，侧栏改成 Calibre Browse / 书架 / 分级 / 媒体 / 系统五层；每个页面只允许一个一级域 active，展示分组有安全兜底，书架不会因分类规则丢入口。
+- **结论先行**：第一轮已完成顶栏五域、侧栏分组和 active 唯一归属；第二轮按补充要求把账号拆成 A1–A7、管理拆成 M1–M13，每页只承担一个用户任务，页头改用分组纯文字 L2，不再把多个 L2 堆进同一页，也不把目录卡片化。MagicBook 非 Calibre 功能的完整树状清单和长期设计原则已落文档，后续 UI 任务按此评审。
 - **一级域与 active**：新增 `cps/ui_ia.py` 的 `nav_domain()`，按 home → learning → account → admin → library → unknown 顺序返回唯一域。账号页 `/reading/settings` 只点亮账号，Calibre 的 Books List 不再误亮；`/stats`、`/login` 等未知页不冒充书库。管理员入口从 Settings 下拉移到主导航，但普通用户不渲染。
 - **侧栏分组**：新增 `shelf_nav_group()` 与 `shelf_level_sort()`。`阶1 / 阶 2 / 分级阶3` 进「分级」，TED / Audio / Listening / 音频 / 听力进「媒体」，其余进「书架」；分级按整数排序，`阶1 < 阶2 < 阶10`。每个非空组显示数量，空组不渲染标题；识别不出的书架进默认组。CaliBlur 下系统标题隐藏，其余分组标题从 60px 收紧到约 34px。
 - **最小侵入**：`cps/jinjia.py` 只新增 1 个 import 与 3 个模板过滤器注册；`layout.html` 保留 Calibre 的 Bootstrap 骨架、原有链接与 `top_home/top_library/top_learning/top_me/top_admin` 等 DOM ID；`magicbook.css` 只做产品层增量，不修改 vendored Calibre CSS；不新增 `shelf.kind`、不迁移 schema。此实现替代 R213 中「侧边栏分组必须新增 `Shelf.kind`」的待拍板假设：当前只是展示层规则，先用名称规则即可。
 - **响应式**：移动底栏改为四列 flex，并覆盖 Bootstrap `.visible-xs { display:block!important }`；第四项固定显示“账号”，避免长用户名挤压布局。悬浮球用 `body #ai-companion-fab-wrap` 提高一级特异度，修复后加载 `ai_chat.css` 把它压回底栏的问题。实测 390×844 下悬浮球底部 780px、底栏顶部约 795px，无重叠；1440px 与 390px 的 `scrollWidth` 均等于视口宽度。
-- **测试**：`tests/test_home_nav_shell.py` 增加五域归属、唯一 active、未知页不归属、书架分类、数字排序、入口守恒、真实渲染和移动安全区守卫，定向 **12 passed / 0 failed / 2 warnings**；正式发布态全量 **1188 passed / 0 failed / 4 warnings**；`git diff --check` 与 `py_compile cps/ui_ia.py cps/jinjia.py` 通过。真实 Chromium 检查默认主题与 CaliBlur 的桌面、移动视口。
-- **文档四问**：能力 → L1 `docs/product/readme/library.md` 新增界面导航；契约 → 无 HTTP 契约变化；实现/边界 → 新建 L3 `docs/product/library/features/ui-information-architecture.md`；本次实现 → `docs/project/iterations/1.0/r251-ui-ia/lld.md` 与 `ac/acceptance.md`。需求基线、产品需求总册、迭代 plan、requests 与 response 均已回填。长期经验教训沉淀到 `docs/kb/instructions/coding/ui-information-architecture.md`，后续 UI 任务按其中的分域、唯一主入口、安全兜底、最小侵入、active 与响应式清单评审。
+- **功能树**：L3 `docs/product/library/features/ui-information-architecture.md` §4 新增 MagicBook 非 Calibre 功能树，按首页、书库增强、阅读器增强、词汇、学习、伙伴与 AI 伴读、账号、管理八支展开；难度档位、词测、细筛、主题、导出等小功能分别成叶，不把“一个页面”误当成“一个功能”。
+- **账号 A1–A7**：A1 `/me` 资料与语言、A2 `/buddy` 伙伴与 AI 伴读入口、A3 `/mail`、A4 `/reading/settings` 阅读与词汇、A5 `/credits`、A6 `/achievements`、A7 `/me/export`。`/me` 不再加载难度、词测、主题、伙伴和导出；主题与使用引导迁到 A4，导出迁到 A7。
+- **管理 M1–M13**：M1 用户权限、M2 站点注册、M3 整本翻译、M4 全文单词详解、M5 LLM 任务、M6 积分治理、M7 运营站内信、M8 UI 配置、M9 数据库、M10 邮件服务器、M11 计划任务、M12 日志、M13 调试。顶栏“管理”直达 M1，旧 `/admin/view` 保留 302 兼容 Calibre Back/Cancel；M4 无 `book_id` 时给选书说明，不再 400。
+- **伙伴与 AI 的关系**：`/buddy` 被明确定义为 AI 伴读的入口和外观，A2 只负责花名册、装备、快捷动作与“打开 AI 伴读”；按钮调用 `window.AICompanion.openChat()`，对话、记忆、工具调用、语音和站内链接继续复用共享抽屉，不新建第二套聊天。
+- **用户/管理员积分分离**：`/credits` 只保留用户充值、积分卡、明细；新增 `/admin/credits` 承载积分调整、充值活动、批量发卡。用户页不渲染治理 DOM，普通用户直接访问管理页 403；JS 按 `data-credit-mode` 初始化各自页面，共享代理但不共享页面结构。
+- **测试**：第一轮 `test_home_nav_shell.py` 定向 12 passed；第二轮新增 `test_account_admin_ia_r251.py` 覆盖 A/M 数量、每条路由唯一 active、账号拆页、伙伴入口、旧管理跳转、积分治理隔离和 M4 落地页。本轮 11 个相关文件定向 **150 passed / 0 failed / 2 warnings**；收尾补齐 JS i18n 清单、Help 文案与旧 LLM/Word Detail 契约后，相关三文件 **76 passed**。正式发布态全量 **1201 passed / 0 failed / 4 warnings**；`node --check` 全部改动 JS、`py_compile` 改动 Python、`git diff --check` 通过。部署验证待本轮提交后回填。
+- **移动验证纠错**：排查发现“390px 横向溢出”是 Headless Chrome 的最小 500px 布局视口造成：截图被裁成 390px，但 CSS 实际按 500px 排版，于是卡片和第四项底栏看似被截断。改用 CDP `Emulation.setDeviceMetricsOverride(390×844)` 后，关键账号页 `scrollWidth == 390`，四个底栏项完整可见；后续移动验收必须同时断言几何值，不能只看裁切 PNG。
+- **文档四问**：能力 → L1 `docs/product/readme/{readme,library,reading,vocabulary,companion,credit,admin,learning}.md` 同步；契约 → `credit/interface.md` 更新用户页与管理治理页边界；实现/边界 → L3 新功能树/路由表以及 reading、credit 的迁页说明；本次实现 → `docs/project/iterations/1.0/r251-ui-ia/lld.md` 与 `ac/acceptance.md`。需求基线、产品需求总册、requests/response 均已回填；长期经验教训和评审清单更新到 `docs/kb/instructions/coding/ui-information-architecture.md`。
 - **上线与验证**：实现 `1910fce7`，移动账号标签修正与发布 `70aa636c`；`48327926..70aa636c` 已推送 `origin/develop`。fnOS `build END OK (70aa636c58df969e68ce80ec55dcfcee01b8dc38)`，app-manager `deploy SUCCESS`，容器 `running / healthy`，`house.build-sha=70aa636c58df969e68ce80ec55dcfcee01b8dc38`、`house.code-digest=165b49e82f6aa555`；本机与生产 `/login` 均返回 200。生产登录态未保留，`/reading/settings` 正确 302 到登录页，因此桌面与移动视觉证据以本地真实模板 Chromium 验收为准，不把生产登录页当作 UI 验收结果。
-- **状态与驻留**：当前**已上线待验收**。worktree `../magicbook-r251-ui-ia`（分支 `feat/r251-ui-ia`）保留待用户验收。
+- **状态与驻留**：第一轮 `70aa636c` 已上线；第二轮当前**实现完成待发布**。worktree `../magicbook-r251-ui-ia`（分支 `feat/r251-ui-ia`）继续复用并保留待用户验收；最终提交与 fnOS 部署 SHA 在 push 后回填本节。
 - **窗口与总结**：写入前 9 节，新增后为 10 节；为保证“窗口最多 10 节”，本轮已把最旧 R242 整节原样搬至 `response-archive/response-R242.md` 并登记索引。requests.md 条目 251 已从占位回填；冲突记录：无撞号；R213 的旧 schema 待定项按展示层方案收敛，不改写 R213 历史正文。
 
 ## 2026-10-29（R245：积分页按任务分区、充值活动发布 400 与明细可读性修复）

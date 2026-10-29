@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% block header %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/me-export.css') }}">
+{% endblock %}
+{% block body %}
+<div class="discover" id="me-export-page">
+  <h1>我的学习数据</h1>
+  <div class="col-md-10 col-lg-8">
+    <p class="me-export-intro">
+      把你的词汇与练习记录打包成 ZIP：内含可导入 Anki 的单词卡、机器可读的 JSON / CSV
+      和一份可读的回顾报告。不包含音频，文件保留 7 天。
+    </p>
+
+    <form id="me-export-form" class="me-export-form" autocomplete="off">
+      <div class="form-group">
+        <label for="me-export-password">ZIP 解压密码（可选）</label>
+        <input type="password" class="form-control" id="me-export-password"
+               minlength="6" maxlength="128"
+               placeholder="至少 6 个字符，留空则不加密">
+      </div>
+      <div class="form-group">
+        <label for="me-export-password2">再次输入密码</label>
+        <input type="password" class="form-control" id="me-export-password2"
+               minlength="6" maxlength="128">
+      </div>
+      <p class="help-block">
+        密码只用于加密文件，系统不会保存；忘记密码只能重新导出。
+        不设密码则导出不加密的 ZIP，任何拿到文件的人都能打开。
+      </p>
+      <button type="submit" id="me-export-start" class="btn btn-primary">生成导出</button>
+      <span id="me-export-message" class="me-export-message" role="status" aria-live="polite"></span>
+    </form>
+
+    <section class="me-export-history" aria-labelledby="me-export-history-title">
+      <h2 id="me-export-history-title">导出记录</h2>
+      <div id="me-export-tasks" class="me-export-tasks" aria-live="polite">加载中…</div>
+    </section>
+  </div>
+</div>
+{% endblock %}
+{% block js %}
+<script src="{{ url_for('static', filename='js/me-export.js') }}"></script>
+{% endblock %}

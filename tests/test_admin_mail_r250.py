@@ -261,6 +261,9 @@ def test_upstream_failure_body_status_and_headers_pass_through(
 
 def test_page_contains_composer_preview_history_and_recall(admin_client):
     body = admin_client.get("/admin/mail").get_data(as_text=True)
+    page_start = body.index('id="admin-mail-page"')
+    page_end = body.index("</div>", body.index('id="admin-mail-history-next"'))
+    page_body = body[page_start:page_end]
     for node_id in (
             "admin-mail-page", "admin-mail-form", "admin-mail-user-search",
             "admin-mail-title", "admin-mail-body", "admin-mail-action",
@@ -272,7 +275,9 @@ def test_page_contains_composer_preview_history_and_recall(admin_client):
     assert 'maxlength="80"' in body
     assert 'maxlength="500"' in body
     assert "All users includes every account, including administrator accounts." in body
-    assert 'href="/admin/view"' in body
+    assert 'href="/admin/view"' not in page_body
+    assert 'id="admin-mail-back"' not in page_body
+    assert 'id="admin-mail"\n           class="mb-l2-link active"' in body
 
 
 def test_admin_entry_is_single_and_targets_new_page():

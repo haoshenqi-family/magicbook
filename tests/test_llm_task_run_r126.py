@@ -168,21 +168,21 @@ class TestAdminGating:
 
 
 class TestNavigationEntry:
-    def test_admin_dropdown_contains_entry(self, admin_client):
-        page = admin_client.get("/reading/settings").data.decode("utf-8")
+    def test_admin_l2_contains_entry(self, admin_client):
+        page = admin_client.get("/admin/credits").data.decode("utf-8")
 
-        assert 'id="top_llm_tasks"' in page
+        assert 'id="admin-llm"' in page
         assert 'href="/llm-tasks"' in page
 
-    def test_plain_user_dropdown_hides_entry(self, app):
+    def test_plain_user_page_hides_admin_entry(self, app):
         page = _login_plain(app).get("/reading/settings").data.decode("utf-8")
 
-        assert "top_llm_tasks" not in page
+        assert "admin-llm" not in page
 
     def test_entry_id_appears_once(self, admin_client):
-        page = admin_client.get("/reading/settings").data.decode("utf-8")
+        page = admin_client.get("/admin/credits").data.decode("utf-8")
 
-        assert page.count('id="top_llm_tasks"') == 1, "相邻重复即并行会话合并残留（R113）"
+        assert page.count('id="admin-llm"') == 1, "相邻重复即并行会话合并残留（R113）"
 
 
 class TestChineseRenderingIsLiveNotJustPo:
@@ -206,11 +206,11 @@ class TestChineseRenderingIsLiveNotJustPo:
     def test_nav_label_switches_to_chinese(self, app):
         client, previous = self._as_zh_admin(app)
         try:
-            page = client.get("/reading/settings").data.decode("utf-8")
-            block = re.search(r'<li class="dropdown" id="top_mb_settings">.*?</ul>\s*</li>', page, re.S).group(0)
+            page = client.get("/admin/credits").data.decode("utf-8")
+            block = re.search(r'<nav class="mb-l2-nav mb-l2-nav-admin".*?</nav>', page, re.S).group(0)
 
-            assert "任务执行" in block
-            assert "Task Runner" not in block, "zh 下拉框混进英文即 .mo 未重编译"
+            assert "LLM 任务中心" in block
+            assert "LLM Task Runner" not in block, "zh L2 混进英文即 .mo 未重编译"
         finally:
             from cps import ub
             admin = ub.session.query(ub.User).filter(ub.User.name == "admin").first()

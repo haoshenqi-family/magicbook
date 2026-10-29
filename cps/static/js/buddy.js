@@ -121,6 +121,14 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     $("buddy-retry").addEventListener("click", load);
+    var openChat = $("buddy-open-chat");
+    if (openChat) {
+      openChat.addEventListener("click", function () {
+        if (window.AICompanion && window.AICompanion.openChat) {
+          window.AICompanion.openChat();
+        }
+      });
+    }
     load();
     initQuickActions();
   });

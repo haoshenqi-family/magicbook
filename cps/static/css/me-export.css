@@ -1,0 +1,57 @@
+/* A7: one task page for learning-data export. */
+.me-export-intro {
+  max-width: 720px;
+  margin-bottom: 18px;
+  color: #667377;
+  line-height: 1.65;
+}
+
+.me-export-form {
+  max-width: 620px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e4e9e7;
+}
+
+.me-export-message {
+  margin-left: 10px;
+}
+
+.me-export-history {
+  margin-top: 22px;
+}
+
+.me-export-history > h2 {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.me-export-task-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.me-export-task {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #edf0ef;
+}
+
+.me-export-task > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.me-export-task .btn {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 600px) {
+  .me-export-task {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

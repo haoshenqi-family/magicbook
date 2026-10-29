@@ -207,35 +207,13 @@ def update_thumbnails():
 @user_login_required
 @admin_required
 def admin():
-    version = updater_thread.get_current_version_info()
-    if version is False:
-        commit = _('Unknown')
-    else:
-        if 'datetime' in version:
-            commit = version['datetime']
+    """Legacy admin landing URL now routes to M1.
 
-            tz = timedelta(seconds=time.timezone if (time.localtime().tm_isdst == 0) else time.altzone)
-            form_date = datetime.strptime(commit[:19], "%Y-%m-%dT%H:%M:%S")
-            if len(commit) > 19:  # check if string has timezone
-                if commit[19] == '+':
-                    form_date -= timedelta(hours=int(commit[20:22]), minutes=int(commit[23:]))
-                elif commit[19] == '-':
-                    form_date += timedelta(hours=int(commit[20:22]), minutes=int(commit[23:]))
-            commit = format_datetime(form_date - tz, format='short')
-        else:
-            commit = version['version'].replace("b", " Beta")
-
-    all_user = ub.session.query(ub.User).all()
-    # email_settings = mail_config.get_mail_settings()
-    schedule_time = format_time(datetime_time(hour=config.schedule_start_time), format="short")
-    t = timedelta(hours=config.schedule_duration // 60, minutes=config.schedule_duration % 60)
-    schedule_duration = format_timedelta(t, threshold=.99)
-
-    return render_title_template("admin.html", allUser=all_user, config=config, commit=commit,
-                                 feature_support=feature_support, schedule_time=schedule_time,
-                                 schedule_duration=schedule_duration,
-                                 title=_("Admin page"), page="admin")
-
+    Calibre templates still compute ``url_for('admin.admin')`` for Back/Cancel.
+    Keeping the endpoint avoids touching vendored navigation while guaranteeing
+    that no page ever renders the old all-in-one admin dashboard again.
+    """
+    return redirect(url_for('admin.edit_user_table'))
 
 @admi.route("/admin/dbconfig", methods=["GET", "POST"])
 @user_login_required

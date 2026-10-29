@@ -1,0 +1,27 @@
+{# R251: one product-owned L2 strip for the account and admin domains.
+   It is navigation, not a dashboard: plain grouped links, no feature cards. #}
+{% set l2_groups = current_domain|l2_nav_groups(current_path) %}
+{% if l2_groups %}
+<nav class="mb-l2-nav mb-l2-nav-{{ current_domain }}"
+     aria-label="{{ '账号导航' if current_domain == 'account' else '管理导航' }}">
+  <div class="mb-l2-nav-title">
+    <span class="mb-l2-nav-domain">{{ '账号' if current_domain == 'account' else '管理' }}</span>
+    <span class="mb-l2-nav-hint">L2</span>
+  </div>
+  <div class="mb-l2-groups">
+    {% for group_label, items in l2_groups %}
+    <section class="mb-l2-group" aria-label="{{ group_label }}">
+      <span class="mb-l2-group-label">{{ group_label }}</span>
+      <span class="mb-l2-links">
+        {% for item in items %}
+        <a id="{{ item.id }}"
+           class="mb-l2-link{% if item.active %} active{% endif %}"
+           href="{{ url_for(item.endpoint) }}"
+           {% if item.active %}aria-current="page"{% endif %}>{{ item.label }}</a>
+        {% endfor %}
+      </span>
+    </section>
+    {% endfor %}
+  </div>
+</nav>
+{% endif %}

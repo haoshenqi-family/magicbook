@@ -1,4 +1,30 @@
 {% extends "layout.html" %}
+{% block header %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reading-preferences.css') }}">
+<style>
+  /* 词汇量测试：只补布局，颜色一律来自 bootstrap/主题已有类（UI 纪律：轻蒙层、无实色描边） */
+  /* Why 这条兜底：block header 排在 bootstrap.min.css 之后，而 bootstrap 给 .help-block 写了
+     display:block——同一 author 层、同特异度时后出现者胜，会把 normalize 的
+     [hidden]{display:none} 盖掉，导致「隐藏态」的节点一加载就显示。
+     规则：本页靠 hidden 切换显隐的节点一律带 .vt-el，由这条显式兜住。 */
+  .vt-el[hidden] { display: none; }
+  /* Why: caliBlur 把 .modal-dialog 上外边距改成 0（caliBlur.css:5491），弹层顶到视口上沿、
+     被 60px 固定导航栏压住（无头截图实测）。用 id 提高特异度，两个主题统一留出导航栏高度。 */
+  #vt-overlay > .modal-dialog { margin-top: 70px; }
+  .vt-exit { float: right; margin: -6px -8px 0 0; opacity: .6; }
+  .vt-progress { height: 4px; margin: 18px 0 6px; }
+  .vt-count { font-size: 12px; margin: 0; }
+  .vt-word { font-size: 34px; margin: 18px 0 6px; word-break: break-word; }
+  .vt-sentence { min-height: 2em; margin-bottom: 22px; }
+  .vt-error { cursor: pointer; }
+  .vt-chart-title { font-size: 12px; margin: 22px 0 6px; }
+  .vt-bar-row { display: flex; align-items: center; margin-bottom: 6px; }
+  .vt-bar-label { flex: 0 0 108px; font-size: 12px; }
+  .vt-bar-track { flex: 1 1 auto; height: 6px; margin: 0; }
+  .vt-bar-count { flex: 0 0 52px; text-align: right; font-size: 12px; }
+  .vt-history li { font-size: 13px; margin-bottom: 4px; }
+</style>
+{% endblock %}
 {% block body %}
 <div class="discover">
   <h1>{{_('Reading Settings')}}</h1>
@@ -91,6 +117,43 @@
       </div>
     </div>
 
+    <div class="panel panel-default" id="reading-theme">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Theme')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted">
+          {{_('Choose the theme used when you open a book. It is saved to your account and applies on every device; custom colors stay on the device where you pick them.')}}
+        </p>
+        <form id="reading-theme-form" role="form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <fieldset>
+            <legend class="sr-only">{{_('Theme')}}</legend>
+            <div class="reading-theme-options">
+              <label><input type="radio" name="reader-theme" value="lightTheme"> {{_('Light')}}</label>
+              <label><input type="radio" name="reader-theme" value="darkTheme"> {{_('Dark')}}</label>
+              <label><input type="radio" name="reader-theme" value="sepiaTheme"> {{_('Sepia')}}</label>
+              <label><input type="radio" name="reader-theme" value="amberTheme"> {{_('Amber')}}</label>
+              <label><input type="radio" name="reader-theme" value="blackTheme"> {{_('Black')}}</label>
+            </div>
+          </fieldset>
+          <button type="submit" id="reading-theme-save" class="btn btn-primary">{{_('Save')}}</button>
+          <span id="reading-theme-status" class="reading-status text-muted"
+                role="status" aria-live="polite"></span>
+        </form>
+      </div>
+    </div>
+
+    <section class="reading-onboarding" id="reading-onboarding">
+      <div>
+        <h3>{{_('Onboarding Tour')}}</h3>
+        <p class="text-muted">第一次使用站点或阅读器时，可以跟着引导熟悉主要入口。</p>
+      </div>
+      <button type="button" id="reading-onboarding-start" class="btn btn-default">
+        {{_('Onboarding Tour')}}
+      </button>
+    </section>
+
   </div>
 </div>
 
@@ -149,36 +212,10 @@
 </div>
 {% endblock %}
 
-{% block header %}
-{{ super() }}
-<style>
-  /* 词汇量测试：只补布局，颜色一律来自 bootstrap/主题已有类（UI 纪律：轻蒙层、无实色描边） */
-  /* Why 这条兜底：block header 排在 bootstrap.min.css 之后，而 bootstrap 给 .help-block 写了
-     display:block——同一 author 层、同特异度时后出现者胜，会把 normalize 的
-     [hidden]{display:none} 盖掉，导致「隐藏态」的节点一加载就显示。
-     规则：本页靠 hidden 切换显隐的节点一律带 .vt-el，由这条显式兜住。 */
-  .vt-el[hidden] { display: none; }
-  /* Why: caliBlur 把 .modal-dialog 上外边距改成 0（caliBlur.css:5491），弹层顶到视口上沿、
-     被 60px 固定导航栏压住（无头截图实测）。用 id 提高特异度，两个主题统一留出导航栏高度。 */
-  #vt-overlay > .modal-dialog { margin-top: 70px; }
-  .vt-exit { float: right; margin: -6px -8px 0 0; opacity: .6; }
-  .vt-progress { height: 4px; margin: 18px 0 6px; }
-  .vt-count { font-size: 12px; margin: 0; }
-  .vt-word { font-size: 34px; margin: 18px 0 6px; word-break: break-word; }
-  .vt-sentence { min-height: 2em; margin-bottom: 22px; }
-  .vt-error { cursor: pointer; }
-  .vt-chart-title { font-size: 12px; margin: 22px 0 6px; }
-  .vt-bar-row { display: flex; align-items: center; margin-bottom: 6px; }
-  .vt-bar-label { flex: 0 0 108px; font-size: 12px; }
-  .vt-bar-track { flex: 1 1 auto; height: 6px; margin: 0; }
-  .vt-bar-count { flex: 0 0 52px; text-align: right; font-size: 12px; }
-  .vt-history li { font-size: 13px; margin-bottom: 4px; }
-</style>
-{% endblock %}
-
 {% block js %}
 <script src="{{ url_for('static', filename='js/common/api.js') }}"></script>
 <script src="{{ url_for('static', filename='js/vocab-test.js') }}"></script>
+<script src="{{ url_for('static', filename='js/reading-preferences.js') }}"></script>
 <script>
 (function () {
     var form = document.getElementById('reading-settings-form');

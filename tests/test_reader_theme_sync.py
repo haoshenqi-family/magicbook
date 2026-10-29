@@ -79,13 +79,13 @@ def test_reader_starts_with_account_theme_and_reacts_to_late_sync():
     assert "selectTheme(synced)" in m.group(0)
 
 
-def test_me_offers_only_builtin_themes_and_syncs_choice():
-    me = _template("me.html")
+def test_reading_settings_offers_only_builtin_themes_and_syncs_choice():
+    me = _template("reading_settings.html")
     for theme in BUILTIN:
         assert 'value="%s"' % theme in me
     assert 'value="customTheme"' not in me, "自定义色只存本机，不能出现在账号偏好里"
 
-    js = _js("me.js")
+    js = _js("reading-preferences.js")
     assert 'getJson("/ajax/ui-settings")' in js
     assert 'postJson("/ajax/ui-settings/reader-theme", { theme: value })' in js
     assert "if (!touched && BUILTIN_THEMES.indexOf(settings.readerTheme) >= 0)" in js

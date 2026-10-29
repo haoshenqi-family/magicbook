@@ -32,7 +32,7 @@ from flask import Blueprint, request, url_for, g
 from flask_babel import format_date
 from .cw_login import current_user
 from .clean_html import clean_string as html_clean_string
-from .ui_ia import nav_domain, shelf_level_sort, shelf_nav_group
+from .ui_ia import l2_nav_groups, nav_domain, shelf_level_sort, shelf_nav_group
 
 from . import constants, logger
 
@@ -85,6 +85,11 @@ def shelf_level_sort_filter(shelves):
 @jinjia.app_template_filter('nav_domain')
 def nav_domain_filter(path, page):
     return nav_domain(path, page)
+
+
+@jinjia.app_template_filter('l2_nav_groups')
+def l2_nav_groups_filter(domain, path):
+    return l2_nav_groups(domain, path)
 
 
 @jinjia.app_template_filter('mimetype')

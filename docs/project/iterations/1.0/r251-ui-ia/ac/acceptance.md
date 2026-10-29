@@ -1,6 +1,6 @@
-# AC — R251 MagicBook UI 信息架构与导航分组
+# AC — R251 MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页
 
-> 状态：已上线待验收（2026-10-29；实现 `1910fce7`，移动账号标签修正与发布 `70aa636c`；定向 12 passed / 0 failed；正式发布态全量 1188 passed / 0 failed）
+> 状态：开发完成待发布（第二轮；第一轮 `70aa636c` 已上线；全量回归已绿，待部署）
 
 ## A. 一级导航
 
@@ -51,3 +51,47 @@
 - [x] 产品 L1、L3、需求基线、LLD、AC 已同步。
 - [x] 长期信息架构原则已沉淀到 `docs/kb/instructions/coding/`。
 - [x] `70aa636c` 已推送并在生产部署；容器 `running / healthy`，`/login` 返回 200。
+
+## F. 功能树与 L2 规则
+
+- [x] L3 文档列出 MagicBook 非 Calibre 功能的完整树状结构，小功能拆到叶子。
+- [x] 功能树覆盖首页、书库增强、阅读器增强、词汇、学习、伙伴与 AI 伴读、账号、管理八支。
+- [x] 账号 A1–A7、管理 M1–M13 有唯一编号、路由和单页任务表。
+- [x] L2 导航由 `l2_nav_groups()` 单一来源生成；纯文字分组，不使用功能卡片。
+- [x] 每条 A/M owned route 恰好一个 L2 active；旧 `/admin/view` 不属于新 L2 active。
+
+## G. 账号拆页
+
+- [x] `/me` 只保留资料、OIDC 绑定和语言，不再含难度、词测、主题、伙伴、导出。
+- [x] 难度、词汇量测试/细筛、主题、使用引导在 `/reading/settings`。
+- [x] 学习数据导出在 `/me/export`，原有创建、轮询、下载能力保持可用。
+- [x] `/buddy` 是伙伴入口页，有且只有一个“打开 AI 伴读”按钮。
+- [x] 该按钮复用 `window.AICompanion.openChat()`，没有新建第二套聊天 UI。
+
+## H. 管理拆页
+
+- [x] 管理 M1–M13 各自独立成页，不再渲染旧 all-in-one 仪表盘。
+- [x] 顶栏“管理”直达 M1 `/admin/usertable`。
+- [x] 旧 `/admin/view` 保留 302 到 M1，兼容 Calibre 既有 Back/Cancel。
+- [x] M4 `/word-detail-batch` 无 `book_id` 时显示选书说明，不再返回 400。
+- [x] 用户 `/credits` 只渲染充值/积分卡/明细，不渲染治理 DOM。
+- [x] 管理员 `/admin/credits` 独立渲染积分调整/充值活动/批量发卡，普通用户访问 403。
+
+## I. 最小侵入与兼容
+
+- [x] 不重写 Calibre 路由、模型和 vendored CSS。
+- [x] 保留 `top_home/top_library/top_learning/top_me/top_admin` 等关键 DOM ID。
+- [x] 新页面只使用产品层模板/CSS/JS；旧 Settings 入口收敛为最小 Help 菜单。
+- [x] 用户与管理员共用积分代理和样式，但不共享页面 DOM。
+
+## J. 第二轮验证
+
+- [x] `node --check` 通过全部改动/新增 JS。
+- [x] `py_compile` 通过改动 Python 与新增测试。
+- [x] `git diff --check` 通过。
+- [x] 第二轮定向回归 150 passed / 0 failed / 2 warnings。
+- [x] 正式发布态全量 pytest 0 failed：1201 passed / 4 warnings。
+- [x] CDP 设备指标 390×844 下关键账号页 `scrollWidth == innerWidth`，移动底栏四项完整可见。
+- [x] 1440px 下账号/管理 L2 与页面内容无横向溢出。
+- [ ] 实现提交已推送 `origin/develop`，fnOS 构建与生产健康检查完成。
+- [x] L1/L2/L3、需求基线、LLD、AC、response 与长期 KB 已同步。

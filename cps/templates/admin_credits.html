@@ -1,0 +1,185 @@
+{% extends "layout.html" %}
+
+{% block header %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/credits.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="discover" id="credit-page"
+     data-credit-mode="admin"
+     data-card-share-url="{{ url_for('web.credit_card_share_page') }}">
+  <h1>积分治理</h1>
+
+  <section class="credit-hero credit-admin-hero" aria-labelledby="credit-admin-title">
+    <div class="credit-hero-main">
+      <p class="credit-balance-label">{{_('Credit Management')}}</p>
+      <p class="credit-admin-hero-title" id="credit-admin-title">余额调整、充值活动与批量卡密</p>
+      <p class="credit-hero-help">
+        每次治理动作都会进入积分流水审计；积分卡密是 bearer secret，导出后需安全保存。
+      </p>
+    </div>
+  </section>
+
+  <div id="credit-alert" style="display:none" class="alert" role="alert"></div>
+
+  <ul class="nav nav-tabs credit-admin-tabs" id="credit-admin-tabs" role="tablist">
+    <li role="presentation" class="active">
+      <a href="#credit-admin-adjust" aria-controls="credit-admin-adjust" role="tab" data-toggle="tab">
+        {{_('Credit adjustment')}}
+      </a>
+    </li>
+    <li role="presentation">
+      <a href="#credit-admin-promotion" aria-controls="credit-admin-promotion" role="tab" data-toggle="tab">
+        {{_('Credit Promotion (Multiplier)')}}
+      </a>
+    </li>
+    <li role="presentation">
+      <a href="#credit-admin-cards" aria-controls="credit-admin-cards" role="tab" data-toggle="tab">
+        {{_('Credit Cards: Issue Batch')}}
+      </a>
+    </li>
+  </ul>
+
+  <div class="tab-content credit-admin-content">
+    <section role="tabpanel" class="tab-pane active credit-admin-pane" id="credit-admin-adjust">
+      <div class="credit-section-head">
+        <div>
+          <h3>{{_('Credit adjustment')}}</h3>
+          <p>给单个用户增减积分，正数可附带到账站内信。</p>
+        </div>
+      </div>
+      <form id="credit-admin-adjust-form" class="form-inline" style="margin-bottom:0">
+        <select id="credit-admin-user" class="form-control" style="width:220px" required>
+          <option value="">{{_('Select user...')}}</option>
+        </select>
+        <input type="number" id="credit-admin-amount" class="form-control"
+               placeholder="{{_('Amount (+/-)')}}" style="width:140px" required>
+        <input type="text" id="credit-admin-reason" class="form-control"
+               placeholder="{{_('Reason (required, audited)')}}" style="width:260px" required>
+        <button type="submit" class="btn btn-danger btn-sm">{{_('Apply Adjustment')}}</button>
+        <div id="credit-admin-notification-options" style="flex-basis:100%;width:100%;margin-top:10px">
+          <label style="font-weight:normal">
+            <input type="checkbox" id="credit-admin-notify">
+            {{_('Send arrival notification')}}
+          </label>
+          <textarea id="credit-admin-notification-message" class="form-control" maxlength="500"
+                    rows="2" style="margin-top:6px;max-width:620px"
+                    placeholder="{{_('Optional message (plain text)')}}" disabled></textarea>
+          <p class="help-block" style="margin:4px 0 0;font-size:12px">
+            {{_('Only positive adjustments can send an arrival notification. The message is plain text and limited to 500 characters.')}}
+          </p>
+        </div>
+      </form>
+      <p class="text-muted" style="margin-top:8px;margin-bottom:0;font-size:12px">
+        {{_('Positive amount adds credits, negative deducts. Every adjustment is recorded in the ledger with your user id.')}}
+      </p>
+    </section>
+
+    <section role="tabpanel" class="tab-pane credit-admin-pane" id="credit-admin-promotion">
+      <div class="credit-section-head">
+        <div>
+          <h3>{{_('Credit Promotion (Multiplier)')}}</h3>
+          <p>活动发布后不可编辑或撤销，提交前请核对时间窗与倍率。</p>
+        </div>
+      </div>
+      <form id="credit-promo-form" class="form-inline" style="margin-bottom:0">
+        <input type="datetime-local" id="credit-promo-start" class="form-control" step="1"
+               style="width:210px" required>
+        <span style="margin:0 4px">~</span>
+        <input type="datetime-local" id="credit-promo-end" class="form-control" step="1"
+               style="width:210px" required>
+        <input type="number" id="credit-promo-multiplier" class="form-control" min="1" max="100"
+               step="1" value="10" style="width:90px" required>
+        <button type="submit" class="btn btn-danger btn-sm">{{_('Publish')}}</button>
+      </form>
+      <p class="text-muted" style="margin-top:8px;margin-bottom:6px;font-size:12px">
+        {{_('Times are Beijing time (UTC+8). Credits granted = base credits × multiplier. A published promotion cannot be edited or revoked — verify the window and multiplier before publishing.')}}
+      </p>
+      <p id="credit-promo-feedback" class="credit-inline-feedback" role="status" aria-live="polite"></p>
+      <div class="table-responsive">
+        <table class="table table-condensed table-striped" id="credit-promo-table">
+          <thead>
+            <tr>
+              <th>{{_('Start')}}</th>
+              <th>{{_('End')}}</th>
+              <th>{{_('Multiplier')}}</th>
+              <th>{{_('Status')}}</th>
+            </tr>
+          </thead>
+          <tbody id="credit-promo-rows">
+            <tr><td colspan="4" class="text-muted">{{_('Loading...')}}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section role="tabpanel" class="tab-pane credit-admin-pane" id="credit-admin-cards">
+      <div id="credit-card-admin-panel">
+        <div class="credit-section-head">
+          <div>
+            <h3>{{_('Credit Cards: Issue Batch')}}</h3>
+            <p>批量生成可转赠积分卡；长期卡没有到期时间。</p>
+          </div>
+        </div>
+        <form id="credit-card-admin-issue-form" class="form-inline">
+          <select id="credit-card-admin-credits" class="form-control" style="width:150px">
+            <option value="1000">1,000 {{_('credits')}}</option>
+            <option value="5000">5,000 {{_('credits')}}</option>
+            <option value="10000">10,000 {{_('credits')}}</option>
+          </select>
+          <input type="number" id="credit-card-admin-count" class="form-control"
+                 min="1" max="1000" value="10" style="width:90px" required>
+          <input type="number" id="credit-card-admin-validity" class="form-control"
+                 min="1" max="3650" value="30" style="width:90px">
+          <label class="checkbox-inline">
+            <input type="checkbox" id="credit-card-admin-long-term"> {{_('Long-term')}}
+          </label>
+          <input type="text" id="credit-card-admin-reason" class="form-control"
+                 placeholder="{{_('Reason (required, audited)')}}" style="width:240px" required>
+          <button type="submit" class="btn btn-danger btn-sm">{{_('Issue Cards')}}</button>
+        </form>
+        <p class="text-muted" style="margin-top:8px;font-size:12px">
+          {{_('Default validity is 30 days. Long-term cards have no expiry. Card keys are bearer secrets: export and store them securely.')}}
+        </p>
+        <div class="table-responsive">
+          <table class="table table-condensed table-striped">
+            <thead>
+              <tr>
+                <th>ID</th><th>{{_('Credits')}}</th><th>{{_('Count')}}</th>
+                <th>{{_('Validity')}}</th><th>{{_('Source')}}</th>
+                <th>{{_('Created')}}</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="credit-card-admin-batches-rows">
+              <tr><td colspan="7" class="text-muted">{{_('Loading...')}}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="credit-card-admin-cards" style="display:none">
+          <h5>{{_('Cards in this batch')}}</h5>
+          <div class="table-responsive">
+            <table class="table table-condensed">
+              <thead>
+                <tr>
+                  <th>{{_('Card Key')}}</th>
+                  <th>{{_('Credits')}}</th>
+                  <th>{{_('Status')}}</th>
+                  <th>{{_('Expires')}}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="credit-card-admin-cards-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <input type="hidden" id="credit-csrf" value="{{ csrf_token() }}">
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/credits.js') }}"></script>
+{% endblock %}

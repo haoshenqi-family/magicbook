@@ -29,6 +29,112 @@
   color: #45b29d;
 }
 
+/* L2: grouped, text-first navigation.  No panels or feature cards. */
+.mb-l2-nav {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin: 0 15px 18px;
+  padding: 6px 0 12px;
+  border-bottom: 1px solid #e1e8e6;
+}
+
+.mb-l2-nav-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding-top: 2px;
+}
+
+.mb-l2-nav-domain {
+  color: #34454b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mb-l2-nav-hint {
+  color: #90a09c;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.mb-l2-groups {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  min-width: 0;
+}
+
+.mb-l2-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.mb-l2-group-label {
+  color: #83918f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  white-space: nowrap;
+}
+
+.mb-l2-links {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.mb-l2-link {
+  display: inline-block;
+  padding: 2px 1px;
+  border-bottom: 2px solid transparent;
+  color: #52606d;
+  font-size: 13px;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.mb-l2-link:hover,
+.mb-l2-link:focus {
+  color: #237d6d;
+  border-bottom-color: #8bc7bb;
+  text-decoration: none;
+}
+
+.mb-l2-link.active {
+  color: #176e5f;
+  border-bottom-color: #45b29d;
+  font-weight: 700;
+}
+
+body.blur .mb-l2-nav {
+  border-bottom-color: rgba(255, 255, 255, .14);
+}
+
+body.blur .mb-l2-nav-domain,
+body.blur .mb-l2-link {
+  color: rgba(255, 255, 255, .82);
+}
+
+body.blur .mb-l2-nav-hint,
+body.blur .mb-l2-group-label {
+  color: rgba(255, 255, 255, .48);
+}
+
+body.blur .mb-l2-link:hover,
+body.blur .mb-l2-link:focus,
+body.blur .mb-l2-link.active {
+  color: #8ee0cf;
+  border-bottom-color: #55c7b1;
+}
+
 /* Tablet widths keep the five-domain model visible, but tighten labels. */
 @media (min-width: 768px) and (max-width: 1199px) {
   .mb-primary-nav > li > a {
@@ -195,6 +301,33 @@ body.blur #scnd-nav .mb-group-count {
     align-items: center;
     justify-content: center;
     padding: 7px 0 5px;
+  }
+
+  .mb-l2-nav {
+    display: block;
+    margin: 0 5px 14px;
+  }
+
+  .mb-l2-nav-title {
+    margin-bottom: 8px;
+  }
+
+  .mb-l2-groups {
+    display: block;
+  }
+
+  .mb-l2-group {
+    display: block;
+    margin-bottom: 9px;
+  }
+
+  .mb-l2-group-label {
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .mb-l2-links {
+    gap: 1px 12px;
   }
 
   /* ai_chat.css 后加载且使用同 ID 选择器；提高一级特异度守住底栏安全区。 */

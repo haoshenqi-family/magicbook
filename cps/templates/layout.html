@@ -31,6 +31,8 @@
     {% endif %}
   </head>
   <body class="{{ page }} {{ bodyClass }}{% if g.current_theme == 1 %} blur{% endif %}" data-text="{{_('Home')}}" data-textback="{{_('Back')}}">
+    {% set current_path = request.path %}
+    {% set current_domain = current_path|nav_domain(page) %}
     <!-- Static navbar -->
     <div class="navbar navbar-default navbar-static-top" role="navigation">
       <div class="container-fluid">
@@ -64,8 +66,6 @@
         {% endif %}
         <div class="navbar-collapse collapse">
           {% if current_user.is_authenticated or g.allow_anonymous %}
-          {% set current_path = request.path %}
-          {% set current_domain = current_path|nav_domain(page) %}
           {% set home_active = current_domain == 'home' %}
           {% set library_active = current_domain == 'library' %}
           {% set learning_active = current_domain == 'learning' %}
@@ -84,7 +84,7 @@
             <li{% if account_active %} class="active"{% endif %}><a href="{{url_for('web.profile')}}" id="top_me"{% if account_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-user"></span><span class="hidden-sm"> {{_('Account')}}</span></a></li>
             {% endif %}
             {% if current_user.role_admin() %}
-            <li{% if admin_active %} class="active"{% endif %}><a id="top_admin" data-text="{{_('Admin')}}" href="{{url_for('admin.admin')}}"{% if admin_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-dashboard"></span><span class="hidden-sm"> {{_('Admin')}}</span></a></li>
+            <li{% if admin_active %} class="active"{% endif %}><a id="top_admin" data-text="{{_('Admin')}}" href="{{url_for('admin.edit_user_table')}}"{% if admin_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-dashboard"></span><span class="hidden-sm"> {{_('Admin')}}</span></a></li>
             {% endif %}
             {% if simple==true %} <li><a href="{{url_for('basic.index')}}" id="basic"><span class="glyphicon glyphicon-phone"></span><span>{{_('Simple Theme')}}</span></a><li>{% endif %}
           </ul>
@@ -145,22 +145,11 @@
                 </li>
                 <li class="dropdown" id="top_mb_settings">
                   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
-                    <span class="glyphicon glyphicon-cog"></span> {{_('Settings')}} <span class="caret"></span>
+                    <span class="glyphicon glyphicon-question-sign"></span> {{_('Help')}} <span class="caret"></span>
                   </a>
                   <ul class="dropdown-menu">
-                    <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> {{_('Reading Settings')}}</a></li>
-                    <li><a id="top_mail" href="{{url_for('web.mail_inbox_page')}}"><span class="glyphicon glyphicon-envelope"></span> {{_('Mail')}}<span id="top-mail-badge" class="badge mail-count-badge" hidden></span></a></li>
-                    <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> {{_('Achievements')}}</a></li>
-                    <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> {{_('Credits')}}</a></li>
-                    <li><a id="top_buddy" href="{{url_for('web.buddy_page')}}"><span class="glyphicon glyphicon-heart"></span> {{_('Buddies')}}</a></li>
                     {# R109 使用引导：常驻手动入口，点击后由 onboarding.js 接管 #}
                     <li><a id="top_onboarding" href="#"><span class="glyphicon glyphicon-education"></span> {{_('Onboarding Tour')}}</a></li>
-                    {% if current_user.role_admin() %}
-                    <li class="divider"></li>
-                    <li><a id="top_translate_all" href="{{url_for('web.translate_all_page')}}"><span class="glyphicon glyphicon-globe"></span> {{_('Book Translation')}}</a></li>
-                    {# R126：LLM 任务手动执行面板，管理员专属（moon-well 侧另有白名单二次校验） #}
-                    <li><a id="top_llm_tasks" href="{{url_for('web.llm_task_runner_page')}}"><span class="glyphicon glyphicon-tasks"></span> {{_('Task Runner')}}</a></li>
-                    {% endif %}
                   </ul>
                 </li>
               {% endif %}
@@ -282,6 +271,9 @@
         </div>
         {% endif %}
         <div class="col-sm-10">
+          {% if not current_user.is_anonymous and current_domain in ('account', 'admin') %}
+            {% include 'partials/l2_nav.html' %}
+          {% endif %}
           {% block body %}{% endblock %}
           {% if pagination and (pagination.has_next or pagination.has_prev) %}
             <div class="pagination">

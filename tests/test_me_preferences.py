@@ -81,18 +81,18 @@ def _js(name):
         return fh.read()
 
 
-def test_me_renders_preference_controls(me_user, moonwell_settings):
+def test_me_renders_identity_and_language_only(me_user, moonwell_settings):
     rv = me_user.get("/me")
     assert rv.status_code == 200
     html = rv.data.decode("utf-8")
 
     assert 'id="me-language"' in html and 'id="me-locale"' in html
-    assert 'id="difficulty"' in html and 'id="me-hard-level"' in html
-    assert html.count('name="reader-theme"') == 5
-    assert 'id="me-buddy"' in html
+    assert 'id="me-account"' in html
+    for moved in ("difficulty", "me-hard-level", "me-theme", "me-buddy", "me-export"):
+        assert 'id="%s"' % moved not in html, "%s 已迁往独立 L2" % moved
+    assert 'name="reader-theme"' not in html
     # 真按钮才能被键盘触发；旧页面是 div 靠 JS 转发 click
     assert re.search(r'<button type="submit" id="me-language-save"', html)
-    assert re.search(r'<button type="submit" id="me-difficulty-save"', html)
 
 
 def test_me_no_longer_exposes_kindle_and_sidebar_toggles(me_user, moonwell_settings):
@@ -144,7 +144,7 @@ def test_difficulty_entry_is_reusable_and_fails_loud():
     partial = _template("difficulty_entry.html")
     assert 'id="difficulty-entry"' in partial
     assert "url_for('web.reading_settings_get')" in partial
-    assert "url_for('web.profile') }}#difficulty" in partial
+    assert "url_for('web.reading_settings') }}#difficulty" in partial
     assert partial.count("difficulty_entry.js") == 1
 
     js = _js("difficulty_entry.js")
@@ -178,7 +178,7 @@ def test_buddy_copy_explains_it_is_the_ai_entry_face():
     copy = ("Your buddy is the face on the AI reading button. It is appearance only "
             "and never changes the AI's role as your English teacher.")
     escaped = copy.replace("'", "\\'")
-    for name in ("buddy.html", "me.html"):
+    for name in ("buddy.html",):
         src = _template(name)
         assert escaped in src or copy in src, "%s 缺少伙伴定位文案" % name
 

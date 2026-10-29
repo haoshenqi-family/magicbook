@@ -12,7 +12,7 @@
 
 ## 谁在用
 
-「阅读设置」页的测试入口与档位设置在本站；划词查词、生词标记与网页上的生词高亮由 [MagicLens 词镜](https://github.com/haoshenqi-family/magiclens) 扩展承担（装了才接管，没装时阅读器自带同样的能力），两边共用同一份档位与生词本数据。
+账号 L2「阅读与词汇」`/reading/settings` 集中放档位、词汇量测试/细筛和阅读主题；划词查词、生词标记与网页上的生词高亮由 [MagicLens 词镜](https://github.com/haoshenqi-family/magiclens) 扩展承担（装了才接管，没装时阅读器自带同样的能力），两边共用同一份档位与生词本数据。
 
 ## 深入阅读
 

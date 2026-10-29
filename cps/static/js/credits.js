@@ -11,7 +11,8 @@
     'use strict';
 
     var CSRF = window.MBApi.csrfToken();  // R177：CSRF 单点迁 common/api.js（#credit-csrf 为链式第 2 形态，值等价）
-    var IS_ADMIN = $('#credit-page').attr('data-is-admin') === '1';
+    var CREDIT_MODE = $('#credit-page').attr('data-credit-mode') || 'user';
+    var IS_ADMIN = CREDIT_MODE === 'admin';
     var POLL_INTERVAL_MS = 3000;
     var MAX_CONSECUTIVE_ERRORS = 5;
     var CSRF_RELOAD_FLAG = 'creditCsrfReloaded';
@@ -1027,55 +1028,31 @@
         syncAdminNotificationState();
     }
 
-    $(function () {
-        sessionStorage.removeItem(CSRF_RELOAD_FLAG);
-        loadBalance();
-        loadPackages();
-        loadCardPackages();
-        loadPurchasedCards();
-        loadConsumeDetail();
-
-        $(document).on('click', '.credit-jump', function () {
-            showCreditTab($(this).attr('data-credit-tab'));
-        });
-        $('#credit-card-redeem-form').on('submit', function (e) {
+    function initAdminCreditPage() {
+        fillPromotionDefaults();
+        loadPromotions();
+        loadAdminUserOptions();
+        loadAdminBatches();
+        $('#credit-admin-amount').on('input change', syncAdminNotificationState);
+        $('#credit-admin-notify').on('change', syncAdminNotificationState);
+        syncAdminNotificationState();
+        $('#credit-card-admin-issue-form').on('submit', function (e) {
             e.preventDefault();
-            redeemCard();
+            issueCardBatch();
         });
-        $(document).on('click', '.credit-card-buy-btn', function () {
-            buy($(this).attr('data-package-id'), 'CARD',
-                '/ajax/credit/card/purchase-order', this);
+        $('#credit-card-admin-long-term').on('change', function () {
+            var longTerm = $(this).is(':checked');
+            $('#credit-card-admin-validity').prop('disabled', longTerm);
+            if (longTerm) {
+                $('#credit-card-admin-validity').val('');
+            } else if (!$('#credit-card-admin-validity').val()) {
+                $('#credit-card-admin-validity').val('30');
+            }
         });
-        $('#credit-consume-apply').on('click', resetConsumePage);
-        $('#credit-consume-apply').on('click', loadConsumeDetail);
-        // R205：管理员活动发布（入口仅管理员可见；moon-well 白名单二次校验）
-        if (IS_ADMIN) {
-            fillPromotionDefaults();
-            loadPromotions();
-            loadAdminUserOptions();
-            $('#credit-admin-amount').on('input change', syncAdminNotificationState);
-            $('#credit-admin-notify').on('change', syncAdminNotificationState);
-            syncAdminNotificationState();
-            loadAdminBatches();
-            $('#credit-card-admin-issue-form').on('submit', function (e) {
-                e.preventDefault();
-                issueCardBatch();
-            });
-            $('#credit-card-admin-long-term').on('change', function () {
-                var longTerm = $(this).is(':checked');
-                $('#credit-card-admin-validity').prop('disabled', longTerm);
-                if (longTerm) {
-                    $('#credit-card-admin-validity').val('');
-                } else if (!$('#credit-card-admin-validity').val()) {
-                    $('#credit-card-admin-validity').val('30');
-                }
-            });
-            $('#credit-promo-form').on('submit', function (e) {
-                e.preventDefault();
-                submitPromotion();
-            });
-        }
-        // R54：管理员积分调整（入口仅管理员可见；moon-well 白名单二次校验）
+        $('#credit-promo-form').on('submit', function (e) {
+            e.preventDefault();
+            submitPromotion();
+        });
         $('#credit-admin-adjust-form').on('submit', function (e) {
             e.preventDefault();
             var userId = parseInt($('#credit-admin-user').val(), 10);
@@ -1106,13 +1083,40 @@
                 window.alert('调整成功，用户 ' + userId + ' 当前余额：' + balance);
                 $('#credit-admin-adjust-form')[0].reset();
                 resetAdminNotification();
-                loadConsumeDetail();
             }).fail(function (xhr) {
                 var msg = '调整失败';
                 try { msg = (JSON.parse(xhr.responseText).message) || msg; } catch (err) { /* ignore */ }
                 window.alert(msg);
             });
         });
+    }
+
+    $(function () {
+        sessionStorage.removeItem(CSRF_RELOAD_FLAG);
+        if (IS_ADMIN) {
+            initAdminCreditPage();
+            return;
+        }
+
+        loadBalance();
+        loadPackages();
+        loadCardPackages();
+        loadPurchasedCards();
+        loadConsumeDetail();
+
+        $(document).on('click', '.credit-jump', function () {
+            showCreditTab($(this).attr('data-credit-tab'));
+        });
+        $('#credit-card-redeem-form').on('submit', function (e) {
+            e.preventDefault();
+            redeemCard();
+        });
+        $(document).on('click', '.credit-card-buy-btn', function () {
+            buy($(this).attr('data-package-id'), 'CARD',
+                '/ajax/credit/card/purchase-order', this);
+        });
+        $('#credit-consume-apply').on('click', resetConsumePage);
+        $('#credit-consume-apply').on('click', loadConsumeDetail);
 
         // R49：获取/消耗方向切换——重置分页并立即重查
         $('.credit-type-btn').on('click', function () {

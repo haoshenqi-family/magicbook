@@ -15,7 +15,17 @@
       <button id="buddy-retry" class="btn btn-default btn-xs" style="margin-left:10px">{{_('Retry')}}</button>
     </div>
 
-    <p class="buddy-intro">{{_('Your buddy is the face on the AI reading button. It is appearance only and never changes the AI\'s role as your English teacher.')}} {{_('Claim one, or equip another you own.')}}</p>
+    <div class="buddy-ai-entry">
+      <div>
+        <strong>AI 伴读</strong>
+        <p>{{_('Your buddy is the face on the AI reading button. It is appearance only and never changes the AI\'s role as your English teacher.')}}</p>
+      </div>
+      <button type="button" id="buddy-open-chat" class="btn btn-primary">
+        打开 AI 伴读
+      </button>
+    </div>
+
+    <p class="buddy-intro">{{_('Claim one, or equip another you own.')}}</p>
 
     <div id="buddy-roster" class="buddy-roster"></div>
 

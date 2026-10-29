@@ -790,6 +790,12 @@ def reading_word_detail_cancel():
 def word_detail_batch_page():
     """按书补缺单词详解面板：打开即预览（只读），第二次点击才入队。"""
     book_id = request.args.get("book_id", "")
+    if not book_id:
+        return render_title_template(
+            "word_detail_batch_index.html",
+            title=(_("Whole-book Word Details")),
+            page="word_detail_batch",
+        )
     # 与 learning_match_book 同款入参校验：非数字必须挡住，不能让 int() 在模板里炸成 500
     if not re.match(r"^\d+$", str(book_id)):
         abort(400)
@@ -2349,15 +2355,15 @@ def logout():
 @web.route("/me", methods=["GET"])
 @user_login_required
 def profile():
-    """R216 偏好页：语言 / 阅读难度 / 阅读主题 / 伙伴。
+    """A1 account identity page: identity and interface/book language only.
 
-    Why 不再复用 user_edit.html：后者与管理员编辑用户共用，且旧的 change_profile
-    是全量覆盖——删掉 Kindle/侧栏勾选后，缺省字段会把 random_books、locale、
-    sidebar_view 一并重置。偏好保存改走 /me/preferences 的局部更新。
+    Why no longer the preference dumping ground: R251 splits every user task into
+    its own L2 page so /me no longer loads reading settings, buddy state or the
+    learning-data export.  Keeping those fetches here made every profile visit
+    depend on unrelated upstream services.
     """
     languages = calibre_db.speaking_language()
     translations = get_available_locale()
-    settings, settings_error = _moonwell_settings_fetch()
     if feature_support['oauth'] and config.config_login_type == 2:
         oauth_status = get_oauth_status()
         local_oauth_check = oauth_check
@@ -2369,12 +2375,18 @@ def profile():
                                  profile=1,
                                  languages=languages,
                                  content=current_user,
-                                 settings=settings,
-                                 settings_error=settings_error,
                                  title=_("%(name)s's Profile", name=current_user.name),
                                  page="me",
                                  registered_oauth=local_oauth_check,
                                  oauth_status=oauth_status)
+
+
+@web.route("/me/export", methods=["GET"])
+@user_login_required
+def profile_export():
+    """A7: learning-data export has its own L2 page and reuses the R230 proxies."""
+    return render_title_template("me_export.html", title="我的学习数据",
+                                 page="me_export")
 
 
 @web.route("/me/preferences", methods=["POST"])

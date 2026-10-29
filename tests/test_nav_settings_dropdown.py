@@ -30,11 +30,12 @@ def _dropdown_block(page):
     return m.group(0)
 
 
-def test_dropdown_present_with_all_admin_entries(settings_page):
+def test_help_dropdown_only_keeps_onboarding(settings_page):
     assert 'id="top_mb_settings"' in settings_page
-    for anchor in ("top_reading_settings", "top_achievements",
-                   "top_credits", "top_translate_all"):
-        assert 'id="{0}"'.format(anchor) in settings_page
+    assert 'id="top_onboarding"' in settings_page
+    for anchor in ("top_reading_settings", "top_achievements", "top_credits",
+                   "top_buddy", "top_translate_all", "top_llm_tasks"):
+        assert 'id="{0}"'.format(anchor) not in settings_page
 
 
 def test_labels_single_language_for_en_admin(settings_page):
@@ -42,8 +43,8 @@ def test_labels_single_language_for_en_admin(settings_page):
     # 中文不得同时出现（防「中英双写」回流）。断言圈定在下拉框块内——
     # "Reading Settings" 也出现在 <title>，全文匹配是假信心
     block = _dropdown_block(settings_page)
-    assert "Reading Settings" in block and "Book Translation" in block
-    assert "阅读设置" not in block and "整本翻译" not in block
+    assert "Onboarding Tour" in block
+    assert "使用引导" not in block
 
 
 def test_labels_switch_to_chinese_for_zh_user(app):
@@ -66,21 +67,21 @@ def test_labels_switch_to_chinese_for_zh_user(app):
     rv = client.get("/reading/settings")
     assert rv.status_code == 200
     block = _dropdown_block(rv.data.decode("utf-8"))
-    # zh-tester 非 admin，整本翻译入口不渲染；只断言用户可见入口的中文词条
-    assert "阅读设置" in block and "使用引导" in block
-    assert "Reading Settings" not in block and "Onboarding Tour" not in block
+    assert "使用引导" in block
+    assert "Onboarding Tour" not in block
 
 
 def test_old_flat_entries_and_dead_link_removed(settings_page):
     # 旧 AI 导航按钮指向已退役的 /ai/admin（410），不得回流
     assert "top_ai_admin" not in settings_page
-    # 平铺入口已收进下拉框，每个入口 id 全页只出现一次
-    for anchor in ("top_reading_settings", "top_achievements", "top_credits"):
-        assert settings_page.count('id="{0}"'.format(anchor)) == 1
+    # R251：账号/管理 L2 已迁出 Settings；这里只保留一次性引导入口。
+    for anchor in ("top_reading_settings", "top_achievements", "top_credits",
+                   "top_buddy", "top_translate_all", "top_llm_tasks"):
+        assert settings_page.count('id="{0}"'.format(anchor)) == 0
 
 
-def test_plain_user_sees_dropdown_without_admin_entries(app):
-    """普通登录用户：下拉框与三个用户入口可见，admin 专属整本翻译隐藏。"""
+def test_plain_user_sees_same_help_dropdown(app):
+    """普通登录用户与管理员共享最小 Help 菜单，账号能力改走 L2 导航。"""
     user = ub.session.query(ub.User).filter(ub.User.name == "plain-tester").first()
     if user is None:
         user = ub.User(name="plain-tester", email="plain@example.com",
@@ -99,10 +100,9 @@ def test_plain_user_sees_dropdown_without_admin_entries(app):
     rv = client.get("/reading/settings")
     assert rv.status_code == 200
     block = _dropdown_block(rv.data.decode("utf-8"))
-    for anchor in ("top_reading_settings", "top_achievements", "top_credits"):
-        assert 'id="{0}"'.format(anchor) in block
+    assert 'id="top_onboarding"' in block
+    assert "top_reading_settings" not in block
     assert "top_translate_all" not in block
-    assert "divider" not in block
 
 
 def test_dropdown_hidden_for_anonymous(client):

@@ -159,21 +159,28 @@ def test_export_is_binary_proxy(admin_client, moonwell_configured, monkeypatch):
         'attachment; filename="credit-cards-batch-3.txt"'
 
 
-def test_credit_page_contains_card_sections(admin_client, moonwell_configured):
+def test_credit_page_contains_user_card_sections(admin_client, moonwell_configured):
     rv = admin_client.get("/credits")
     html = rv.data.decode("utf-8")
     for token in ("credit-card-redeem", "credit-card-packages",
-                  "credit-card-purchased", "credit-card-admin-panel",
-                  "credit-card-admin-issue-form", "credit-card-admin-long-term"):
+                  "credit-card-purchased"):
         assert token in html
+    for admin_token in ("credit-card-admin-panel", "credit-card-admin-issue-form",
+                        "credit-card-admin-long-term"):
+        assert admin_token not in html
     assert 'class="modal fade" id="credit-checkout"' in html
     assert 'id="credit-checkout-title"' in html
     assert 'id="credit-checkout-help"' in html
     assert 'data-card-share-url="/credit-card/share"' in html
-    assert html.count("credit-card-admin-panel") == 1
-    assert html.count("credit-card-admin-cards-rows") == 1
-    assert html.index("credit-card-admin-cards-rows") > \
-        html.index("credit-card-admin-batches-rows")
+
+    admin_html = admin_client.get("/admin/credits").data.decode("utf-8")
+    for admin_token in ("credit-card-admin-panel", "credit-card-admin-issue-form",
+                        "credit-card-admin-long-term"):
+        assert admin_token in admin_html
+    assert admin_html.count("credit-card-admin-panel") == 1
+    assert admin_html.count("credit-card-admin-cards-rows") == 1
+    assert admin_html.index("credit-card-admin-cards-rows") > \
+        admin_html.index("credit-card-admin-batches-rows")
     js = pathlib.Path(cps.__file__).parent / "static" / "js" / "credits.js"
     text = js.read_text(encoding="utf-8")
     for endpoint in ("/ajax/credit/card/redeem", "/ajax/credit/card/purchase-order",

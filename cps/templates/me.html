@@ -1,13 +1,11 @@
 {% extends "layout.html" %}
-{% block header %}
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/me.css') }}">
-{% endblock %}
 {% block body %}
 <div class="discover" id="me-page">
   <h1>{{title}}</h1>
   <div class="col-md-10 col-lg-8">
 
-    {# 账号块只读：/me 不再承担改用户名/邮箱/密码，这些由登录方式（OIDC）管理 #}
+    {# A1 owns identity only.  Reading preferences, buddies, credits, mail,
+       achievements and learning-data export each have their own L2 page. #}
     <div class="panel panel-default" id="me-account">
       <div class="panel-heading">
         <h3 class="panel-title">{{_('Account')}}</h3>
@@ -46,8 +44,7 @@
         <h3 class="panel-title">{{_('Language')}}</h3>
       </div>
       <div class="panel-body">
-        {# 局部更新：POST /me/preferences 只写 locale 与 default_language，
-           避免旧 change_profile 的全量覆盖把书架视图等字段重置 #}
+        {# Local-only update: keep this form from resetting unrelated profile fields. #}
         <form role="form" method="POST" action="{{ url_for('web.update_preferences') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="form-group">
@@ -74,127 +71,13 @@
       </div>
     </div>
 
-    {# 深链锚点：首页难度入口与阅读设置页都指到 #difficulty #}
-    <div class="panel panel-default" id="difficulty">
-      <div class="panel-heading">
-        <h3 class="panel-title">{{_('Vocabulary Difficulty Level')}}</h3>
-      </div>
-      <div class="panel-body">
-        {% if settings_error %}
-        <div class="alert alert-danger" role="alert">
-          {{_('Failed to load reading settings')}}: {{ settings_error }}
-          <button type="button" id="me-difficulty-retry" class="btn btn-default btn-xs"
-                  style="margin-left:10px">{{_('Retry')}}</button>
-        </div>
-        {% endif %}
-        <p class="text-muted">
-          {{_('Words harder than this level are marked as unknown while reading. Default: CET4.')}}
-        </p>
-        <form id="me-difficulty-form" role="form"
-              data-save-url="{{ url_for('web.reading_settings_update_hard_level') }}">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <div class="form-group">
-            <label for="me-hard-level">{{_('Hard level')}}</label>
-            <select class="form-control" id="me-hard-level" name="hardLevel"
-                    {% if not settings %}disabled{% endif %}>
-              {% if settings %}
-                {% for opt in settings.options %}
-                <option value="{{ opt.code }}" {% if settings.hardLevel == opt.code %}selected{% endif %}>
-                  {{ opt.code }} - {{ opt.name }}{% if settings.usingDefault and settings.hardLevel == opt.code %} ({{_('default')}}){% endif %}
-                </option>
-                {% endfor %}
-              {% endif %}
-            </select>
-          </div>
-          <button type="submit" id="me-difficulty-save" class="btn btn-primary"
-                  {% if not settings %}disabled{% endif %}>{{_('Save')}}</button>
-          <span id="me-difficulty-status" class="me-status text-muted" role="status" aria-live="polite"></span>
-        </form>
-      </div>
-    </div>
-
-    <div class="panel panel-default" id="me-theme">
-      <div class="panel-heading">
-        <h3 class="panel-title">{{_('Theme')}}</h3>
-      </div>
-      <div class="panel-body">
-        <p class="text-muted">
-          {{_('Choose the theme used when you open a book. It is saved to your account and applies on every device; custom colors stay on the device where you pick them.')}}
-        </p>
-        <form id="me-theme-form" role="form">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <fieldset>
-            <legend class="sr-only">{{_('Theme')}}</legend>
-            <div class="me-theme-options">
-              <label><input type="radio" name="reader-theme" value="lightTheme"> {{_('Light')}}</label>
-              <label><input type="radio" name="reader-theme" value="darkTheme"> {{_('Dark')}}</label>
-              <label><input type="radio" name="reader-theme" value="sepiaTheme"> {{_('Sepia')}}</label>
-              <label><input type="radio" name="reader-theme" value="amberTheme"> {{_('Amber')}}</label>
-              <label><input type="radio" name="reader-theme" value="blackTheme"> {{_('Black')}}</label>
-            </div>
-          </fieldset>
-          <button type="submit" id="me-theme-save" class="btn btn-primary">{{_('Save')}}</button>
-          <span id="me-theme-status" class="me-status text-muted" role="status" aria-live="polite"></span>
-        </form>
-      </div>
-    </div>
-
-    <div class="panel panel-default" id="me-buddy">
-      <div class="panel-heading">
-        <h3 class="panel-title">{{_('Buddies')}}</h3>
-      </div>
-      <div class="panel-body">
-        <p class="text-muted">
-          {{_('Your buddy is the face on the AI reading button. It is appearance only and never changes the AI\'s role as your English teacher.')}}
-        </p>
-        <div id="me-buddy-body" class="me-buddy" role="status" aria-live="polite">
-          {{_('Loading...')}}
-        </div>
-        <p class="me-buddy-manage">
-          <a href="{{ url_for('web.buddy_page') }}" class="btn btn-default btn-sm">{{_('Manage buddies')}}</a>
-        </p>
-      </div>
-    </div>
-
-    <div class="panel panel-default" id="me-export">
-      <div class="panel-heading">
-        <h3 class="panel-title">导出我的学习数据</h3>
-      </div>
-      <div class="panel-body">
-        {# 2026-10-26 用户修订：导出面板文案改中文直写（不走 _() 翻译链）——
-           账号 locale 为 en 时 gettext 回退英文 msgid，用户要求恒中文。 #}
-        <p class="text-muted">
-          把你的词汇与练习记录打包成 ZIP 下载：内含可导入 Anki 的单词卡、机器可读的 JSON/CSV
-          和一份可读的回顾报告。不包含音频。文件保留 7 天。
-        </p>
-        <form id="me-export-form" autocomplete="off">
-          <div class="form-group">
-            <label for="me-export-password">ZIP 解压密码（可选）</label>
-            <input type="password" class="form-control" id="me-export-password"
-                   minlength="6" maxlength="128"
-                   placeholder="至少 6 个字符，留空则不加密">
-          </div>
-          <div class="form-group">
-            <label for="me-export-password2">再次输入密码</label>
-            <input type="password" class="form-control" id="me-export-password2"
-                   minlength="6" maxlength="128">
-          </div>
-          <p class="help-block">
-            密码只用于加密文件，系统不会保存；忘记密码只能重新导出。
-            不设密码则导出不加密的 ZIP——任何拿到文件的人都能打开。
-          </p>
-          <button type="submit" id="me-export-start" class="btn btn-primary">生成导出</button>
-          <span id="me-export-message" class="me-export-message" role="status" aria-live="polite"></span>
-        </form>
-        <div id="me-export-tasks" class="me-export-tasks" aria-live="polite">
-          加载中…
-        </div>
-      </div>
-    </div>
+    <p class="help-block">
+      阅读难度、词汇量测试与阅读主题见
+      <a href="{{ url_for('web.reading_settings') }}">阅读与词汇</a>；
+      伙伴和 AI 伴读见
+      <a href="{{ url_for('web.buddy_page') }}">伙伴与 AI 伴读</a>。
+    </p>
 
   </div>
 </div>
-{% endblock %}
-{% block js %}
-<script src="{{ url_for('static', filename='js/me.js') }}"></script>
 {% endblock %}
