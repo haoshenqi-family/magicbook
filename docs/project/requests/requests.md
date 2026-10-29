@@ -279,3 +279,7 @@
 250. **管理员运营站内信：自由撰写、单发/群发、发送历史与整批撤回**（占号 2026-10-29，待回填）
 
 251. **MagicBook UI 信息架构与分组原型**（占号 2026-10-29，待回填）
+
+252. **书籍详情页展示整本朗读与翻译费用及缓存费用**（占号 2026-10-29）：用户原话「书籍详情页写一下完整听完大概需要多少token，完整翻译完大概需要积分，如果已经缓存了就写缓存需要的积分加原始需要的积分，比如 【完整朗读预计花费1（100）积分】1是缓存 100是全文朗读预计。详情也写一下。」口径：翻译按 `chars/4` 粗估 token，积分按 moon-well R222 的 `ceil(tokens × creditsPer1kToken / 1000)`；TTS 不按 token，全文生成按字符 `floor(chars / charsPerCredit)`，已缓存收听按 R213 的 `1 积分/段`。详情页在缓存齐备标识后固定展示两行摘要；已缓存时按「缓存值（全文原价）」并列，翻译缓存阅读 0 积分、朗读缓存收听 `段数×1` 积分；未缓存只显示全文生成原价，费率不可得时明确写暂不可得，不把未知显示成 0。实现：速览快照新增去重后的 `billableParagraphCount/billableCharCount`，新增 `cps/reading_insight/cost.py` 纯函数，`show_book()` 复用速览与 readiness 台账并读取 moon-well `/credit/billing`（5 分钟缓存、详情页 2 秒超时），不实时探测整本缓存；同时把 `/ajax/whole-book-estimate` 的翻译公式回正为 R222 比例计费。状态：**已上线待验收**（实现 `004c6a1f`，fnOS 构建 END OK、容器 healthy；定向 118 passed、全量 1133 passed；worktree `../magicbook-r252-book-cost-summary`，分支 `feat/r252-book-cost-summary`）。**翻译缓存 0 积分口径已被 R253 取代。**
+
+253. **缓存翻译按1积分每段计费**（占号 2026-10-29）：用户原话「缓存翻译不是也要1个积分吗」，随后拍板「按 **1 积分/缓存段** 修改」。本仓口径：详情页成本摘要的翻译缓存值改为 `cache_readiness.translate.total × 1`，文案由「缓存阅读」改为「缓存翻译」；朗读缓存收听仍为 `tts.total × 1`，两条链路段数分别取各自台账，不混用。同步更新整本缓存标识悬浮说明、L1/L3、R252 历史注记与需求基线 R253；不改详情页零缓存探针、整本任务接口或后台 token 计费。跨仓同源：moon-well R231。状态：**已上线待验收**（实现 `1e525b18`；定向 57 passed；fnOS 构建 `END OK`、容器 healthy；worktree `../magicbook-r253-cached-translation-billing`，分支 `feat/r253-cached-translation-billing`）。

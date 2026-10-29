@@ -59,9 +59,10 @@ def test_translate_estimate_dedups_and_reports_coverage(monkeypatch):
     assert result["units"]["billable"] == 2, "重复段落被算了两遍"
     assert result["units"]["paragraphs"] == 3
     assert result["coverage"] == {"known": True, "cached": 1, "total": 2}
-    # 只剩 "Second paragraph here." 22 字 → tokens 5.5 → 1k 一档 → 10 积分
-    assert result["credits"]["estimated"] == 10
-    assert result["credits"]["upperBound"] == 11
+    # 只剩 "Second paragraph here." 22 字 → tokens 5.5；
+    # R222 按实际比例 ceil(5.5 × 10 / 1000) = 1 积分，不再是“不足千按千”。
+    assert result["credits"]["estimated"] == 1
+    assert result["credits"]["upperBound"] == 2
     assert result["duration"] == {"known": True, "basis": "constant", "samples": 0,
                                   "seconds": 10}, "常量兜底 10s/段 × 剩 1 段"
 

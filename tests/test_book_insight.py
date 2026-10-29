@@ -126,9 +126,30 @@ def test_single_language_epub_stats(tmp_dir):
     assert len(result["chapters"]) == 3
     assert result["paragraphCount"] == 4
     assert result["charCount"] > 0
+    assert result["billableParagraphCount"] == 4
+    assert result["billableCharCount"] == result["charCount"]
     assert result["englishWordCount"] > 0
     assert result["excerpt"], "首章起的摘录不应为空"
     assert result["excerpt"][0]["chapter"] == "Chapter 1"
+
+
+def test_billable_counts_deduplicate_normalized_text(tmp_dir):
+    """成本口径按 text_hash 去重；仅空白不同的重复段落不能重复计价。"""
+    files = {
+        "c1.xhtml": _chapter_xhtml("Chapter 1", ["Hello world.", "Hello   world."]),
+        "c2.xhtml": _chapter_xhtml("Chapter 2", ["Second paragraph."]),
+    }
+    result = _parse(_make_epub(
+        tmp_dir,
+        "<dc:language>eng</dc:language>",
+        files=files,
+        spine=["c1.xhtml", "c2.xhtml"],
+    ))
+
+    assert result["paragraphCount"] == 3
+    assert result["charCount"] == len("Hello world.") + len("Hello world.") + len("Second paragraph.")
+    assert result["billableParagraphCount"] == 2
+    assert result["billableCharCount"] == len("Hello world.") + len("Second paragraph.")
 
 
 def test_dual_language_epub_declares_both(tmp_dir):
