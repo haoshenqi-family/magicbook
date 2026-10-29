@@ -284,6 +284,10 @@ pytest tests/ -q
   OIDC issuer、路由或模型。
 - 渲染守卫覆盖 DOM ID、目标 URL、新窗口与 `noopener noreferrer`；CDP 实测
   390×844 与 1440×1200 均 `scrollWidth == innerWidth`，链接可见且无溢出。
+- 实现 `2de2a538` 已推送并上线；fnOS `build END OK`、app-manager
+  `deploy SUCCESS`，容器 `running / healthy`，镜像
+  `house.build-sha=2de2a5388d2cf598a2f36a65ada778d7e8f8c29d`、
+  `house.code-digest=533d440f819b943e`。
 
 ## 12. 第二轮验证
 

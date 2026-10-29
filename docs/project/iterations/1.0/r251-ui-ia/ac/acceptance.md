@@ -98,4 +98,5 @@
 - [x] CDP 设备指标 390×844 下关键账号页 `scrollWidth == innerWidth`，移动底栏四项完整可见。
 - [x] 1440px 下账号/管理 L2 与页面内容无横向溢出。
 - [x] 验收修正 `3a75a695` 已推送 `origin/develop`；fnOS 构建、app-manager 部署、容器健康与生产匿名路由检查完成。
+- [x] 统一账号中心入口 `2de2a538` 已上线；390×844 / 1440×1200 无横向溢出，生产容器 `running/healthy`，`house.code-digest=533d440f819b943e`。
 - [x] L1/L2/L3、需求基线、LLD、AC、response 与长期 KB 已同步。
