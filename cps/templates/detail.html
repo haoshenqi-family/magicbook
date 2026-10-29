@@ -262,7 +262,7 @@
                     {% endif %}
                     {% if _cache.translate.ready %}
                     <span class="label label-default cache-ready-chip" data-kind="translate"
-                          title="整本翻译缓存已备齐（{{ _cache.translate.done }}/{{ _cache.translate.total }} 段），命中缓存不额外计费">整本翻译已缓存</span>
+                          title="整本翻译缓存已备齐（{{ _cache.translate.done }}/{{ _cache.translate.total }} 段），命中缓存按 1 积分/段计">整本翻译已缓存</span>
                     {% endif %}
                     {% if _cache.tts.ready %}
                     <span class="label label-default cache-ready-chip" data-kind="tts"
@@ -282,11 +282,12 @@
             {% set _cost = entry.book_cost_summary %}
             {% if _cost %}
             <div class="book-cost-summary" id="book-cost-summary">
-                <p data-kind="translate">
+                <p data-kind="translate"
+                   title="缓存翻译按 {{ _cost.translate.cachedPerSegment }} 积分/段；全文生成按 token">
                     <strong>完整翻译：</strong>
                     约 {{ "{:,}".format(_cost.translate.tokens) }} tokens
                     {% if _cost.translate.cached %}
-                        · 缓存阅读 {{ "{:,}".format(_cost.translate.cachedCredits) }} 积分
+                        · 缓存翻译 {{ "{:,}".format(_cost.translate.cachedCredits) }} 积分
                         {% if _cost.translate.fullCredits is not none %}
                             （全文生成原价约 {{ "{:,}".format(_cost.translate.fullCredits) }} 积分）
                         {% else %}

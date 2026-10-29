@@ -1,16 +1,18 @@
-"""书籍详情页的整本成本摘要（R252）。
+"""书籍详情页的整本成本摘要（R252/R253）。
 
 Why 独立纯函数：详情页已经持有内容速览与缓存齐备快照，成本只该做算术，
 不能为了显示一个数字重新解析整本 EPUB 或逐段探测 moon-well 缓存。
 
 计费口径：
 - 翻译按 token，公式与 moon-well R222 一致；
-- TTS 不按 token，全文生成按字符，缓存收听按 R213 的 1 积分/段。
+- 翻译与 TTS 的缓存复用都按 1 积分/段（R231/R213）；
+- TTS 不按 token，全文生成按字符。
 """
 import math
 
 CHARS_PER_TOKEN = 4
-# moon-well R213 固定收听规则：缓存命中也收 1 积分/段。
+# moon-well R213/R231 固定缓存复用规则：翻译与收听命中都收 1 积分/段。
+TRANSLATION_CACHED_CREDITS_PER_SEGMENT = 1
 TTS_CACHED_LISTEN_CREDITS = 1
 
 
@@ -65,16 +67,24 @@ def build_book_cost_summary(payload, readiness=None, rates=None):
         or payload.get("paragraphCount")
     )
 
-    translate_ready = bool((readiness.get("translate") or {}).get("ready"))
+    translate_readiness = readiness.get("translate") or {}
+    translate_ready = bool(translate_readiness.get("ready"))
+    translate_cached_segments = (
+        _as_int(translate_readiness.get("total")) if translate_ready else 0
+    )
     tts_full, tts_billing_enabled = _tts_full_credits(chars, rates)
 
     return {
         "translate": {
             "tokens": tokens,
             "fullCredits": _token_credits(tokens, rates),
-            # 翻译命中缓存不调用模型，也没有按次收听费。
-            "cachedCredits": 0 if translate_ready else None,
+            "cachedCredits": (
+                translate_cached_segments * TRANSLATION_CACHED_CREDITS_PER_SEGMENT
+                if translate_ready else None
+            ),
             "cached": translate_ready,
+            "cachedSegments": translate_cached_segments,
+            "cachedPerSegment": TRANSLATION_CACHED_CREDITS_PER_SEGMENT,
         },
         "tts": {
             "chars": chars,
