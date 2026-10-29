@@ -31,6 +31,10 @@
   .credit-type-badge.income { background: #dff0d8; color: #3c763d; }
   .credit-type-badge.consume { background: #fcf8e3; color: #8a6d3b; }
   #credit-consume-rows td { vertical-align: middle; }
+  .credit-card-key { font-family: Menlo, Consolas, monospace; letter-spacing: .5px; }
+  .credit-card-row td { vertical-align: middle !important; }
+  #credit-card-packages .credit-package-card { border-color: #b9d7c9; }
+  #credit-card-redeem input { max-width: 420px; }
 </style>
 {% endblock %}
 
@@ -51,6 +55,49 @@
   </div>
 
   <div id="credit-alert" style="display:none" class="alert" role="alert"></div>
+
+  <h3>{{_('Redeem a Credit Card')}}</h3>
+  <div class="panel panel-default" id="credit-card-redeem">
+    <div class="panel-body">
+      <p class="help-block" style="margin-top:0">
+        {{_('Anyone signed in can redeem a valid card key. Keys are transferable; paste the full text and redeem once.')}}
+      </p>
+      <form id="credit-card-redeem-form" class="form-inline">
+        <input type="text" id="credit-card-redeem-key" class="form-control"
+               placeholder="MB-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false" required>
+        <button type="submit" class="btn btn-success">{{_('Redeem')}}</button>
+      </form>
+      <p id="credit-card-redeem-result" class="help-block" style="margin:8px 0 0"></p>
+    </div>
+  </div>
+
+  <h3>{{_('Buy a Credit Card to Gift')}}</h3>
+  <p class="help-block">
+    {{_('Fixed-price cards do not receive recharge promotion multipliers. After payment, copy the card key and send it to anyone.')}}
+  </p>
+  <div id="credit-card-packages" class="credit-packages">
+    <p class="text-muted">{{_('Loading...')}}</p>
+  </div>
+
+  <h3>{{_('My Purchased Card Keys')}}</h3>
+  <div class="panel panel-default" id="credit-card-purchased">
+    <div class="table-responsive">
+      <table class="table table-condensed table-striped" style="margin:0">
+        <thead>
+          <tr>
+            <th>{{_('Card Key')}}</th>
+            <th>{{_('Credits')}}</th>
+            <th>{{_('Status')}}</th>
+            <th>{{_('Expires')}}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="credit-card-purchased-rows">
+          <tr><td colspan="5" class="text-muted">{{_('Loading...')}}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 
   <h3>{{_('Choose a Recharge Package')}}</h3>
   <div id="credit-packages" class="credit-packages">
@@ -139,6 +186,62 @@
             <tr><td colspan="4" class="text-muted">{{_('Loading...')}}</td></tr>
           </tbody>
         </table>
+      </div>
+
+      <hr>
+      <div id="credit-card-admin-panel">
+        <h4 style="margin-top:0">{{_('Credit Cards: Issue Batch')}}</h4>
+        <form id="credit-card-admin-issue-form" class="form-inline">
+          <select id="credit-card-admin-credits" class="form-control" style="width:150px">
+            <option value="1000">1,000 {{_('credits')}}</option>
+            <option value="5000">5,000 {{_('credits')}}</option>
+            <option value="10000">10,000 {{_('credits')}}</option>
+          </select>
+          <input type="number" id="credit-card-admin-count" class="form-control"
+                 min="1" max="1000" value="10" style="width:90px" required>
+          <input type="number" id="credit-card-admin-validity" class="form-control"
+                 min="1" max="3650" value="30" style="width:90px">
+          <label class="checkbox-inline">
+            <input type="checkbox" id="credit-card-admin-long-term"> {{_('Long-term')}}
+          </label>
+          <input type="text" id="credit-card-admin-reason" class="form-control"
+                 placeholder="{{_('Reason (required, audited)')}}" style="width:240px" required>
+          <button type="submit" class="btn btn-danger btn-sm">{{_('Issue Cards')}}</button>
+        </form>
+        <p class="text-muted" style="margin-top:8px;font-size:12px">
+          {{_('Default validity is 30 days. Long-term cards have no expiry. Card keys are bearer secrets: export and store them securely.')}}
+        </p>
+        <div class="table-responsive">
+          <table class="table table-condensed table-striped">
+            <thead>
+              <tr>
+                <th>ID</th><th>{{_('Credits')}}</th><th>{{_('Count')}}</th>
+                <th>{{_('Validity')}}</th><th>{{_('Source')}}</th>
+                <th>{{_('Created')}}</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="credit-card-admin-batches-rows">
+              <tr><td colspan="7" class="text-muted">{{_('Loading...')}}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="credit-card-admin-cards" style="display:none">
+          <h5>{{_('Cards in this batch')}}</h5>
+          <div class="table-responsive">
+            <table class="table table-condensed">
+              <thead>
+                <tr>
+                  <th>{{_('Card Key')}}</th>
+                  <th>{{_('Credits')}}</th>
+                  <th>{{_('Status')}}</th>
+                  <th>{{_('Expires')}}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="credit-card-admin-cards-rows"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
