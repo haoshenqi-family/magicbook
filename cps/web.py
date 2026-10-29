@@ -2332,12 +2332,17 @@ def login_post():
 def logout():
     if current_user is not None and current_user.is_authenticated:
         ub.delete_user_session(current_user.id, flask_session.get('_id', ""))
-        logout_user()
         # R123: 会话已持久化（cookie 带 30 天滑动 Expires），登出必须整体清空——
         # 否则 moonwell_access_token / moonwell_refresh_token 滞留在被继续续期的
         # 永久 cookie 里，登出后仍可被重放。clear 置 modified，save_session 会对
         # 空会话下发 Set-Cookie 删除头，浏览器端 cookie 一并移除。
+        #
+        # R255: 必须先 clear 再 logout_user()。cw_login.logout_user() 不会直接删
+        # remember_token，而是在 session 里写 _remember="clear" 交给 after_request
+        # 处理；顺序反了，clear() 会把这个标记一起清掉，remember cookie 留在浏览器，
+        # 下一次请求立刻从 remember cookie 恢复登录态——用户看到的就是「注销无效」。
         flask_session.clear()
+        logout_user()
         if feature_support['oauth'] and (config.config_login_type == 2 or config.config_login_type == 3):
             logout_oauth_user()
     log.debug("User logged out")

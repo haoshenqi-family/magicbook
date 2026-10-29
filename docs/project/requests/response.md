@@ -76,6 +76,7 @@
 - `response-archive/response-R242.md`：R242 积分卡购买、兑换与管理员发卡入口（2026-10-29 R251 写入触发轮转搬移，原样搬移不改写）。
 - `response-archive/response-R241.md`：R241 整本能力缓存齐备标识（2026-10-29 R245 写入触发轮转搬移，原样搬移不改写）。
 - `response-archive/response-R243.md`：R243 站内信前端——伙伴信封、抽屉 Mail、设置入口与独立收件箱（2026-10-29 R254 写入触发轮转搬移，原样搬移不改写）。
+- `response-archive/response-R245.md`：R245 积分页分区、充值活动 400 与明细可读性（2026-10-29 R255 写入触发轮转搬移，原样搬移不改写）。
 
 ---
 
@@ -208,22 +209,6 @@
 - **状态与驻留**：第一轮 `70aa636c`、第二轮初始实现 `af551307` 与验收修正 `3a75a695` 均已上线；整体状态为**已上线待验收**。worktree `../magicbook-r251-ui-ia`（分支 `feat/r251-ui-ia`）按闸门原样保留待用户验收，验收通过后再清理。
 - **窗口与总结**：写入前 9 节，新增后为 10 节；为保证“窗口最多 10 节”，本轮已把最旧 R242 整节原样搬至 `response-archive/response-R242.md` 并登记索引。requests.md 条目 251 已从占位回填；冲突记录：无撞号；R213 的旧 schema 待定项按展示层方案收敛，不改写 R213 历史正文。
 
-## 2026-10-29（R245：积分页按任务分区、充值活动发布 400 与明细可读性修复）
-
-### R245（用户：「积分充值活动，点击发布报错，400 请求体格式错误。积分页功能太多，堆砌太杂乱了。按照具体的小功能且分优化一下。」；后续补：「积分消耗明细项颜色和背景色几乎一样，根本看不出来」）
-
-- **任务定位**：缺陷修复 + 修改意见，承接 R205 充值倍率活动 / R209 充值页；前端主责 magicbook R245，后端同源 moon-well R229。不是新功能域。PingCode：需求 MB-235（`Nal8mNRY`）、缺陷 MB-21（`xn-uxsjb`）。
-- **400 根因**：浏览器 `datetime-local` 提交 `2026-10-29T00:00:00`，moon-well 全局 Jackson 只接受 `yyyy-MM-dd HH:mm:ss`，DTO 反序列化在 Controller 前失败并映射为「请求体格式错误」。前端现由 `promotionWireTime()` 只替换 `T`、缺秒补 `00`，不 `new Date()`，不改变东八区墙上时间；moon-well R229 同时在两个 DTO 字段上兼容 ISO/空格/分钟级格式，部署顺序不再触发 400。
-- **发布反馈**：活动提交改用共享 `ajax()` + `unwrapStrict()`，成功/失败写入 `#credit-promo-feedback`；失败显示上游 `message` 并保留表单值，不再用 `alert`；成功后刷新活动列表与充值档位。
-- **页面分区**：余额 Hero + `充值 / 积分卡 / 明细 / 管理` 四个任务页签；管理只在管理员侧渲染，内部再分 `积分调整 / 充值活动 / 批量发卡`；积分卡页拆为兑换、购卡赠送、已购卡密。余额快捷按钮只切页签，分享卡密进入页面时自动切到积分卡。
-- **明细可读性**：去掉金额内联颜色，新增 `.credit-amount.income/consume`；获取徽标改深绿字 + 浅绿底 + 边框，消耗徽标改深褐字 + `#f3cf7a` 琥珀底 + 深琥珀边框，金额均加粗。普通行与 Bootstrap 条纹行都不再出现浅棕字贴在浅黄/浅灰底上的低对比问题。
-- **测试**：`tests/test_credit_page_r245.py` 新增 4 条结构/提交/颜色守卫；合并最新基线后定向 `test_credit_page_r245 + test_credit_card + test_credit_consume + test_i18n_seed_contract` 合计 **33 passed / 0 failed**；`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。
-- **文档四问**：能力 → L1 `docs/product/readme/credit.md`；契约/页面消费 → L2 `docs/product/credit/interface.md`；实现边界 → 新建 L3 `docs/product/credit/features/page-layout.md`；本次实现 → `docs/project/iterations/1.0/r245-credit-page-redesign/lld.md` 与 `ac/acceptance.md`；需求基线、产品需求总册和迭代 plan 已回填。
-- **i18n**：R245 新增模板词条已合并进 `zh_Hans_CN/messages.po`；最新基线带来 `.mo` 二进制冲突，按正确姿势从合并后的 PO 重新 `pybabel compile`，没有用 ours/theirs 二选一。
-- **上线状态**：用户令 `merge and push` 后，任务分支快进推送 `origin/develop`（`e4708c27..5e5979f9`）。fnOS `build END OK`，app-manager `deploy SUCCESS`，容器 `running/healthy` 且镜像标签 `house.build-sha=5e5979f9...`；匿名 `/credits` 按预期 302 到登录页。
-- **状态与驻留**：**已上线待验收**。worktree `../magicbook-r245-credit-page-redesign`（分支 `fix/r245-credit-page-redesign`）驻留；实现 `39135634`、明细可读性 `0cc8a0dc`、文档 `244634b4`、最新基线合并 `83765414`、发布提交 `5e5979f9`。验收通过后再清理 worktree 与分支。
-- **窗口与总结**：写入前 10 节，新增后 11 节；按“写入即检查”把最旧 R241 整节原样搬至 `response-archive/response-R241.md` 并登记索引，窗口恢复 10。requests.md 条目 245 已从占位回填；冲突记录：无撞号，R251 基线合并仅 `.mo` 产物冲突。
-
 ## 2026-10-29（R254：伙伴邮件弹层与 AI 对话抽屉分离）
 
 ### R254（用户：「邮件不要出现在AI伴读对话框中。当新邮件到达的时候，点击伙伴弹框显示邮件而不是跟AI伴读公用一个弹框」）
@@ -239,3 +224,17 @@
 - **上线**：实现提交 `96a756114232d7f1e4e535724549c081cea6a122` 已推送 `origin/develop`（`d7933131..96a75611`）；fnOS `build END OK (96a756114232d7f1e4e535724549c081cea6a122)`，app-manager `deploy SUCCESS`，容器 `running/healthy` 且 `house.build-sha=96a756114232d7f1e4e535724549c081cea6a122`。生产 `/login` 200，匿名 `/buddy` 302 到 `/login?next=%2Fbuddy`。
 - **状态与驻留**：**已上线待验收**。worktree `../magicbook-r254-buddy-mail-popover`，分支 `fix/r254-buddy-mail-popover`，实现与部署提交 `96a75611`；按闸门保留待用户验收，验收通过后再清理。
 - **窗口与总结**：写入前窗口 10 节，新增后 11；按「写入即检查」把最早 R243 整节原样搬至 `response-archive/response-R243.md` 并在两处归档索引登记，窗口恢复 10。requests.md 条目 254 已从占位回填；冲突记录：无撞号，本轮不改 moon-well 契约。
+
+## 2026-10-29（R255：注销后 remember_token 未清除，用户被自动登回）
+
+### R255（用户 sunny：「接口401 注销功能失效，无法正确注销」；补充：「资料与身份可以正常显示用户名和邮箱 authentik 正常登录」）
+
+- **结论先行**：注销链路确实失效，但根因不是 Authentik、不是账号资料，也不在 moon-well；是本站 R123 会话持久化改动引入的 cookie 清理顺序回归。
+- **复现路径**：OIDC 登录（`login_user(user, remember=True)`）→ 点击顶栏「注销」→ 到 `/login` 后被自动 302 回首页，仍是原账号。服务端会话记录已删、session cookie 已删，所以从接口看会伴随一次 401；但 `remember_token` 没删，下一次请求立刻把用户登回来。
+- **根因**：`cps/web.py::logout()` 先 `logout_user()` 再 `flask_session.clear()`。`cw_login.logout_user()` 靠 session 里的 `_remember="clear"` 通知 `after_request` 删除 `remember_token`，而 `clear()` 把这个标记一起清掉了；cookie 仍在，`_load_user()` 从 remember cookie 恢复用户并 `confirm_login()`。
+- **修复**：调整顺序为「删除服务端 user_session → `flask_session.clear()` → `logout_user()`」。moonwell access/refresh token 仍被清空，R123 的安全目标不变；`logout_user()` 重新写入 clear 标记，`remember_token` 随响应删除。
+- **测试**：`tests/test_session_permanent.py` 的登录 fixture 改为带 `remember_me`，新增断言：注销响应必须删除 `remember_token`、后续 `GET /login` 必须 200 而不是 302。修复前红灯（`remember_del == []`），修复后 4 passed；再跑 OIDC 相关 `test_oidc.py`、`test_oidc_admin_role.py`、`test_login_invite_link.py`、`test_oidc_signup.py` 共 52 passed / 0 failed。
+- **文档四问**：能力 → 无变化（恢复「注销能退出」的既定能力）；契约 → 无变化；实现/边界 → 新建 L3 `docs/product/admin/features/session-logout.md`；本次实现 → `docs/project/iterations/1.0/r255-logout-remember/lld.md`。
+- **边界（需拍板）**：本站注销只结束 magicbook 会话，不结束 `account.haoshenqi.top` 的 SSO 会话；注销后若再点「Log in」，Authentik 仍会静默授权。若用户期望「注销 = 连统一账号中心一起退出」，需要另立需求做 RP-initiated logout（`end_session_endpoint` + `id_token_hint`），这会影响四个应用，不能夹在本次缺陷修复里擅自改。
+- **状态与驻留**：已修复待验收。worktree `../magicbook-r255-logout-remember`（分支 `fix/r255-logout-remember`）按闸门保留；验收通过后再删除。
+- **窗口与总结**：写入前 10 节，新增后 11 节；按「写入即检查」把最旧 R245 整节原样搬至 `response-archive/response-R245.md` 并登记索引，窗口恢复 10。requests.md 条目 255 已从占位回填；冲突记录：无撞号。
