@@ -1,6 +1,6 @@
 # LLD — R251 MagicBook UI 信息架构与导航分组
 
-> 状态：**开发完成待验收**（2026-10-29；实现 `1910fce7`，定向 12 passed / 0 failed，正式发布态全量 1188 passed / 0 failed）
+> 状态：**已上线待验收**（2026-10-29；实现 `1910fce7`，文档与发布提交 `bfea06fb`；定向 12 passed / 0 failed，正式发布态全量 1188 passed / 0 failed）
 > 工作项：R251 · 迭代 1.0
 > 需求基线：[library requirements](../../../../product/library/requirements.md) · 验收：[acceptance.md](./ac/acceptance.md)
 
@@ -161,6 +161,16 @@ tests/test_home_nav_shell.py
 pytest tests/ -q
 1188 passed / 0 failed / 4 warnings
 ```
+
+发布验证：
+
+- `48327926..bfea06fb` 已推送 `origin/develop`；
+- fnOS `build END OK (bfea06fbf1075ac55dc11d578a7bf46130e0703e)`；
+- app-manager `deploy SUCCESS`，容器 `running / healthy`；
+- `house.build-sha=bfea06fbf1075ac55dc11d578a7bf46130e0703e`，
+  `house.code-digest=78d752f6d510768a`；
+- 本机与生产 `/login` 均为 HTTP 200。生产登录态未保留，`/reading/settings`
+  正确 302 到登录页，因此桌面/移动视觉证据以本地真实模板 Chromium 验收为准。
 
 ## 7. 后续边界
 

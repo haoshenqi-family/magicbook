@@ -1,6 +1,6 @@
 # AC — R251 MagicBook UI 信息架构与导航分组
 
-> 状态：开发完成待验收（2026-10-29；定向 12 passed / 0 failed；正式发布态全量 1188 passed / 0 failed）
+> 状态：已上线待验收（2026-10-29；实现 `1910fce7`，发布 `bfea06fb`；定向 12 passed / 0 failed；正式发布态全量 1188 passed / 0 failed）
 
 ## A. 一级导航
 
@@ -49,3 +49,4 @@
 - [x] `py_compile cps/ui_ia.py cps/jinjia.py` 通过。
 - [x] 产品 L1、L3、需求基线、LLD、AC 已同步。
 - [x] 长期信息架构原则已沉淀到 `docs/kb/instructions/coding/`。
+- [x] `bfea06fb` 已推送并在生产部署；容器 `running / healthy`，`/login` 返回 200。
