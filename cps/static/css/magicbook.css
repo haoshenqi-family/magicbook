@@ -53,13 +53,6 @@
   font-weight: 700;
 }
 
-.mb-l2-nav-hint {
-  color: #90a09c;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: .08em;
-}
-
 .mb-l2-groups {
   display: flex;
   flex: 1 1 auto;
@@ -123,7 +116,6 @@ body.blur .mb-l2-link {
   color: rgba(255, 255, 255, .82);
 }
 
-body.blur .mb-l2-nav-hint,
 body.blur .mb-l2-group-label {
   color: rgba(255, 255, 255, .48);
 }
@@ -133,6 +125,26 @@ body.blur .mb-l2-link:focus,
 body.blur .mb-l2-link.active {
   color: #8ee0cf;
   border-bottom-color: #55c7b1;
+}
+
+/* A1 identity facts: compact, left-aligned text instead of a floating label column. */
+#me-account .me-account-facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 0 0 14px;
+  font-size: 14px;
+  text-align: left;
+}
+
+#me-account .me-account-facts dt,
+#me-account .me-account-facts dd {
+  margin: 0;
+  text-align: left;
+}
+
+#me-account .me-account-facts dd {
+  overflow-wrap: anywhere;
 }
 
 /* Tablet widths keep the five-domain model visible, but tighten labels. */

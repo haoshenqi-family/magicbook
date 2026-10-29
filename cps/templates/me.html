@@ -11,7 +11,7 @@
         <h3 class="panel-title">{{_('Account')}}</h3>
       </div>
       <div class="panel-body">
-        <dl class="dl-horizontal">
+        <dl class="me-account-facts">
           <dt>{{_('Username')}}</dt>
           <dd>{{ content.name }}</dd>
           <dt>{{_('Email')}}</dt>
@@ -70,13 +70,6 @@
         </form>
       </div>
     </div>
-
-    <p class="help-block">
-      阅读难度、词汇量测试与阅读主题见
-      <a href="{{ url_for('web.reading_settings') }}">阅读与词汇</a>；
-      伙伴和 AI 伴读见
-      <a href="{{ url_for('web.buddy_page') }}">伙伴与 AI 伴读</a>。
-    </p>
 
   </div>
 </div>

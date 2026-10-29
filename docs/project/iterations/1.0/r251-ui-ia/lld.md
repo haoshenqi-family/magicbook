@@ -247,11 +247,13 @@ pytest tests/ -q
 - `cps/ui_ia.py` 新增 `ACCOUNT_L2_GROUPS`、`ADMIN_L2_GROUPS` 与 `l2_nav_groups(domain, path)`。
 - 导航元数据同时包含 id、标签、endpoint 和路径匹配规则；active 只从这一份数据计算。
 - `partials/l2_nav.html` 只渲染分组纯文字链接，不使用卡片和页内仪表盘。
+- 页头标题只显示“账号”或“管理”，不显示内部层级缩写“L2”。
 - `jinjia.py` 新增 `l2_nav_groups` filter；模板不复制第二份 A/M 路由表。
 
 ### 11.2 账号拆页
 
 - `/me` 只保留资料、OIDC 绑定和语言；移除难度、词汇量测试、主题、伙伴、导出。
+- 用户名、邮箱改为 14px 左对齐的资料网格；删除页面底部指向其他 L2 的迁移提示。
 - 难度、词测、主题与使用引导迁入 `/reading/settings`；新增独立 `reading-preferences.js`。
 - 学习数据导出迁入 `/me/export`，复用原 R230 的 create/tasks/download 接口。
 - `/buddy` 增加“打开 AI 伴读”按钮，调用 `window.AICompanion.openChat()`，不复制聊天 DOM。
@@ -303,12 +305,13 @@ tests/test_reader_theme_sync.py
 
 ```text
 pytest tests/ -q
-1201 passed / 0 failed / 4 warnings
+1205 passed / 0 failed / 4 warnings
 ```
 
 其中收尾修复了 JS i18n 清单仍引用已删除 `me.js`、旧 Help 下拉导航断言、
 `Help` 缺少中文词条三条契约链；新增 `reading-preferences.js` 的 `mbT()` 词条
-全部进入种子、PO/MO。
+全部进入种子、PO/MO。验收后的细节修正又去掉了“账号/管理”后的 L2 小字，
+将 A1 用户名/邮箱改为 14px 左对齐，并删除 `/me` 底部迁移提示。
 
 上线验证：
 
