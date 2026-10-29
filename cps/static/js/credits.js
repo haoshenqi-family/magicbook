@@ -803,7 +803,7 @@
             var isIncome = r.direction === 'INCOME';
             var row = $('<tr>');
             row.append($('<td>').text(formatTime(r.createdAt)));
-            // 类型徽标：获取（绿色）/ 消耗（黄色）；充值行附「更多」入口看订单详情（R51）
+            // 类型徽标：获取（绿色）/ 消耗（高对比琥珀色）；充值行附「更多」入口看订单详情（R51）
             var badge = $('<span>').addClass('credit-type-badge ' + (isIncome ? 'income' : 'consume'))
                 .text(TYPE_LABELS[r.type] || (isIncome ? '获取' : '消耗'));
             var typeCell = $('<td>').append(badge);
@@ -817,7 +817,8 @@
             // R52：model 只随流水记录，不在明细展示（后端 summary 仍按模型聚合）
             row.append($('<td>').text(isIncome ? '-' : (r.callerName || r.caller || '未知来源')));
             var credits = isIncome ? '+' + (r.amount || 0) : '-' + (r.amount || 0);
-            row.append($('<td>').addClass('text-right').css('color', isIncome ? '#3c763d' : '#8a6d3b').text(credits));
+            row.append($('<td>').addClass('text-right credit-amount ' + (isIncome ? 'income' : 'consume'))
+                .text(credits));
             tbody.append(row);
         });
     }

@@ -72,9 +72,13 @@
   .credit-consume-group .value { color: #777; white-space: nowrap; }
   #credit-consume-table td, #credit-consume-table th { font-size: 13px; }
   .credit-consume-filters select, .credit-consume-filters input { margin-right: 6px; margin-bottom: 5px; }
-  .credit-type-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
-  .credit-type-badge.income { background: #dff0d8; color: #3c763d; }
-  .credit-type-badge.consume { background: #fcf8e3; color: #8a6d3b; }
+  .credit-type-badge { display: inline-block; padding: 2px 8px; border: 1px solid transparent;
+                       border-radius: 10px; font-size: 12px; font-weight: 600; line-height: 1.4; }
+  .credit-type-badge.income { background: #d4ead9; color: #185c31; border-color: #79a98a; }
+  .credit-type-badge.consume { background: #f3cf7a; color: #5c3500; border-color: #b47b0c; }
+  .credit-amount { font-weight: 700; white-space: nowrap; }
+  .credit-amount.income { color: #216a3a; }
+  .credit-amount.consume { color: #8a3b12; }
   #credit-consume-rows td { vertical-align: middle; }
   .credit-card-key { font-family: Menlo, Consolas, monospace; letter-spacing: .5px; }
   .credit-card-row td { vertical-align: middle !important; }

@@ -69,3 +69,16 @@ def test_promotion_submit_normalizes_datetime_local_and_reports_inline():
     promotion_section = js[js.index("function submitPromotion()"):js.index("function resetConsumePage()")]
     assert "$.ajax(" not in promotion_section
     assert "window.alert(" not in promotion_section
+
+
+def test_consume_rows_use_high_contrast_classes_instead_of_inline_colors():
+    root = pathlib.Path(cps.__file__).parent
+    html = (root / "templates" / "credits.html").read_text(encoding="utf-8")
+    js = (root / "static" / "js" / "credits.js").read_text(encoding="utf-8")
+
+    assert ".credit-type-badge.consume { background: #f3cf7a; color: #5c3500;" in html
+    assert ".credit-type-badge.income { background: #d4ead9; color: #185c31;" in html
+    assert ".credit-amount.consume { color: #8a3b12; }" in html
+    assert ".credit-amount.income { color: #216a3a; }" in html
+    assert "text-right credit-amount ' + (isIncome ? 'income' : 'consume')" in js
+    assert ".css('color', isIncome" not in js
