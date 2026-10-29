@@ -11,6 +11,7 @@
 | A3 | 支付成功 | 买家积分不变，生成一张卡并提示复制 |
 | A4 | 新卡定位 | 已购列表按 `purchaseOrderNo` 高亮本次订单 |
 | A5 | 重新下单 | 过期后可重新建单，旧轮询停止 |
+| A6 | 点击购买并赠送 | 按钮立即显示「正在创建订单...」；拿到二维码后自动弹出支付宝收银台 |
 
 ## B. 兑换
 
@@ -45,8 +46,7 @@
 
 | 项 | 结果 |
 | --- | --- |
-| `test_credit_card.py + test_credit_consume.py` | 23 passed |
-| 契约与 i18n 回归 | 11 passed |
+| 积分卡定向 + 契约与 i18n 回归 | 34 passed |
 | `node --check cps/static/js/credits.js` | 通过 |
 | `git diff --check` | 通过 |
 | 文档四问 | L1/L2/L3/需求基线/LLD 已回填 |

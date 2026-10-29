@@ -104,25 +104,33 @@
     <p class="text-muted">{{_('Loading...')}}</p>
   </div>
 
-  <div id="credit-checkout" class="panel panel-default" style="display:none; margin-top:20px;">
-    <div class="panel-heading">
-      <h3 class="panel-title">{{_('Alipay Scan to Pay')}}</h3>
-    </div>
-    <div class="panel-body">
-      <div class="row">
-        <div class="col-sm-4 text-center">
-          <div id="credit-qr"></div>
-        </div>
-        <div class="col-sm-8">
-          <p id="credit-checkout-info" class="lead"></p>
-          <p id="credit-countdown" class="text-muted"></p>
-          <p id="credit-status"></p>
-          <button id="credit-regenerate" class="btn btn-default btn-sm" style="display:none">
-            {{_('Regenerate Order')}}
+  <div class="modal fade" id="credit-checkout" tabindex="-1" role="dialog"
+       aria-labelledby="credit-checkout-title">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
           </button>
-          <p class="help-block" style="margin-top:10px">
-            {{_('Open Alipay app and scan the QR code. Credits are granted automatically after payment.')}}
-          </p>
+          <h4 class="modal-title" id="credit-checkout-title">{{_('Alipay Scan to Pay')}}</h4>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <div class="col-sm-4 text-center">
+              <div id="credit-qr"></div>
+            </div>
+            <div class="col-sm-8">
+              <p id="credit-checkout-info" class="lead"></p>
+              <p id="credit-countdown" class="text-muted"></p>
+              <p id="credit-status"></p>
+              <button id="credit-regenerate" class="btn btn-default btn-sm" style="display:none">
+                {{_('Regenerate Order')}}
+              </button>
+              <p id="credit-checkout-help" class="help-block" style="margin-top:10px">
+                {{_('Open Alipay app and scan the QR code. Credits are granted automatically after payment.')}}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

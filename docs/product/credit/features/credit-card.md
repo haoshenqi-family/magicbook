@@ -21,11 +21,12 @@
 - 购卡容器 `#credit-card-packages` 由 JS 动态渲染，不在模板硬编码价格。
 - 已购表 `#credit-card-purchased-rows` 展示 `key/credits/statusText/expiresAt`。
 - 管理员区 `#credit-card-admin-panel` 只在 `current_user.role_admin()` 时输出，且整页只出现一次。
+- 收银台 `#credit-checkout` 使用 Bootstrap 模态；创建订单后立即弹窗，避免长页面下方的二维码被用户忽略。
 
 **脚本** `cps/static/js/credits.js`
 
 - `loadCardPackages()`：加载档位，失败在容器内显示错误。
-- `buy(packageId, 'CARD', '/ajax/credit/card/purchase-order')`：复用既有支付二维码与轮询状态机。
+- `buy(packageId, 'CARD', '/ajax/credit/card/purchase-order', trigger)`：按钮就地显示处理中，复用既有支付二维码与轮询状态机，并在拿到二维码后弹窗。
 - `markPaid()`：订单 `kind=CARD` 时不提示充值到账，改为「积分卡已生成」并调用 `loadPurchasedCards(orderNo)`。
 - `loadPurchasedCards(highlightOrderNo)`：按 `purchaseOrderNo` 高亮本次新卡。
 - `redeemCard()`：提交卡密，成功后刷新余额、明细、已购列表；失败显示上游 message。
@@ -38,14 +39,16 @@
 
 ```text
 点击购买
+  → 按钮显示「正在创建订单...」
   → POST /ajax/credit/card/purchase-order
   → POST /ajax/credit/recharge-pay（二维码）
+  → 自动弹窗显示支付宝收银台
   → 每 3 秒轮询 /ajax/credit/recharge-status
   → status=1：隐藏收银台，提示复制卡密，刷新已购列表并高亮本订单
   → status=2：显示过期，可重新建单
 ```
 
-购买失败不会覆盖旧订单状态；只有预下单成功后才设置 `currentOrder`，避免半初始化收银台。
+购买失败不会覆盖旧订单状态；只有预下单成功后才设置 `currentOrder`，避免半初始化收银台。失败告警会滚动到视口内。
 
 ### 兑换
 
@@ -85,7 +88,7 @@
 - 匿名访问用户端点 302；登录普通账号访问五个管理端点 403 且上游零调用。
 - 卡密、购卡订单、已购列表、管理员发卡/批次/卡密/作废的上游路径与 payload。
 - 导出 binary 与附件文件名。
-- 页面结构、管理员面板唯一性、九条 JS 端点、复制 fallback、`CARD_REDEEM` 与 `purchaseOrderNo`。
+- 页面结构、收银台模态、管理员面板唯一性、九条 JS 端点、复制 fallback、`CARD_REDEEM` 与 `purchaseOrderNo`。
 
 关联回归：
 
