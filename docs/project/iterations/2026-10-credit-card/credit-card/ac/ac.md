@@ -1,6 +1,6 @@
 # 积分卡（magicbook R242）· 验收标准
 
-状态：待用户验收（2026-10-29 已上线；购卡弹窗已在生产页真实点击验证）
+状态：待用户验收（2026-10-29 已上线；购卡弹窗与分享说明页已在生产验证）
 
 ## A. 购买
 
@@ -49,8 +49,10 @@
 
 | 项 | 结果 |
 | --- | --- |
-| 积分卡定向 + 契约与 i18n 回归 | 34 passed |
-| `node --check cps/static/js/credits.js` | 通过 |
+| 积分卡定向 + 契约与 i18n 回归 | 35 passed |
+| `node --check cps/static/js/credits.js` / `credit-card-share.js` | 通过 |
 | `git diff --check` | 通过 |
 | 生产点击「购买并赠送」 | 自动弹窗；二维码 200×200；正文无溢出；倒计时与轮询启动 |
+| 生产打开分享页 | HTTPS 链接、卡密展示、复制按钮、三步说明、`no-store/no-referrer/noindex` 全部正常 |
+| 生产分享到积分页 | `/credits#redeem=...` 自动填入卡密并清掉 fragment，未点击兑换、未消耗卡密 |
 | 文档四问 | L1/L2/L3/需求基线/LLD 已回填 |
