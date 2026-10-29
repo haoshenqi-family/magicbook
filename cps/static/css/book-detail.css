@@ -116,12 +116,21 @@
 /* ---- R214 子项 C：整本任务代价面板 + 进度条 ---- */
 
 .wb-progress {
-  position: sticky;
-  top: 0;
+  position: static;
   z-index: 1030;
   background: #f7f7f9;
   border-bottom: 1px solid #ddd;
   box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+}
+
+.wb-progress-slot {
+  clear: both;
+  margin: 10px 0 14px;
+}
+
+.wb-progress-slot .wb-progress-inner {
+  max-width: none;
+  padding: 8px 10px;
 }
 
 .wb-progress[hidden] {

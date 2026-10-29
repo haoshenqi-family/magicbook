@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；**R246 进度条任务类型标识已开发**（2026-10-29，§18）；**R247 归档书内容速览误报已修**（2026-10-29，§19，待验收）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；**R246 进度条任务类型标识已开发**（2026-10-29，§18）；**R247 归档书内容速览误报已修**（2026-10-29，§19，待验收）；**R248 进度条挂载位置已开发**（2026-10-29，§20，待部署验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -499,3 +499,32 @@ canResume 的服务端语义；`test_stalled_tts_batch_has_a_frontend_resume_ent
 - `test_book_file_default_keeps_archived_filter_for_whole_book_jobs`：确认骨架默认值
   仍排除归档书，防止修复内容速览时顺带改变整本任务边界。
 - 相关回归（内容速览、详情、估算、缓存标识、翻译/朗读/详解任务）**174 passed**。
+
+## 20. 验收缺陷：进度条出现在书架/书卡弹层，且位置不对（2026-10-29，R248，`fix/r248-progress-detail-only`）
+
+**现象**：书架页打开书卡详情弹层时，页面顶部出现「全文单词详解 · 进行中」进度条；
+用户明确要求进度条应显示在书籍详情页的整本任务区域，而不是全局页面顶部。
+
+**根因**：`detail.html` 的 partial 原先只按管理员门禁下发，XHR 片段也包含
+`whole_book_panel.html` 和 JS；`whole-book-panel.js` 初始化时又主动把
+`#whole-book-progress` `insertAfter(body > .navbar)`。因此书卡弹层加载片段后，
+进度条被挂到书架页面的全局导航下方，既跨页又脱离整本任务上下文。
+
+**修法**：
+
+- `detail.html` 在完整详情页的整本任务按钮下方新增
+  `#whole-book-progress-slot`，仅在 `role_admin() and not is_xhr` 时渲染；
+- partial 与 `whole-book-panel.js` 同步加 `not is_xhr` 门禁，书卡弹层不再加载进度条骨架；
+- JS 改为把 `#whole-book-progress` 追加到详情页 slot，不再移动到全局 navbar；
+- 进度条使用详情页内联布局（不再 sticky），有活跃批次时隐藏「整本任务」按钮，收起后恢复按钮；
+  收起状态在轮询期间保持，不被下一帧重新弹出。
+
+**边界**：这仍是 R214 子项 C 的 UI 挂载修复；任务 start/status/retry 端点、轮询频率、
+缓存、计费与归档取书语义均不变。书卡弹层内的「整本任务」链接仍跳完整详情页。
+
+**守卫**：
+
+- `test_whole_book_progress_slot_is_full_detail_only`：slot 同时受 admin 与 `not is_xhr` 门禁；
+- `test_whole_book_partial_is_not_rendered_in_xhr_fragment`：partial 不进入 XHR 片段；
+- `test_progress_bar_is_appended_to_detail_task_slot`：JS 不再 `insertAfter(navbar)`；
+- `test_progress_close_stays_collapsed_during_polling`：收起后轮询不重新弹出。

@@ -1,14 +1,16 @@
 # 整本任务进度条（L3 实现说明）
 
-> 建立：2026-10-29（R246）。读者是**要改书籍详情页整本任务进度条的人**——这里只讲实现与边界；
+> 建立：2026-10-29（R246；R248 补齐挂载位置）。读者是**要改书籍详情页整本任务进度条的人**——这里只讲实现与边界；
 > 用户视角见 L1 [`product/readme/library.md`](../../readme/library.md)；
 > 本次缺陷的取舍见 LLD
-> [`project/iterations/1.0/r214-book-detail/lld.md`](../../../project/iterations/1.0/r214-book-detail/lld.md) §18。
+> [`project/iterations/1.0/r214-book-detail/lld.md`](../../../project/iterations/1.0/r214-book-detail/lld.md) §18 / §20。
 
 ## 1. 组成
 
 进度条位于 `cps/templates/partials/whole_book_panel.html`，由
-`cps/static/js/whole-book-panel.js` 驱动：
+`cps/static/js/whole-book-panel.js` 驱动。R248 起它只挂在**完整书籍详情页**
+「整本任务」按钮下方的 `#whole-book-progress-slot`；书卡弹层（XHR 片段）和书架页
+不渲染 slot、partial 或 JS，不会出现跨页的全局进度条。
 
 | 区域 | 内容 | 数据来源 |
 | --- | --- | --- |
@@ -45,6 +47,8 @@ HTML 属性名会被浏览器统一解析成小写。因此模板写
 
 - **一条进度条**：同一本书多条链路并存时按
   `translate > tts > wordDetail` 选第一条展示，其余仍在各自面板中可见。
+- **只在完整详情页**：进度条随整本任务区渲染，不再移到全局导航下方；从书卡弹层
+  点「整本任务」会先跳完整详情页，再在页内看到进度条。
 - **关闭不等于取消**：点 `×` 只隐藏当前页面的进度条，后台任务继续；刷新后若仍有活跃批次会重新出现。
 - **不改任务契约**：进度条只消费既有 start/status/retry 响应，不新建 job、不改计费、不改缓存。
 - **失败可见**：轮询单次失败不清空进度；恢复按钮失败原因留在进度条内显示。
@@ -58,4 +62,8 @@ node --check cps/static/js/whole-book-panel.js
 ```
 
 `test_progress_title_names_task_and_status` 钉住三类任务名、四种状态句式和小写化；
-改回 `t('start-' + kind)` 或去掉 `toLowerCase()` 必须报红。
+`test_whole_book_progress_slot_is_full_detail_only`、
+`test_whole_book_partial_is_not_rendered_in_xhr_fragment` 与
+`test_progress_bar_is_appended_to_detail_task_slot` 钉住详情页挂载边界；
+改回全局 `insertAfter(navbar)`、在 XHR 片段下发 partial，或去掉 `toLowerCase()`
+都必须报红。

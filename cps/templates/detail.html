@@ -192,6 +192,11 @@
                     {% endif %}
                 </div>
             </div>
+            {# R248：进度条只属于完整书籍详情页的「整本任务」区域。书卡弹层是
+               XHR 片段，不渲染 slot/partial/JS；弹层里的入口仍跳完整详情页。 #}
+            {% if current_user.role_admin() and not is_xhr %}
+            <div id="whole-book-progress-slot" class="wb-progress-slot"></div>
+            {% endif %}
             <h2 id="title">{{ entry.title }}</h2>
             <p class="author">
                 {% for author in entry.ordered_authors %}
@@ -548,7 +553,7 @@
 {# R214 C：整本任务代价面板 + 进度条（partial 自带文案与端点 data-*）。
    整段只在管理员可见：三个整本入口本就是 admin 专属（拍板①），
    非管理员连模态骨架和 JS 都没必要下发。 #}
-{% if current_user.role_admin() %}
+{% if current_user.role_admin() and not is_xhr %}
 {% include 'partials/whole_book_panel.html' %}
 <script src="{{ url_for('static', filename='js/whole-book-panel.js') }}"></script>
 {% endif %}

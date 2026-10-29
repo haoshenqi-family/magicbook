@@ -87,6 +87,23 @@ def test_whole_book_panel_has_three_kinds():
     assert "whole_book_panel.html" in _read(), "detail.html 没 include 面板"
 
 
+def test_whole_book_progress_slot_is_full_detail_only():
+    """R248：进度条 slot 只在完整详情页的整本任务区出现。"""
+    gates = _enclosing_conditions(_read(), 'id="whole-book-progress-slot"')
+    assert any("role_admin" in gate for gate in gates), \
+        "进度条 slot 不在管理员门禁内: {0}".format(gates)
+    assert any("is_xhr" in gate for gate in gates), \
+        "进度条 slot 没有排除 XHR 书卡弹层: {0}".format(gates)
+
+
+def test_whole_book_partial_is_not_rendered_in_xhr_fragment():
+    """R248：书卡弹层不加载面板/进度条 partial，避免跨页进度条。"""
+    src = _read()
+    include_idx = src.index("partials/whole_book_panel.html")
+    prefix = src[:include_idx]
+    assert "current_user.role_admin() and not is_xhr" in prefix.rsplit("{% if ", 1)[-1]
+
+
 def test_legacy_whole_book_buttons_are_gone():
     """旧的三个并列按钮不许回来：它们是「点一下就下单」的形态，面板存在的理由就是替代它。"""
     src = _read()
@@ -484,16 +501,21 @@ def test_stalled_tts_batch_has_a_frontend_resume_entry():
     assert "'#whole-book-progress .wb-progress-resume'" in js
 
 
-def test_progress_bar_is_moved_out_of_float_layout():
-    """R237：进度条必须移出详情页浮动列所在的 .container-fluid。
-
-    Why：block js 的 DOM 实际落在该容器内；容器里的 Bootstrap 浮动列未被清除时，
-         进度条会被撑成整屏透明层并拦住正文点击。只把 partial 放回 block js 不够，
-         必须显式移到导航栏之后，回到不带浮动影响的正常文档流。
-    """
+def test_progress_bar_is_appended_to_detail_task_slot():
+    """R248：进度条必须挂在详情页整本任务 slot，而不是全局导航下方。"""
     js = _read_panel_js()
-    assert "$progress.insertAfter($nav)" in js
-    assert "$('body > .navbar')" in js
+    assert "$progress.appendTo($progressSlot)" in js
+    assert "$('#whole-book-progress-slot')" in js
+    assert "$progress.insertAfter($nav)" not in js
+    assert "$('body > .navbar')" not in js
+
+
+def test_progress_close_stays_collapsed_during_polling():
+    """收起进度条后轮询不能把它重新弹出来，否则用户无法在详情页阅读。"""
+    js = _read_panel_js()
+    assert "progressCollapsed" in js
+    assert "state.progressCollapsed = true" in js
+    assert "if (!state.progressCollapsed)" in js
 
 
 def test_estimate_route_reports_instead_of_bare_500():

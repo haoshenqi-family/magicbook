@@ -272,4 +272,4 @@
 
 247. **修复归档书籍内容速览误报 book is unavailable**（占号 2026-10-29）：用户反馈归档书 `/book/145` 显示「内容速览解析失败：book is unavailable」。定性：详情页允许查看归档书，但内容速览复用整本任务的默认取书过滤，影响所有归档 EPUB。修复：`JobServiceBase._book_file()` 新增可选 `allow_show_archived`（默认 false），仅内容速览入口显式允许归档；三条整本任务边界不变。新增归档速览成功与整本任务默认过滤两条回归，相关 174 passed。文档：L1/L3、R214 需求基线、LLD §19、AC B9、迭代 plan。状态：**开发完成待验收**（worktree `../magicbook-r247-archived-insight`，分支 `fix/r247-archived-insight`；挂 R214 修复不建独立 idea）。
 
-248. **整本任务进度条只在书籍详情页显示**（占号 2026-10-29，待回填）
+248. **整本任务进度条只在书籍详情页显示**（占号 2026-10-29）：用户反馈书架页/书卡弹层顶部出现了全文单词详解进度条，要求进度条只显示在书籍详情页的整本任务区域。定性：R214 子项 C 的 partial 在 XHR 片段中也被下发，JS 又把进度条移到全局导航下方。修复：详情页新增专用 `#whole-book-progress-slot`，partial/JS 加 `not is_xhr` 门禁，进度条只挂到完整详情页的整本任务区域，并从全局导航下方撤除；三条整本 job 端点、轮询、缓存、计费和归档语义不变。状态：**开发完成待部署验收**（worktree `../magicbook-r248-progress-detail-only`，分支 `fix/r248-progress-detail-only`；挂 R214 修复不建独立 idea）。
