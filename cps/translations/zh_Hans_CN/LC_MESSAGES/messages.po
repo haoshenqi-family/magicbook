@@ -6460,3 +6460,6 @@ msgstr "分级"
 
 msgid "Media"
 msgstr "媒体"
+
+msgid "System"
+msgstr "系统"

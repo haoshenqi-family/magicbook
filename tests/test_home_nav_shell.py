@@ -10,6 +10,7 @@
 from pathlib import Path
 
 from cps import ub
+from cps.ui_ia import nav_domain, shelf_level_sort, shelf_nav_group
 
 _ROOT = Path(__file__).resolve().parent.parent
 _TEMPLATES = _ROOT / "cps" / "templates"
@@ -63,6 +64,14 @@ def test_mobile_bottom_nav_present():
     assert ".mb-bottom-nav" in css
 
 
+def test_mobile_fab_keeps_clear_of_bottom_nav():
+    """R251：后加载的 ai_chat.css 不能把悬浮球压回移动底栏。"""
+    css = _SHELL_CSS.read_text(encoding="utf-8")
+    assert "body #ai-companion-fab-wrap" in css, (
+        "悬浮球底部安全区必须用高于 ai_chat.css 的同 ID 规则"
+    )
+
+
 def test_r251_primary_domains_use_one_navigation_layer():
     """R251：五个一级域共享同一层主导航，不再混入 Settings 下拉。"""
     html = (_TEMPLATES / "layout.html").read_text(encoding="utf-8")
@@ -70,13 +79,51 @@ def test_r251_primary_domains_use_one_navigation_layer():
     for anchor in ("top_home", "top_library", "top_learning", "top_me", "top_admin"):
         assert f'id="{anchor}"' in html, f"一级域入口缺失：{anchor}"
     assert html.index('id="top_home"') < html.index('id="top_mb_settings"')
-    assert '.nav.navbar-nav:not(.navbar-right)' in css
+    primary_nav = html[
+        html.index('<ul class="nav navbar-nav mb-primary-nav">'):
+        html.index('<ul class="nav navbar-nav navbar-right" id="main-nav">')
+    ]
+    for anchor in ("top_home", "top_library", "top_learning", "top_me", "top_admin"):
+        assert f'id="{anchor}"' in primary_nav, f"一级域未进入主导航：{anchor}"
+    assert ".mb-primary-nav" in css
+
+
+def test_r251_shelf_group_rules_and_numeric_order():
+    """R251：分组仅影响展示；阶号按数字排序，未知名称回默认书架组。"""
+    assert shelf_nav_group("阶1") == "levels"
+    assert shelf_nav_group("分级阶 2") == "levels"
+    assert shelf_nav_group("TED-Ed") == "media"
+    assert shelf_nav_group("Audio books") == "media"
+    assert shelf_nav_group("听力训练") == "media"
+    assert shelf_nav_group("我的收藏") == "shelves"
+    assert shelf_nav_group("") == "shelves"
+
+    class _Shelf:
+        def __init__(self, name):
+            self.name = name
+
+    ordered = shelf_level_sort([_Shelf("阶10"), _Shelf("阶2"), _Shelf("阶1")])
+    assert [shelf.name for shelf in ordered] == ["阶1", "阶2", "阶10"]
+
+
+def test_r251_active_domain_has_one_owner_and_unknown_has_none():
+    """R251：每个页面最多命中一个一级域，未知页面不误点亮书库。"""
+    assert nav_domain('/home', 'home') == 'home'
+    assert nav_domain('/shelf/5', 'shelf') == 'library'
+    assert nav_domain('/book/145', 'book') == 'library'
+    assert nav_domain('/learning/speaking', 'learning') == 'learning'
+    assert nav_domain('/reading/settings', 'reading_settings') == 'account'
+    assert nav_domain('/mail/42', 'mail') == 'account'
+    assert nav_domain('/admin/user', 'admin') == 'admin'
+    assert nav_domain('/stats', 'stat') == ''
+    assert nav_domain('/login', 'login') == ''
 
 
 def test_r251_shelf_groups_never_drop_a_shelf():
     """R251：侧栏可按展示规则分组，但必须渲染原始书架集合的每个入口。"""
     html = (_TEMPLATES / "layout.html").read_text(encoding="utf-8")
-    for label in ('{{_(\'Shelves\')}}', '{{_(\'Levels\')}}', '{{_(\'Media\')}}'):
+    for label in ('{{_(\'Shelves\')}}', '{{_(\'Levels\')}}', '{{_(\'Media\')}}',
+                  '{{_(\'System\')}}'):
         assert label in html, f"侧栏分组标题缺失：{label}"
     # 兜底组必须显式排除已分组 id，避免规则重叠或后续调整时丢书架。
     assert "rejectattr('id', 'in', level_ids + media_ids)" in html
@@ -87,6 +134,8 @@ def test_r251_sidebar_groups_render_without_dropping_shelves(admin_client, ub_se
     for shelf in ub_session.query(ub.Shelf).all():
         ub_session.delete(shelf)
     ub_session.add_all([
+        ub.Shelf(name="阶10", is_public=1, user_id=1),
+        ub.Shelf(name="阶2", is_public=1, user_id=1),
         ub.Shelf(name="阶1", is_public=1, user_id=1),
         ub.Shelf(name="TED", is_public=1, user_id=1),
         ub.Shelf(name="我的书架", is_public=0, user_id=1),
@@ -97,11 +146,22 @@ def test_r251_sidebar_groups_render_without_dropping_shelves(admin_client, ub_se
         rv = admin_client.get("/reading/settings")
         assert rv.status_code == 200
         html = rv.data.decode("utf-8")
-        assert html.count('href="/shelf/') == 4, (
-            "三个书架 + Create a Shelf 入口都应存在；少一个即分组丢入口"
+        assert html.count('href="/shelf/') == 6, (
+            "五个书架 + Create a Shelf 入口都应存在；少一个即分组丢入口"
         )
-        for label in ("Levels", "Media", "Shelves"):
+        for label in ("Levels", "Media", "Shelves", "System"):
             assert label in html, f"侧栏分组标题未渲染：{label}"
+        assert html.count('class="mb-group-count"') == 3, "三个书架分组都应显示条目数"
+        assert html.index("阶1") < html.index("阶2") < html.index("阶10"), (
+            "分级书架必须按数字升序渲染"
+        )
+        assert 'id="top_me" aria-current="page"' in html, "账号设置页未点亮「账号」域"
+        assert 'id="top_library" aria-current="page"' not in html, (
+            "账号设置页不应同时点亮「书库」域"
+        )
+        assert '<li id="nav_list" class="active">' not in html, (
+            "账号页不应误点亮 Calibre 侧栏的 Books List"
+        )
     finally:
         for shelf in ub_session.query(ub.Shelf).all():
             ub_session.delete(shelf)
@@ -124,8 +184,8 @@ def test_search_merged_into_single_entry():
     """
     html = (_TEMPLATES / "layout.html").read_text(encoding="utf-8")
     assert 'id="advanced_search"' in html, "onboarding 依赖的锚点丢了"
-    # 主导航 <ul class="nav navbar-nav "> 里不应再出现 advanced_search 的 <li>
-    nav_start = html.find('<ul class="nav navbar-nav ">')
+    # 主导航里不应再出现 advanced_search 的 <li>
+    nav_start = html.find('<ul class="nav navbar-nav mb-primary-nav">')
     nav_end = html.find("</ul>", nav_start)
     main_nav = html[nav_start:nav_end]
     assert "advanced_search" not in main_nav, (

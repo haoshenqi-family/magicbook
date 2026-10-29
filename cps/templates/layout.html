@@ -64,17 +64,27 @@
         {% endif %}
         <div class="navbar-collapse collapse">
           {% if current_user.is_authenticated or g.allow_anonymous %}
-          <ul class="nav navbar-nav ">
+          {% set current_path = request.path %}
+          {% set current_domain = current_path|nav_domain(page) %}
+          {% set home_active = current_domain == 'home' %}
+          {% set library_active = current_domain == 'library' %}
+          {% set learning_active = current_domain == 'learning' %}
+          {% set account_active = current_domain == 'account' %}
+          {% set admin_active = current_domain == 'admin' %}
+          <ul class="nav navbar-nav mb-primary-nav">
             {# R251：MagicBook 壳层导航。保留 Calibre 的 Bootstrap 3 导航骨架，
                只把自有入口收敛为“首页 / 书库 / 学习 / 我的 / 管理”五个域；
                原有 id 全部保留，测试与 onboarding 锚点不迁移。 #}
             {% if not current_user.is_anonymous %}
-            <li><a href="{{url_for('web.home')}}" id="top_home"><span class="glyphicon glyphicon-home"></span><span class="hidden-sm"> {{_('Home')}}</span></a></li>
+            <li{% if home_active %} class="active"{% endif %}><a href="{{url_for('web.home')}}" id="top_home"{% if home_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-home"></span><span class="hidden-sm"> {{_('Home')}}</span></a></li>
             {% endif %}
-            <li><a href="{{url_for('web.index')}}" id="top_library"><span class="glyphicon glyphicon-book"></span><span class="hidden-sm"> {{_('Library')}}</span></a></li>
+            <li{% if library_active %} class="active"{% endif %}><a href="{{url_for('web.index')}}" id="top_library"{% if library_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-book"></span><span class="hidden-sm"> {{_('Library')}}</span></a></li>
             {% if not current_user.is_anonymous %}
-            <li><a href="{{url_for('web.learning_page')}}" id="top_learning"><span class="glyphicon glyphicon-repeat"></span><span class="hidden-sm"> {{_('Daily Learning')}}</span></a></li>
-            <li><a href="{{url_for('web.profile')}}" id="top_me"><span class="glyphicon glyphicon-user"></span><span class="hidden-sm"> {{_('Account')}}</span></a></li>
+            <li{% if learning_active %} class="active"{% endif %}><a href="{{url_for('web.learning_page')}}" id="top_learning"{% if learning_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-repeat"></span><span class="hidden-sm"> {{_('Learning')}}</span></a></li>
+            <li{% if account_active %} class="active"{% endif %}><a href="{{url_for('web.profile')}}" id="top_me"{% if account_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-user"></span><span class="hidden-sm"> {{_('Account')}}</span></a></li>
+            {% endif %}
+            {% if current_user.role_admin() %}
+            <li{% if admin_active %} class="active"{% endif %}><a id="top_admin" data-text="{{_('Admin')}}" href="{{url_for('admin.admin')}}"{% if admin_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-dashboard"></span><span class="hidden-sm"> {{_('Admin')}}</span></a></li>
             {% endif %}
             {% if simple==true %} <li><a href="{{url_for('basic.index')}}" id="basic"><span class="glyphicon glyphicon-phone"></span><span>{{_('Simple Theme')}}</span></a><li>{% endif %}
           </ul>
@@ -109,9 +119,6 @@
               {% endif %}
               {% if not current_user.is_anonymous and not simple%}
                 <li class="top_tasks"><a id="top_tasks" href="{{url_for('tasks.get_tasks_status')}}"><span class="glyphicon glyphicon-tasks"></span> <span class="hidden-sm">{{_('Tasks')}}</span></a></li>
-              {% endif %}
-              {% if current_user.role_admin() %}
-                <li><a id="top_admin" data-text="{{_('Settings')}}" href="{{url_for('admin.admin')}}"><span class="glyphicon glyphicon-dashboard"></span> <span class="hidden-sm">{{_('Admin')}}</span></a></li>
               {% endif %}
               {# magicbook 扩展设置入口统一收进下拉框：平铺项放不下且持续新增；
                  R154 起每日学习/说与写除外——它们是一级使用入口，已平铺在左侧主导航。
@@ -212,52 +219,59 @@
               <li class="nav-head hidden-xs">{{_('Browse')}}</li>
               {% for element in sidebar %}
                 {% if current_user.check_visibility(element['visibility']) and element['public'] %}
-                    <li id="nav_{{element['id']}}" {% if page == element['page'] %}class="active"{% endif %}><a href="{% if element['no_param'] %}{{url_for(element['link'], data=element['page'])}}{%else%}{{url_for(element['link'], data=element['page'], sort_param='stored')}}{% endif %}"><span class="glyphicon {{element['glyph']}}"></span> {{_(element['text'])}}</a></li>
+                    <li id="nav_{{element['id']}}" {% if library_active and page and page == element['page'] %}class="active"{% endif %}><a href="{% if element['no_param'] %}{{url_for(element['link'], data=element['page'])}}{%else%}{{url_for(element['link'], data=element['page'], sort_param='stored')}}{% endif %}"><span class="glyphicon {{element['glyph']}}"></span> {{_(element['text'])}}</a></li>
                 {% endif %}
               {% endfor %}
               {% if current_user.is_authenticated or g.allow_anonymous %}
-                {# R251：书架按用途分组。首字符规则无额外依赖：阶→分级，
-                   TED/A/音/听→媒体；判定不出的一律回默认书架组，不丢入口。 #}
+                {# R251：书架按用途分组。规则只影响展示，不写 schema；
+                   判定不出的一律回默认书架组，任何书架都不丢入口。 #}
                 {% set level_shelves = [] %}
                 {% set media_shelves = [] %}
                 {% for shelf in g.shelves_access %}
-                  {% if shelf.name and shelf.name.startswith('阶') %}
-                    {% if level_shelves.append(shelf) %}{% endif %}
-                  {% elif shelf.name and shelf.name.startswith(('TED', 'Audio', 'Listening', '音频', '听力')) %}
-                    {% if media_shelves.append(shelf) %}{% endif %}
+                  {% set nav_group = shelf.name|shelf_nav_group %}
+                  {% if nav_group == 'levels' %}
+                    {% set _ = level_shelves.append(shelf) %}
+                  {% elif nav_group == 'media' %}
+                    {% set _ = media_shelves.append(shelf) %}
                   {% endif %}
                 {% endfor %}
                 {% set level_ids = level_shelves | map(attribute='id') | list %}
                 {% set media_ids = media_shelves | map(attribute='id') | list %}
                 {% set normal_shelves = g.shelves_access | rejectattr('id', 'in', level_ids + media_ids) | list %}
+                {% set active_shelf_id = shelf.id if shelf is defined and page == 'shelf' else none %}
 
                 {% if normal_shelves %}
-                <li class="nav-head hidden-xs public-shelves">{{_('Shelves')}}</li>
-                <li><ul class="list-unstyled mb-shelf-group">
+                <li class="nav-head hidden-xs public-shelves">{{_('Shelves')}} <span class="mb-group-count">{{ normal_shelves|length }}</span></li>
+                <li class="mb-shelf-group-wrap"><ul class="list-unstyled mb-shelf-group">
                 {% for shelf in normal_shelves %}
-                  <li><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"><span class="glyphicon glyphicon-list shelf"></span> <span class="mb-shelf-name">{{shelf.name|shortentitle(40)}}{% if shelf.is_public == 1 %} {{_('(Public)')}}{% endif %}</span> <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
+                  <li{% if shelf.id == active_shelf_id %} class="active"{% endif %}><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"{% if shelf.id == active_shelf_id %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-list shelf"></span> <span class="mb-shelf-name">{{shelf.name|shortentitle(40)}}{% if shelf.is_public == 1 %} {{_('(Public)')}}{% endif %}</span> <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
                 {% endfor %}
                 </ul></li>
                 {% endif %}
 
                 {% if level_shelves %}
-                <li class="nav-head hidden-xs">{{_('Levels')}}</li>
-                <li><ul class="list-unstyled mb-shelf-group">
-                {% for shelf in level_shelves %}
-                  <li><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"><span class="glyphicon glyphicon-education"></span> <span class="mb-shelf-name">{{shelf.name|shortentitle(40)}}</span> <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
+                <li class="nav-head hidden-xs">{{_('Levels')}} <span class="mb-group-count">{{ level_shelves|length }}</span></li>
+                <li class="mb-shelf-group-wrap"><ul class="list-unstyled mb-shelf-group">
+                {% for shelf in level_shelves|shelf_level_sort %}
+                  <li{% if shelf.id == active_shelf_id %} class="active"{% endif %}><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"{% if shelf.id == active_shelf_id %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-education"></span> <span class="mb-shelf-name">{{shelf.name|shortentitle(40)}}</span> <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
                 {% endfor %}
                 </ul></li>
                 {% endif %}
 
                 {% if media_shelves %}
-                <li class="nav-head hidden-xs">{{_('Media')}}</li>
-                <li><ul class="list-unstyled mb-shelf-group">
+                <li class="nav-head hidden-xs">{{_('Media')}} <span class="mb-group-count">{{ media_shelves|length }}</span></li>
+                <li class="mb-shelf-group-wrap"><ul class="list-unstyled mb-shelf-group">
                 {% for shelf in media_shelves %}
-                  <li><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"><span class="glyphicon glyphicon-film"></span> <span class="mb-shelf-name">{{shelf.name|shortentitle(40)}}</span> <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
+                  <li{% if shelf.id == active_shelf_id %} class="active"{% endif %}><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"{% if shelf.id == active_shelf_id %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-film"></span> <span class="mb-shelf-name">{{shelf.name|shortentitle(40)}}</span> <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
                 {% endfor %}
                 </ul></li>
                 {% endif %}
               {% if not current_user.is_anonymous %}
+                {# caliBlur 会把创建书架/关于移到自己的容器与账号菜单，
+                   主题 1 不再保留空的分组标题。 #}
+                {% if g.current_theme != 1 %}
+                <li class="nav-head hidden-xs mb-system-head">{{_('System')}}</li>
+                {% endif %}
                 <li id="nav_createshelf" class="create-shelf"><a href="{{url_for('shelf.create_shelf')}}">{{_('Create a Shelf')}}</a></li>
                 <li id="nav_about" {% if page == 'stat' %}class="active"{% endif %}><a href="{{url_for('about.stats')}}"><span class="glyphicon glyphicon-info-sign"></span> {{_('About')}}</a></li>
               {% endif %}
@@ -348,19 +362,19 @@
     {% if current_user.is_authenticated or g.allow_anonymous %}
     <nav class="mb-bottom-nav visible-xs" aria-label="{{_('Mobile Navigation')}}">
       {% if not current_user.is_anonymous %}
-      <a href="{{url_for('web.home')}}" class="mb-bottom-item{% if page == 'home' %} active{% endif %}">
+      <a href="{{url_for('web.home')}}" class="mb-bottom-item{% if home_active %} active{% endif %}"{% if home_active %} aria-current="page"{% endif %}>
         <span class="glyphicon glyphicon-home"></span><span class="mb-bottom-label">{{_('Home')}}</span>
       </a>
       {% endif %}
-      <a href="{{url_for('web.index')}}" class="mb-bottom-item{% if page in ['index', 'discover', 'hot', 'newest', 'oldest', 'rated', 'author', 'series', 'category', 'publisher', 'language'] %} active{% endif %}">
+      <a href="{{url_for('web.index')}}" class="mb-bottom-item{% if library_active %} active{% endif %}"{% if library_active %} aria-current="page"{% endif %}>
         <span class="glyphicon glyphicon-book"></span><span class="mb-bottom-label">{{_('Library')}}</span>
       </a>
       {% if not current_user.is_anonymous %}
-      <a href="{{url_for('web.learning_page')}}" class="mb-bottom-item">
+      <a href="{{url_for('web.learning_page')}}" class="mb-bottom-item{% if learning_active %} active{% endif %}"{% if learning_active %} aria-current="page"{% endif %}>
         <span class="glyphicon glyphicon-repeat"></span><span class="mb-bottom-label">{{_('Learning')}}</span>
       </a>
       {% endif %}
-      <a href="{% if not current_user.is_anonymous %}{{url_for('web.profile')}}{% else %}{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}{% endif %}" class="mb-bottom-item">
+      <a href="{% if not current_user.is_anonymous %}{{url_for('web.profile')}}{% else %}{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}{% endif %}" class="mb-bottom-item{% if account_active %} active{% endif %}"{% if account_active %} aria-current="page"{% endif %}>
         <span class="glyphicon glyphicon-user"></span><span class="mb-bottom-label">{% if current_user.is_authenticated %}{{current_user.name}}{% else %}{{_('Login')}}{% endif %}</span>
       </a>
     </nav>
