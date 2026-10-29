@@ -277,3 +277,5 @@
 249. **整本朗读后台线程共享会话崩溃导致任务停在进行中**（占号 2026-10-29）：用户反馈 book 145 的整本朗读「不是已经完成了吗」，页面却显示未完成且仍可点「继续」。定性：批次实际停在 `RUNNING 207/1348`，后台 worker 与 HTTP 请求线程共用 `ub.session`；请求线程提交/关闭事务后，worker 下一次 autoflush 抛 `ResourceClosedError: This transaction is closed`，线程被花名册注销但 job 状态仍为 `RUNNING`，前端据 1141 个 PENDING 段显示「继续」。ES 核验确认 `magicbook-read-paragraph` 已有 1347/1348 段音频引用，1347 个 MinIO 对象均存在且非空，仅第 1117 段缺失；本次已发出的 207 次 `/tts/speak` 全部命中旧缓存且无 ERROR，故用户感知为「已经完成」，但批次台账确实尚未收口。修复：`_synth_worker()` 改用 `_thread_db_session()` 的独立 engine + 线程作用域会话，逐段 `_commit_with_retry()`；每轮 `expire_all()` 读取取消状态，`_refresh_counts()` 显式接收 worker session；请求侧 `progress()` 提交后刷新 job，确保返回 worker 写入的终态。状态：**已上线待验收**（实现 `39759318`；生产 book 145 从 207 段续跑至 `1348/1348 COMPLETED`，ES/MinIO 均补齐 1348/1348，页面显示 100% 已完成并出现「整本朗读已缓存」；worktree `../magicbook-r249-tts-worker-session`，分支 `fix/r249-tts-worker-session`；挂 R214/R166 修复不建独立 idea）。
 
 250. **管理员运营站内信：自由撰写、单发/群发、发送历史与整批撤回**（占号 2026-10-29，待回填）
+
+251. **MagicBook UI 信息架构与分组原型**（占号 2026-10-29，待回填）
