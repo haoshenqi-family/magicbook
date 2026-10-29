@@ -1,6 +1,6 @@
 # AC — R251 MagicBook UI 信息架构与导航分组
 
-> 状态：已上线待验收（2026-10-29；实现 `1910fce7`，发布 `bfea06fb`；定向 12 passed / 0 failed；正式发布态全量 1188 passed / 0 failed）
+> 状态：已上线待验收（2026-10-29；实现 `1910fce7`，移动账号标签修正与发布 `70aa636c`；定向 12 passed / 0 failed；正式发布态全量 1188 passed / 0 failed）
 
 ## A. 一级导航
 
@@ -28,6 +28,7 @@
 - [x] 1440×1200 无横向滚动。
 - [x] 390×844 无横向滚动。
 - [x] 移动底栏为四列 flex，不再被 `.visible-xs` 的 `display:block!important` 覆盖。
+- [x] 移动底栏第四项固定显示“账号”，不直接使用可能过长的用户名。
 - [x] 移动悬浮球与底栏不重叠。
 - [x] 平板宽度下五个一级域仍保持可见。
 - [x] CaliBlur 分组标题不再占 60px。
@@ -49,4 +50,4 @@
 - [x] `py_compile cps/ui_ia.py cps/jinjia.py` 通过。
 - [x] 产品 L1、L3、需求基线、LLD、AC 已同步。
 - [x] 长期信息架构原则已沉淀到 `docs/kb/instructions/coding/`。
-- [x] `bfea06fb` 已推送并在生产部署；容器 `running / healthy`，`/login` 返回 200。
+- [x] `70aa636c` 已推送并在生产部署；容器 `running / healthy`，`/login` 返回 200。
