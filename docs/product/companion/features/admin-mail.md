@@ -51,10 +51,10 @@ tests/test_admin_mail_r250.py
 - 页面与五个代理双层门禁：magicbook `role_admin()`，moon-well `credit.admin-user-ids`。
 - 不在 localStorage/sessionStorage 保存正文或收件人名单；不使用 `innerHTML` 拼服务端数据。
 - 不做富文本、附件、定时发送、草稿、模板编辑器、回信、打开率/点击率统计、单封撤回或站外邮件。
-- 不新增用户侧邮件页面或第二套未读状态；运营邮件仍进入现有 `/mail`、抽屉 Mail、设置入口与伙伴信封。
+- 不新增用户侧邮件页面或第二套未读状态；运营邮件仍进入现有 `/mail`、独立伙伴邮件弹层、设置入口与伙伴信封。
 
 ## 测试锚点
 
 - `tests/test_admin_mail_r250.py`：页面与五代理权限、参数归一、三元组透传、5000/5001、全体人数精确保持、发送确认文案、纯文本渲染、i18n 与 Node 语法。
-- `tests/test_mail_proxy_r243.py` / `tests/test_mail_ui_r243.py`：原 `/mail` 代理、FAB 信封、抽屉页签、设置入口与三类系统邮件回归。
+- `tests/test_mail_proxy_r243.py` / `tests/test_mail_ui_r243.py`：原 `/mail` 代理、FAB 信封、独立邮件弹层、设置入口与三类系统邮件回归。
 - `tests/test_i18n_seed_contract.py`：种子、zh PO、编译 MO 一致。

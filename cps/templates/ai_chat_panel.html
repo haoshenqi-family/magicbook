@@ -40,15 +40,7 @@
       </div>
       <button id="ai-companion-close" aria-label="{{_('Close')}}">&times;</button>
     </header>
-    {% if current_user.is_authenticated %}
-    <div id="ai-companion-tabs" role="tablist" aria-label="{{_('Companion panels')}}">
-      <button id="ai-tab-chat" class="ai-drawer-tab active" type="button" role="tab"
-              aria-selected="true" aria-controls="ai-chat-pane" data-tab="chat" tabindex="0">{{_('Chat')}}</button>
-      <button id="ai-tab-mail" class="ai-drawer-tab" type="button" role="tab"
-              aria-selected="false" aria-controls="ai-mail-pane" data-tab="mail" tabindex="-1">{{_('Mail')}}<span id="ai-tab-mail-badge" hidden></span></button>
-    </div>
-    {% endif %}
-    <section id="ai-chat-pane" class="ai-companion-pane" role="tabpanel" aria-labelledby="ai-tab-chat">
+    <section id="ai-chat-pane" class="ai-companion-pane">
       <div id="ai-chat-messages"></div>
       <div id="ai-chat-input-area">
         <textarea id="ai-chat-input" placeholder="{{_('Ask about this chapter...')}}"></textarea>
@@ -61,24 +53,6 @@
         <div id="ai-chat-voice-status" class="ai-chat-voice-status" role="status" aria-live="polite"></div>
       </div>
     </section>
-    {% if current_user.is_authenticated %}
-    <section id="ai-mail-pane" class="ai-companion-pane" role="tabpanel" aria-labelledby="ai-tab-mail" hidden>
-      <div class="ai-mail-head">
-        <span id="ai-mail-unread-count" aria-live="polite">{{_('Checking mail...')}}</span>
-        <button id="ai-mail-mark-all" class="ai-mail-mark-all" type="button" disabled>{{_('Mark all as read')}}</button>
-      </div>
-      <div id="ai-mail-loading" class="ai-mail-state" role="status">{{_('Loading mail...')}}</div>
-      <div id="ai-mail-empty" class="ai-mail-state ai-mail-empty" hidden>{{_('No mail yet')}}</div>
-      <div id="ai-mail-error" class="ai-mail-state ai-mail-error" role="alert" hidden>
-        <span class="ai-mail-error-text"></span>
-        <button id="ai-mail-retry" type="button">{{_('Retry')}}</button>
-      </div>
-      <div id="ai-mail-list" hidden></div>
-      <div id="ai-mail-footer" class="ai-mail-footer" hidden>
-        <a id="ai-mail-view-all" href="{{ url_for('web.mail_inbox_page') }}">{{_('View all')}}</a>
-      </div>
-    </section>
-    {% endif %}
     <div id="ai-memory-panel">
       <div class="ai-memory-header">
         <span>{{_('Memory & Book Profile')}}</span>
@@ -92,6 +66,35 @@
       </div>
     </div>
   </div>
+  {% if current_user.is_authenticated %}
+  {# R254：站内信是伙伴的独立邮件弹层，不再放进 AI 对话抽屉。 #}
+  <aside id="buddy-mail-popover" class="buddy-mail-popover" role="dialog"
+         aria-labelledby="buddy-mail-title" aria-hidden="true" hidden>
+    <header>
+      <div class="buddy-mail-title-wrap">
+        <span class="buddy-mail-kicker">{{_('Companion panels')}}</span>
+        <h3 id="buddy-mail-title">{{_('Mail')}}</h3>
+      </div>
+      <button id="buddy-mail-close" type="button" title="{{_('Close')}}"
+              aria-label="{{_('Close')}}">&times;</button>
+    </header>
+    <div class="buddy-mail-tools">
+      <span id="buddy-mail-unread-count" aria-live="polite">{{_('Checking mail...')}}</span>
+      <button id="buddy-mail-mark-all" class="buddy-mail-mark-all"
+              type="button" disabled>{{_('Mark all as read')}}</button>
+    </div>
+    <div id="buddy-mail-loading" class="buddy-mail-state" role="status">{{_('Loading mail...')}}</div>
+    <div id="buddy-mail-empty" class="buddy-mail-state buddy-mail-empty" hidden>{{_('No mail yet')}}</div>
+    <div id="buddy-mail-error" class="buddy-mail-state buddy-mail-error" role="alert" hidden>
+      <span class="buddy-mail-error-text"></span>
+      <button id="buddy-mail-retry" type="button">{{_('Retry')}}</button>
+    </div>
+    <div id="buddy-mail-list" hidden></div>
+    <footer id="buddy-mail-footer" hidden>
+      <a id="buddy-mail-view-all" href="{{ url_for('web.mail_inbox_page') }}">{{_('View all')}}</a>
+    </footer>
+  </aside>
+  {% endif %}
 </div>
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <script>

@@ -1,4 +1,4 @@
-/* R243 site mail: shared badges, Buddy drawer Mail tab and /mail inbox. */
+/* R243 site mail: shared badges, Buddy Mail popover and /mail inbox. */
 
 .mail-count-badge {
   min-width: 19px;
@@ -12,7 +12,6 @@
 }
 
 .mail-count-badge[hidden],
-#ai-tab-mail-badge[hidden],
 #ai-companion-mail-badge[hidden] {
   display: none !important;
 }
@@ -49,64 +48,6 @@
   background: #777;
 }
 
-/* Drawer tabs */
-#ai-companion-tabs {
-  flex: 0 0 auto;
-  display: flex;
-  gap: 2px;
-  padding: 0 12px;
-  background: #f5f7fb;
-  border-bottom: 1px solid #d7e3f7;
-}
-
-#ai-companion-tabs .ai-drawer-tab {
-  position: relative;
-  min-height: 42px;
-  padding: 8px 18px;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  background: transparent;
-  color: #54657c;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-#ai-companion-tabs .ai-drawer-tab:hover {
-  color: #1a73e8;
-}
-
-#ai-companion-tabs .ai-drawer-tab.active {
-  color: #1a73e8;
-  border-bottom-color: #1a73e8;
-}
-
-#ai-companion-tabs .ai-drawer-tab:focus-visible {
-  outline: 2px solid #1a73e8;
-  outline-offset: -3px;
-}
-
-#ai-tab-mail-badge {
-  display: inline-block;
-  min-width: 18px;
-  margin-left: 5px;
-  padding: 1px 5px;
-  border-radius: 9px;
-  background: #d9534f;
-  color: #fff;
-  font-size: 10px;
-  line-height: 16px;
-  text-align: center;
-}
-
-#ai-tab-mail.mail-unavailable {
-  color: #8a6d3b;
-}
-
-#ai-companion-drawer.mail-active .ai-chat-conv-bar {
-  display: none;
-}
-
 .ai-companion-pane {
   flex: 1 1 auto;
   min-height: 0;
@@ -118,12 +59,79 @@
   display: none !important;
 }
 
-/* Drawer Mail */
-#ai-mail-pane {
+/* R254: Buddy mail is an independent popover, never a pane inside the AI drawer. */
+#buddy-mail-popover {
+  position: fixed;
+  right: 24px;
+  bottom: 96px;
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 48px));
+  max-height: min(680px, calc(100vh - 120px));
+  overflow: hidden;
   background: #f7f9fc;
+  border: 1px solid #d8e3f2;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(20, 45, 80, .24);
 }
 
-.ai-mail-head {
+#buddy-mail-popover[hidden] {
+  display: none !important;
+}
+
+#buddy-mail-popover > header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 68px;
+  padding: 12px 14px 12px 18px;
+  background: linear-gradient(135deg, #1f5fae, #4285f4);
+  color: #fff;
+}
+
+.buddy-mail-title-wrap {
+  min-width: 0;
+}
+
+.buddy-mail-kicker {
+  display: block;
+  color: rgba(255, 255, 255, .76);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+#buddy-mail-title {
+  margin: 2px 0 0;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+#buddy-mail-close {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+#buddy-mail-close:hover,
+#buddy-mail-close:focus-visible {
+  background: rgba(255, 255, 255, .16);
+  outline: none;
+}
+
+.buddy-mail-tools {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
@@ -134,14 +142,14 @@
   border-bottom: 1px solid #e5eaf1;
 }
 
-#ai-mail-unread-count,
+#buddy-mail-unread-count,
 #mail-page-unread-count {
   color: #54657c;
   font-size: 12px;
   font-weight: 600;
 }
 
-.ai-mail-mark-all,
+.buddy-mail-mark-all,
 .mail-page-mark-all {
   border: 1px solid #c9d7ea;
   border-radius: 7px;
@@ -152,14 +160,14 @@
   cursor: pointer;
 }
 
-.ai-mail-mark-all:disabled,
+.buddy-mail-mark-all:disabled,
 .mail-page-mark-all:disabled {
   color: #98a4b3;
   border-color: #e1e5eb;
   cursor: default;
 }
 
-.ai-mail-state {
+.buddy-mail-state {
   flex: 1 1 auto;
   min-height: 120px;
   padding: 30px 18px;
@@ -168,41 +176,48 @@
   font-size: 13px;
 }
 
-.ai-mail-state[hidden],
-.ai-mail-empty[hidden],
-.ai-mail-error[hidden],
-.ai-mail-footer[hidden] {
+.buddy-mail-state[hidden],
+.buddy-mail-empty[hidden],
+.buddy-mail-error[hidden],
+#buddy-mail-footer[hidden] {
   display: none !important;
 }
 
-.ai-mail-error {
+.buddy-mail-error {
   color: #b23b32;
 }
 
-.ai-mail-error button,
+.buddy-mail-error button,
 .mail-page-error button {
   margin-left: 6px;
 }
 
-#ai-mail-list {
+#buddy-mail-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 10px;
 }
 
-.ai-mail-footer {
+#buddy-mail-footer {
   flex: 0 0 auto;
-  padding: 10px 14px;
+  padding: 11px 14px;
   text-align: center;
   background: #fff;
   border-top: 1px solid #e5eaf1;
 }
 
-.ai-mail-footer a {
+#buddy-mail-footer a {
   color: #1a73e8;
   font-weight: 600;
   text-decoration: none;
+}
+
+#buddy-mail-footer a:hover,
+#buddy-mail-footer a:focus-visible {
+  color: #0b57d0;
+  text-decoration: underline;
 }
 
 /* Shared mail cards */
@@ -415,9 +430,27 @@
     line-height: 16px;
   }
 
-  #ai-companion-tabs .ai-drawer-tab {
+  #buddy-mail-popover {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  #buddy-mail-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .buddy-mail-tools {
+    min-height: 52px;
+  }
+
+  .buddy-mail-mark-all {
     min-height: 44px;
-    padding: 8px 16px;
   }
 
   .mail-page-shell {

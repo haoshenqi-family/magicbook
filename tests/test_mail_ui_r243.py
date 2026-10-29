@@ -65,24 +65,31 @@ def test_layout_loads_mail_after_api_and_before_buddy_panel():
     assert api < mail < panel
 
 
-def test_panel_has_fab_envelope_tabs_and_mail_skeleton(admin_client):
+def test_panel_has_fab_envelope_and_standalone_mail_popover(admin_client):
     body = admin_client.get("/buddy").get_data(as_text=True)
     assert 'id="ai-companion-mail-badge"' in body
-    assert 'id="ai-companion-tabs"' in body
-    assert 'id="ai-tab-chat"' in body
-    assert 'id="ai-tab-mail"' in body
     assert 'id="ai-chat-pane"' in body
-    assert 'id="ai-mail-pane"' in body
-    assert 'id="ai-mail-mark-all"' in body
-    assert 'id="ai-mail-view-all"' in body
-    assert 'role="tab"' in body and 'aria-selected="true"' in body
-    assert 'aria-controls="ai-mail-pane"' in body
+    assert 'id="buddy-mail-popover"' in body
+    assert 'id="buddy-mail-mark-all"' in body
+    assert 'id="buddy-mail-view-all"' in body
+    assert 'id="buddy-mail-unread-count"' in body
+    assert 'role="dialog"' in body
+    assert 'aria-labelledby="buddy-mail-title"' in body
+    assert 'aria-hidden="true"' in body and " hidden>" in body
+    for retired_id in ("ai-companion-tabs", "ai-tab-chat", "ai-tab-mail",
+                       "ai-mail-pane", "ai-mail-mark-all", "ai-mail-view-all"):
+        assert 'id="{}"'.format(retired_id) not in body
+    assert 'role="tab"' not in body
+    assert 'aria-controls="ai-mail-pane"' not in body
 
     css = _read("cps", "static", "css", "mail.css")
     fab_rule = css.split("#ai-companion-mail-badge {", 1)[1].split("}", 1)[0]
     assert "pointer-events: none" in fab_rule
     assert "position: absolute" in fab_rule
-    assert 'tabindex="-1"' in body
+    popover_rule = css.split("#buddy-mail-popover {", 1)[1].split("}", 1)[0]
+    assert "position: fixed" in popover_rule
+    assert "flex-direction: column" in popover_rule
+    assert "#buddy-mail-popover[hidden]" in css
 
 
 def test_fab_mail_state_maps_to_hidden_buddy_without_duplicate_badge():
@@ -111,6 +118,7 @@ def test_shared_panel_omits_mail_surfaces_for_anonymous(app):
     assert 'id="ai-companion-tabs"' not in body
     assert 'id="ai-tab-mail"' not in body
     assert 'id="ai-mail-pane"' not in body
+    assert 'id="buddy-mail-popover"' not in body
 
 
 @pytest.mark.parametrize("template", ["read.html", "readtxt.html", "readpdf.html"])
@@ -316,15 +324,37 @@ eval(source);
     assert data["lastKnownUnreadCount"] == 4
 
 
-def test_opening_mail_tab_does_not_mark_read():
+def test_opening_standalone_mail_popover_does_not_mark_read():
     source = _read("cps", "static", "js", "ai_chat.js")
-    activate = _function(source, "activateDrawerTab", "showMailPeekState")
-    load = _function(source, "loadMailPeek", "markAllDrawerMailRead")
-    assert "loadMailPeek" in activate
-    assert "markRead" not in activate
+    opener = _function(source, "openBuddyMail", "closeBuddyMail")
+    load = _function(source, "loadBuddyMailPeek", "markAllBuddyMailRead")
+    assert "loadBuddyMailPeek" in opener
+    assert "closeDrawer" in opener
+    assert "markRead" not in opener
     assert "markRead" not in load
-    render = _function(source, "renderMailPeek", "loadMailPeek")
+    render = _function(source, "renderBuddyMailPeek", "loadBuddyMailPeek")
     assert "onOpen" in render and "MBMail.markRead" in render
+
+
+def test_buddy_mail_and_ai_drawer_are_mutually_exclusive():
+    source = _read("cps", "static", "js", "ai_chat.js")
+    opener = _function(source, "openDrawer", "closeDrawer")
+    init = _function(source, "init", "markFabLabelSeen")
+    assert "closeBuddyMail()" in opener
+    assert 'if (target === "mail") {\n        openBuddyMail();' in init
+    assert 'openDrawer(target)' not in init
+    assert "buddyMailIsOpen()" in init
+
+
+def test_mail_module_targets_standalone_popover_not_drawer_tab():
+    source = _read("cps", "static", "js", "mail.js")
+    assert '"ai-tab-mail"' not in source
+    assert '"ai-tab-mail-badge"' not in source
+    assert '"ai-mail-pane"' not in source
+    assert '"ai-mail-unread-count"' not in source
+    assert '"buddy-mail-unread-count"' in source
+    assert 'setActionability("buddy-mail-mark-all")' in source
+    assert 'document.getElementById("buddy-mail-popover")' in source
 
 
 def test_mail_page_marks_read_only_after_item_expand():
@@ -428,12 +458,12 @@ process.stdout.write(JSON.stringify({
 @pytest.mark.skipif(shutil.which("node") is None, reason="node is required")
 def test_fab_routing_executes_production_helper():
     source = _read("cps", "static", "js", "ai_chat.js")
-    body = _function(source, "chooseFabTab", "initDrawerTabs")
+    body = _function(source, "chooseFabTarget", "showBuddyMailState")
     script = """
 const body = process.argv[1];
 eval(body);
 const cases = [[false, 0], [false, 3], [true, 0], [true, 8]];
-process.stdout.write(JSON.stringify(cases.map(([open, n]) => chooseFabTab(open, n))));
+process.stdout.write(JSON.stringify(cases.map(([open, n]) => chooseFabTarget(open, n))));
 """
     result = subprocess.run(
         ["node", "-e", script, body],

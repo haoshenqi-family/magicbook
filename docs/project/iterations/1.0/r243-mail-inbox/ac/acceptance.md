@@ -1,5 +1,7 @@
 # AC — R243 站内信前端：伙伴信封、抽屉 Mail 与独立收件箱
 
+> **抽屉部分已被 R254 取代（2026-10-29）**：R243 的双页签与抽屉 Mail 验收项只保留历史记录；当前伙伴邮件入口按 [R254 AC](../r254-buddy-mail-popover/ac/acceptance.md) 验收。
+
 > 状态：已上线待用户真机验收（2026-10-29；merge/push `af9987bb`；正式发布态全量 `1109 passed`；R244 合并后定向回归 `137 passed`，另 R233 链接/阅读器结构 `19 passed`；容器 `running/healthy`）
 > 上层设计：[HLD](../hld.md) · [LLD](../lld.md)
 

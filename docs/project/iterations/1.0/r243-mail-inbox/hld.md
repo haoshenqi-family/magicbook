@@ -1,5 +1,7 @@
 # HLD — R243 站内信前端：伙伴信封、抽屉 Mail 与独立收件箱
 
+> **已被 R254 取代（2026-10-29）**：伙伴邮件已从 AI 对话抽屉拆为独立 `#buddy-mail-popover`；下方“抽屉 Mail / 双页签”为 R243 历史设计，保留原文不回写。当前实现见 [R254 LLD](../r254-buddy-mail-popover/lld.md)。
+
 > 状态：**前后端已实现，待验收**（2026-10-29；moon-well R228 + magicbook R243；合并 R244 `a241f287`；未 push、未部署）
 > 关联：Ship MB-234 / `tBWd4R5g` · 迭代 `1.0` · 跨仓 moon-well R228。
 > 设计范围：需求基线、HLD/LLD/AC；编码阶段从 `origin/develop` 建独立 worktree，并回填 L1/L2/L3。

@@ -1,9 +1,11 @@
 /* Site mail state and inbox controller (R243).
  *
- * Why one module owns unread state: the Buddy FAB, settings menu, drawer tab and
- * /mail page must never drift into separate counters. This module keeps one
+ * Why one module owns unread state: the Buddy FAB, settings menu, mail popover
+ * and /mail page must never drift into separate counters. This module keeps one
  * in-memory snapshot, exposes a small read-only API, and renders all numeric
- * badges from that snapshot. It intentionally uses browser-memory state only.
+ * badges from that snapshot. The Buddy Mail popover and /mail page are separate
+ * surfaces; neither is mounted inside the AI chat drawer. It intentionally uses
+ * browser-memory state only.
  */
 (function (window, document) {
   "use strict";
@@ -420,7 +422,7 @@
     return itemApi;
   }
 
-  function setBadge(id, stateSnapshot, kind) {
+  function setBadge(id, stateSnapshot) {
     var badge = document.getElementById(id);
     if (!badge) return;
     var count = stateSnapshot.unreadCount;
@@ -433,13 +435,6 @@
         replaceTokens(t("{count} unread mail"), { count: count }));
     } else {
       badge.removeAttribute("aria-label");
-    }
-    if (kind === "tab") {
-      var tab = document.getElementById("ai-tab-mail");
-      if (tab) {
-        tab.classList.toggle("has-mail", show);
-        tab.classList.toggle("mail-unavailable", stateSnapshot.status === "error");
-      }
     }
   }
 
@@ -456,8 +451,7 @@
   }
 
   function renderSharedBadges() {
-    setBadge("top-mail-badge", state, "settings");
-    setBadge("ai-tab-mail-badge", state, "tab");
+    setBadge("top-mail-badge", state);
 
     var fabBadge = document.getElementById("ai-companion-mail-badge");
     if (fabBadge) {
@@ -478,7 +472,7 @@
     var topMail = document.getElementById("top_mail");
     if (topMail) topMail.classList.toggle("mail-unavailable", state.status === "error");
 
-    ["ai-mail-unread-count", "mail-page-unread-count"].forEach(function (id) {
+    ["buddy-mail-unread-count", "mail-page-unread-count"].forEach(function (id) {
       var node = document.getElementById(id);
       if (!node) return;
       node.classList.toggle("mail-unavailable", state.status === "error");
@@ -492,7 +486,7 @@
         node.textContent = t("No unread mail");
       }
     });
-    setActionability("ai-mail-mark-all");
+    setActionability("buddy-mail-mark-all");
     setActionability("mail-mark-all");
   }
 
@@ -602,7 +596,7 @@
     renderSharedBadges();
     if (document.getElementById("top-mail-badge") ||
         document.getElementById("ai-companion-mail-badge") ||
-        document.getElementById("ai-mail-pane") ||
+        document.getElementById("buddy-mail-popover") ||
         document.getElementById("mail-page")) {
       refreshUnread().catch(function () { /* explicit UI states consume the same error */ });
     }

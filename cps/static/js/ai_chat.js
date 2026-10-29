@@ -25,8 +25,8 @@
   // R227：语音输入（麦克风按钮）与朗读（每条回复）的页面级状态
   var micBtnEl = null;
   var voiceStatusTimer = null;
-  // R243：抽屉 Mail 只做最近 5 封的轻量预览；正文没有独立接口，展开状态
-  // 留在本页内存，避免切回 Chat 再进入时重复触发已读或丢失已展开卡片。
+  // R254：邮件是伙伴的独立弹层，只做最近 5 封的轻量预览；正文没有独立接口，
+  // 展开状态留在本页内存，避免重复打开时重复触发已读或丢失已展开卡片。
   var mailPeekLoading = false;
   var mailPeekRecords = [];
   var mailOpenIds = {};
@@ -347,14 +347,21 @@
     BOOK_META = window.AICompanionBookMeta || {};
 
     $("#ai-companion-fab").on("click", function () {
-      var target = chooseFabTab($("#ai-companion-drawer").hasClass("open"),
+      var target = chooseFabTarget(
+        $("#ai-companion-drawer").hasClass("open") || buddyMailIsOpen(),
         currentMailUnreadForRouting());
-      if (target) openDrawer(target);
-      else closeDrawer();
+      if (target === "mail") {
+        openBuddyMail();
+      } else if (target === "chat") {
+        openDrawer();
+      } else {
+        closeBuddyMail();
+        closeDrawer();
+      }
     });
     initBuddyFabDrag();
     $("#ai-companion-close").on("click", closeDrawer);
-    initDrawerTabs();
+    $("#buddy-mail-close").on("click", closeBuddyMail);
     $("#ai-chat-send").on("click", sendMessage);
     $("#ai-chat-new").on("click", newConversation);
     $("#ai-chat-rename").on("click", renameConversation);
@@ -362,10 +369,10 @@
     $("#ai-chat-memory").on("click", toggleMemoryPanel);
     $("#ai-memory-close").on("click", function () { $("#ai-memory-panel").removeClass("open"); });
     $("#ai-memory-add").on("click", addMemory);
-    $("#ai-mail-mark-all").on("click", markAllDrawerMailRead);
-    $("#ai-mail-retry").on("click", function () { loadMailPeek(true); });
+    $("#buddy-mail-mark-all").on("click", markAllBuddyMailRead);
+    $("#buddy-mail-retry").on("click", function () { loadBuddyMailPeek(true); });
     if (window.MBMail && typeof window.MBMail.subscribe === "function") {
-      window.MBMail.subscribe(syncDrawerMailActions);
+      window.MBMail.subscribe(syncBuddyMailActions);
     }
     $("#ai-chat-conversations").on("change", function () {
       selectConversation(parseInt($(this).val(), 10));
@@ -373,11 +380,15 @@
     $("#ai-chat-input").on("keydown", function (e) {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
-    // ESC 关闭 AI 抽屉。EPUB 划词气泡打开时优先只关气泡（epub.js 的
-    // ESC 监听负责），两个面板同开时逐层退出而不是一次全关。
+    // ESC 逐层关闭伙伴浮层。EPUB 划词气泡打开时优先只关气泡（epub.js 的
+    // ESC 监听负责）；邮件弹层优先于 AI 抽屉。
     $(document).on("keydown", function (e) {
       if (e.key !== "Escape") return;
       if (window.ReaderTranslation && window.ReaderTranslation.isOpen()) return;
+      if (buddyMailIsOpen()) {
+        closeBuddyMail();
+        return;
+      }
       if ($("#ai-companion-drawer").hasClass("open")) closeDrawer();
     });
 
@@ -420,81 +431,38 @@
       ? window.MBMail.getUnreadForRouting() : 0;
   }
 
-  /** 纯函数供真实点击与 Node 守卫共用：null 表示点击应关闭已打开抽屉。 */
-  function chooseFabTab(drawerOpen, unread) {
-    if (drawerOpen) return null;
+  /** 纯函数供真实点击与 Node 守卫共用：null 表示应关闭当前伙伴浮层。 */
+  function chooseFabTarget(panelOpen, unread) {
+    if (panelOpen) return null;
     return Number(unread) > 0 ? "mail" : "chat";
   }
 
-  function initDrawerTabs() {
-    var $tabs = $("#ai-companion-tabs .ai-drawer-tab");
-    $tabs.on("click", function () {
-      activateDrawerTab($(this).attr("data-tab"), true);
-    });
-    $tabs.on("keydown", function (event) {
-      var current = $tabs.index(this);
-      var target = null;
-      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
-        target = (current + 1) % $tabs.length;
-      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
-        target = (current - 1 + $tabs.length) % $tabs.length;
-      } else if (event.key === "Home") {
-        target = 0;
-      } else if (event.key === "End") {
-        target = $tabs.length - 1;
-      }
-      if (target === null) return;
-      event.preventDefault();
-      var $target = $tabs.eq(target);
-      activateDrawerTab($target.attr("data-tab"), true);
-      $target.trigger("focus");
-    });
-  }
-
-  function activateDrawerTab(tab, loadMail) {
-    var active = tab === "mail" ? "mail" : "chat";
-    var isMail = active === "mail";
-    $("#ai-companion-drawer").toggleClass("mail-active", isMail);
-    $("#ai-companion-tabs .ai-drawer-tab").each(function () {
-      var selected = $(this).attr("data-tab") === active;
-      $(this).toggleClass("active", selected)
-        .attr("aria-selected", selected ? "true" : "false")
-        .attr("tabindex", selected ? "0" : "-1");
-    });
-    $("#ai-chat-pane").prop("hidden", isMail);
-    $("#ai-mail-pane").prop("hidden", !isMail);
-    if (isMail) {
-      $("#ai-memory-panel").removeClass("open");
-      if (loadMail) loadMailPeek(false);
-    }
-  }
-
-  function showMailPeekState(mode, message) {
-    $("#ai-mail-loading").prop("hidden", mode !== "loading");
-    $("#ai-mail-empty").prop("hidden", mode !== "empty");
-    $("#ai-mail-error").prop("hidden", mode !== "error");
-    $("#ai-mail-list").prop("hidden", mode !== "list");
-    $("#ai-mail-footer").prop("hidden", mode === "loading");
+  function showBuddyMailState(mode, message) {
+    $("#buddy-mail-loading").prop("hidden", mode !== "loading");
+    $("#buddy-mail-empty").prop("hidden", mode !== "empty");
+    $("#buddy-mail-error").prop("hidden", mode !== "error");
+    $("#buddy-mail-list").prop("hidden", mode !== "list");
+    $("#buddy-mail-footer").prop("hidden", mode === "loading");
     if (mode === "error") {
-      $("#ai-mail-error .ai-mail-error-text").text(message || t("Failed to load mail"));
+      $("#buddy-mail-error .buddy-mail-error-text").text(message || t("Failed to load mail"));
     }
-    syncDrawerMailActions();
+    syncBuddyMailActions();
   }
 
-  function syncDrawerMailActions() {
+  function syncBuddyMailActions() {
     var mailState = window.MBMail && typeof window.MBMail.getState === "function"
       ? window.MBMail.getState() : null;
     var canMarkAll = !mailPeekLoading && mailState && mailState.status === "ready" &&
       Number(mailState.unreadCount) > 0;
-    $("#ai-mail-mark-all").prop("disabled", !canMarkAll);
+    $("#buddy-mail-mark-all").prop("disabled", !canMarkAll);
   }
 
-  function renderMailPeek() {
-    var host = document.getElementById("ai-mail-list");
+  function renderBuddyMailPeek() {
+    var host = document.getElementById("buddy-mail-list");
     if (!host) return;
     host.textContent = "";
     if (!mailPeekRecords.length) {
-      showMailPeekState("empty");
+      showBuddyMailState("empty");
       return;
     }
     mailPeekRecords.forEach(function (mail) {
@@ -519,49 +487,76 @@
       });
       host.appendChild(card.element);
     });
-    showMailPeekState("list");
+    showBuddyMailState("list");
   }
 
-  function loadMailPeek(force) {
+  function loadBuddyMailPeek(force) {
     if (!window.MBMail) {
-      showMailPeekState("error", t("Mail is temporarily unavailable"));
+      showBuddyMailState("error", t("Mail is temporarily unavailable"));
       return;
     }
     if (mailPeekLoading && !force) return;
     mailPeekLoading = true;
-    showMailPeekState("loading");
+    showBuddyMailState("loading");
     window.MBMail.refreshUnread().catch(function () { /* count state renders its own error */ });
     window.MBMail.loadPage(1, 5).then(function (page) {
       mailPeekLoading = false;
       mailPeekRecords = (page && page.records) || [];
-      renderMailPeek();
+      renderBuddyMailPeek();
     }).catch(function (error) {
       mailPeekLoading = false;
-      showMailPeekState("error", error && error.message ? error.message : String(error));
+      showBuddyMailState("error", error && error.message ? error.message : String(error));
     });
   }
 
-  function markAllDrawerMailRead() {
+  function markAllBuddyMailRead() {
     if (!window.MBMail) return;
-    $("#ai-mail-mark-all").prop("disabled", true);
+    $("#buddy-mail-mark-all").prop("disabled", true);
     window.MBMail.markAllRead().then(function () {
       var now = Date.now();
       mailPeekRecords.forEach(function (mail) {
         if (!mail.readAt && !mail.resolvedAt) mail.readAt = now;
       });
-      renderMailPeek();
+      renderBuddyMailPeek();
     }).catch(function (error) {
-      showMailPeekState("error", error && error.message ? error.message : String(error));
+      showBuddyMailState("error", error && error.message ? error.message : String(error));
     });
   }
 
-  function openDrawer(tab) {
+  function buddyMailIsOpen() {
+    return $("#buddy-mail-popover").hasClass("open");
+  }
+
+  function openBuddyMail(force) {
+    var $popover = $("#buddy-mail-popover");
+    if (!$popover.length) {
+      openDrawer();
+      return;
+    }
+    closeDrawer();
+    $popover.prop("hidden", false)
+      .attr("aria-hidden", "false")
+      .addClass("open");
+    markFabLabelSeen();
+    closeBubbles();
+    clearLetterBadge();
+    loadBuddyMailPeek(!!force);
+  }
+
+  function closeBuddyMail() {
+    $("#buddy-mail-popover")
+      .removeClass("open")
+      .attr("aria-hidden", "true")
+      .prop("hidden", true);
+  }
+
+  function openDrawer() {
+    closeBuddyMail();
     $("#ai-companion-drawer").addClass("open");
     markFabLabelSeen();
     closeBubbles();
-    activateDrawerTab(tab || "chat", true);
     clearLetterBadge();
-    if ((tab || "chat") === "chat" && $("#ai-memory-panel").hasClass("open")) loadMemoryPanel();
+    if ($("#ai-memory-panel").hasClass("open")) loadMemoryPanel();
   }
 
   function closeDrawer() {

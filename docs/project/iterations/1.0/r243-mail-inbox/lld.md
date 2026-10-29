@@ -1,5 +1,7 @@
 # LLD — R243 站内信前端：伙伴信封、抽屉 Mail 与独立收件箱
 
+> **已被 R254 取代（2026-10-29）**：AI 抽屉的 Mail 页签与 `#ai-mail-pane` 已删除，邮件改由独立伙伴弹层承载；本文保留 R243 历史实现，不改写。当前实现见 [R254 LLD](../r254-buddy-mail-popover/lld.md)。
+
 > 状态：**前后端已实现，待验收**（2026-10-29；moon-well R228 + magicbook R243；合并 R244 `a241f287`；未 push、未部署）
 > 上层设计：[hld.md](./hld.md) · 验收：[ac/acceptance.md](./ac/acceptance.md)
 > 需求基线：[companion R243](../../../../product/companion/requirements.md)
