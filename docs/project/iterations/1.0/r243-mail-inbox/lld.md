@@ -1,6 +1,6 @@
 # LLD — R243 站内信前端：伙伴信封、抽屉 Mail 与独立收件箱
 
-> 状态：**设计已确认（待开发）**（2026-10-29）
+> 状态：**开发中**（2026-10-29）
 > 上层设计：[hld.md](./hld.md) · 验收：[ac/acceptance.md](./ac/acceptance.md)
 > 需求基线：[companion R243](../../../../product/companion/requirements.md)
 > 后端契约：`moon-well` 仓库 `docs/project/iterations/1.0/r228-mail-inbox/lld.md`（跨仓文档不写相对链接）
@@ -98,7 +98,7 @@ error: string | null
 - 变更接口成功后用响应中的最新 `unreadCount` 更新状态，再广播给 FAB、设置菜单、抽屉与 `/mail`。
 - `mail.js` 与现有共享脚本统一依赖 `window.MBApi`（`common/api.js`）：CSRF 探测复用 `MBApi.csrfToken()`，不新增第四套 DOM 选择器；`layout.html`、`read.html` 已载入，`readtxt.html`、`readpdf.html` 必须补载且排在 `ai_chat_panel.html` 之前。
 - `mail.js` 必须在共享面板脚本之前载入：`ai_chat.js` 初始化 FAB 分流时读取 `window.MBMail`，晚载入会把“有未读进 Mail”静默降级成“永远进 Chat”。
-- `mail.js` 在 `layout` / `read` / `readtxt` / `readpdf` 四类页面都必须初始化 `MBMail`；`/mail` 页面不重复初始化第二套计数，只复用同一状态层与 DOM 订阅。
+- `mail.js` 在登录态下的 `layout` / `read` / `readtxt` / `readpdf` 四类页面初始化 `MBMail`；匿名阅读不加载 Mail CSS/JS、不漏出信封或页签。`/mail` 页面不重复初始化第二套计数，只复用同一状态层与 DOM 订阅。
 - 请求使用 `fetch(..., credentials: "same-origin")` 与 `X-CSRFToken`；`GET` 不发送 CSRF 头。`MBApi` 缺失或 POST 取不到 CSRF 时，由页面错误态明确呈现，不静默。
 - 扩展 `tests/test_common_api_contract.py`：四个挂载 Buddy 的模板都载入 `common/api.js` 且先于共享面板；`mail.js` 只经 `MBApi` 取 CSRF。
 

@@ -93,6 +93,18 @@
         <input type="number" id="credit-admin-amount" class="form-control" placeholder="{{_('Amount (+/-)')}}" style="width:140px" required>
         <input type="text" id="credit-admin-reason" class="form-control" placeholder="{{_('Reason (required, audited)')}}" style="width:260px" required>
         <button type="submit" class="btn btn-danger btn-sm">{{_('Apply Adjustment')}}</button>
+        <div id="credit-admin-notification-options" style="flex-basis:100%;width:100%;margin-top:10px">
+          <label style="font-weight:normal">
+            <input type="checkbox" id="credit-admin-notify">
+            {{_('Send arrival notification')}}
+          </label>
+          <textarea id="credit-admin-notification-message" class="form-control" maxlength="500"
+                    rows="2" style="margin-top:6px;max-width:620px"
+                    placeholder="{{_('Optional message (plain text)')}}" disabled></textarea>
+          <p class="help-block" style="margin:4px 0 0;font-size:12px">
+            {{_('Only positive adjustments can send an arrival notification. The message is plain text and limited to 500 characters.')}}
+          </p>
+        </div>
       </form>
       <p class="text-muted" style="margin-top:8px;margin-bottom:0;font-size:12px">
         {{_('Positive amount adds credits, negative deducts. Every adjustment is recorded in the ledger with your user id.')}}

@@ -21,6 +21,9 @@
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/onboarding.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/upload.css') }}" rel="stylesheet" media="screen">
+    {% if current_user.is_authenticated and not current_user.is_anonymous %}
+    <link href="{{ url_for('static', filename='css/mail.css') }}" rel="stylesheet" media="screen">
+    {% endif %}
     {% if g.current_theme == 1 %}
        <link href="{{ url_for('static', filename='css/caliBlur.css') }}" rel="stylesheet" media="screen">
        <link href="{{ url_for('static', filename='css/caliBlur_override.css') }}" rel="stylesheet" media="screen">
@@ -133,6 +136,7 @@
                   </a>
                   <ul class="dropdown-menu">
                     <li><a id="top_reading_settings" href="{{url_for('web.reading_settings')}}"><span class="glyphicon glyphicon-book"></span> {{_('Reading Settings')}}</a></li>
+                    <li><a id="top_mail" href="{{url_for('web.mail_inbox_page')}}"><span class="glyphicon glyphicon-envelope"></span> {{_('Mail')}}<span id="top-mail-badge" class="badge mail-count-badge" hidden></span></a></li>
                     <li><a id="top_achievements" href="{{url_for('web.achievements_page')}}"><span class="glyphicon glyphicon-certificate"></span> {{_('Achievements')}}</a></li>
                     <li><a id="top_credits" href="{{url_for('web.credits_page')}}"><span class="glyphicon glyphicon-credit-card"></span> {{_('Credits')}}</a></li>
                     <li><a id="top_buddy" href="{{url_for('web.buddy_page')}}"><span class="glyphicon glyphicon-heart"></span> {{_('Buddies')}}</a></li>
@@ -279,6 +283,10 @@
     <script src="{{ url_for('static', filename='js/ime_guard.js') }}"></script>
     {# R177（架构评审 B5）：全站 API 公共层（window.MBApi），必须先于 block js 的页面脚本 #}
     <script src="{{ url_for('static', filename='js/common/api.js') }}"></script>
+    {% if current_user.is_authenticated and not current_user.is_anonymous %}
+    {# R243：MBMail 必须先于共享 Buddy 面板；FAB 初始化时用它决定进 Chat 还是 Mail。 #}
+    <script src="{{ url_for('static', filename='js/mail.js') }}"></script>
+    {% endif %}
     {% if g.current_theme == 1 %}
       <script src="{{ url_for('static', filename='js/libs/jquery.visible.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/libs/compromise.min.js') }}"></script>

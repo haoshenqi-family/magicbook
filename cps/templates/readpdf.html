@@ -33,6 +33,9 @@ See https://github.com/adobe-type-tools/cmap-resources
     <link rel="apple-touch-icon" sizes="140x140" href="{{ url_for('static', filename='favicon.ico') }}">
     <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}"> 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/libs/viewer.css') }}">
+    {% if current_user.is_authenticated %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mail.css') }}">
+    {% endif %}
 	  <!-- This snippet is used in production (included from viewer.html) -->
 	  <link rel="resource" type="application/l10n" href="{{ url_for('static', filename='locale/locale.json') }}">
 	  <script src="{{ url_for('static', filename='js/libs/pdf.js') }}" type="module"></script>
@@ -526,6 +529,10 @@ See https://github.com/adobe-type-tools/cmap-resources
     {# R151 阅读心跳上报需要 CSRF 头（全局 CSRFProtect，POST /ajax/* 强制） #}
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     {% include 'i18n_seed.html' %}
+    <script src="{{ url_for('static', filename='js/common/api.js') }}"></script>
+    {% if current_user.is_authenticated %}
+    <script src="{{ url_for('static', filename='js/mail.js') }}"></script>
+    {% endif %}
     {% include 'ai_chat_panel.html' %}
     <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>
     {# R213-B：账号级阅读位置——reader-progress 提供采集/节流，下面内联脚本负责 #}

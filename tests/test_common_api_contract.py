@@ -107,3 +107,13 @@ def test_c5_failure_must_be_visible_not_silent():
     strict_block = re.search(
         r"unwrapStrict[\s\S]{0,600}?throw new Error", api)
     assert strict_block, "unwrapStrict 的非信封分支必须 throw Error（失败可见）"
+
+
+def test_c6_all_buddy_readers_load_mail_after_api_and_before_panel():
+    """R243：共享面板会在初始化时读 window.MBMail；api.js 与 mail.js 必须先载入。"""
+    for name in ("read.html", "readtxt.html", "readpdf.html"):
+        source = read("cps", "templates", name)
+        api = source.index("js/common/api.js")
+        mail = source.index("js/mail.js")
+        panel = source.index("ai_chat_panel.html")
+        assert api < mail < panel, f"{name} 的 API/Mail/面板载入顺序错误"

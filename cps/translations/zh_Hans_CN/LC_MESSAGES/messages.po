@@ -6151,3 +6151,129 @@ msgstr "未加密"
 
 msgid "Leave the password empty to get an unencrypted ZIP — anyone who gets the file can open it. The password is never stored; if you forget it, export again."
 msgstr "不设密码则导出不加密的 ZIP——任何拿到文件的人都能打开。密码只用于加密文件、系统不保存；忘记密码只能重新导出。"
+
+msgid "Mail"
+msgstr "邮件"
+
+msgid "Companion panels"
+msgstr "伙伴面板"
+
+msgid "Checking mail..."
+msgstr "正在检查邮件..."
+
+msgid "Loading mail..."
+msgstr "正在加载邮件..."
+
+msgid "No mail yet"
+msgstr "还没有邮件"
+
+msgid "Mark all as read"
+msgstr "全部标为已读"
+
+msgid "View all"
+msgstr "查看全部"
+
+msgid "Mail status unavailable"
+msgstr "邮件状态暂不可用"
+
+msgid "Mail is temporarily unavailable"
+msgstr "邮件暂不可用"
+
+msgid "Failed to load mail"
+msgstr "加载邮件失败"
+
+msgid "Failed to load unread mail count"
+msgstr "加载未读邮件数失败"
+
+msgid "Failed to mark mail as read"
+msgstr "标记邮件已读失败"
+
+msgid "Failed to mark all mail as read"
+msgstr "全部标为已读失败"
+
+msgid "Mail returned an invalid page"
+msgstr "邮件分页数据异常"
+
+msgid "Mail returned an invalid unread count"
+msgstr "邮件未读数异常"
+
+msgid "The shared API helper is unavailable"
+msgstr "公共 API 组件不可用"
+
+msgid "Your session has expired. Please sign in again."
+msgstr "登录状态已失效，请重新登录。"
+
+msgid "Notification"
+msgstr "通知"
+
+msgid "New buddy visit"
+msgstr "新伙伴来访"
+
+msgid "Achievement unlocked"
+msgstr "成就解锁"
+
+msgid "Credits received"
+msgstr "积分到账"
+
+msgid "Completed"
+msgstr "已完成"
+
+msgid "No unread mail"
+msgstr "没有未读邮件"
+
+msgid "{count} unread"
+msgstr "{count} 封未读"
+
+msgid "{count} unread mail"
+msgstr "{count} 封未读邮件"
+
+msgid "Page {page} of {total}"
+msgstr "第 {page} / {total} 页"
+
+msgid "Open Buddies"
+msgstr "去伙伴页"
+
+msgid "View achievements"
+msgstr "查看成就"
+
+msgid "View Credits"
+msgstr "查看积分"
+
+msgid "{name} is waiting for you. Visit Buddies to claim them."
+msgstr "{name} 正在等你，去伙伴页领取吧。"
+
+msgid "A new buddy is waiting for you. Visit Buddies to claim them."
+msgstr "有新伙伴正在等你，去伙伴页领取吧。"
+
+msgid "You unlocked “{name}”."
+msgstr "你解锁了「{name}」。"
+
+msgid "+{points} XP"
+msgstr "+{points} 经验"
+
+msgid "You unlocked a new achievement."
+msgstr "你解锁了一项新成就。"
+
+msgid "{amount} credits were added. Current balance: {balance}."
+msgstr "已到账 {amount} 积分，当前余额 {balance}。"
+
+msgid "Credits were added to your account."
+msgstr "积分已到账。"
+
+msgid "You have a new notification."
+msgstr "你收到一条新通知。"
+
+msgid "Send arrival notification"
+msgstr "同时发送到账通知"
+
+msgid "Send an arrival notification too."
+msgstr "同时发送到账通知。"
+
+msgid "Do not send an arrival notification."
+msgstr "不发送到账通知。"
+
+msgid "Optional message (plain text)"
+msgstr "可选正文（纯文本）"
+
+msgid "Only positive adjustments can send an arrival notification. The message is plain text and limited to 500 characters."
+msgstr "仅正数调整可以发送到账通知；正文按纯文本展示，最多 500 字。"

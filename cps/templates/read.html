@@ -19,6 +19,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/popup.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/reader.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/onboarding.css') }}">
+    {% if current_user.is_authenticated %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mail.css') }}">
+    {% endif %}
     {# R216 账号主题同步：head 早载，异步拉取；不阻塞阅读器启动 #}
     <script src="{{ url_for('static', filename='js/ui-prefs.js') }}"></script>
 </head>
@@ -584,6 +587,10 @@
       {% include 'i18n_seed.html' %}
       {# R177（架构评审 B5）：read.html 为独立骨架不继承 layout，api.js 单独引入（先于 ai_chat.js）#}
       <script src="{{ url_for('static', filename='js/common/api.js') }}"></script>
+      {% if current_user.is_authenticated %}
+      {# R243：共享 Buddy 面板依赖同一 MBMail 未读状态层；匿名阅读不加载邮件入口。 #}
+      <script src="{{ url_for('static', filename='js/mail.js') }}"></script>
+      {% endif %}
       {# R183（架构评审 B4 批次 1）：横切原语（toast/CSRF 自愈/段落口径）必须先于 epub.js——
          epub.js 顶层就取 window.ReaderCore 与 PARAGRAPH_SELECTOR 常量 #}
       <script src="{{ url_for('static', filename='js/reading/reader-core.js') }}"></script>

@@ -13,7 +13,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | reading | 阅读器：EPUB/PDF/TXT 阅读、段落/整页/整本翻译、朗读、AI 批注、新概念课级音频、5 个内置主题跨设备同步（划词查词由 MagicLens 扩展承担） | [reading](reading.md) |
 | vocabulary | 词汇学习：生词自动判定、认识/生词标记、生词本、词汇量测试与难度推荐（标记与高亮的入口在 MagicLens） | [vocabulary](vocabulary.md) |
 | learning | 每日学习中枢：功能 banner 循环卡片进八个功能页——复习队列（辨析/回忆/拼写三梯度、四档评分）、听写、AI 口语陪练、复述训练 4-3-2、计时重读、写作工坊、单词编故事、选书难度匹配；另有今日计划/复习摘要/本周四股 | [learning](learning.md) |
-| companion | AI 伴读：围绕当前书对话提问、工具调用、跨书记忆；伙伴系统（AI 阅读按钮的外观） | [companion](companion.md) |
+| companion | AI 伴读：围绕当前书对话提问、工具调用、跨书记忆；伙伴系统（AI 阅读按钮的外观）；伙伴信封与站内信入口 | [companion](companion.md) |
 | credit | 积分与订阅：积分余额/流水/充值（支付宝扫码）、订阅状态、成就徽章 | [credit](credit.md) |
 | admin | 管理：LLM 任务手动执行面板、用户与站点管理、OIDC 登录 | [admin](admin.md) |
 
@@ -33,7 +33,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | 级别 | 位置 | 读者 | 内容 |
 | --- | --- | --- | --- |
 | **L1 用户文档** | `docs/product/readme/` | 使用者 | 系统与各模块功能介绍，不涉及实现 |
-| **L2 接口说明** | `docs/product/<module>/interface.md` | 调用者 / 集成者 | 功能定义 + 功能说明 + 调用方法（代理端点映射）；**7 个模块已建 2 份**，逐模块状态见下表 |
+| **L2 接口说明** | `docs/product/<module>/interface.md` | 调用者 / 集成者 | 功能定义 + 功能说明 + 调用方法（代理端点映射）；**7 个模块已建 4 份**，逐模块状态见下表 |
 | **L3 实现说明** | `docs/product/<module>/features/<FEATURE>.md` | 修改者 | 实现方式 + 边界条件（仅改本功能时需要读） |
 
 - **HLD / LLD 已从 L2 / L3 拆出**：L2 / L3 只承载「功能 / 接口是什么」（静态）；「这一次怎么实现」= **LLD**，随迭代沉在 `docs/project/iterations/<ITER>/<工作项>/lld.md`（动态）。
@@ -50,8 +50,8 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | vocabulary | ✅ 已建 | [vocabulary/interface.md](../vocabulary/interface.md) |
 | library | ⬜ 待升 L2 | L3（历史归档）：[whole-book-translation](../../project/_legacy/feat/whole-book-translation/design/whole-book-translation-design.md)（端点已在 reading L2 §1 挂号）、[halo-book-connector](../../project/_legacy/feat/halo-book-connector/design/lld.md) |
 | learning | ⬜ 待升 L2 | L3（历史归档）：[learning-hub](../../project/_legacy/feat/learning-hub/design/us1-hub-banner-lld.md) |
-| companion | ⬜ 待升 L2 | L3（历史归档）：[ai-agent](../../project/_legacy/feat/ai-agent/design/magicbook-side-design.md)、[ai-reading-companion](../../project/_legacy/feat/ai-reading-companion/design/ai-reading-companion-implementation-plan.md) |
-| credit | ⬜ 待升 L2 | L3（历史归档）：[subscription-page](../../project/_legacy/feat/subscription-page/design/lld.md) |
+| companion | 🟡 R243 Mail 已建 | [companion/interface.md](../companion/interface.md) 已登记邮件代理；AI/伙伴其余历史契约仍见 [ai-agent](../../project/_legacy/feat/ai-agent/design/magicbook-side-design.md)、[ai-reading-companion](../../project/_legacy/feat/ai-reading-companion/design/ai-reading-companion-implementation-plan.md) |
+| credit | 🟡 R243 通知字段已建 | [credit/interface.md](../credit/interface.md) 已登记管理员调整通知字段；其余契约仍见 [subscription-page](../../project/_legacy/feat/subscription-page/design/lld.md) |
 | admin | ⬜ 待升 L2 | L3（历史归档）：[llm-task-run/admin-monitor](../../project/_legacy/feat/llm-task-run/design/admin-monitor.md) |
 
 口径（与 AGENTS.md 文档规范节同源）：**未建 L2 的模块，其接口契约以标着「待升 L2」的那份实现说明为准**，新模块的 L2 随功能演进补齐、不要求一次性铺满；上表逐模块核对过，两边不符时以本表为准并回填标注。

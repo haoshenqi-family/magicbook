@@ -16,6 +16,9 @@
 
         <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" type="text/css"/>
         <link rel="stylesheet" href="{{ url_for('static', filename='css/text.css') }}" type="text/css"/>
+        {% if current_user.is_authenticated %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/mail.css') }}" type="text/css"/>
+        {% endif %}
 
         <script src="{{ url_for('static', filename='js/libs/jquery.min.js') }}"></script>
         <script src="{{ url_for('static', filename='js/libs/plugins.js') }}"></script>
@@ -44,6 +47,10 @@
         <div id="right" class="arrow">›</div>
       </div>
     {% include 'i18n_seed.html' %}
+    <script src="{{ url_for('static', filename='js/common/api.js') }}"></script>
+    {% if current_user.is_authenticated %}
+    <script src="{{ url_for('static', filename='js/mail.js') }}"></script>
+    {% endif %}
     {% include 'ai_chat_panel.html' %}
     <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>
     </body>

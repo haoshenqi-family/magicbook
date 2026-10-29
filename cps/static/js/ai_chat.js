@@ -25,6 +25,12 @@
   // R227：语音输入（麦克风按钮）与朗读（每条回复）的页面级状态
   var micBtnEl = null;
   var voiceStatusTimer = null;
+  // R243：抽屉 Mail 只做最近 5 封的轻量预览；正文没有独立接口，展开状态
+  // 留在本页内存，避免切回 Chat 再进入时重复触发已读或丢失已展开卡片。
+  var mailPeekLoading = false;
+  var mailPeekRecords = [];
+  var mailOpenIds = {};
+  var mailReadRequested = {};
 
   function getCsrfToken() {
     // R177：CSRF 单点迁 common/api.js（三形态链式探测，read.html 的隐藏域为第 3 形态）
@@ -341,11 +347,14 @@
     BOOK_META = window.AICompanionBookMeta || {};
 
     $("#ai-companion-fab").on("click", function () {
-      if ($("#ai-companion-drawer").hasClass("open")) closeDrawer();
-      else openDrawer();
+      var target = chooseFabTab($("#ai-companion-drawer").hasClass("open"),
+        currentMailUnreadForRouting());
+      if (target) openDrawer(target);
+      else closeDrawer();
     });
     initBuddyFabDrag();
     $("#ai-companion-close").on("click", closeDrawer);
+    initDrawerTabs();
     $("#ai-chat-send").on("click", sendMessage);
     $("#ai-chat-new").on("click", newConversation);
     $("#ai-chat-rename").on("click", renameConversation);
@@ -353,6 +362,11 @@
     $("#ai-chat-memory").on("click", toggleMemoryPanel);
     $("#ai-memory-close").on("click", function () { $("#ai-memory-panel").removeClass("open"); });
     $("#ai-memory-add").on("click", addMemory);
+    $("#ai-mail-mark-all").on("click", markAllDrawerMailRead);
+    $("#ai-mail-retry").on("click", function () { loadMailPeek(true); });
+    if (window.MBMail && typeof window.MBMail.subscribe === "function") {
+      window.MBMail.subscribe(syncDrawerMailActions);
+    }
     $("#ai-chat-conversations").on("change", function () {
       selectConversation(parseInt($(this).val(), 10));
     });
@@ -400,11 +414,152 @@
 
   // R215 验收回滚（2026-10-23）：AI 面板恢复为覆盖式抽屉——
   // 桌面 420px 右侧浮层、移动全屏；不再缩正文、不再与译文栏互斥。
-  function openDrawer() {
+  function currentMailUnreadForRouting() {
+    return window.MBMail && typeof window.MBMail.getUnreadForRouting === "function"
+      ? window.MBMail.getUnreadForRouting() : 0;
+  }
+
+  /** 纯函数供真实点击与 Node 守卫共用：null 表示点击应关闭已打开抽屉。 */
+  function chooseFabTab(drawerOpen, unread) {
+    if (drawerOpen) return null;
+    return Number(unread) > 0 ? "mail" : "chat";
+  }
+
+  function initDrawerTabs() {
+    var $tabs = $("#ai-companion-tabs .ai-drawer-tab");
+    $tabs.on("click", function () {
+      activateDrawerTab($(this).attr("data-tab"), true);
+    });
+    $tabs.on("keydown", function (event) {
+      var current = $tabs.index(this);
+      var target = null;
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+        target = (current + 1) % $tabs.length;
+      } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+        target = (current - 1 + $tabs.length) % $tabs.length;
+      } else if (event.key === "Home") {
+        target = 0;
+      } else if (event.key === "End") {
+        target = $tabs.length - 1;
+      }
+      if (target === null) return;
+      event.preventDefault();
+      var $target = $tabs.eq(target);
+      activateDrawerTab($target.attr("data-tab"), true);
+      $target.trigger("focus");
+    });
+  }
+
+  function activateDrawerTab(tab, loadMail) {
+    var active = tab === "mail" ? "mail" : "chat";
+    var isMail = active === "mail";
+    $("#ai-companion-drawer").toggleClass("mail-active", isMail);
+    $("#ai-companion-tabs .ai-drawer-tab").each(function () {
+      var selected = $(this).attr("data-tab") === active;
+      $(this).toggleClass("active", selected)
+        .attr("aria-selected", selected ? "true" : "false")
+        .attr("tabindex", selected ? "0" : "-1");
+    });
+    $("#ai-chat-pane").prop("hidden", isMail);
+    $("#ai-mail-pane").prop("hidden", !isMail);
+    if (isMail) {
+      $("#ai-memory-panel").removeClass("open");
+      if (loadMail) loadMailPeek(false);
+    }
+  }
+
+  function showMailPeekState(mode, message) {
+    $("#ai-mail-loading").prop("hidden", mode !== "loading");
+    $("#ai-mail-empty").prop("hidden", mode !== "empty");
+    $("#ai-mail-error").prop("hidden", mode !== "error");
+    $("#ai-mail-list").prop("hidden", mode !== "list");
+    $("#ai-mail-footer").prop("hidden", mode === "loading");
+    if (mode === "error") {
+      $("#ai-mail-error .ai-mail-error-text").text(message || t("Failed to load mail"));
+    }
+    syncDrawerMailActions();
+  }
+
+  function syncDrawerMailActions() {
+    var mailState = window.MBMail && typeof window.MBMail.getState === "function"
+      ? window.MBMail.getState() : null;
+    var canMarkAll = !mailPeekLoading && mailState && mailState.status === "ready" &&
+      Number(mailState.unreadCount) > 0;
+    $("#ai-mail-mark-all").prop("disabled", !canMarkAll);
+  }
+
+  function renderMailPeek() {
+    var host = document.getElementById("ai-mail-list");
+    if (!host) return;
+    host.textContent = "";
+    if (!mailPeekRecords.length) {
+      showMailPeekState("empty");
+      return;
+    }
+    mailPeekRecords.forEach(function (mail) {
+      var card = window.MBMail.buildMailItem(mail, {
+        compact: true,
+        expanded: !!mailOpenIds[String(mail.id)],
+        onOpen: function (mailData, itemApi) {
+          var id = String(mailData.id);
+          mailOpenIds[id] = true;
+          if (!window.MBMail.isUnread(mailData) || mailReadRequested[id]) return;
+          mailReadRequested[id] = true;
+          window.MBMail.markRead(mailData.id).then(function (result) {
+            itemApi.setRead(result.readAt);
+            mailPeekRecords.forEach(function (row) {
+              if (row.id === mailData.id && !row.readAt) row.readAt = result.readAt || Date.now();
+            });
+          }).catch(function (error) {
+            delete mailReadRequested[id];
+            itemApi.setError(error && error.message ? error.message : String(error));
+          });
+        }
+      });
+      host.appendChild(card.element);
+    });
+    showMailPeekState("list");
+  }
+
+  function loadMailPeek(force) {
+    if (!window.MBMail) {
+      showMailPeekState("error", t("Mail is temporarily unavailable"));
+      return;
+    }
+    if (mailPeekLoading && !force) return;
+    mailPeekLoading = true;
+    showMailPeekState("loading");
+    window.MBMail.refreshUnread().catch(function () { /* count state renders its own error */ });
+    window.MBMail.loadPage(1, 5).then(function (page) {
+      mailPeekLoading = false;
+      mailPeekRecords = (page && page.records) || [];
+      renderMailPeek();
+    }).catch(function (error) {
+      mailPeekLoading = false;
+      showMailPeekState("error", error && error.message ? error.message : String(error));
+    });
+  }
+
+  function markAllDrawerMailRead() {
+    if (!window.MBMail) return;
+    $("#ai-mail-mark-all").prop("disabled", true);
+    window.MBMail.markAllRead().then(function () {
+      var now = Date.now();
+      mailPeekRecords.forEach(function (mail) {
+        if (!mail.readAt && !mail.resolvedAt) mail.readAt = now;
+      });
+      renderMailPeek();
+    }).catch(function (error) {
+      showMailPeekState("error", error && error.message ? error.message : String(error));
+    });
+  }
+
+  function openDrawer(tab) {
     $("#ai-companion-drawer").addClass("open");
     markFabLabelSeen();
     closeBubbles();
-    if ($("#ai-memory-panel").hasClass("open")) loadMemoryPanel();
+    activateDrawerTab(tab || "chat", true);
+    if ((tab || "chat") === "chat" && $("#ai-memory-panel").hasClass("open")) loadMemoryPanel();
   }
 
   function closeDrawer() {
@@ -569,7 +724,8 @@
 
   function dispatchBubbleAction(id) {
     if (id === "chat") {
-      $("#ai-companion-fab").trigger("click");
+      // 快捷气泡的语义固定是“对话”。有未读时也不能复用 FAB 的 Mail 分流。
+      openDrawer("chat");
       return;
     }
     // 朗读中直接停止：顶栏的 ▶ 在播放时是「暂停」，用户要的是一键停掉。
@@ -702,7 +858,7 @@
     if (!$input.length) return false;
     var current = $input.val();
     $input.val(current ? current.replace(/\s+$/, "") + "\n\n「" + quoted + "」\n" : "「" + quoted + "」\n");
-    $("#ai-companion-drawer").addClass("open");
+    openDrawer("chat");
     var el = $input.get(0);
     el.focus();
     var end = el.value.length;

@@ -20,6 +20,10 @@
     var consecutiveErrors = 0;
     var currentOrder = null; // precreate 成功前不赋值，避免失败后残留半初始化订单
 
+    function t(id) {
+        return typeof window.mbT === 'function' ? window.mbT(id) : id;
+    }
+
     function showError(message) {
         var alertBox = $('#credit-alert');
         alertBox.removeClass('alert-success').addClass('alert-danger')
@@ -592,6 +596,25 @@
         consumeTotal = 0;
     }
 
+    function syncAdminNotificationState() {
+        var amount = parseInt($('#credit-admin-amount').val(), 10);
+        var canNotify = Number.isFinite(amount) && amount > 0;
+        var notify = $('#credit-admin-notify');
+        var message = $('#credit-admin-notification-message');
+        if (!canNotify) {
+            notify.prop('checked', false);
+            message.val('');
+        }
+        notify.prop('disabled', !canNotify);
+        message.prop('disabled', !canNotify || !notify.prop('checked'));
+    }
+
+    function resetAdminNotification() {
+        $('#credit-admin-notify').prop('checked', false);
+        $('#credit-admin-notification-message').val('');
+        syncAdminNotificationState();
+    }
+
     $(function () {
         sessionStorage.removeItem(CSRF_RELOAD_FLAG);
         loadBalance();
@@ -605,6 +628,9 @@
             fillPromotionDefaults();
             loadPromotions();
             loadAdminUserOptions();
+            $('#credit-admin-amount').on('input change', syncAdminNotificationState);
+            $('#credit-admin-notify').on('change', syncAdminNotificationState);
+            syncAdminNotificationState();
             $('#credit-promo-form').on('submit', function (e) {
                 e.preventDefault();
                 submitPromotion();
@@ -616,19 +642,31 @@
             var userId = parseInt($('#credit-admin-user').val(), 10);
             var amount = parseInt($('#credit-admin-amount').val(), 10);
             var reason = $.trim($('#credit-admin-reason').val());
+            var notify = amount > 0 && $('#credit-admin-notify').prop('checked');
+            var notificationMessage = notify
+                ? $.trim($('#credit-admin-notification-message').val()) : '';
             if (!userId || !amount || !reason) { return; }
-            if (!window.confirm('确认调整用户 ' + userId + ' 的积分 ' + (amount > 0 ? '+' : '') + amount + '？此操作将记入流水审计。')) {
+            var confirmText = '确认调整用户 ' + userId + ' 的积分 ' +
+                (amount > 0 ? '+' : '') + amount + '？此操作将记入流水审计。' +
+                (notify ? '\n' + t('Send an arrival notification too.')
+                        : '\n' + t('Do not send an arrival notification.'));
+            if (!window.confirm(confirmText)) {
                 return;
+            }
+            var payload = { userId: userId, amount: amount, reason: reason, notify: notify };
+            if (notify && notificationMessage) {
+                payload.notificationMessage = notificationMessage;
             }
             $.ajax({
                 url: '/ajax/credit/admin-adjust', method: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify({ userId: userId, amount: amount, reason: reason })
+                data: JSON.stringify(payload)
             }).done(function (resp) {
                 var data = resp && resp.result ? resp.result : resp;
                 var balance = data && data.balance !== undefined ? data.balance : '?';
                 window.alert('调整成功，用户 ' + userId + ' 当前余额：' + balance);
                 $('#credit-admin-adjust-form')[0].reset();
+                resetAdminNotification();
                 loadConsumeDetail();
             }).fail(function (xhr) {
                 var msg = '调整失败';

@@ -13,6 +13,10 @@
       <span id="ai-companion-fab-text">AI</span>
       <img id="ai-companion-fab-img" alt="" draggable="false">
     </button>
+    {% if current_user.is_authenticated %}
+    {# R243：信封只表达“最近一次成功计数 > 0”；pointer-events:none 保证拖拽与点击仍归 FAB。 #}
+    <span id="ai-companion-mail-badge" class="ai-mail-badge" hidden aria-hidden="true">✉</span>
+    {% endif %}
   </div>
   <div id="ai-companion-drawer">
     <header>
@@ -26,17 +30,45 @@
       </div>
       <button id="ai-companion-close" aria-label="{{_('Close')}}">&times;</button>
     </header>
-    <div id="ai-chat-messages"></div>
-    <div id="ai-chat-input-area">
-      <textarea id="ai-chat-input" placeholder="{{_('Ask about this chapter...')}}"></textarea>
-      {# R227 语音输入：复用口语陪练的录音+ASR 链路（learning-voice.js）。转写结果
-         只填进输入框由用户确认，录音本身不落库——Buddy 的消息仍是纯文本。 #}
-      <div class="ai-chat-input-actions">
-        <button id="ai-chat-mic" type="button" class="ai-chat-mic" title="{{_('Tap to speak')}}" aria-label="{{_('Tap to speak')}}"><span class="ai-mic-icon" aria-hidden="true">🎤</span><span class="sw-mic-label">{{_('Tap to speak')}}</span></button>
-        <button id="ai-chat-send">{{_('Send')}}</button>
-      </div>
-      <div id="ai-chat-voice-status" class="ai-chat-voice-status" role="status" aria-live="polite"></div>
+    {% if current_user.is_authenticated %}
+    <div id="ai-companion-tabs" role="tablist" aria-label="{{_('Companion panels')}}">
+      <button id="ai-tab-chat" class="ai-drawer-tab active" type="button" role="tab"
+              aria-selected="true" aria-controls="ai-chat-pane" data-tab="chat" tabindex="0">{{_('Chat')}}</button>
+      <button id="ai-tab-mail" class="ai-drawer-tab" type="button" role="tab"
+              aria-selected="false" aria-controls="ai-mail-pane" data-tab="mail" tabindex="-1">{{_('Mail')}}<span id="ai-tab-mail-badge" hidden></span></button>
     </div>
+    {% endif %}
+    <section id="ai-chat-pane" class="ai-companion-pane" role="tabpanel" aria-labelledby="ai-tab-chat">
+      <div id="ai-chat-messages"></div>
+      <div id="ai-chat-input-area">
+        <textarea id="ai-chat-input" placeholder="{{_('Ask about this chapter...')}}"></textarea>
+        {# R227 语音输入：复用口语陪练的录音+ASR 链路（learning-voice.js）。转写结果
+           只填进输入框由用户确认，录音本身不落库——Buddy 的消息仍是纯文本。 #}
+        <div class="ai-chat-input-actions">
+          <button id="ai-chat-mic" type="button" class="ai-chat-mic" title="{{_('Tap to speak')}}" aria-label="{{_('Tap to speak')}}"><span class="ai-mic-icon" aria-hidden="true">🎤</span><span class="sw-mic-label">{{_('Tap to speak')}}</span></button>
+          <button id="ai-chat-send">{{_('Send')}}</button>
+        </div>
+        <div id="ai-chat-voice-status" class="ai-chat-voice-status" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+    {% if current_user.is_authenticated %}
+    <section id="ai-mail-pane" class="ai-companion-pane" role="tabpanel" aria-labelledby="ai-tab-mail" hidden>
+      <div class="ai-mail-head">
+        <span id="ai-mail-unread-count" aria-live="polite">{{_('Checking mail...')}}</span>
+        <button id="ai-mail-mark-all" class="ai-mail-mark-all" type="button" disabled>{{_('Mark all as read')}}</button>
+      </div>
+      <div id="ai-mail-loading" class="ai-mail-state" role="status">{{_('Loading mail...')}}</div>
+      <div id="ai-mail-empty" class="ai-mail-state ai-mail-empty" hidden>{{_('No mail yet')}}</div>
+      <div id="ai-mail-error" class="ai-mail-state ai-mail-error" role="alert" hidden>
+        <span class="ai-mail-error-text"></span>
+        <button id="ai-mail-retry" type="button">{{_('Retry')}}</button>
+      </div>
+      <div id="ai-mail-list" hidden></div>
+      <div id="ai-mail-footer" class="ai-mail-footer" hidden>
+        <a id="ai-mail-view-all" href="{{ url_for('web.mail_inbox_page') }}">{{_('View all')}}</a>
+      </div>
+    </section>
+    {% endif %}
     <div id="ai-memory-panel">
       <div class="ai-memory-header">
         <span>{{_('Memory & Book Profile')}}</span>
