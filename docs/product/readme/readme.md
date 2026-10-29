@@ -15,7 +15,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | learning | 每日学习中枢：功能 banner 循环卡片进八个功能页——复习队列（辨析/回忆/拼写三梯度、四档评分）、听写、AI 口语陪练、复述训练 4-3-2、计时重读、写作工坊、单词编故事、选书难度匹配；另有今日计划/复习摘要/本周四股 | [learning](learning.md) |
 | companion | AI 伴读：围绕当前书对话提问、工具调用、跨书记忆；伙伴系统（AI 阅读按钮的外观）；伙伴信封与站内信入口 | [companion](companion.md) |
 | credit | 积分与订阅：积分余额/流水/充值（支付宝扫码）、可转赠积分卡、订阅状态、成就徽章 | [credit](credit.md) |
-| admin | 管理：LLM 任务手动执行面板、用户与站点管理、OIDC 登录 | [admin](admin.md) |
+| admin | 管理：管理员运营站内信、LLM 任务手动执行面板、用户与站点管理、OIDC 登录 | [admin](admin.md) |
 
 ## 快速开始（使用者视角）
 
@@ -52,7 +52,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | learning | ⬜ 待升 L2 | L3（历史归档）：[learning-hub](../../project/_legacy/feat/learning-hub/design/us1-hub-banner-lld.md) |
 | companion | 🟡 R243 Mail 已建 | [companion/interface.md](../companion/interface.md) 已登记邮件代理；AI/伙伴其余历史契约仍见 [ai-agent](../../project/_legacy/feat/ai-agent/design/magicbook-side-design.md)、[ai-reading-companion](../../project/_legacy/feat/ai-reading-companion/design/ai-reading-companion-implementation-plan.md) |
 | credit | ✅ 已建 | [credit/interface.md](../credit/interface.md) |
-| admin | ⬜ 待升 L2 | L3（历史归档）：[llm-task-run/admin-monitor](../../project/_legacy/feat/llm-task-run/design/admin-monitor.md) |
+| admin | 🟡 R250 运营发信已建 | [admin/interface.md](../admin/interface.md) 已登记 R250 页面与五代理，并收录既有 LLM 任务端点；实现边界见 [companion admin-mail](../companion/features/admin-mail.md) |
 
 口径（与 AGENTS.md 文档规范节同源）：**未建 L2 的模块，其接口契约以标着「待升 L2」的那份实现说明为准**，新模块的 L2 随功能演进补齐、不要求一次性铺满；上表逐模块核对过，两边不符时以本表为准并回填标注。
 
