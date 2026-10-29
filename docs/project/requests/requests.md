@@ -280,4 +280,4 @@
 
 251. **MagicBook UI 信息架构与分组原型**（占号 2026-10-29，待回填）
 
-252. **书籍详情页展示整本朗读与翻译费用及缓存费用**（占号 2026-10-29，待回填）
+252. **书籍详情页展示整本朗读与翻译费用及缓存费用**（占号 2026-10-29）：用户原话「书籍详情页写一下完整听完大概需要多少token，完整翻译完大概需要积分，如果已经缓存了就写缓存需要的积分加原始需要的积分，比如 【完整朗读预计花费1（100）积分】1是缓存 100是全文朗读预计。详情也写一下。」口径：翻译按 `chars/4` 粗估 token，积分按 moon-well R222 的 `ceil(tokens × creditsPer1kToken / 1000)`；TTS 不按 token，全文生成按字符 `floor(chars / charsPerCredit)`，已缓存收听按 R213 的 `1 积分/段`。详情页在缓存齐备标识后固定展示两行摘要；已缓存时按「缓存值（全文原价）」并列，翻译缓存阅读 0 积分、朗读缓存收听 `段数×1` 积分；未缓存只显示全文生成原价，费率不可得时明确写暂不可得，不把未知显示成 0。实现：速览快照新增去重后的 `billableParagraphCount/billableCharCount`，新增 `cps/reading_insight/cost.py` 纯函数，`show_book()` 复用速览与 readiness 台账并读取 moon-well `/credit/billing`（5 分钟缓存、详情页 2 秒超时），不实时探测整本缓存；同时把 `/ajax/whole-book-estimate` 的翻译公式回正为 R222 比例计费。状态：**开发完成待验收**（worktree `../magicbook-r252-book-cost-summary`，分支 `feat/r252-book-cost-summary`；定向回归 118 passed、全量 1133 passed）。

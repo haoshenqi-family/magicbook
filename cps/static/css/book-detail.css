@@ -46,6 +46,29 @@
   font-weight: normal;
 }
 
+/* R252：整本成本摘要。放在缓存标识之后，用两行文字给出可比较的价格，
+   不再塞进 label chip——token、字符与“缓存（原价）”需要换行空间。 */
+.book-cost-summary {
+  margin: 4px 0 10px;
+  padding: 8px 10px;
+  border-left: 3px solid #d9edf7;
+  background: #f7fbfd;
+  font-size: 13px;
+}
+
+.book-cost-summary p {
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.book-cost-summary p:last-child {
+  margin-bottom: 0;
+}
+
+.book-cost-note {
+  margin-top: 2px !important;
+}
+
 .wb-tab-cached {
   margin-left: 6px;
   font-size: 10px;

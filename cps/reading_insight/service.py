@@ -365,7 +365,9 @@ def _estimate_credits(kind, chars, words, rates, coverage_known):
     if not per1k:
         return {"known": False, "reason": "rate-unavailable"}
     tokens = words * TOKENS_PER_WORD_DETAIL if kind == "wordDetail" else chars / CHARS_PER_TOKEN
-    estimated = int(math.ceil(tokens / 1000.0) * per1k)
+    # R222：按实际 token 比例计费，向上取整到 1 积分；旧的“不足千按千”
+    # 会把 150 token 收成 10 积分，与积分流水不一致。
+    estimated = int(math.ceil(tokens * per1k / 1000.0))
     result = {"known": True, "estimated": estimated,
               "upperBound": int(math.ceil(estimated * UPPER_BOUND_FACTOR)),
               "rate": {"per1kToken": per1k}}
