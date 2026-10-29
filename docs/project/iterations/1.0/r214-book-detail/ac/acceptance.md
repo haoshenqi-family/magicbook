@@ -42,7 +42,7 @@
 - [ ] **C9** GIVEN 三个既有 job 端点 WHEN 面板调用 THEN 一个都不改形制（起批/进度/重试/取消 全部复用）；新增文案进 i18n 种子，`test_i18n_seed_contract` 全绿
 - [ ] **C10** GIVEN 任一整本任务运行中/已结束 WHEN 看详情页整本任务区域的进度条 THEN 标题必须显示「整本翻译 / 整本朗读 / 全文单词详解」之一及状态，不能只剩百分比与 `done/total`（R246 守卫）
 - [ ] **C11**（R248）GIVEN 从书架打开书卡弹层或停留在书架页 WHEN 查看页面 THEN 不得出现整本任务进度条；GIVEN 打开完整书籍详情页且该书的整本任务运行中 THEN 进度条必须位于「整本任务」按钮下方的专用区域，不得挂到全局导航下方（XHR 片段与 slot 双门禁守卫）
-- [ ] **C12**（R249）GIVEN 整本朗读批次运行中 WHEN HTTP 请求线程提交或关闭自己的数据库事务 THEN worker 必须继续使用独立会话推进，不得因共享 `ub.session` 抛 `ResourceClosedError` 停在 `RUNNING`；GIVEN worker 已完成最后一段 THEN 状态接口必须返回 `COMPLETED`，不得仍显示「进行中」或要求点击「继续」（全局会话哨兵守卫）
+- [x] **C12**（R249）GIVEN 整本朗读批次运行中 WHEN HTTP 请求线程提交或关闭自己的数据库事务 THEN worker 必须继续使用独立会话推进，不得因共享 `ub.session` 抛 `ResourceClosedError` 停在 `RUNNING`；GIVEN worker 已完成最后一段 THEN 状态接口必须返回 `COMPLETED`，不得仍显示「进行中」或要求点击「继续」（全局会话哨兵守卫；生产 book 145 已从 207 段续跑至 1348/1348 完成）
 
 ## 全局
 
