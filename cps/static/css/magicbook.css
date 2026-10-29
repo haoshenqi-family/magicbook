@@ -147,6 +147,15 @@ body.blur .mb-l2-link.active {
   overflow-wrap: anywhere;
 }
 
+#me-account .me-account-center {
+  margin: -4px 0 16px;
+  font-size: 14px;
+}
+
+#me-account .me-account-center a {
+  font-weight: 600;
+}
+
 /* Tablet widths keep the five-domain model visible, but tighten labels. */
 @media (min-width: 768px) and (max-width: 1199px) {
   .mb-primary-nav > li > a {

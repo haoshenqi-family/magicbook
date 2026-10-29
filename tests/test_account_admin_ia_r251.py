@@ -101,6 +101,10 @@ def test_account_pages_are_split_by_user_task(admin_client):
     assert "阅读难度、词汇量测试与阅读主题见" not in me_html
     assert 'class="me-account-facts"' in me_html
     assert 'class="dl-horizontal"' not in me_html
+    assert 'id="me-account-center"' in me_html
+    assert 'href="https://account.haoshenqi.top/"' in me_html
+    assert 'target="_blank"' in me_html
+    assert 'rel="noopener noreferrer"' in me_html
     assert 'id="account-profile"\n           class="mb-l2-link active"' in me_html
 
     reading = admin_client.get("/reading/settings")
@@ -175,6 +179,20 @@ def test_account_identity_facts_are_left_aligned_at_14px():
     assert "font-size: 14px;" in block
     assert "text-align: left;" in block
     assert "grid-template-columns: max-content minmax(0, 1fr);" in block
+
+
+def test_account_identity_links_to_unified_account_center(admin_client):
+    html = admin_client.get("/me").data.decode("utf-8")
+    link = re.search(
+        r'<a id="me-account-center" href="https://account\.haoshenqi\.top/"(.*?)</a>',
+        html,
+        re.S,
+    )
+
+    assert link, "账号资料区缺少统一账号中心入口"
+    assert 'target="_blank"' in link.group(1)
+    assert 'rel="noopener noreferrer"' in link.group(1)
+    assert "Open account center" in link.group(1)
 
 
 def test_word_detail_batch_admin_entry_has_a_book_picker_landing(admin_client):

@@ -23,6 +23,12 @@
         <p class="help-block">
           {{_('Your account is managed by your sign-in provider. Your name and email cannot be changed here.')}}
         </p>
+        <p class="me-account-center">
+          <a id="me-account-center" href="https://account.haoshenqi.top/"
+             target="_blank" rel="noopener noreferrer">
+            {{_('Open account center')}} <span aria-hidden="true">↗</span>
+          </a>
+        </p>
         {% if registered_oauth and registered_oauth.keys()|length > 0 %}
         <div class="form-group">
           {% for id, name in registered_oauth.items() %}

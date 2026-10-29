@@ -272,6 +272,19 @@ pytest tests/ -q
 - 新页面只增加产品层模板/CSS/JS；没有修改 vendored Calibre CSS、基座模型或数据库 schema。
 - 旧的顶层 Settings 入口改为最小 Help 菜单，只保留使用引导；L2 入口统一由账号/管理页头承接。
 
+### 11.5 统一账号中心入口
+
+> 「账号 下的用户名和邮箱地址可以了，下边的提示也没问题，但是加一个跳转链接到 account.haoshenqi.top」
+
+- 在 A1 `/me` 的账号说明下方增加 `#me-account-center`，链接到
+  `https://account.haoshenqi.top/`，新窗口打开并带 `rel="noopener noreferrer"`。
+- 中文文案为「前往统一账号中心」，保持“先解释、再行动”的顺序；不复用
+  MagicBook 的“管理”域，避免与站内后台混淆。
+- 只修改产品层 `me.html` / `magicbook.css` / 中文 PO+MO，不改 Calibre 登录、
+  OIDC issuer、路由或模型。
+- 渲染守卫覆盖 DOM ID、目标 URL、新窗口与 `noopener noreferrer`；CDP 实测
+  390×844 与 1440×1200 均 `scrollWidth == innerWidth`，链接可见且无溢出。
+
 ## 12. 第二轮验证
 
 定向回归：
@@ -305,13 +318,14 @@ tests/test_reader_theme_sync.py
 
 ```text
 pytest tests/ -q
-1205 passed / 0 failed / 4 warnings
+1206 passed / 0 failed / 4 warnings
 ```
 
 其中收尾修复了 JS i18n 清单仍引用已删除 `me.js`、旧 Help 下拉导航断言、
 `Help` 缺少中文词条三条契约链；新增 `reading-preferences.js` 的 `mbT()` 词条
 全部进入种子、PO/MO。验收后的细节修正又去掉了“账号/管理”后的 L2 小字，
-将 A1 用户名/邮箱改为 14px 左对齐，并删除 `/me` 底部迁移提示。
+将 A1 用户名/邮箱改为 14px 左对齐，并删除 `/me` 底部迁移提示；
+账号说明下方增加统一账号中心入口；中文 PO/MO 同步为「前往统一账号中心」。
 
 上线验证：
 

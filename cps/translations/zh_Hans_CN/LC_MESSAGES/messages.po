@@ -5934,6 +5934,10 @@ msgid ""
 "cannot be changed here."
 msgstr "账号由登录服务管理，姓名与邮箱不能在这里修改。"
 
+# R251 /me 统一账号中心入口
+msgid "Open account center"
+msgstr "前往统一账号中心"
+
 msgid ""
 "Choose the theme used when you open a book. It is saved to your account "
 "and applies on every device; custom colors stay on the device where you "

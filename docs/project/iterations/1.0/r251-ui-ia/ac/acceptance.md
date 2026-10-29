@@ -66,6 +66,7 @@
 - [x] `/me` 只保留资料、OIDC 绑定和语言，不再含难度、词测、主题、伙伴、导出。
 - [x] `/me` 的用户名、邮箱为 14px 左对齐，不再使用 `dl-horizontal` 的右对齐标签列。
 - [x] `/me` 底部不再显示“阅读难度、词汇量测试与阅读主题见…”迁移提示。
+- [x] `/me` 的账号说明下方提供“前往统一账号中心”，指向 `https://account.haoshenqi.top/`，新窗口打开且带 `noopener noreferrer`。
 - [x] 难度、词汇量测试/细筛、主题、使用引导在 `/reading/settings`。
 - [x] 学习数据导出在 `/me/export`，原有创建、轮询、下载能力保持可用。
 - [x] `/buddy` 是伙伴入口页，有且只有一个“打开 AI 伴读”按钮。
@@ -93,7 +94,7 @@
 - [x] `py_compile` 通过改动 Python 与新增测试。
 - [x] `git diff --check` 通过。
 - [x] 第二轮定向回归 150 passed / 0 failed / 2 warnings。
-- [x] 正式发布态全量 pytest 0 failed：1205 passed / 4 warnings。
+- [x] 正式发布态全量 pytest 0 failed：1206 passed / 4 warnings。
 - [x] CDP 设备指标 390×844 下关键账号页 `scrollWidth == innerWidth`，移动底栏四项完整可见。
 - [x] 1440px 下账号/管理 L2 与页面内容无横向溢出。
 - [x] 验收修正 `3a75a695` 已推送 `origin/develop`；fnOS 构建、app-manager 部署、容器健康与生产匿名路由检查完成。
