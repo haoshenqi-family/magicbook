@@ -10,7 +10,7 @@
 - **上传与导入**：上传电子书入库（EPUB/PDF/TXT 等，自动解析）；Halo 站点的 Markdown 文章可经连接器一键成书（可同时触发整本翻译）。
 - **下载与同步**：图书下载；OPDS 目录供电子书阅读器订阅；Kobo 设备同步。
 - **元数据管理**：编辑书名、作者、封面、标签等元信息。
-- **整本翻译**：对当前书一键发起整本翻译（按章节拆任务走后端队列，完成后阅读器内段落自动呈现译文；支持查看进度、取消、失败重试）。
+- **整本翻译**：对当前书一键发起整本翻译（按章节拆任务走后端队列，完成后阅读器内段落自动呈现译文；支持查看进度、取消、失败重试）。整本任务进度条会明确标出当前是「整本翻译」「整本朗读」还是「全文单词详解」，并显示进行中、已完成、有失败段落或已取消。
 
 ## 谁在用
 
@@ -19,5 +19,6 @@
 ## 深入阅读
 
 - L3 实现说明：[首页信息架构](../library/features/home-ia.md)（继续阅读取数口径、分级推荐的归阶规则、落点开关）
+- L3 实现说明：[整本任务进度条](../library/features/whole-book-progress.md)（任务类型文案、状态映射、轮询与恢复入口边界）
 - L2 接口说明：暂无（书库主体沿用 Calibre-Web 能力；整本翻译设计见历史归档）
 - 历史设计（`docs/project/_legacy/feat/`）：[整本翻译设计](../../project/_legacy/feat/whole-book-translation/design/whole-book-translation-design.md) · [Halo 连接器](../../project/_legacy/feat/halo-book-connector/design/lld.md) · [fnOS 部署](../../project/_legacy/feat/magicbook-fnos/DEPLOY-FNOS.md)

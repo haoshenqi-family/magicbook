@@ -445,6 +445,30 @@ def test_start_label_keys_are_lowercase():
     assert "toLowerCase()" in _read_panel_js()
 
 
+def test_progress_title_names_task_and_status():
+    """R246：进度条必须明确标出任务类型与状态，不能只剩百分比。
+
+    Why：详解任务的 kind 是 camelCase `wordDetail`，但 HTML 属性名解析后是
+         `data-t-progress-kind-worddetail`。进度标题若直接拼 `start-<kind>`，
+         不仅会取空，还会把动作文案（「打开详解页面」）误当成任务名。
+    反向变异：改回 `t('start-' + kind)` 或去掉 toLowerCase() → 报红。
+    """
+    panel = _read_panel()
+    for kind, label in (("translate", "整本翻译"),
+                        ("tts", "整本朗读"),
+                        ("worddetail", "全文单词详解")):
+        assert 'data-t-progress-kind-{0}="{1}"'.format(kind, label) in panel
+    for status in ("running", "done", "failed", "cancelled"):
+        assert 'data-t-progress-{0}="{{task}}'.format(status) in panel
+
+    js = _read_panel_js()
+    render = js[js.index("function renderProgress"):js.index("function stopPoll")]
+    assert "t('progress-kind-' + String(kind).toLowerCase())" in render
+    assert "t(statusKey, {task: taskLabel})" in render
+    assert "|| kind" in render and "|| taskLabel" in render, "文案缺键时必须回退，不能再次留空"
+    assert "t('start-' + kind)" not in render
+
+
 def test_stalled_tts_batch_has_a_frontend_resume_entry():
     """R237 验收缺陷：容器重启杀掉 worker 后，页面必须能原地续跑。
 

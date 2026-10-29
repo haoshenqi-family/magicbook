@@ -258,15 +258,19 @@
                 .text(percent + '%');
             $progress.find('.wb-progress-count').text(fmtNum(job.done) + ' / ' + fmtNum(job.total));
 
-            var label = t('start-' + kind);
+            // Why 单独用 progress-kind 而不是按钮文案：按钮是动作（如「打开详解页面」），
+            // 进度条要先回答「这是哪条任务」。kind 必须折成小写，wordDetail 的 HTML
+            // 属性名解析后是 worddetail，直接拼驼峰会取到空文案。
+            var taskLabel = t('progress-kind-' + String(kind).toLowerCase()) || kind;
+            var statusKey = 'progress-running';
             if (job.status === 'COMPLETED') {
-                label = t('progress-done');
+                statusKey = 'progress-done';
             } else if (job.status === 'CANCELED' || job.status === 'CANCELLED') {
-                label = t('progress-cancelled');
+                statusKey = 'progress-cancelled';
             } else if (job.status === 'PARTIAL_FAILED') {
-                label = t('progress-failed');
+                statusKey = 'progress-failed';
             }
-            $progress.find('.wb-progress-title').text(label);
+            $progress.find('.wb-progress-title').text(t(statusKey, {task: taskLabel}) || taskLabel);
             var $resume = $progress.find('.wb-progress-resume');
             // Why 只在服务端说「有 PENDING 且没有活 worker」时出现：活线程仍在跑时
             // 重复点击 retry 不会双开（后端有锁），但把按钮露出来只会制造误解。
