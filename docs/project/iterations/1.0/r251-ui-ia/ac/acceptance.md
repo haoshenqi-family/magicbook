@@ -1,6 +1,6 @@
 # AC — R251 MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页
 
-> 状态：开发完成待发布（第二轮；第一轮 `70aa636c` 已上线；全量回归已绿，待部署）
+> 状态：已上线待验收（第二轮；第一轮 `70aa636c` 已上线；`af551307` 已部署，容器 healthy）
 
 ## A. 一级导航
 
@@ -93,5 +93,5 @@
 - [x] 正式发布态全量 pytest 0 failed：1201 passed / 4 warnings。
 - [x] CDP 设备指标 390×844 下关键账号页 `scrollWidth == innerWidth`，移动底栏四项完整可见。
 - [x] 1440px 下账号/管理 L2 与页面内容无横向溢出。
-- [ ] 实现提交已推送 `origin/develop`，fnOS 构建与生产健康检查完成。
+- [x] 实现提交 `af551307` 已推送 `origin/develop`；fnOS 构建、app-manager 部署、容器健康与生产匿名路由检查完成。
 - [x] L1/L2/L3、需求基线、LLD、AC、response 与长期 KB 已同步。

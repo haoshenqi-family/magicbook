@@ -1,6 +1,6 @@
 # LLD — R251 MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页
 
-> 状态：**开发完成待发布（第二轮）**（2026-10-29；第一轮 `70aa636c` 已上线；本轮补账号/管理 L2 拆页、完整功能树与长期原则）
+> 状态：**已上线待验收（第二轮）**（2026-10-29；第一轮 `70aa636c` 已上线；本轮补账号/管理 L2 拆页、完整功能树与长期原则）
 > 工作项：R251 · 迭代 1.0
 > 需求基线：[library requirements](../../../../product/library/requirements.md) · 验收：[acceptance.md](./ac/acceptance.md)
 
@@ -309,6 +309,16 @@ pytest tests/ -q
 其中收尾修复了 JS i18n 清单仍引用已删除 `me.js`、旧 Help 下拉导航断言、
 `Help` 缺少中文词条三条契约链；新增 `reading-preferences.js` 的 `mbT()` 词条
 全部进入种子、PO/MO。
+
+上线验证：
+
+- 实现提交 `af55130797714946cce4270b7e64e2cbdd4ee1c7` 已推送 `origin/develop`；
+- fnOS `build END OK (af55130797714946cce4270b7e64e2cbdd4ee1c7)`；
+- app-manager `deploy SUCCESS`，容器 `running / healthy`；
+- `house.build-sha=af55130797714946cce4270b7e64e2cbdd4ee1c7`，
+  `house.code-digest=24956ed8aba0b42b`；
+- 生产 `/login` 200；匿名 `/me`、`/buddy`、`/credits`、`/admin/credits`、
+  `/translate-all`、`/word-detail-batch`、`/llm-tasks` 均按预期 302 到登录页。
 
 真实 Chromium：
 
