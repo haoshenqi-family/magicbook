@@ -229,5 +229,6 @@
 - **测试**：`tests/test_credit_page_r245.py` 新增 4 条结构/提交/颜色守卫；合并最新基线后定向 `test_credit_page_r245 + test_credit_card + test_credit_consume + test_i18n_seed_contract` 合计 **33 passed / 0 failed**；`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。
 - **文档四问**：能力 → L1 `docs/product/readme/credit.md`；契约/页面消费 → L2 `docs/product/credit/interface.md`；实现边界 → 新建 L3 `docs/product/credit/features/page-layout.md`；本次实现 → `docs/project/iterations/1.0/r245-credit-page-redesign/lld.md` 与 `ac/acceptance.md`；需求基线、产品需求总册和迭代 plan 已回填。
 - **i18n**：R245 新增模板词条已合并进 `zh_Hans_CN/messages.po`；最新基线带来 `.mo` 二进制冲突，按正确姿势从合并后的 PO 重新 `pybabel compile`，没有用 ours/theirs 二选一。
-- **状态与驻留**：**开发完成待验收，尚未 push/合入 develop**。worktree `../magicbook-r245-credit-page-redesign`（分支 `fix/r245-credit-page-redesign`）驻留；实现 `39135634`、明细可读性 `0cc8a0dc`、文档 `244634b4`、最新基线合并 `83765414`。push 会触发 fnOS 构建与部署，等用户明确指令。
+- **上线状态**：用户令 `merge and push` 后，任务分支快进推送 `origin/develop`（`e4708c27..5e5979f9`）。fnOS `build END OK`，app-manager `deploy SUCCESS`，容器 `running/healthy` 且镜像标签 `house.build-sha=5e5979f9...`；匿名 `/credits` 按预期 302 到登录页。
+- **状态与驻留**：**已上线待验收**。worktree `../magicbook-r245-credit-page-redesign`（分支 `fix/r245-credit-page-redesign`）驻留；实现 `39135634`、明细可读性 `0cc8a0dc`、文档 `244634b4`、最新基线合并 `83765414`、发布提交 `5e5979f9`。验收通过后再清理 worktree 与分支。
 - **窗口与总结**：写入前 10 节，新增后 11 节；按“写入即检查”把最旧 R241 整节原样搬至 `response-archive/response-R241.md` 并登记索引，窗口恢复 10。requests.md 条目 245 已从占位回填；冲突记录：无撞号，R251 基线合并仅 `.mo` 产物冲突。
