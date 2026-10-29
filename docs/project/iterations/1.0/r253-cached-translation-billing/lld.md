@@ -1,6 +1,6 @@
 # LLD - R253 缓存翻译按 1 积分/缓存段计费
 
-> 状态：**开发完成待验收**（2026-10-29；定向 57 passed / 0 failed）
+> 状态：**已上线待验收**（2026-10-29；实现 `1e525b18`，定向 57 passed / 0 failed；fnOS 构建 `END OK`，magicbook healthy）
 > 工作项：R253 · 迭代 1.0 · 承接 R252 / moon-well R231
 > 需求基线：[library requirements](../../../../product/library/requirements.md) · 验收：[acceptance.md](./ac/acceptance.md)
 
