@@ -1,0 +1,204 @@
+/* MagicBook R251 UI shell.
+   This is the product-owned layer above Calibre-Web's Bootstrap 3 UI.
+   Keep selectors additive: do not rewrite vendored Calibre styles here. */
+
+/* Primary domains: Home / Library / Learning / Account / Admin. */
+.mb-primary-nav {
+  margin-left: 2px;
+}
+
+.mb-primary-nav > li > a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 15px 12px;
+  border-bottom: 3px solid transparent;
+  color: #52606d;
+  font-weight: 500;
+}
+
+.mb-primary-nav > li > a:hover,
+.mb-primary-nav > li > a:focus,
+.mb-primary-nav > li.active > a {
+  color: #2f8f7c;
+  background: transparent;
+  border-bottom-color: #45b29d;
+}
+
+.mb-primary-nav > li > a .glyphicon {
+  color: #45b29d;
+}
+
+/* Tablet widths keep the five-domain model visible, but tighten labels. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .mb-primary-nav > li > a {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  .navbar-form.navbar-left {
+    margin-left: 4px;
+    margin-right: 4px;
+  }
+}
+
+/* Sidebar: four stable groups with the same visual rhythm. */
+#scnd-nav .nav-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 16px 0 4px;
+  padding: 0 10px 5px;
+  border-top: 0;
+  border-bottom: 1px solid #e6ecec;
+  color: #7b8a94;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#scnd-nav .nav-head::before {
+  content: "";
+  width: 3px;
+  height: 11px;
+  border-radius: 2px;
+  background: #45b29d;
+  flex: 0 0 auto;
+}
+
+#scnd-nav .mb-group-count {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 9px;
+  background: #f0f4f3;
+  color: #70817e;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 16px;
+}
+
+#scnd-nav .nav-head:first-child {
+  margin: 0 0 4px;
+}
+
+#scnd-nav .mb-shelf-group-wrap {
+  margin-bottom: 8px;
+}
+
+#scnd-nav .mb-shelf-group {
+  margin: 0;
+}
+
+#scnd-nav .mb-shelf-group > li > a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#scnd-nav .mb-shelf-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#scnd-nav .badge-sm {
+  flex: 0 0 auto;
+}
+
+body:not(.blur) #scnd-nav > li.active > a,
+body:not(.blur) #scnd-nav .mb-shelf-group > li.active > a {
+  color: #237d6d;
+  background: #edf6f4;
+  border-radius: 5px;
+}
+
+/* CaliBlur allocates 60px to every nav heading; keep the product rhythm compact. */
+body.blur #scnd-nav#scnd-nav > li.nav-head {
+  height: auto;
+  min-height: 34px;
+  margin: 18px 0 4px;
+  padding: 0 10px 6px 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, .12);
+  line-height: 1.35;
+}
+
+body.blur #scnd-nav .mb-group-count {
+  background: rgba(255, 255, 255, .14);
+  color: rgba(255, 255, 255, .82);
+}
+
+/* Section titles and cards: one product-wide language. */
+.home-section-title,
+.discover > h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid #e6ecec;
+  color: #334149;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.home-section-title::before,
+.discover > h2::before {
+  content: "";
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: #45b29d;
+  flex: 0 0 auto;
+}
+
+.home-plan-card,
+.mb-card {
+  background: #fff;
+  border: 1px solid #e5e7e9;
+  border-radius: 6px;
+  padding: 14px;
+  box-shadow: 0 1px 2px rgba(31, 47, 51, .03);
+}
+
+.mb-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #edf6f4;
+  color: #2f8f7c;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+/* Mobile: keep domain actions thumb-reachable. */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 56px;
+  }
+
+  /* Bootstrap 的 .visible-xs 带 display:block!important；产品底栏必须更高优先级。 */
+  .mb-bottom-nav.visible-xs {
+    display: flex !important;
+  }
+
+  .mb-bottom-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 0 5px;
+  }
+
+  /* ai_chat.css 后加载且使用同 ID 选择器；提高一级特异度守住底栏安全区。 */
+  body #ai-companion-fab-wrap {
+    bottom: 64px;
+  }
+}

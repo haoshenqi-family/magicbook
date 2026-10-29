@@ -32,12 +32,12 @@ from flask import Blueprint, request, url_for, g
 from flask_babel import format_date
 from .cw_login import current_user
 from .clean_html import clean_string as html_clean_string
+from .ui_ia import nav_domain, shelf_level_sort, shelf_nav_group
 
 from . import constants, logger
 
 jinjia = Blueprint('jinjia', __name__)
 log = logger.create()
-
 
 # pagination links in jinja
 @jinjia.app_template_filter('url_for_other_page')
@@ -70,6 +70,21 @@ def shortentitle_filter(s, nchar=20):
             res += line + ' '
             suml += len(line) + 1
     return res.strip()
+
+
+@jinjia.app_template_filter('shelf_nav_group')
+def shelf_nav_group_filter(name):
+    return shelf_nav_group(name)
+
+
+@jinjia.app_template_filter('shelf_level_sort')
+def shelf_level_sort_filter(shelves):
+    return shelf_level_sort(shelves)
+
+
+@jinjia.app_template_filter('nav_domain')
+def nav_domain_filter(path, page):
+    return nav_domain(path, page)
 
 
 @jinjia.app_template_filter('mimetype')

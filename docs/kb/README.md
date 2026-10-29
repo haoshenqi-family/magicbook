@@ -10,7 +10,8 @@
 | --- | --- |
 | [sql/db-schema-map.md](./sql/db-schema-map.md) | **数据分散在三个 SQLite 文件里**：哪张表在哪个库、跨库 join 靠 ATTACH、手工查库必须怎么连、三条读写规矩 |
 | `entity/` | 业务实体说明（待填） |
-| `instructions/coding/` | 编码约定（待填） |
+| [instructions/coding/ui-information-architecture.md](./instructions/coding/ui-information-architecture.md) | MagicBook 长期 UI 信息架构原则：先分一级域、唯一主入口、展示分组安全兜底、数值排序、最小侵入 Calibre、active 与响应式检查 |
+| `instructions/coding/` | 其他编码约定（待填） |
 | `instructions/workflows/` | 工作流说明（待填） |
 
 ## 写法约定

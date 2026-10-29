@@ -6708,3 +6708,12 @@ msgstr "名收件人"
 
 msgid "selected"
 msgstr "名已选用户"
+
+msgid "Levels"
+msgstr "分级"
+
+msgid "Media"
+msgstr "媒体"
+
+msgid "System"
+msgstr "系统"

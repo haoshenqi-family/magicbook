@@ -73,29 +73,11 @@
 - `response-archive/response-R238.md`：R238 全文单词详解预览卡死——所有书共有的 jQuery 顺序缺陷 + 后台预计算（2026-10-29 R250 / R252 并行写入均轮转到本节，保留单份，原样搬移不改写）。
 - `response-archive/response-R239.md`：R239 全文单词详解预览屈折词覆盖漏算（2026-10-29 R250 / R252 合并后窗口达 11 节，原样搬移不改写）。
 - `response-archive/response-R244.md`：R244 伙伴动效——隐藏消失动画（金光消散）+ 收信动画（站内信预留钩子，纯 CSS）（2026-10-29 R250 / R252 合并后窗口达 11 节，原样搬移不改写）。
+- `response-archive/response-R242.md`：R242 积分卡购买、兑换与管理员发卡入口（2026-10-29 R251 写入触发轮转搬移，原样搬移不改写）。
 
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事） · [response-R238.md](response-archive/response-R238.md)（2026-10-29 R250 / R252 并行写入轮转，原样搬移不改写） · [response-R239.md](response-archive/response-R239.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R244.md](response-archive/response-R244.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转）
-
-## 2026-10-28（R242：积分卡购买、兑换与管理员发卡入口）
-
-### R242（用户：「我想增加一个积分兑换卡服务……也可以在积分页面买积分卡送人」）
-
-- **交付**：积分页新增兑换框、三档购卡、已购卡密复制与管理员发卡面板。购卡复用既有支付宝二维码和轮询状态机，`orderType=CARD` 支付成功只生成一张卡，买家积分不变；按 `purchaseOrderNo` 定位并高亮新卡。
-- **代理**：`cps/routes/credit.py` 新增九条 `/ajax/credit/card/*` 路由；用户端点登录保护，兑换与建单限流 10/min；五个管理员端点在代理层先 `role_admin()` 403，moon-well 白名单再校验。
-- **安全**：本仓不保存卡密、不生成卡密、不计算价格；页面只显示文本与复制按钮，不渲染二维码/图片。复制优先 Clipboard API，失败回退 `execCommand('copy')` 并给可见错误。
-- **管理员**：批量发卡默认 30 天，可设 1–3650 天或长期；批次列表、查看卡密、作废未使用卡、下载 `credit-cards-batch-<id>.txt` 全部接通。
-- **i18n**：模板新增词条已补 `zh_Hans_CN/messages.po` 并只重编译中文 `messages.mo`；JS 动态文案直写中文；`CARD_REDEEM` 显示「积分卡兑换」。
-- **测试与发布**：正式发布态全量 `1033 passed / 0 failed / 4 warnings`；`tests/test_credit_card.py + test_credit_consume.py` 23 passed、契约/i18n 11 passed，`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。远端新增 R243 文档后合并为 `8e0efe95` 并 push `origin/develop`；fnOS 于 2026-10-29 09:41:54 返回 `deploy SUCCESS`、`build END OK (8e0efe95...)`。
-- **文档四问**：L1 `readme/credit.md`、L2 `credit/interface.md`、L3 `credit/features/credit-card.md`、需求基线 `credit/requirements.md`、本次 HLD/LLD/AC 与迭代 `plan.md` 均已回填。
-- **状态与驻留**：R242 已上线待验收。现网 `magicbook` 容器 `running/healthy`，`house.build-sha=8e0efe95...`；`/credits` 与卡密代理按预期重定向登录，生产的 `credits.js` 已包含兑换、购卡与管理导出接线。PingCode MB-233 保持 `In progress`；worktree `../magicbook-r242-credit-card`（分支 `feat/r242-credit-card`）保留待真机验收，验收后再清理。
-- **验收缺陷修复（2026-10-29）**：用户反馈点击「购买并赠送」无感知。生产 DOM 实测订单已创建，但原收银台顶部位于 `1292px`、视口仅 `886px`，页面没有自动滚动，属于可见性缺陷而非接口失败。改为 Bootstrap 模态收银台：点击后按钮就地显示「正在创建订单...」，二维码生成后立即弹窗；建单失败会滚动到可见告警。首轮上线后发现页面全局样式使 Bootstrap 浮动栅格高度塌陷，正文溢出遮罩，已改用 Flex 双列布局。定向与契约回归 34 passed，`node --check`、`git diff --check` 通过。
-- **弹窗发布验证（2026-10-29）**：修复提交 `12555764` 已 push `origin/develop`；fnOS 构建 `END OK`，app-manager `deploy SUCCESS`，容器 `running/healthy`，`house.build-sha=125557644f1047809304399fa166049ac51a703d`。生产页真实点击「购买并赠送」后弹窗正常打开，二维码 `200×200`、倒计时 `29:53` 启动、正文高度 `230px` 且无溢出，控制台无 error/warn。
-- **分享链接增补（2026-10-29）**：卡密操作拆为「复制卡密」「复制并分享」。分享链接为 `/credit-card/share#key=...&credits=...`，bearer key 只走 fragment，不进入服务端请求、反向代理和访问日志；分享页公开但禁缓存/索引/Referer，展示三步兑换说明且不自动兑换。已登录用户直达积分页并自动填充，匿名用户登录后从同标签页 `sessionStorage` 恢复。生产核验发现 Flask `_external=True` 生成 `http://`，改为模板下发相对路径、前端按当前 origin 组装。定向与契约回归 35 passed，两个前端脚本 `node --check` 与 `git diff --check` 通过。
-- **分享发布验证（2026-10-29）**：GitHub webhook 本轮未投递，按 runbook 手动补跑构建；提交 `79261d2b` 构建 `END OK`、app-manager `deploy SUCCESS`，容器 `running/healthy` 且 `house.build-sha=79261d2bc53956e922934f625e421d966b59c50a`。生产 `/credit-card/share` 返回 200 与三项安全头；测试卡密页面显示金额、卡密、复制按钮和「登录→粘贴→兑换」三步说明；点击「去积分页兑换」后 URL 为无 fragment 的 `/credits`，兑换框已自动填入，未点击兑换、未消耗卡密。分享基地址实测为 `https://magicbook.haoshenqi.top/credit-card/share`。
-- **窗口**：写入前 10 节，按「写入即检查」把最早 R229 整节原样搬至 `response-archive/response-R229.md` 并登记索引，窗口保持 10。
-- **总结**：requests.md 条目 242 已从占位回填；本条为回应。冲突记录：无撞号。
 
 ## 2026-10-29（R241：整本能力缓存齐备标识——三项缓存都备齐时告诉读者「这本书学起来便宜」）
 
@@ -232,3 +214,17 @@
 - **上线**：实现提交 `1e525b18` 已快进推送 `origin/develop`；fnOS 构建 `END OK`，app-manager 部署 `SUCCESS`，magicbook healthy，线上镜像 `house.build-sha=1e525b18703cc0e638a28507a2c77f18bb6b0630`。
 - **窗口与驻留**：写入前窗口 10 节，新增后 11；按「写入即检查」把最旧 R239 整节原样搬至 `response-archive/response-R239.md` 并登记索引，窗口恢复 10。worktree `../magicbook-r253-cached-translation-billing`（分支 `feat/r253-cached-translation-billing`）按闸门保留待验收。
 - **总结**：requests.md 条目 253 已从占位回填；本条为回应。冲突记录：无撞号。
+
+## 2026-10-29（R251：MagicBook UI 信息架构与导航分组）
+
+### R251（用户：「目前的UI系统有一点乱，帮我设计一个更好看更合理的分组，显示。并总结经验教训，设计原则。以后按照这个来。magicbook 的UI系统，尽量少修改 calibre 的UI系统。先按照你的设计做一版」）
+
+- **结论先行**：已按第一版方案完成可验收原型。顶栏收敛为首页 / 书库 / 学习 / 账号 / 管理五个一级域，侧栏改成 Calibre Browse / 书架 / 分级 / 媒体 / 系统五层；每个页面只允许一个一级域 active，展示分组有安全兜底，书架不会因分类规则丢入口。
+- **一级域与 active**：新增 `cps/ui_ia.py` 的 `nav_domain()`，按 home → learning → account → admin → library → unknown 顺序返回唯一域。账号页 `/reading/settings` 只点亮账号，Calibre 的 Books List 不再误亮；`/stats`、`/login` 等未知页不冒充书库。管理员入口从 Settings 下拉移到主导航，但普通用户不渲染。
+- **侧栏分组**：新增 `shelf_nav_group()` 与 `shelf_level_sort()`。`阶1 / 阶 2 / 分级阶3` 进「分级」，TED / Audio / Listening / 音频 / 听力进「媒体」，其余进「书架」；分级按整数排序，`阶1 < 阶2 < 阶10`。每个非空组显示数量，空组不渲染标题；识别不出的书架进默认组。CaliBlur 下系统标题隐藏，其余分组标题从 60px 收紧到约 34px。
+- **最小侵入**：`cps/jinjia.py` 只新增 1 个 import 与 3 个模板过滤器注册；`layout.html` 保留 Calibre 的 Bootstrap 骨架、原有链接与 `top_home/top_library/top_learning/top_me/top_admin` 等 DOM ID；`magicbook.css` 只做产品层增量，不修改 vendored Calibre CSS；不新增 `shelf.kind`、不迁移 schema。此实现替代 R213 中「侧边栏分组必须新增 `Shelf.kind`」的待拍板假设：当前只是展示层规则，先用名称规则即可。
+- **响应式**：移动底栏改为四列 flex，并覆盖 Bootstrap `.visible-xs { display:block!important }`；悬浮球用 `body #ai-companion-fab-wrap` 提高一级特异度，修复后加载 `ai_chat.css` 把它压回底栏的问题。实测 390×844 下悬浮球底部 780px、底栏顶部约 795px，无重叠；1440px 与 390px 的 `scrollWidth` 均等于视口宽度。
+- **测试**：`tests/test_home_nav_shell.py` 增加五域归属、唯一 active、未知页不归属、书架分类、数字排序、入口守恒、真实渲染和移动安全区守卫，定向 **12 passed / 0 failed / 2 warnings**；正式发布态全量 **1188 passed / 0 failed / 4 warnings**；`git diff --check` 与 `py_compile cps/ui_ia.py cps/jinjia.py` 通过。真实 Chromium 检查默认主题与 CaliBlur 的桌面、移动视口。
+- **文档四问**：能力 → L1 `docs/product/readme/library.md` 新增界面导航；契约 → 无 HTTP 契约变化；实现/边界 → 新建 L3 `docs/product/library/features/ui-information-architecture.md`；本次实现 → `docs/project/iterations/1.0/r251-ui-ia/lld.md` 与 `ac/acceptance.md`。需求基线、产品需求总册、迭代 plan、requests 与 response 均已回填。长期经验教训沉淀到 `docs/kb/instructions/coding/ui-information-architecture.md`，后续 UI 任务按其中的分域、唯一主入口、安全兜底、最小侵入、active 与响应式清单评审。
+- **状态与驻留**：当前开发完成待验收；实现提交 `1910fce7`，已合并最新 `origin/develop`。worktree `../magicbook-r251-ui-ia`（分支 `feat/r251-ui-ia`）保留待用户验收，后续发布状态与生产验证在本节回填。
+- **窗口与总结**：写入前 9 节，新增后为 10 节；为保证“窗口最多 10 节”，本轮已把最旧 R242 整节原样搬至 `response-archive/response-R242.md` 并登记索引。requests.md 条目 251 已从占位回填；冲突记录：无撞号；R213 的旧 schema 待定项按展示层方案收敛，不改写 R213 历史正文。
