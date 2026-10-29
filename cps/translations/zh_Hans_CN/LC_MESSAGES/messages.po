@@ -6323,10 +6323,6 @@ msgstr "成就解锁"
 
 msgid "Credits received"
 msgstr "积分到账"
-
-msgid "Completed"
-msgstr "已完成"
-
 msgid "No unread mail"
 msgstr "没有未读邮件"
 
@@ -6454,3 +6450,234 @@ msgstr "有效期"
 
 msgid "Cards in this batch"
 msgstr "本批次卡密"
+
+msgid "01 / Compose"
+msgstr "01 / 撰写"
+
+msgid "02 / Preview"
+msgstr "02 / 预览"
+
+msgid "03 / Audit"
+msgstr "03 / 审计"
+
+msgid "Admin Mail"
+msgstr "运营站内信"
+
+msgid "Admin only"
+msgstr "仅管理员可用"
+
+msgid "Administrator operation"
+msgstr "管理员运营"
+
+msgid "All users"
+msgstr "全体用户"
+
+msgid "All users includes every account, including administrator accounts."
+msgstr "全体用户包含所有账号，包括管理员账号。"
+
+msgid "Announcement"
+msgstr "公告"
+
+msgid "At most 5000 recipients per send"
+msgstr "单次最多 5000 名收件人"
+
+msgid "Audience"
+msgstr "发送对象"
+
+msgid "Audience must be selected users or all users"
+msgstr "发送对象必须是指定用户或全体用户"
+
+msgid "Audience returned an invalid response"
+msgstr "全体用户人数返回了无效数据"
+
+msgid "Back to Admin"
+msgstr "返回管理页"
+
+msgid "Before you send"
+msgstr "发送前须知"
+
+msgid "Complete the form and choose Preview to see the exact card."
+msgstr "填写表单后点击「预览」查看用户实际收到的卡片。"
+
+msgid "Failed to load history"
+msgstr "加载发送历史失败"
+
+msgid "Failed to load audience"
+msgstr "加载全体用户人数失败"
+
+msgid "Failed to load users"
+msgstr "加载用户失败"
+
+msgid "Failed to recall campaign"
+msgstr "撤回发信批次失败"
+
+msgid "Failed to send announcement"
+msgstr "发送站内信失败"
+
+msgid "Find users"
+msgstr "查找用户"
+
+msgid "History returned an invalid response"
+msgstr "发送历史返回了无效数据"
+
+msgid "Invalid campaign"
+msgstr "发信批次无效"
+
+msgid "Invalid destination"
+msgstr "跳转页面无效"
+
+msgid "Invalid request"
+msgstr "请求无效"
+
+msgid "Loading history..."
+msgstr "正在加载发送历史..."
+
+msgid "MagicBook Mail"
+msgstr "MagicBook 邮件"
+
+msgid "Message body"
+msgstr "正文"
+
+msgid "Message body is required"
+msgstr "正文不能为空"
+
+msgid "Message body must be at most 500 characters"
+msgstr "正文最多 500 字"
+
+msgid "Name, email or user ID"
+msgstr "昵称、邮箱或用户 ID"
+
+msgid "No action button"
+msgstr "无跳转按钮"
+
+msgid "No matching users."
+msgstr "没有匹配的用户。"
+
+msgid "No operation mail has been sent yet."
+msgstr "还没有发送过运营邮件。"
+
+msgid "No recipients selected yet."
+msgstr "还没有选择收件人。"
+
+msgid "Open Daily Learning"
+msgstr "打开每日学习"
+
+msgid "Open Mail"
+msgstr "打开邮件"
+
+msgid "Operator #{id}"
+msgstr "操作人 #{id}"
+
+msgid "Optional destination"
+msgstr "可选跳转页面"
+
+msgid "Operation Mail"
+msgstr "运营站内信"
+
+msgid "Plain text only"
+msgstr "仅纯文本"
+
+msgid "Preview"
+msgstr "预览"
+
+msgid "Recall batch"
+msgstr "撤回整批"
+
+msgid "Recall removes the whole batch from inboxes and cannot be undone."
+msgstr "撤回会从所有收件人的收件箱移除整批邮件，且无法恢复。"
+
+msgid "Recall this whole batch? It disappears from inboxes and cannot be undone."
+msgstr "撤回整批邮件？邮件会从收件箱消失，且无法恢复。"
+
+msgid "Recalled"
+msgstr "已撤回"
+
+msgid "Remove {name}"
+msgstr "移除 {name}"
+
+msgid "Searching users..."
+msgstr "正在搜索用户..."
+
+msgid "Select at least one user"
+msgstr "至少选择一名用户"
+
+msgid "Selected recipients"
+msgstr "已选收件人"
+
+msgid "Selected users"
+msgstr "指定用户"
+
+msgid "Send announcement"
+msgstr "发送站内信"
+
+msgid "Send history"
+msgstr "发送历史"
+
+msgid "Send this announcement to {audience}? You can recall the whole batch later, but recipients may already see it."
+msgstr "确认发送站内信给 {audience}？之后可以整批撤回，但收件人可能已经看到。"
+
+msgid "Audience count is unavailable. Please try again."
+msgstr "暂时无法获取收件人数，请重试。"
+
+msgid "Sending requires a second confirmation."
+msgstr "发送前需要二次确认。"
+
+msgid "Sending..."
+msgstr "正在发送..."
+
+msgid "Sent"
+msgstr "已发送"
+
+msgid "Sent to {target} users; {delivered} delivered. Campaign #{id}."
+msgstr "已发送给 {target} 名目标用户，成功 {delivered} 名。批次 #{id}。"
+
+msgid "Short, specific title"
+msgstr "简短、明确的标题"
+
+msgid "Targets: {target} / delivered: {delivered}"
+msgstr "目标 {target} / 成功 {delivered}"
+
+msgid "The campaign audit record is retained after recall."
+msgstr "撤回后仍保留发信批次审计记录。"
+
+msgid "Title 1-80 characters; body 1-500 characters."
+msgstr "标题 1-80 字；正文 1-500 字。"
+
+msgid "Title is required"
+msgstr "标题不能为空"
+
+msgid "Title must be at most 80 characters"
+msgstr "标题最多 80 字"
+
+msgid "Up to 5000 recipients per send."
+msgstr "单次最多 5000 名收件人。"
+
+msgid "Users are temporarily unavailable."
+msgstr "用户列表暂时不可用。"
+
+msgid "Users returned an invalid response"
+msgstr "用户列表返回了无效数据"
+
+msgid "What should users know?"
+msgstr "需要用户知道什么？"
+
+msgid "What users receive"
+msgstr "用户将收到什么"
+
+msgid "Write one plain-text announcement, preview the exact audience, then send it to selected users or everyone."
+msgstr "撰写一封纯文本通知，预览实际发送对象，然后发给指定用户或全体用户。"
+
+msgid "Write the mail"
+msgstr "撰写邮件"
+
+msgid "You have a new announcement."
+msgstr "你有一条新公告。"
+
+msgid "all users"
+msgstr "全体用户"
+
+msgid "recipients"
+msgstr "名收件人"
+
+msgid "selected"
+msgstr "名已选用户"

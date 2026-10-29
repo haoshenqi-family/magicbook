@@ -42,6 +42,7 @@
 | R239 全文单词详解预览屈折词覆盖漏算 | 缺陷 | 承接 R238 / moon-well R226 | [r239-word-detail-inflection/lld.md](./r239-word-detail-inflection/lld.md) | **开发中待上游上线**：根因在 moon-well `cachedLookupKeys` 漏投影 `forms.type`；本仓仅更新 L2/L3/需求与验收口径，不改词形算法，待部署后 `force=true` 复核 book 145 |
 | R241 整本能力缓存齐备标识 | 用户故事 | 待建 | [r241-cache-ready-badge/lld.md](./r241-cache-ready-badge/lld.md) | **开发完成待验收**（2026-10-29，worktree `../magicbook-r241-cache-ready-badge`，分支 `feat/r241-cache-ready-badge`）：详情页三枚分项小标 + 三项齐备「低成本学习」总标，整本面板页签同步「已缓存」；判定取三条整本链路台账（COMPLETED + 跑满 + 指纹/格式一致），零上游调用；新增 18 条守卫；moon-well 零改动 |
 | R242 积分卡：购买、兑换与管理员发卡入口 | 用户故事 | [MB-233 / ahh6wJTz](https://haoshenqi.pingcode.com/ship/ideas/ahh6wJTz) | [2026-10-credit-card/](../2026-10-credit-card/credit-card/lld.md) | **已上线待验收**（2026-10-29）：九条代理 + 积分页兑换/购卡/已购卡密/复制 + 管理员发卡/批次/作废/导出；购卡收银台自动弹窗；卡密操作拆为复制卡密/复制并分享，`/credit-card/share` 使用说明页已发布（提交 `79261d2b`，fragment 携带卡密、不自动兑换，生产验证通过）。worktree `../magicbook-r242-credit-card` 保留待用户验收 |
+| R250 管理员运营站内信：自由撰写、单发/群发、发送历史与整批撤回 | 用户故事 | 待建（跨仓 moon-well R230） | [r250-admin-mail/](./r250-admin-mail/)（HLD/LLD/AC） | **开发完成待验收**（2026-10-29）：`/admin/mail` + 五个 `/ajax/admin-mail/*` 代理 + 精确全体人数 + 5000 人上限 + 发送历史与整批撤回；用户侧复用 `/mail` 渲染 `ADMIN_ANNOUNCEMENT`。定向 `103 passed`。worktree `../magicbook-r250-admin-mail`，分支 `feat/r250-admin-mail`，未 push |
 
 ## 版本
 

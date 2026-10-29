@@ -1,6 +1,6 @@
 # L3 · 站内信与伙伴信封实现说明
 
-> 覆盖 R243。产品入口归 companion，代码使用独立 mail 域；邮件事实与已读/已解决状态由 moon-well R228 持有。
+> 覆盖 R243。产品入口归 companion，代码使用独立 mail 域；邮件事实与已读/已解决状态由 moon-well R228 持有。R250 管理员运营发信后台独立见 [admin-mail.md](./admin-mail.md)。
 
 ## 实现方式
 
@@ -12,8 +12,8 @@
 - **双页签**：抽屉保留 Chat 原 DOM，仅外包 `#ai-chat-pane`；新增 `#ai-mail-pane`。页签有 `role=tab`、`aria-selected`、`aria-controls`，支持方向键/Home/End。
 - **抽屉 Mail**：最近 5 封，空态、错误与重试分离；打开页签只拉列表，不调用已读。单封点击展开后才调用 `MBMail.markRead(id)`；切换回 Chat 再进入时保留本页展开状态，已发起的已读不重复。
 - **独立页**：`mail.html` 使用 `layout.html` 与同一个 `MBMail`，固定每页 20 封，上一页/下一页、全部已读、空/加载/错误/重试均由状态机渲染。
-- **正文**：按 `BUDDY_CLAIMABLE / ACHIEVEMENT_UNLOCKED / CREDIT_GRANTED` 从结构化参数生成 locale 文案；`customMessage` 覆盖默认正文。所有动态值都用 `textContent` 或文本节点，模块不使用 `innerHTML`。
-- **跳转**：`safeActionPath()` 只放行 `/buddy`、`/achievements`、`/credits`；外链、协议相对地址与危险协议不生成动作按钮。
+- **正文**：按 `BUDDY_CLAIMABLE / ACHIEVEMENT_UNLOCKED / CREDIT_GRANTED` 从结构化参数生成 locale 文案；`customMessage` 覆盖默认正文。R250 的 `ADMIN_ANNOUNCEMENT` 读取服务端 `title` 与 `customMessage`，正文缺失时保持空文本，不伪造通用公告。所有动态值都用 `textContent` 或文本节点，模块不使用 `innerHTML`。
+- **跳转**：`safeActionPath()` 只放行 `/buddy`、`/achievements`、`/credits`、`/learning`、`/mail`；外链、协议相对地址与危险协议不生成动作按钮。运营邮件无按钮时服务端返回 `actionPath=null`，系统邮件仍按类型派生。
 - **刷新**：初始化、`visibilitychange` 可见、`focus`、`pageshow`、打开 Mail 页签时刷新；聚焦请求由 `lastRefreshAt` 做 1 秒去重，不设置 `setInterval`。
 
 ## 错误与状态边界
@@ -34,6 +34,6 @@
 ## 守卫
 
 - `tests/test_mail_proxy_r243.py`：登录门禁、paging 归一、read 参数、三元组透传、credit 通知字段。
-- `tests/test_mail_ui_r243.py`：模板结构、载入顺序、真实 Node 执行 FAB 分流/白名单/纯文本渲染/状态层、i18n。
+- `tests/test_mail_ui_r243.py`：模板结构、载入顺序、真实 Node 执行 FAB 分流/五路径白名单/纯文本渲染/状态层、i18n。
 - `tests/test_common_api_contract.py`：四个挂载 Buddy 的模板 API/Mail/面板顺序。
 - `tests/test_i18n_seed_contract.py`：种子、zh PO、编译 MO 一致。
