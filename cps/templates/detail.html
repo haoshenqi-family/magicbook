@@ -276,6 +276,50 @@
             </div>
             {% endif %}
 
+            {# R252：整本成本摘要。翻译按 token，朗读按字符；已缓存时用
+               「缓存值（全文原价）」并列，避免把“听已缓存音频”误写成“重新生成”。
+               数字只来自速览快照、readiness 台账与 moon-well 费率，不探测缓存。 #}
+            {% set _cost = entry.book_cost_summary %}
+            {% if _cost %}
+            <div class="book-cost-summary" id="book-cost-summary">
+                <p data-kind="translate">
+                    <strong>完整翻译：</strong>
+                    约 {{ "{:,}".format(_cost.translate.tokens) }} tokens
+                    {% if _cost.translate.cached %}
+                        · 缓存阅读 {{ "{:,}".format(_cost.translate.cachedCredits) }} 积分
+                        {% if _cost.translate.fullCredits is not none %}
+                            （全文生成原价约 {{ "{:,}".format(_cost.translate.fullCredits) }} 积分）
+                        {% else %}
+                            （全文生成费率暂不可得）
+                        {% endif %}
+                    {% elif _cost.translate.fullCredits is not none %}
+                        · 全文生成原价约 {{ "{:,}".format(_cost.translate.fullCredits) }} 积分
+                    {% else %}
+                        · 全文生成费率暂不可得
+                    {% endif %}
+                </p>
+                <p data-kind="tts"
+                   title="TTS 不按 token 计费；全文生成按字符，已缓存收听按 {{ _cost.tts.cachedPerSegment }} 积分/段">
+                    <strong>完整朗读：</strong>
+                    约 {{ "{:,}".format(_cost.tts.chars) }} 字符
+                    （TTS 不按 token，约 {{ "{:,}".format(_cost.tts.segments) }} 段）
+                    {% if _cost.tts.cached %}
+                        · 缓存收听 {{ "{:,}".format(_cost.tts.cachedCredits) }} 积分
+                        {% if _cost.tts.fullCredits is not none %}
+                            （全文生成原价约 {{ "{:,}".format(_cost.tts.fullCredits) }} 积分）
+                        {% else %}
+                            （全文生成费率暂不可得）
+                        {% endif %}
+                    {% elif _cost.tts.fullCredits is not none %}
+                        · 全文生成原价约 {{ "{:,}".format(_cost.tts.fullCredits) }} 积分
+                    {% else %}
+                        · 全文生成费率暂不可得
+                    {% endif %}
+                </p>
+                <p class="book-cost-note text-muted"><small>按当前费率粗算，不是账单。</small></p>
+            </div>
+            {% endif %}
+
             {% if entry.identifiers|length > 0 %}
                 <div class="identifiers">
                     <p>

@@ -885,13 +885,13 @@ _CREDIT_BILLING_TTL_SECONDS = 300
 _credit_billing_cache = {"fetched_at": 0.0, "rates": None}
 
 
-def _credit_billing_rates():
+def _credit_billing_rates(timeout=10):
     """取 moon-well /credit/billing 的费率；不可用回 None（面板据此显「费率暂不可得」）。"""
     now = time.time()
     if (_credit_billing_cache["rates"] is not None
             and now - _credit_billing_cache["fetched_at"] < _CREDIT_BILLING_TTL_SECONDS):
         return _credit_billing_cache["rates"]
-    response = _moonwell_proxy("/credit/billing", None, 10, "credit billing", method="GET")
+    response = _moonwell_proxy("/credit/billing", None, timeout, "credit billing", method="GET")
     if not isinstance(response, tuple) or len(response) < 2:
         return None
     body, status = response[0], response[1]
@@ -2680,6 +2680,21 @@ def show_book(book_id):
             except Exception as error:
                 # 标识是锦上添花：查不到就不显示，绝不拦详情页（同 active_jobs 纪律）。
                 log.warning("cache readiness lookup failed for book %s: %s", book_id, error)
+
+        # R252：整本成本摘要。只消费已解析的速览快照 + readiness 台账 + 已缓存费率，
+        # 不重新解析 EPUB、不做整本缓存探针。费率请求限 2 秒，moon-well 故障时
+        # 页面仍应快速渲染，宁可暂时不显示积分数字。
+        entry.book_cost_summary = None
+        if entry.insight and not current_user.is_anonymous and current_user.role_viewer():
+            try:
+                from cps.reading_insight.cost import build_book_cost_summary
+                entry.book_cost_summary = build_book_cost_summary(
+                    entry.insight,
+                    readiness=entry.cache_readiness,
+                    rates=_credit_billing_rates(timeout=2),
+                )
+            except Exception as error:
+                log.warning("book cost summary failed for book %s: %s", book_id, error)
 
         return render_title_template('detail.html',
                                      entry=entry,

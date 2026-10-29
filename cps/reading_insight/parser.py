@@ -244,6 +244,8 @@ def parse(path):
 
         chapters = []
         paragraph_count = char_count = en_words = 0
+        billable_paragraph_count = billable_char_count = 0
+        seen_texts = set()
         total_bytes = 0
         excerpt_pool = []
 
@@ -272,6 +274,13 @@ def parse(path):
                         paragraph_count += 1
                         char_count += len(text)
                         en_words += len(WORD_RE.findall(text))
+                        # 整本翻译/朗读台账都按 text_hash 去重。详情页成本摘要若拿
+                        # 全部段数算，会把重复段落重复计价；这里顺手记录去重规模，
+                        # 不额外解析第二遍 EPUB。
+                        if text not in seen_texts:
+                            seen_texts.add(text)
+                            billable_paragraph_count += 1
+                            billable_char_count += len(text)
                         if not first_paragraph:
                             first_paragraph = (
                                 text if len(text) <= FIRST_PARAGRAPH_MAX_CHARS
@@ -291,6 +300,8 @@ def parse(path):
         "chapters": chapters,
         "paragraphCount": paragraph_count,
         "charCount": char_count,
+        "billableParagraphCount": billable_paragraph_count,
+        "billableCharCount": billable_char_count,
         "englishWordCount": en_words,
         "declaredLanguages": _declared_languages(opf_tree),
         # 大书（全书解析量超限）只出 chapters + 统计：摘录池整体丢弃，不做「截半段」
