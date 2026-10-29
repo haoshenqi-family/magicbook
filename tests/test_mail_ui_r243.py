@@ -85,6 +85,24 @@ def test_panel_has_fab_envelope_tabs_and_mail_skeleton(admin_client):
     assert 'tabindex="-1"' in body
 
 
+def test_fab_mail_state_maps_to_hidden_buddy_without_duplicate_badge():
+    """R243/R244 交界：可见 FAB 只用自己的信封，隐藏后才映射到唤回药丸。"""
+    chat = _read("cps", "static", "js", "ai_chat.js")
+    mail = _read("cps", "static", "js", "mail.js")
+    mail_css = _read("cps", "static", "css", "mail.css")
+    sync_start = chat.index("function syncLetterBadge")
+    sync = chat[sync_start:chat.index("window.AICompanion.showLetter", sync_start)]
+    opener = _function(chat, "openDrawer", "closeDrawer")
+    fab_rule = mail_css.split("#ai-companion-mail-badge {", 1)[1].split("}", 1)[0]
+
+    assert "window.AICompanion.syncLetterBadge()" in mail
+    assert 'wrap.classList.contains("buddy-hidden")) showLetter();' in sync
+    assert "clearLetterBadge();" in opener
+    # R244 的隐藏 ✕ 在右上；R243 信封让到左上，两个提示不互相遮挡。
+    assert "left: -5px" in fab_rule
+    assert "right: -5px" not in fab_rule
+
+
 def test_shared_panel_omits_mail_surfaces_for_anonymous(app):
     with app.test_request_context("/"):
         body = render_template("ai_chat_panel.html", ai_context_title="")

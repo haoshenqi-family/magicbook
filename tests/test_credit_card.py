@@ -152,6 +152,9 @@ def test_credit_page_contains_card_sections(admin_client, moonwell_configured):
                   "credit-card-purchased", "credit-card-admin-panel",
                   "credit-card-admin-issue-form", "credit-card-admin-long-term"):
         assert token in html
+    assert 'class="modal fade" id="credit-checkout"' in html
+    assert 'id="credit-checkout-title"' in html
+    assert 'id="credit-checkout-help"' in html
     assert html.count("credit-card-admin-panel") == 1
     assert html.count("credit-card-admin-cards-rows") == 1
     assert html.index("credit-card-admin-cards-rows") > \
@@ -166,5 +169,8 @@ def test_credit_page_contains_card_sections(admin_client, moonwell_configured):
     assert "navigator.clipboard" in text or "execCommand('copy')" in text
     assert "if (document.execCommand('copy'))" in text
     assert ".pkg-buy-btn, .credit-card-buy-btn" in text
+    assert "$('#credit-checkout').modal('show')" in text
+    assert "triggerButton.text('正在创建订单...')" in text
+    assert "showError('创建支付订单失败：" in text
     assert "CARD_REDEEM: '积分卡兑换'" in text
     assert "purchaseOrderNo" in text

@@ -27,10 +27,19 @@
         return typeof window.mbT === 'function' ? window.mbT(id) : id;
     }
 
-    function showError(message) {
+    function revealElement(element) {
+        if (element && typeof element.scrollIntoView === 'function') {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    function showError(message, reveal) {
         var alertBox = $('#credit-alert');
         alertBox.removeClass('alert-success').addClass('alert-danger')
             .text(message).show();
+        if (reveal) {
+            revealElement(alertBox[0]);
+        }
     }
 
     function showSuccess(message) {
@@ -485,7 +494,7 @@
         stopAllTimers();
         // Why: 支付完成后二维码即失效，收起收银台并给出明确的到账结果与新余额，
         // 避免页面停留在"扫码中"的观感（用户感知为"没有正确跳转"）
-        $('#credit-checkout').hide();
+        $('#credit-checkout').modal('hide');
         var grantedCredits = currentOrder ? currentOrder.credits : null;
         var isCard = currentOrder && currentOrder.kind === 'CARD';
         var accountRequest = ajax('/ajax/credit/account', 'POST').then(function (response) {
@@ -517,10 +526,14 @@
     }
 
     function renderCheckout(order, qrCode) {
-        $('#credit-checkout').show();
+        $('#credit-checkout-title').text(
+            order.kind === 'CARD' ? '购买积分卡 · 支付宝扫码支付' : '积分充值 · 支付宝扫码支付');
         $('#credit-checkout-info').html('Pay <strong>' + formatMoney(order.amount) +
             '</strong> for ' + $('<span>').text(order.credits).html() +
             (order.kind === 'CARD' ? ' credit card' : ' credits'));
+        $('#credit-checkout-help').text(order.kind === 'CARD'
+            ? '支付成功后会生成一张可转赠的卡密，不会增加你的积分。请复制卡密后发给对方。'
+            : '支付成功后积分会自动到账。');
         $('#credit-status').text('Waiting for payment...').removeClass().addClass('text-muted');
         $('#credit-regenerate').hide();
         var qrTarget = $('#credit-qr').empty()[0];
@@ -531,6 +544,8 @@
             height: 200,
             correctLevel: QRCode.CorrectLevel.M
         });
+        // Why: 收银台在长页面下方时会被用户完全忽略，创建订单后必须用弹窗明确反馈。
+        $('#credit-checkout').modal('show');
     }
 
     function startCountdown() {
@@ -599,10 +614,15 @@
         pollTimer = setInterval(pollOrderStatus, POLL_INTERVAL_MS);
     }
 
-    function buy(packageId, kind, orderUrl) {
+    function buy(packageId, kind, orderUrl, trigger) {
         hideMessages();
         stopAllTimers(); // 入口统一清场：旧订单的轮询/倒计时不再存活
         var buyButtons = $('.pkg-buy-btn, .credit-card-buy-btn').prop('disabled', true);
+        var triggerButton = trigger ? $(trigger) : null;
+        var triggerText = triggerButton ? triggerButton.text() : '';
+        if (triggerButton) {
+            triggerButton.text('正在创建订单...');
+        }
         var createdOrder = null;
         ajax(orderUrl || '/ajax/credit/recharge-order', 'POST', { packageId: packageId }).then(function (response) {
             createdOrder = unwrap(response);
@@ -624,9 +644,12 @@
             startCountdown();
             startPolling();
         }).catch(function (error) {
-            showError('Failed to create payment: ' + error.message);
+            showError('创建支付订单失败：' + error.message, true);
         }).finally(function () {
             buyButtons.prop('disabled', false);
+            if (triggerButton) {
+                triggerButton.text(triggerText);
+            }
         });
     }
 
@@ -938,7 +961,7 @@
         });
         $(document).on('click', '.credit-card-buy-btn', function () {
             buy($(this).attr('data-package-id'), 'CARD',
-                '/ajax/credit/card/purchase-order');
+                '/ajax/credit/card/purchase-order', this);
         });
         $('#credit-consume-apply').on('click', resetConsumePage);
         $('#credit-consume-apply').on('click', loadConsumeDetail);
@@ -1026,7 +1049,7 @@
 
         $(document).on('click', '.pkg-buy-btn', function () {
             buy($(this).attr('data-package-id'), 'CREDIT',
-                '/ajax/credit/recharge-order');
+                '/ajax/credit/recharge-order', this);
         });
         $('#credit-regenerate').on('click', function () {
             if (currentOrder && currentOrder.packageId) {

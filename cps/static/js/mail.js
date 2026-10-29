@@ -464,6 +464,9 @@
         fab.classList.toggle("has-mail", hasMail);
         fab.classList.toggle("mail-unavailable", state.status === "error");
       }
+      if (window.AICompanion && typeof window.AICompanion.syncLetterBadge === "function") {
+        window.AICompanion.syncLetterBadge();
+      }
     }
 
     var topMail = document.getElementById("top_mail");

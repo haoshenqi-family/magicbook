@@ -14,8 +14,9 @@ cps/routes/mail.py                 # /ajax/mail/* 薄代理
 cps/templates/mail.html            # 完整收件箱
 cps/static/js/mail.js              # MB Mail 状态层 + /mail 页面控制器
 cps/static/css/mail.css            # 抽屉 Mail、/mail、FAB 信封与角标样式
+cps/static/css/ai_chat.css         # 与 R244 隐藏/唤回动画共用的 FAB 样式
 tests/test_mail_proxy_r243.py      # 代理三元组、参数与鉴权
-tests/test_mail_ui_r243.py         # 模板/JS 结构、FAB 分流、页签与 i18n
+tests/test_mail_ui_r243.py         # 模板/JS 结构、FAB 分流、R244 联动、页签与 i18n
 ```
 
 接线点：
@@ -125,7 +126,7 @@ error: string | null
 
 `mail.css`：
 
-- 角标绝对定位于 FAB 右上，`pointer-events:none`；
+- 角标绝对定位于 FAB 左上，`pointer-events:none`；右上留给 R244 隐藏 ✕，两者不重叠；
 - 无未读时 `hidden`；
 - 有未读时只显示信封，不显示数字，避免角标过大遮挡头像；
 - 小屏与拖拽吸附后仍跟随 wrap；
@@ -169,6 +170,13 @@ dispatchBubbleAction("chat") -> openDrawer("chat")
 ### 4.3 拖拽
 
 `initBuddyFabDrag` 的 wrap 命中区、6px 拖动阈值、延迟 `setPointerCapture`、吸附与 `dragged` 抑制 click 逻辑不变。信封节点 `pointer-events:none`，不参与拖拽。
+
+### 4.4 R244 隐藏/唤回联动
+
+- 可见 FAB 只显示 R243 的 `#ai-companion-mail-badge` 信封，不再叠加 R244 `.buddy-has-letter::before` 红点，避免同一未读出现两个提示。
+- 伙伴隐藏后，`MBMail` 渲染时调用 `window.AICompanion.syncLetterBadge()`；仅当 FAB 处于 `buddy-hidden` 且仍有未读时，才把同一状态映射到右缘唤回药丸的 `.ai-letter-badge`，不播放收不到主体的飞信动画。
+- 打开抽屉时清理 R244 的唤回提示状态；服务的未读事实仍只由 R243 `MBMail` 持有，页签/设置/FAB/药丸不维护独立计数。
+- 伙伴复原时清除药丸红点并恢复可见 FAB 信封；若邮件仍未读，R243 信封继续存在。
 
 ## 5. AI 抽屉双页签
 
@@ -336,6 +344,7 @@ Flask endpoint 名必须区分页面与代理：页面函数命名 `mail_inbox_p
 - 打开 Mail 页签不调用 `read`；展开单封才调用 `read`。
 - 单封已读/全部已读后 `MBMail` 计数与三处 badge 同步。
 - 接口失败进入 error 态；角标不伪装成 0。
+- 伙伴隐藏后同一未读映射到唤回药丸；可见 FAB 不额外生成第二个红点。
 - 跳转 path 白名单：合法三类生成按钮，外链/协议相对/危险协议不生成。
 - 结构化参数与 `customMessage` 以文本节点渲染，HTML 字符串不执行。
 

@@ -1,6 +1,6 @@
 # 积分卡（magicbook R242）· LLD
 
-状态：已上线待验收（2026-10-29，合并提交 `8e0efe95`）
+状态：已上线待验收（2026-10-29，购卡收银台弹窗修复提交 `12555764`）
 上游：`hld.md`
 
 ## 1. 路由
@@ -33,6 +33,8 @@
 - `#credit-card-packages`：JS 动态渲染三档卡。
 - `#credit-card-purchased`：本人卡密表，列为卡密/面额/状态/有效期/操作。
 - `#credit-card-admin-panel`：仅在管理员时渲染，包含发卡表单、批次表和卡密明细。
+- `#credit-checkout`：Bootstrap 模态收银台，创建订单并拿到二维码后自动弹出。
+- 收银台内容使用 Flex 双列布局，不复用 Bootstrap 浮动栅格；生产实测该页面全局样式会让 `.row` 高度塌陷，导致正文溢出到遮罩。
 
 `#credit-page[data-is-admin]` 只用于前端显隐，不承担权限。
 
@@ -40,13 +42,14 @@
 
 ```text
 click .credit-card-buy-btn
-  → buy(packageId, 'CARD', '/ajax/credit/card/purchase-order')
+  → 按钮就地显示「正在创建订单...」，全部购买按钮暂时禁用
+  → buy(packageId, 'CARD', '/ajax/credit/card/purchase-order', trigger)
   → createdOrder = unwrap(...)
   → /ajax/credit/recharge-pay
   → currentOrder = {orderNo, packageId, credits, amount, expireTime, kind:'CARD'}
-  → QR + countdown + 3s status polling
+  → QR + modal('show') + countdown + 3s status polling
   → status=1: markPaid()
-       → hide checkout
+       → modal('hide')
        → 并行刷新余额与已购列表（互不阻塞）
        → loadPurchasedCards(orderNo) 并按 purchaseOrderNo 高亮
        → 按卡密列表是否刷新成功提示复制或“刷新页面后复制”
@@ -54,7 +57,7 @@ click .credit-card-buy-btn
 
 失败处理：
 
-- 建单或预下单失败：`showError`，不覆盖旧 `currentOrder`。
+- 建单或预下单失败：`showError` 并滚动到可见告警，不覆盖旧 `currentOrder`。
 - 余额刷新失败但支付已完成：仍提示卡已生成，并提示刷新页面后复制。
 - 状态轮询连续失败 5 次停止，显示错误与「重新下单」。
 
@@ -102,7 +105,8 @@ copyText(text, button)
 - 登录普通账号访问五个管理代理 403，且上游调用为零。
 - 管理员代理路径与 payload 正确。
 - 导出 binary 与附件文件名。
-- 页面结构、管理员面板唯一、九条端点、复制 fallback、`CARD_REDEEM`、`purchaseOrderNo`。
+- 页面结构、收银台模态、管理员面板唯一、九条端点、复制 fallback、`CARD_REDEEM`、`purchaseOrderNo`。
+- 购卡按钮就地处理中、成功后 `modal('show')`、失败告警可见。
 - 既有积分消费明细回归。
 - `node --check`、i18n 契约、`git diff --check`。
 

@@ -23,6 +23,8 @@
 - `response-archive/response-R226.md`：R226 阅读器验收缺陷——伙伴白圆底/幽灵问号/翻译连续重排（2026-10-28 R237 写入触发轮转搬移，原样搬移不改写）
 - `response-archive/response-R227.md`：R227 Buddy 语音提问与回复朗读（2026-10-28 R238 写入触发轮转搬移，原样搬移不改写）
 - `response-archive/response-R228.md`：R228 moon-well R214 伴读 Agent Skills 的 magicbook 消费侧说明——2026-10-28 R239 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R229.md`：R229 `/home` 随机发现 linked Row 致生产登录落点 500——2026-10-28 R242 / R244 并行写入均轮转到本节，保留单份，原样搬移不改写
+- `response-archive/response-R231.md`：R231 去掉 pip `trusted-host`（构建链恢复 TLS 校验）——2026-10-29 R243 / R244 并行写入均轮转到本节，保留单份，原样搬移不改写
 - `response-archive/response-R126-R131.md`：R126、R127、R128、R129、R131（2026-10-07 ～ 2026-10-08；2026-10-09 R141 写入触发轮转搬移，清掉 R134 登记的窗口欠账）
 - `response-archive/response-R132-R133.md`：R132、R133（2026-10-08；2026-10-10 R143 写入触发轮转搬移）
 - `response-archive/response-R134.md`：R134（2026-10-08；2026-10-10 R144 写入触发轮转搬移，其父级日期标题随节一并搬移）
@@ -62,30 +64,12 @@
 - `response-archive/response-R221-R222.md`：R221 AI 口语陪练语音优先 + R222 书籍简介验收缺陷——2026-10-26 R233 写入触发轮转搬移，原文无改写
 - `response-archive/response-R223.md`：R223 Buddy 悬浮球化（透明头像 + hover 径向快捷气泡）——2026-10-26 R232 会话合并 origin/develop（R233 一节并入）后窗口达 11 节，原样搬移不改写
 - `response-archive/response-R224.md`：R224 本轮测试修复未完成项收口（R219 / R212 / R213-B6 / R214-C）——2026-10-26 R234 写入触发轮转搬移，原样搬移不改写
-- `response-archive/response-R229.md`：R229 `/home` 随机发现 linked Row 致生产登录落点 500——2026-10-28 R242 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R230.md`：R230 个人学习数据导出入口与任务下载 UI——2026-10-29 R241 写入使窗口达 11 节，原样搬移不改写
-- `response-archive/response-R231.md`：R231 去掉 pip `trusted-host`——构建链恢复 TLS 校验——2026-10-29 R243 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R232.md`：R232 伴读面板不再显示 token 用量——2026-10-29 R243 合并 R244 后窗口达 11 节，原样搬移不改写
 
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
-
-## 2026-10-26（R232：伴读面板不再显示 token 用量——记录照旧，用量只在设置·积分看）
-
-### R232（用户：「AI 伴读不要显示token 使用量（可以记录，但是不要显示）。积分token用量仅在【设置】【积分】那里查看即可。」）
-
-- **任务定位**：需求（展示口径变更），单仓、纯前端；moon-well 零改动。
-- **改了什么**：`ai_chat.js` 的 `final` 分支删掉 `.ai-chat-usage` 渲染（原来读 `obj.usage.promptTokens/completionTokens` 拼 `tokens x/y`），**保留** `conversationIdFromFinal = obj.conversationId`（首条消息回传服务端建会话的唯一来源，删用量时最容易顺手删掉的就是它）；`ai_chat.css` 删对应样式；`speechTextOf()` 的朗读清洗选择器去掉该项（否则会留下一个永远匹配不到的死选择器）。
-- **「可以记录」是既成事实，本轮确认未受影响**：moon-well `CreditServiceImpl.consumeForLlmTask` 仍按 `total_tokens` 扣费并落库，流水 `remark = "AI任务消耗 N token、每千 token 折 10 积分"`；SSE `final` 事件里的 `usage` 字段也照旧下发，只是前端不再消费。要排查线上计费，抓包与流水都还在。
-- **「只在设置·积分看」也对得上**：`credits.html` 的消耗明细表（时间/类型/**原因**/功能/积分）里，「原因」列就是那条 remark，含 token 数；这一轮把用量的可见入口收敛到唯一一处，面板侧不留入口。守卫里专门钉了这张表不许被删/改名。
-- **否决了两种更「贴心」的做法**：① 默认折叠、点开才显示——用户要的是不显示，折叠仍占一行、仍要一句文案；② 悬浮提示（hover 出 token）——藏起来的数字更容易被误读成「这一轮花了多少积分」，而实际扣费口径是每千 token 折 10 积分、TTS 按字符、ASR 按秒，一个数说不清。
-- **测试**：新增 `tests/test_buddy_no_token_usage.py` 5 条——面板脚本不得含 `ai-chat-usage`/`promptTokens`/`completionTokens`；**全站** `cps/static/js/*.js` 均不得读这两个字段（面板自 R220 起全站挂载，漏一页就复现）；`final` 分支仍回传会话 id 且不再出现 `obj.usage`；CSS 无残留规则；积分页保留 `#credit-consume-rows` 与「原因/功能/积分」三列。定向回归 22 passed，**全量 986 passed / 0 failed**（`pytest tests/ -q`）。`node --check` 通过。
-- **踩坑记录**：CSS 注释里原本写了 `.ai-chat-usage` 类名，被第 4 条守卫直接判红——注释里的类名同样会误导后来者，守卫这种字面量断言的价值就在这。
-- **扩展侧：最初误判「无需改」，复查后确认为遗留**。首次用 `grep "a\|b"` 扫 magiclens 得空结果就下了结论，属 BSD grep 不支持 `\|` 交替造成的假阴性；改用 ripgrep 复核，`magiclens/extension/chat.js:366` 确有 `tokens ${promptTokens}+${completionTokens}` 写进消息 `.meta` 行。该仓不共用本面板脚本、且扩展需重新打包分发，故本轮**只记录不夹带修**，等用户决定是否单开一轮（同一坑还差点漏掉 moon-well 的 `CreditServiceTest` 活动倍率用例，已在本轮 R221 一并处理）。
-- **文档四问**：能力→L1 `readme/companion.md` 增「聊天里不显示用量」；契约→无变化（SSE 字段与积分接口均未动，故未改 L2）；实现/边界→LLD `iterations/1.0/r232-hide-token-usage/lld.md`；本次实现→同 LLD。需求基线 `REQUIREMENTS.md` 增一行。
-- **台账与驻留**：`claim.sh magicbook` 占号 **R232**（`2e48546f`，纯台账，已 push）；worktree `../magicbook-r232-hide-token-usage`（分支 `feat/r232-hide-token-usage`）驻留待验收；push 闸门留用户。
-- **窗口**：写入前 11 节（已超窗），写入后 12 节；按「写入即检查」把最早 R221、R222 两节原样搬至 `response-archive/response-R221-R222.md` 并登记索引，窗口回到 10。
-- **上线补记（同日，用户令「merge and push」）**：分支并 origin/develop（吸收 R233 的 `f68e39b3`+`a6b16e79` 两笔——合并时共享引用已被并行 fetch 推进到 `a6b16e79`，一并入并）。`ai_chat.js`/`ai_chat.css` 两需求改动无文本重叠、自动合并即语义正确（守卫复验：`ai-chat-usage`/`promptTokens` 零残留、`conversationIdFromFinal` 保留、R233 `normalizeSiteHref` 就位）。台账三处冲突对账：requests.md 取本分支 232 完整条目 + 远端 233 完整条目；`response-R221-R222.md` add/add 双方正文一致、取远端版；`response.md` 两节并存后窗口 11 → 续搬最旧 R223 至 `response-archive/response-R223.md`，窗口回 10。合并基全量 **999 passed / 0 failed**。**主检出 develop 有并行会话未提交的 `messages.po` 改动，快进会被并入的 R230 po 变更（+57 行）覆盖而中止，故按 R209 先例从 worktree 直推 `origin develop`＝`d1d6c84c`——主检出 develop 仍停在 `fe59ad54`（落后远端），messages.po 会话 pull 前需先 stash 该文件**。worktree 驻留待验收。
 
 ## 2026-10-26（R233：AI 回复中的本站链接可点击并在新窗口打开）
 
@@ -206,6 +190,22 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
   `cachedWords` 上升、`targetWords` 下降，预览仍不产生 token 费用。
 - **冲突记录**：无撞号；与 moon-well R226 是同一缺陷的两仓记录，算法权威只在 moon-well。
 
+## 2026-10-28（R244：伙伴动效——隐藏消失动画（金光消散）+ 收信动画（站内信预留钩子，纯 CSS））
+
+### R244（用户：「伙伴增加一个消失的动画和一个收到信件的动画」；三项拍板 1B / 2 后续站内信 / 3 金光·纯 CSS）
+
+- **任务定位**：需求（展示层动效），单仓纯前端（`ai_chat.css` + `ai_chat.js` + `ai_chat_panel.html`），moon-well 零改动。伙伴＝全站悬浮球（R223 FAB），现状已有 idle 呼吸 / thinking 起伏 / sleep 打盹三态，但无「消失」与「收信」。
+- **三问三答**：① 消失触发＝**B**（用户点悬浮球上的隐藏 ✕，播动画后收起，右缘留唤回小标签，可逆）；② 收信＝**为后续站内信（R243）预留**，本轮只做展示层 + 可调用钩子，不接数据源；③ 视觉＝**纯 CSS + 一点金光**，不引新素材。
+- **消失**：悬浮球右上角小 ✕（hover/focus 才显形，平时不抢视线）→ `buddy-vanish`（缩小旋转淡出）+ `buddy-poof`（一圈金色光晕向外扩散消散）→ 收起、右缘 `#ai-companion-restore` 小药丸（✦ + hover 展开「AI Companion」）。隐藏态记 `localStorage calibre.ai.buddy.hidden`，跨页保持；点药丸 `buddy-appear` 反向 materialize 复原。
+- **收信**：`#ai-companion-letter` 金边纸 + 火漆印从右上屏外飞入球心（`buddy-letter-fly`），落定后球轻 `buddy-peek` 一下，并落一个红色未读角标（`buddy-has-letter::before`），开抽屉即清。钩子＝`window.AICompanion.showLetter()` + 自定义事件 `mb:buddy-letter`，未来站内信有信时调用即可；伙伴已隐藏时不演飞信，只在唤回药丸上打角标（避免主体动画看不见却让用户以为没到信）。
+- **复用仓内范式**：动效族沿用 R206 头像 keyframes / R223 气泡的 transform 分层（外圈 hover 缩放走 button、内圈动效走 img/子元素，互不打架）；未读角标是 R223 气泡 `is-playing` 同类的状态类。
+- **i18n 零改动**：隐藏 ✕ 复用 `_('Close')`、唤回标签复用 `_('AI Companion')`，信封/角标纯图形 `aria-hidden`——不新增 msgid，故 i18n 种子/po/mo 与 `test_i18n_seed_contract` 全不动。
+- **可访问性/降级**：`prefers-reduced-motion: reduce` 下五个新动画全关、信封 `display:none`；消失/复原除 `animationend` 外都挂 `BUDDY_ANIM_MS` 兜底超时，防 animationend 丢失导致球永久隐藏（fail-safe）。
+- **测试**：新增 `tests/test_buddy_animations_r244.py` 6 条源码守卫（keyframes 齐 / reduced-motion 覆盖三个新状态类 / 信封基础态禁 `visibility:hidden`——实测踩过该坑 / 面板三元素齐 / JS 暴露 showLetter+事件+localStorage+兜底 / 不引入新 JS 词条）。开发态回归 `test_buddy_page`+`no_token`+`voice`+`ai_links`+`i18n_seed`+`reader_r226`+本套 = **48 passed**；全量 **1026 passed / 0 failed**。
+- **视觉自检**：本机 headless Chrome 载真实 `ai_chat.css` 搭 mock，`--virtual-time-budget` 抓中间帧——✕ 显形、金光消散、金信封（静态帧确认本体样式）、唤回药丸+红角标均正确；mock 仅用于人眼核对，不入仓。
+- **交付四问**：能力→用户可见（隐藏/唤回/收信提示），L1 `readme/companion.md` 待补一句；契约→无接口变化（未新增路由/端点）；实现/边界→本 LLD + 守卫注释；本次实现→`iterations/1.0/r244-buddy-animations/lld.md`。
+- **台账与驻留**：`claim.sh magicbook` 占号 **R244**（`6462ab70`，纯台账）；worktree `../magicbook-r244-buddy-animations`（分支 `feat/r244-buddy-animations`）驻留待验收；**push 闸门留用户**。窗口：写入前 10 节，按「写入即检查」把最旧 R229 整节原样搬至 `response-archive/response-R229.md` 并登记索引，窗口回 10。冲突记录：无撞号；与 R243（站内信，仅占号未实现）是「动画层 vs 数据层」的分工，本轮只交动画钩子。
+
 ## 2026-10-28（R242：积分卡购买、兑换与管理员发卡入口）
 
 ### R242（用户：「我想增加一个积分兑换卡服务……也可以在积分页面买积分卡送人」）
@@ -218,6 +218,8 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **测试与发布**：正式发布态全量 `1033 passed / 0 failed / 4 warnings`；`tests/test_credit_card.py + test_credit_consume.py` 23 passed、契约/i18n 11 passed，`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。远端新增 R243 文档后合并为 `8e0efe95` 并 push `origin/develop`；fnOS 于 2026-10-29 09:41:54 返回 `deploy SUCCESS`、`build END OK (8e0efe95...)`。
 - **文档四问**：L1 `readme/credit.md`、L2 `credit/interface.md`、L3 `credit/features/credit-card.md`、需求基线 `credit/requirements.md`、本次 HLD/LLD/AC 与迭代 `plan.md` 均已回填。
 - **状态与驻留**：R242 已上线待验收。现网 `magicbook` 容器 `running/healthy`，`house.build-sha=8e0efe95...`；`/credits` 与卡密代理按预期重定向登录，生产的 `credits.js` 已包含兑换、购卡与管理导出接线。PingCode MB-233 保持 `In progress`；worktree `../magicbook-r242-credit-card`（分支 `feat/r242-credit-card`）保留待真机验收，验收后再清理。
+- **验收缺陷修复（2026-10-29）**：用户反馈点击「购买并赠送」无感知。生产 DOM 实测订单已创建，但原收银台顶部位于 `1292px`、视口仅 `886px`，页面没有自动滚动，属于可见性缺陷而非接口失败。改为 Bootstrap 模态收银台：点击后按钮就地显示「正在创建订单...」，二维码生成后立即弹窗；建单失败会滚动到可见告警。首轮上线后发现页面全局样式使 Bootstrap 浮动栅格高度塌陷，正文溢出遮罩，已改用 Flex 双列布局。定向与契约回归 34 passed，`node --check`、`git diff --check` 通过。
+- **弹窗发布验证（2026-10-29）**：修复提交 `12555764` 已 push `origin/develop`；fnOS 构建 `END OK`，app-manager `deploy SUCCESS`，容器 `running/healthy`，`house.build-sha=125557644f1047809304399fa166049ac51a703d`。生产页真实点击「购买并赠送」后弹窗正常打开，二维码 `200×200`、倒计时 `29:53` 启动、正文高度 `230px` 且无溢出，控制台无 error/warn。
 - **窗口**：写入前 10 节，按「写入即检查」把最早 R229 整节原样搬至 `response-archive/response-R229.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 242 已从占位回填；本条为回应。冲突记录：无撞号。
 
@@ -246,7 +248,8 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **伙伴与抽屉**：Buddy FAB 增加 `pointer-events:none` 信封角标，不另盖点击层；抽屉关闭时有未读进 Mail、无未读进 Chat，抽屉已打开仍按原行为关闭；“对话”快捷气泡始终显式进 Chat。AI 抽屉新增 Chat/Mail 双页签，Mail 展示最近 5 封，展开单封才已读，提供全部已读与“查看全部”，打开页签本身不标已读。
 - **独立邮件页**：新增登录保护的 `/mail`，倒序分页、单封展开/已读、全部已读、空态、加载态、错误态与重试；正文按结构化参数本地化，服务端字符串只作文本节点，不拼 `innerHTML`；跳转严格限定 `/buddy`、`/achievements`、`/credits`。已解决邮件保留历史但不计未读。
 - **设置与管理员**：设置菜单新增 `top_mail` 与未读 badge；积分管理员表单新增“同时发送到账通知”和可选纯文本正文，负数时禁用并清空，成功后与 FAB/设置/抽屉同步计数。`layout`、`read`、`readtxt`、`readpdf` 均已接入；`readcbr` 当前未挂 Buddy 面板，本轮明确不扩展。
-- **验证**：邮件/积分/API/i18n/Buddy/阅读器两批定向回归合计 **172 passed / 0 failed**（2 条既有 warning）；`node --check cps/static/js/mail.js`、`ai_chat.js`、`credits.js` 与 `git diff --check` 均通过。moon-well R228 后端定向 **81 tests** 全绿。
+- **验证**：合并前邮件/积分/API/i18n/Buddy/阅读器两批定向回归合计 **172 passed / 0 failed**；合并 R244 后重跑 **137 passed / 0 failed**，另 R233 链接/阅读器结构 **19 passed**（均含 2 条既有 warning）。`node --check cps/static/js/mail.js`、`ai_chat.js`、`credits.js` 与 `git diff --check` 均通过。moon-well R228 后端定向 **81 tests** 全绿。
 - **文档四问**：能力 → `docs/product/readme/companion.md`；契约 → `docs/product/companion/interface.md`；实现/边界 → `docs/product/companion/features/mail-inbox.md`；本次实现 → `docs/project/iterations/1.0/r243-mail-inbox/`（HLD/LLD/AC 已回填“前后端已实现，待验收”）。
-- **状态与驻留**：worktree `../magicbook-r243-mail-inbox`，分支 `feat/r243-mail-inbox`；实现 `82688cd2`、列表失败隔离修复 `78581165`、合并最新基线 `bf4b6e1a`。按验收闸门保留 worktree，**未 push、未部署**；部署顺序 moon-well R228 先、本仓 R243 后。
-- **窗口与总结**：写入前窗口 10 节，轮转最旧 R231 至 `response-archive/response-R231.md` 后写入本条，窗口保持 10。requests.md 条目 243 已回填；冲突记录：无撞号，magicbook R228 为另一条既有需求，与本功能无关。
+- **R244 语义合并**：再次合并 `origin/develop` 时吸收 R242 收银台和 R244 伙伴隐藏/收信动画。`ai_chat_panel.html` 同时保留 R243 信封/页签与 R244 隐藏、唤回、飞信节点；`ai_chat.js` 的 `openDrawer(tab)` 保留 R243 页签分流并清理 R244 一次性角标；`credits.js` 同时保留 R243 i18n 与 R242 滚动提示。R243/R244 交界采用“同一未读、按可见性映射”：可见 FAB 只显示 R243 信封，伙伴隐藏后显示唤回药丸红点，避免重复提示；信封移到左上避让右上隐藏 ✕。详见 R243 LLD §4.4。
+- **状态与驻留**：worktree `../magicbook-r243-mail-inbox`，分支 `feat/r243-mail-inbox`；实现 `82688cd2`、列表失败隔离修复 `78581165`、前次基线合并 `bf4b6e1a`。按验收闸门保留 worktree，**未 push、未部署**；部署顺序 moon-well R228 先、本仓 R243 后。
+- **窗口与总结**：本条写入时窗口 10 节；合并 R244 后增至 11，按「写入即检查」把最旧 R232 原样搬至 `response-archive/response-R232.md`，窗口恢复 10，并合并 R229/R231 的并行重复索引。requests.md 条目 243 已回填；冲突记录：无撞号，magicbook R228 为另一条既有需求，与本功能无关。

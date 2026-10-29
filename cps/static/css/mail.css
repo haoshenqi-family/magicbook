@@ -29,7 +29,7 @@
 #ai-companion-mail-badge {
   position: absolute;
   top: -5px;
-  right: -5px;
+  left: -5px;
   z-index: 2;
   width: 22px;
   height: 22px;
