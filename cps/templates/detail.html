@@ -243,6 +243,34 @@
                 </p>
             </div>
 
+            {# R241：整本能力缓存齐备标识。三项（整本翻译 / 整本朗读 / 全文单词详解）
+               都跑满过时给读者一个「低成本学习」总标，并逐项列出各自已缓存的证据。
+               Why 放在难度标签之后：读者决定读不读这本书时，难度与成本是同一层决策信息。
+               Why 数字写进 title 而不是正文：正文要保持一行不换行，明细按 hover 看。 #}
+            {% set _cache = entry.cache_readiness %}
+            {% if _cache and (_cache.translate.ready or _cache.tts.ready or _cache.wordDetail.ready) %}
+            <div class="book-cache-ready">
+                <p>
+                    {% if _cache.all %}
+                    <span class="label label-success" id="cache-ready-all"
+                          title="整本翻译、整本朗读、全文单词详解三层缓存都已备齐，学习这本书更省积分">低成本学习</span>
+                    {% endif %}
+                    {% if _cache.translate.ready %}
+                    <span class="label label-default cache-ready-chip" data-kind="translate"
+                          title="整本翻译缓存已备齐（{{ _cache.translate.done }}/{{ _cache.translate.total }} 段），命中缓存不额外计费">整本翻译已缓存</span>
+                    {% endif %}
+                    {% if _cache.tts.ready %}
+                    <span class="label label-default cache-ready-chip" data-kind="tts"
+                          title="整本朗读音频已备齐（{{ _cache.tts.done }}/{{ _cache.tts.total }} 段），播放命中缓存按 1 积分/段计">整本朗读已缓存</span>
+                    {% endif %}
+                    {% if _cache.wordDetail.ready %}
+                    <span class="label label-default cache-ready-chip" data-kind="wordDetail"
+                          title="全文单词详解已备齐（全书 {{ _cache.wordDetail.wholeWords or _cache.wordDetail.total }} 词均已覆盖），查词命中缓存不再生成">全文详解已缓存</span>
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+
             {% if entry.identifiers|length > 0 %}
                 <div class="identifiers">
                     <p>
