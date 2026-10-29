@@ -35,3 +35,5 @@
   **118 passed / 0 failed**。
 - 正式发布态全量：**1133 passed / 0 failed / 4 warnings**。
 - `py_compile` 与 `git diff --check` 通过。
+- 上线：提交 `004c6a1f`，fnOS 构建 `END OK`，容器 `healthy` 且
+  `house.build-sha=004c6a1fc7ea89f2756b3dba116e7df870afa025`；线上 `/login` 返回 200。
