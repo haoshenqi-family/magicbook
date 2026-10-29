@@ -1,8 +1,10 @@
 # 整本费用预估（L3 实现说明）
 
-> 建立：2026-10-29（R252）。读者是**要改书籍详情成本摘要的人**；
+> 建立：2026-10-29（R252）；2026-10-29 R253 修订翻译缓存计费。读者是**要改书籍详情成本摘要的人**；
 > 用户视角见 L1 [`product/readme/library.md`](../../readme/library.md)；
-> 本次取舍见 LLD
+> 当前口径见 LLD
+> [`project/iterations/1.0/r253-cached-translation-billing/lld.md`](../../../project/iterations/1.0/r253-cached-translation-billing/lld.md)；
+> R252 原始设计见
 > [`project/iterations/1.0/r252-book-cost-summary/lld.md`](../../../project/iterations/1.0/r252-book-cost-summary/lld.md)。
 
 ## 1. 它是什么
@@ -10,7 +12,7 @@
 书籍详情页在「整本能力缓存齐备」标识之后显示两行固定摘要：
 
 ```text
-完整翻译：约 N tokens · 缓存阅读 0 积分（全文生成原价约 M 积分）
+完整翻译：约 N tokens · 缓存翻译 A 积分（全文生成原价约 M 积分）
 完整朗读：约 N 字符（TTS 不按 token，约 S 段） · 缓存收听 A 积分（全文生成原价约 M 积分）
 ```
 
@@ -21,12 +23,13 @@ tokens / 字符规模，积分写「费率暂不可得」。
 
 | 链路 | 规模估算 | 全文生成原价 | 已缓存时 |
 | --- | --- | --- | --- |
-| 整本翻译 | `ceil(chars / 4)` tokens | `ceil(tokens × creditsPer1kToken / 1000)` | 缓存阅读 **0 积分**；同时保留全文原价 |
+| 整本翻译 | `ceil(chars / 4)` tokens | `ceil(tokens × creditsPer1kToken / 1000)` | `已缓存段数 × 1 积分`；同时保留全文原价 |
 | 整本朗读 | 约 `chars` 字符，不按 token | `floor(chars / charsPerCredit)` | `已缓存段数 × 1 积分`；同时保留全文原价 |
 
-`1 积分/段` 是 moon-well R213 的缓存收听规则，在本仓集中为
-`cps/reading_insight/cost.py::TTS_CACHED_LISTEN_CREDITS`。token 与 TTS 费率
-不镜像在 magicbook，统一读 moon-well `GET /credit/billing`：
+`1 积分/段` 同时用于 moon-well R231 的缓存翻译与 R213 的缓存收听，在本仓分别集中为
+`cps/reading_insight/cost.py::TRANSLATION_CACHED_CREDITS_PER_SEGMENT` 与
+`TTS_CACHED_LISTEN_CREDITS`。token 与 TTS 费率不镜像在 magicbook，统一读
+moon-well `GET /credit/billing`：
 
 - `creditsPer1kToken`
 - `tts.enabled`
@@ -55,7 +58,7 @@ tokens / 字符规模，积分写「费率暂不可得」。
 
 缓存成本只认 `readiness.book_readiness()` 的三条本仓批次台账：
 
-- 翻译：`translate.ready=true` → 缓存阅读 0 积分；
+- 翻译：`translate.ready=true` → `translate.total × 1` 积分；
 - 朗读：`tts.ready=true` → `tts.total × 1` 积分；
 - `ready=false` 或查询失败 → 只显示全文生成原价，不声称“未缓存”。
 
@@ -69,8 +72,8 @@ tokens / 字符规模，积分写「费率暂不可得」。
   与最终模型 token 或 TTS 精确分段可能有差异，所以页面使用「约」。
 - **TTS 不按 token**：用户问“听完多少 token”时，页面必须明确改报字符量，
   不得复制翻译的 token 口径。
-- **朗读缓存段数**：已缓存时使用 readiness 台账的精确 `total`；未缓存时
-  只用于规模说明，不展示缓存收听费。
+- **缓存段数分链路**：翻译与朗读分别使用各自 readiness 台账的精确 `total`，
+  两条链路段数不能互相代替；未缓存时只用于规模说明，不展示对应缓存费。
 - **可见性**：已登录且有 `role_viewer()` 的读者可见；三个整本入口仍仅管理员。
 - **失败降级**：费率接口异常、TTS 字段缺失、旧快照字段缺失都只降级对应片段，
   不得拦详情页，也不得把未知数字写成 0。
@@ -79,7 +82,7 @@ tokens / 字符规模，积分写「费率暂不可得」。
 
 ## 6. 修改时检查
 
-1. 改 token 换算或 TTS 计费时，同时更新 `cost.py`、`service.py` 的估算公式与
+1. 改 token 换算、翻译缓存费或 TTS 计费时，同时更新 `cost.py`、`service.py` 的估算公式与
    `tests/test_book_cost_summary.py`。
 2. 新增缓存链路或改变 readiness 字段时，同步 `build_book_cost_summary()` 与
    本文件 §4，不要让页面猜缓存状态。

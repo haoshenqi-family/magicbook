@@ -1,8 +1,8 @@
-"""R252：书籍详情页整本成本摘要。
+"""R252/R253：书籍详情页整本成本摘要。
 
 Why 这里同时测纯函数与接线：金额一旦算错不会抛异常，只会静默给读者一个错误报价。
-翻译按 token、TTS 按字符/缓存段，二者不能混成同一种计费；费率缺失时也不能把
-“不知道”渲染成 0。
+翻译按 token、TTS 按字符；翻译与 TTS 的缓存复用都按 1 积分/段。费率缺失时也
+不能把“不知道”渲染成 0。
 """
 import os
 from types import SimpleNamespace
@@ -43,6 +43,8 @@ def test_uncached_book_shows_full_generation_costs_only():
         "fullCredits": 11,
         "cachedCredits": None,
         "cached": False,
+        "cachedSegments": 0,
+        "cachedPerSegment": 1,
     }
     assert result["tts"]["chars"] == 4001
     assert result["tts"]["segments"] == 101
@@ -51,12 +53,14 @@ def test_uncached_book_shows_full_generation_costs_only():
     assert result["tts"]["cached"] is False
 
 
-def test_translation_cached_reading_is_zero_plus_full_price():
+def test_cached_translation_is_one_credit_per_segment_plus_full_price():
     readiness = {"translate": {"ready": True, "done": 101, "total": 101}}
     result = build_book_cost_summary(PAYLOAD, readiness=readiness, rates=RATES)
 
     assert result["translate"]["cached"] is True
-    assert result["translate"]["cachedCredits"] == 0
+    assert result["translate"]["cachedSegments"] == 101
+    assert result["translate"]["cachedCredits"] == 101
+    assert result["translate"]["cachedPerSegment"] == 1
     assert result["translate"]["fullCredits"] == 11
 
 
@@ -79,9 +83,22 @@ def test_both_cached_keep_cached_and_original_prices_side_by_side():
     result = build_book_cost_summary(PAYLOAD, readiness=readiness, rates=RATES)
 
     assert (result["translate"]["cachedCredits"],
-            result["translate"]["fullCredits"]) == (0, 11)
+            result["translate"]["fullCredits"]) == (101, 11)
     assert (result["tts"]["cachedCredits"],
             result["tts"]["fullCredits"]) == (101, 80)
+
+
+def test_translation_and_tts_use_their_own_cached_segment_counts():
+    readiness = {
+        "translate": {"ready": True, "done": 70, "total": 70},
+        "tts": {"ready": True, "done": 101, "total": 101},
+    }
+    result = build_book_cost_summary(PAYLOAD, readiness=readiness, rates=RATES)
+
+    assert result["translate"]["cachedSegments"] == 70
+    assert result["translate"]["cachedCredits"] == 70
+    assert result["tts"]["cachedSegments"] == 101
+    assert result["tts"]["cachedCredits"] == 101
 
 
 def test_rate_unavailable_keeps_scale_but_never_guesses_zero():
@@ -127,14 +144,14 @@ def test_detail_template_renders_cached_value_next_to_original_price():
     assert 'data-kind="translate"' in src
     assert 'data-kind="tts"' in src
     assert "约 {{ \"{:,}\".format(_cost.translate.tokens) }} tokens" in src
-    assert "缓存阅读 {{ \"{:,}\".format(_cost.translate.cachedCredits) }} 积分" in src
+    assert "缓存翻译 {{ \"{:,}\".format(_cost.translate.cachedCredits) }} 积分" in src
     assert "缓存收听 {{ \"{:,}\".format(_cost.tts.cachedCredits) }} 积分" in src
     assert src.count("全文生成原价约") >= 2
     assert "TTS 不按 token" in src
     assert "约 {{ \"{:,}\".format(_cost.tts.chars) }} 字符" in src
     assert "约 {{ \"{:,}\".format(_cost.tts.segments) }} 段" in src
     assert "全文生成费率暂不可得" in src
-    assert "全文生成费率暂不可得" in src
+    assert "命中缓存按 1 积分/段计" in src
 
 
 def test_cost_block_renders_cached_and_original_prices_together():
@@ -146,7 +163,7 @@ def test_cost_block_renders_cached_and_original_prices_together():
     html = _render_cost_block(cost)
 
     assert "约 1,001 tokens" in html
-    assert "缓存阅读 0 积分" in html
+    assert "缓存翻译 101 积分" in html
     assert "全文生成原价约 11 积分" in html
     assert "约 4,001 字符" in html
     assert "TTS 不按 token，约 101 段" in html
@@ -162,12 +179,12 @@ def test_cost_block_marks_unavailable_rates_without_zero():
     assert "0 积分" not in html
 
 
-def test_cached_translation_keeps_zero_cost_when_full_rate_is_unavailable():
+def test_cached_translation_keeps_segment_cost_when_full_rate_is_unavailable():
     readiness = {"translate": {"ready": True, "done": 101, "total": 101}}
     cost = build_book_cost_summary(PAYLOAD, readiness=readiness, rates=None)
     html = _render_cost_block(cost)
 
-    assert "缓存阅读 0 积分" in html
+    assert "缓存翻译 101 积分" in html
     assert "全文生成费率暂不可得" in html
 
 
