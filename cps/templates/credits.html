@@ -47,7 +47,9 @@
 {% endblock %}
 
 {% block body %}
-<div class="discover" id="credit-page" data-is-admin="{{ '1' if current_user.role_admin() else '0' }}">
+<div class="discover" id="credit-page"
+     data-is-admin="{{ '1' if current_user.role_admin() else '0' }}"
+     data-card-share-url="{{ url_for('web.credit_card_share_page') }}">
   <h1>{{_('Credits')}}</h1>
 
   <div class="panel panel-default">

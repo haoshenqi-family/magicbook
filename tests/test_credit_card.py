@@ -37,6 +37,20 @@ def test_card_endpoints_require_login(app, moonwell_configured):
     assert client.post("/ajax/credit/card/purchase-list", json={}).status_code == 302
 
 
+def test_card_share_page_is_public_and_safe(app):
+    rv = app.test_client().get("/credit-card/share")
+
+    assert rv.status_code == 200
+    assert rv.headers["Cache-Control"] == "no-store"
+    assert rv.headers["Referrer-Policy"] == "no-referrer"
+    assert rv.headers["X-Robots-Tag"] == "noindex, nofollow"
+    html = rv.data.decode("utf-8")
+    for token in ("有人送你一张积分卡", "使用方法", "登录 MagicBook 账号", "复制卡密",
+                  "粘贴到「兑换积分卡」输入框", "每张卡密只能兑换一次",
+                  "credit-card-share.js"):
+        assert token in html
+
+
 def test_redeem_forwards_key(admin_client, moonwell_configured, monkeypatch):
     captured = _proxy_capture(monkeypatch, {"credits": 1000, "balanceAfter": 2000})
     rv = admin_client.post("/ajax/credit/card/redeem", json={"key": " mb-abcd efgh ijkl mnop "})
@@ -155,6 +169,7 @@ def test_credit_page_contains_card_sections(admin_client, moonwell_configured):
     assert 'class="modal fade" id="credit-checkout"' in html
     assert 'id="credit-checkout-title"' in html
     assert 'id="credit-checkout-help"' in html
+    assert 'data-card-share-url="/credit-card/share"' in html
     assert html.count("credit-card-admin-panel") == 1
     assert html.count("credit-card-admin-cards-rows") == 1
     assert html.index("credit-card-admin-cards-rows") > \
@@ -169,8 +184,19 @@ def test_credit_page_contains_card_sections(admin_client, moonwell_configured):
     assert "navigator.clipboard" in text or "execCommand('copy')" in text
     assert "if (document.execCommand('copy'))" in text
     assert ".pkg-buy-btn, .credit-card-buy-btn" in text
+    assert "复制卡密" in text
+    assert "复制并分享" in text
+    assert "cardShareUrl(card)" in text
+    assert "URLSearchParams" in text
+    assert "creditCardPendingRedeem" in text
     assert "$('#credit-checkout').modal('show')" in text
     assert "triggerButton.text('正在创建订单...')" in text
     assert "showError('创建支付订单失败：" in text
     assert "CARD_REDEEM: '积分卡兑换'" in text
     assert "purchaseOrderNo" in text
+
+    share_js = pathlib.Path(cps.__file__).parent / "static" / "js" / "credit-card-share.js"
+    share_text = share_js.read_text(encoding="utf-8")
+    assert "never redeems automatically" in share_text
+    assert "URLSearchParams" in share_text
+    assert "sessionStorage.setItem(PENDING_KEY" in share_text

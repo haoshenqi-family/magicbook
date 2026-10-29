@@ -22,6 +22,7 @@
     var consecutiveErrors = 0;
     var currentOrder = null; // precreate 成功前不赋值，避免失败后残留半初始化订单
     var currentBatchId = null;
+    var PENDING_CARD_KEY = 'creditCardPendingRedeem';
 
     function t(id) {
         return typeof window.mbT === 'function' ? window.mbT(id) : id;
@@ -209,10 +210,10 @@
     }
 
     // ---------- R242: credit cards ----------
-    function copyText(text, button) {
+    function copyText(text, button, successText, errorText) {
         function done() {
             var original = button.text();
-            button.text('已复制');
+            button.text(successText || '已复制');
             setTimeout(function () { button.text(original); }, 1500);
         }
         function fallback() {
@@ -228,10 +229,10 @@
                 if (document.execCommand('copy')) {
                     done();
                 } else {
-                    showError('复制失败，请手动选择卡密复制。');
+                    showError(errorText || '复制失败，请手动选择内容复制。');
                 }
             } catch (e) {
-                showError('复制失败，请手动选择卡密复制。');
+                showError(errorText || '复制失败，请手动选择内容复制。');
             }
             document.body.removeChild(area);
         }
@@ -239,6 +240,53 @@
             navigator.clipboard.writeText(text).then(done).catch(fallback);
         } else {
             fallback();
+        }
+    }
+
+    function cardShareUrl(card) {
+        var path = $('#credit-page').attr('data-card-share-url') || '/credit-card/share';
+        var base = new URL(path, window.location.origin).href;
+        var params = new URLSearchParams();
+        params.set('key', card.key);
+        if (card.credits !== null && card.credits !== undefined) {
+            params.set('credits', String(card.credits));
+        }
+        // Why fragment: bearer key must not reach Flask, proxies or access logs.
+        return base.split('#')[0] + '#' + params.toString();
+    }
+
+    function consumeSharedCardKey() {
+        var key = '';
+        var credits = '';
+        try {
+            var hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+            key = (hashParams.get('redeem') || '').trim();
+        } catch (e) {
+            key = '';
+        }
+        if (!key) {
+            try {
+                var pending = JSON.parse(sessionStorage.getItem(PENDING_CARD_KEY) || 'null');
+                if (pending && Date.now() - Number(pending.savedAt || 0) <= 60 * 60 * 1000) {
+                    key = String(pending.key || '').trim();
+                    credits = String(pending.credits || '').trim();
+                }
+            } catch (e) {
+                key = '';
+            }
+        }
+        sessionStorage.removeItem(PENDING_CARD_KEY);
+        if (!key) { return; }
+
+        $('#credit-card-redeem-key').val(key);
+        $('#credit-card-redeem-result')
+            .removeClass('text-danger text-success').addClass('text-muted')
+            .text((credits ? credits + ' 积分卡密' : '卡密') +
+                '已从分享链接填入，请确认后点击「兑换」。');
+        revealElement($('#credit-card-redeem')[0]);
+        if (window.history && window.history.replaceState) {
+            // Remove the bearer key from the visible URL after moving it to the form.
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
     }
 
@@ -278,9 +326,18 @@
         row.append($('<td>').text(card.expiresAt || '长期有效'));
         var actions = $('<td>');
         if (card.key) {
-            var copyButton = $('<button>').addClass('btn btn-default btn-xs').text('复制')
-                .on('click', function () { copyText(card.key, copyButton); });
+            var copyButton = $('<button>').addClass('btn btn-default btn-xs').text('复制卡密')
+                .on('click', function () {
+                    copyText(card.key, copyButton, '卡密已复制', '复制失败，请手动选择卡密复制。');
+                });
+            var shareButton = $('<button>').addClass('btn btn-primary btn-xs')
+                .css('margin-left', '5px').text('复制并分享')
+                .on('click', function () {
+                    copyText(cardShareUrl(card), shareButton, '分享链接已复制',
+                        '复制分享链接失败，请手动复制。');
+                });
             actions.append(copyButton);
+            actions.append(shareButton);
         }
         if (options && options.voidable && card.status === 'ACTIVE') {
             var voidButton = $('<button>').addClass('btn btn-danger btn-xs')
@@ -1059,5 +1116,6 @@
                         : '/ajax/credit/recharge-order');
             }
         });
+        consumeSharedCardKey();
     });
 }(jQuery));

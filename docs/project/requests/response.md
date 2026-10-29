@@ -220,6 +220,8 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **状态与驻留**：R242 已上线待验收。现网 `magicbook` 容器 `running/healthy`，`house.build-sha=8e0efe95...`；`/credits` 与卡密代理按预期重定向登录，生产的 `credits.js` 已包含兑换、购卡与管理导出接线。PingCode MB-233 保持 `In progress`；worktree `../magicbook-r242-credit-card`（分支 `feat/r242-credit-card`）保留待真机验收，验收后再清理。
 - **验收缺陷修复（2026-10-29）**：用户反馈点击「购买并赠送」无感知。生产 DOM 实测订单已创建，但原收银台顶部位于 `1292px`、视口仅 `886px`，页面没有自动滚动，属于可见性缺陷而非接口失败。改为 Bootstrap 模态收银台：点击后按钮就地显示「正在创建订单...」，二维码生成后立即弹窗；建单失败会滚动到可见告警。首轮上线后发现页面全局样式使 Bootstrap 浮动栅格高度塌陷，正文溢出遮罩，已改用 Flex 双列布局。定向与契约回归 34 passed，`node --check`、`git diff --check` 通过。
 - **弹窗发布验证（2026-10-29）**：修复提交 `12555764` 已 push `origin/develop`；fnOS 构建 `END OK`，app-manager `deploy SUCCESS`，容器 `running/healthy`，`house.build-sha=125557644f1047809304399fa166049ac51a703d`。生产页真实点击「购买并赠送」后弹窗正常打开，二维码 `200×200`、倒计时 `29:53` 启动、正文高度 `230px` 且无溢出，控制台无 error/warn。
+- **分享链接增补（2026-10-29）**：卡密操作拆为「复制卡密」「复制并分享」。分享链接为 `/credit-card/share#key=...&credits=...`，bearer key 只走 fragment，不进入服务端请求、反向代理和访问日志；分享页公开但禁缓存/索引/Referer，展示三步兑换说明且不自动兑换。已登录用户直达积分页并自动填充，匿名用户登录后从同标签页 `sessionStorage` 恢复。生产核验发现 Flask `_external=True` 生成 `http://`，改为模板下发相对路径、前端按当前 origin 组装。定向与契约回归 35 passed，两个前端脚本 `node --check` 与 `git diff --check` 通过。
+- **分享发布验证（2026-10-29）**：GitHub webhook 本轮未投递，按 runbook 手动补跑构建；提交 `79261d2b` 构建 `END OK`、app-manager `deploy SUCCESS`，容器 `running/healthy` 且 `house.build-sha=79261d2bc53956e922934f625e421d966b59c50a`。生产 `/credit-card/share` 返回 200 与三项安全头；测试卡密页面显示金额、卡密、复制按钮和「登录→粘贴→兑换」三步说明；点击「去积分页兑换」后 URL 为无 fragment 的 `/credits`，兑换框已自动填入，未点击兑换、未消耗卡密。分享基地址实测为 `https://magicbook.haoshenqi.top/credit-card/share`。
 - **窗口**：写入前 10 节，按「写入即检查」把最早 R229 整节原样搬至 `response-archive/response-R229.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 242 已从占位回填；本条为回应。冲突记录：无撞号。
 

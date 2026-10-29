@@ -4,7 +4,7 @@
 
 ## 能力边界
 
-积分页提供余额、充值、积分明细、成就与订阅入口；R242 增加可转赠积分卡的购买、兑换、已购卡密复制和管理员发卡。magicbook 不保存卡密、不计算价格、不判定卡状态，全部以 moon-well 返回为准。
+积分页提供余额、充值、积分明细、成就与订阅入口；R242 增加可转赠积分卡的购买、兑换、已购卡密复制/文字分享链接和管理员发卡。magicbook 不保存卡密、不计算价格、不判定卡状态，全部以 moon-well 返回为准。
 
 ## 积分卡端点
 
@@ -69,10 +69,19 @@
 - 只有正数 `amount` 可同时发送到账通知；`notify=true` 且 `amount<=0` 由 moon-well 拒绝。
 - 代理不拆 payload，新增字段与既有字段一起原样透传；成功后响应形态保持不变。
 
+### 分享链接
+
+- 分享页：`GET /credit-card/share`，公开访问，不需要登录。
+- 卡密只放在 URL fragment：`/credit-card/share#key=<encodeURIComponent(key)>&credits=<credits>`；fragment 不发送给 Flask、反向代理或访问日志。
+- 页面只下发相对路径，前端用 `window.location.origin` 拼绝对链接，避免反向代理协议头不一致时生成 `http://`。
+- 分享页不自动兑换，只展示卡密、复制按钮和使用步骤。已登录用户可跳转 `/credits#redeem=<encoded key>`；匿名用户先复制卡密并登录，登录后积分页会从同一标签页的 `sessionStorage` 恢复待兑换卡密。
+- 分享页返回 `Cache-Control: no-store`、`Referrer-Policy: no-referrer`、`X-Robots-Tag: noindex, nofollow`。
+
 ## 前端消费契约
 
 - `credits.html` 提供兑换区、购卡卡、已购卡密表、管理员发卡区；管理员区只在 `role_admin()` 时渲染。
 - `credits.js` 使用统一 `unwrapStrict` 解析 `Result`；导出走独立 blob 路径，不按 JSON 解包。
+- 已购/管理员卡密操作分为「复制卡密」和「复制并分享」：前者复制原始卡密，后者复制分享链接。
 - 复制优先 `navigator.clipboard.writeText`，失败回退隐藏 textarea + `execCommand('copy')`，两条路径失败都要给用户可见提示。
 - 卡密文本使用等宽字体，不渲染二维码或图片。
 - `CARD_REDEEM` 在积分明细显示「积分卡兑换」，并计入 INCOME 方向。
