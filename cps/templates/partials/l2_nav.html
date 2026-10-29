@@ -6,7 +6,6 @@
      aria-label="{{ '账号导航' if current_domain == 'account' else '管理导航' }}">
   <div class="mb-l2-nav-title">
     <span class="mb-l2-nav-domain">{{ '账号' if current_domain == 'account' else '管理' }}</span>
-    <span class="mb-l2-nav-hint">L2</span>
   </div>
   <div class="mb-l2-groups">
     {% for group_label, items in l2_groups %}

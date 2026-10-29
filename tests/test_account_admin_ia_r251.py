@@ -1,5 +1,6 @@
 """R251: account/admin L2 navigation and task-page boundaries."""
 
+import re
 from pathlib import Path
 
 import pytest
@@ -95,6 +96,11 @@ def test_account_pages_are_split_by_user_task(admin_client):
     me_html = me.data.decode("utf-8")
     for moved in ("difficulty", "vt-root", "reading-theme", "me-export-page"):
         assert 'id="{}"'.format(moved) not in me_html
+    assert "mb-l2-nav-hint" not in me_html
+    assert '<span class="mb-l2-nav-domain">账号</span>' in me_html
+    assert "阅读难度、词汇量测试与阅读主题见" not in me_html
+    assert 'class="me-account-facts"' in me_html
+    assert 'class="dl-horizontal"' not in me_html
     assert 'id="account-profile"\n           class="mb-l2-link active"' in me_html
 
     reading = admin_client.get("/reading/settings")
@@ -153,6 +159,22 @@ def test_user_and_admin_credit_pages_are_physically_separate(
 def test_magicbook_admin_tools_are_owned_by_admin_domain():
     for path in ("/translate-all", "/word-detail-batch", "/llm-tasks"):
         assert nav_domain(path, "") == "admin"
+
+
+def test_l2_header_has_no_debug_style_level_badge(admin_client):
+    for path in ("/me", "/admin/credits"):
+        body = admin_client.get(path).data.decode("utf-8")
+        assert 'class="mb-l2-nav-hint"' not in body
+        assert ">L2</span>" not in body
+
+
+def test_account_identity_facts_are_left_aligned_at_14px():
+    css = (ROOT / "cps" / "static" / "css" / "magicbook.css").read_text(encoding="utf-8")
+    block = re.search(r"#me-account \.me-account-facts \{(.*?)\}", css, re.S).group(1)
+
+    assert "font-size: 14px;" in block
+    assert "text-align: left;" in block
+    assert "grid-template-columns: max-content minmax(0, 1fr);" in block
 
 
 def test_word_detail_batch_admin_entry_has_a_book_picker_landing(admin_client):
