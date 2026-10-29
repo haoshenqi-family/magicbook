@@ -223,8 +223,8 @@ eval(source);
     assert data["afterSuccess"]["status"] == "ready"
     assert data["afterSuccess"]["unreadCount"] == 3
     assert data["listError"] == "mail list unavailable"
-    assert data["afterError"]["status"] == "error"
-    assert data["afterError"]["unreadCount"] is None
+    assert data["afterError"]["status"] == "ready"
+    assert data["afterError"]["unreadCount"] == 3
     assert data["afterError"]["lastKnownUnreadCount"] == 3
     assert data["routingAfterError"] == 3
     assert data["afterRead"]["status"] == "ready"

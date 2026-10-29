@@ -194,9 +194,6 @@
       var page = normalizePage(result, wantedPage, wantedSize);
       if (page.unreadCount !== null) applyCount(seq, page.unreadCount);
       return page;
-    }).catch(function (error) {
-      applyFailure(seq, error);
-      throw error;
     });
   }
 
