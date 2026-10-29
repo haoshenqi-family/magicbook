@@ -1,6 +1,6 @@
 # HLD — R250 管理员运营站内信后台（magicbook）
 
-> 状态：**开发完成待验收**（2026-10-29）
+> 状态：**已上线待验收**（2026-10-29）
 > 关联：moon-well R230 · 迭代 `1.0` · 需求基线 [`companion requirements`](../../../../product/companion/requirements.md) §3
 
 ## 1. 目标

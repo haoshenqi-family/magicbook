@@ -1,6 +1,6 @@
 # companion / admin-mail · 实现说明
 
-> 状态：magicbook 后台已实现（R250，2026-10-29），moon-well R230 提供运营发信事实与批次审计；整体待验收。
+> 状态：magicbook 后台已上线待验收（R250，2026-10-29），moon-well R230 提供运营发信事实与批次审计。
 
 ## 代码落位
 
