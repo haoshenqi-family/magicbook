@@ -69,6 +69,37 @@
 - 只有正数 `amount` 可同时发送到账通知；`notify=true` 且 `amount<=0` 由 moon-well 拒绝。
 - 代理不拆 payload，新增字段与既有字段一起原样透传；成功后响应形态保持不变。
 
+## 积分页分区与活动发布（R245）
+
+### 页面结构
+
+- 一级页签固定为：`充值`、`积分卡`、`明细`、`管理`；前三项对所有登录用户可见，`管理` 只在 `current_user.role_admin()` 时渲染。
+- 余额 Hero 的「充值 / 积分卡 / 明细」按钮只切换页签并滚动到对应面板，不新增页面或路由。
+- `积分卡` 页签内按任务拆为卡密兑换、购卡赠送、已购卡密三块。
+- `管理` 页签内再分 `积分调整`、`充值活动`、`批量发卡` 三个子页签；默认只展开积分调整。
+- 分享链接带 `#redeem=` 或登录前暂存卡密时，页面自动切到 `积分卡` 页签并填入兑换框。
+
+### 充值活动发布
+
+| magicbook 端点 | moon-well 端点 | 方法 | 门禁 |
+| --- | --- | --- | --- |
+| `/ajax/credit/admin-promotion-create` | `/credit/admin/promotion/create` | POST | 本仓 `role_admin()` + moon-well 白名单二次校验 |
+| `/ajax/credit/admin-promotion-list` | `/credit/admin/promotion/list` | POST | 同上 |
+
+发布请求仍为：
+
+```json
+{
+  "startTime": "2026-10-29 00:00:00",
+  "endTime": "2026-12-31 23:59:59",
+  "multiplier": 10
+}
+```
+
+- 浏览器 `datetime-local` 的 `YYYY-MM-DDTHH:mm[:ss]` 在提交前只替换 `T` 为空格并补足秒，不做时区换算；保留管理员看到的东八区墙上时间。
+- moon-well R229 同时在 DTO 字段级兼容 ISO 与空格格式，作为部署顺序错位的兜底。
+- 发布成功或失败都写在 `#credit-promo-feedback` 行内状态区；失败必须显示上游 `message`，不再用 `alert`。
+
 ### 分享链接
 
 - 分享页：`GET /credit-card/share`，公开访问，不需要登录。
@@ -104,6 +135,7 @@
 ## 相关文档
 
 - 用户手册：[credit](../readme/credit.md)
+- 页面分区实现：[page-layout](features/page-layout.md)
 - 本功能实现：[credit-card](features/credit-card.md)
 - 管理员通知实现：[admin-notification](features/admin-notification.md)
 - 本次迭代：[2026-10-credit-card](../../project/iterations/2026-10-credit-card/credit-card/lld.md)

@@ -2,6 +2,7 @@
 
 ## 能做什么
 
+- **按任务分区浏览**：积分页先展示余额和「充值 / 积分卡 / 明细」快捷入口，下方按任务使用四个页签；管理员额外看到「管理」页签，管理内再分「积分调整 / 充值活动 / 批量发卡」。同一时刻只展开一个任务区，避免充值、卡密、流水和管理表单堆在同一屏。
 - **积分账户**：查看余额、累计发放/消耗；AI 功能按 token 用量扣积分（1 千 token = 10 积分）。
 - **积分明细**：获取与消耗统一列表（充值/赠送/AI 功能名/模型/日期筛选），汇总占比一目了然。
 - **积分充值**：支付宝当面付扫码充值（档位可选），下单→扫码→轮询自动开通。R205 起档位基础兑换率为 10 元=1000 / 99 元=2 万 / 999 元=50 万积分；**限时倍率活动**期间按倍率加成（当前内测 ×10），卡片显示「内测 ×N」角标、划线基础到账（如「50万 积分」）与倒计时。
@@ -19,6 +20,7 @@
 ## 深入阅读
 
 - L2 接口说明：[credit/interface.md](../credit/interface.md)
+- L3：[积分页分区与明细可读性](../credit/features/page-layout.md)（页签结构、活动时间提交、明细高对比样式）
 - L3：[管理员积分到账通知](../credit/features/admin-notification.md)（表单联动、payload 与失败边界）
 - L3 实现说明：[credit/features/credit-card.md](../credit/features/credit-card.md)
 - 历史设计（`docs/project/_legacy/feat/`）：[订阅与充值页](../../project/_legacy/feat/subscription-page/design/lld.md)

@@ -74,24 +74,11 @@
 - `response-archive/response-R239.md`：R239 全文单词详解预览屈折词覆盖漏算（2026-10-29 R250 / R252 合并后窗口达 11 节，原样搬移不改写）。
 - `response-archive/response-R244.md`：R244 伙伴动效——隐藏消失动画（金光消散）+ 收信动画（站内信预留钩子，纯 CSS）（2026-10-29 R250 / R252 合并后窗口达 11 节，原样搬移不改写）。
 - `response-archive/response-R242.md`：R242 积分卡购买、兑换与管理员发卡入口（2026-10-29 R251 写入触发轮转搬移，原样搬移不改写）。
+- `response-archive/response-R241.md`：R241 整本能力缓存齐备标识（2026-10-29 R245 写入触发轮转搬移，原样搬移不改写）。
 
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事） · [response-R238.md](response-archive/response-R238.md)（2026-10-29 R250 / R252 并行写入轮转，原样搬移不改写） · [response-R239.md](response-archive/response-R239.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R244.md](response-archive/response-R244.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转）
-
-## 2026-10-29（R241：整本能力缓存齐备标识——三项缓存都备齐时告诉读者「这本书学起来便宜」）
-
-### R241（用户：「magicbook 增加一个功能，如果整本翻译，整本朗读，全文单词详解 都已经有缓存了，则每个都有一个特殊的标识，让用户知道这本书可以较为便宜的学习了。」）
-
-- **任务定位**：需求（用户可见能力新增），单仓（magicbook）、moon-well 零改动、无新接口、无数据库迁移。
-- **交付**：书籍详情页（含书卡点开的详情弹层）在难度标签之后给出缓存齐备信息——整本翻译 / 整本朗读 / 全文单词详解各一枚分项小标（哪项备齐亮哪项，悬停给出 `n/m` 与计费口径），三项齐备时追加「低成本学习」总标；整本任务面板的三个页签在对应缓存备齐时挂「已缓存」小标（同一份快照）。标识面向**普通读者**（`role_viewer()`），三个整本入口仍只给管理员（R214 拍板①不变）。
-- **判定口径**：取本仓三条整本链路台账 `reading_translation_job` / `reading_tts_job` / `reading_word_detail_job`，要求 `status=COMPLETED` + 跑满（`completed_count/done_count/covered_words` 达到总量）+ `book_fingerprint` 与当前正文一致 + `book_format` 一致（SQL 侧 `lower()` 兜住大小写）；零上游调用、零 EPUB 解析。实现 `cps/reading_insight/readiness.py::book_readiness()`，`show_book` 注入 `entry.cache_readiness` 并复用速览 payload 已算好的指纹（不重复取书/stat）。
-- **已知边界（已写入 LLD §3 / L3）**：① 不是实时探测，缓存被上游清掉会滞后；② 翻译与详解的 `COMPLETED` 依赖整本面板/批量进度页轮询时做缓存懒回收（R78 起不做常驻轮询），点完立刻关页面且之后不再打开的书会暂不亮标；③ 只认本仓发起过的整本批次；④ 归档书不亮标；⑤ 详解小标的计数是「本次补缺词数」，悬停改用全书去重词数表述。
-- **测试**：新增 `tests/test_cache_readiness.py` **18 passed**（判定 15 条 + 面板真渲染 1 条 + 结构守卫 2 条）；定向回归 `test_book_detail_r214` / `r222` / `test_book_insight` / `test_i18n_seed_contract` / `test_job_service_base` / `test_reading_translation*` / `test_translate_all_r77` / `test_translate_concurrency_r78` / `test_word_detail_batch_r176` / `test_common_api_contract` 合计 **157 passed / 0 failed**。交叉审查（correctness reviewer）5 条发现已逐条处置：计数口径、归档书、重复取书/查询下推、大小写与未收敛边界补测。
-- **文档**：LLD `docs/project/iterations/1.0/r241-cache-ready-badge/lld.md`（状态＝开发完成待验收）、L3 `docs/product/library/features/cache-ready-badge.md`（新建）、L1 `docs/product/readme/library.md`、需求基线 `docs/product/library/requirements.md` §R241、`docs/product/REQUIREMENTS.md` 变更记录、迭代 `plan.md`。
-- **上线**：实现提交 `7d837dc8`，合并后 `f10d543d` 已推 `origin/develop`，fnOS 构建链自动部署（本次非纯文档 push）。**真机验收点**：找一本三项都跑满的书，详情页应出现「低成本学习」+ 三枚分项；只跑满一两项时只亮对应分项；普通读者账号可见、整本任务按钮仍仅管理员；从未跑过整本任务的书无标识且页面无报错。
-- **worktree 驻留登记**：`../magicbook-r241-cache-ready-badge`（分支 `feat/r241-cache-ready-badge`，从 `origin/develop` 切出）按闸门保留待验收，验收通过后删除。
-- **台账总结**：`requests.md` R241 已于开工时占号（`c16f1318`）；本条为 `response.md` 新增；同轮把最旧的 R230 一节原样搬入 `response-archive/response-R230.md` 维持 10 节窗口。
 
 ## 2026-10-29（R243：站内信前端——伙伴信封、抽屉 Mail、设置入口与独立收件箱）
 
@@ -228,3 +215,18 @@
 - **文档四问**：能力 → L1 `docs/product/readme/library.md` 新增界面导航；契约 → 无 HTTP 契约变化；实现/边界 → 新建 L3 `docs/product/library/features/ui-information-architecture.md`；本次实现 → `docs/project/iterations/1.0/r251-ui-ia/lld.md` 与 `ac/acceptance.md`。需求基线、产品需求总册、迭代 plan、requests 与 response 均已回填。长期经验教训沉淀到 `docs/kb/instructions/coding/ui-information-architecture.md`，后续 UI 任务按其中的分域、唯一主入口、安全兜底、最小侵入、active 与响应式清单评审。
 - **状态与驻留**：当前开发完成待验收；实现提交 `1910fce7`，已合并最新 `origin/develop`。worktree `../magicbook-r251-ui-ia`（分支 `feat/r251-ui-ia`）保留待用户验收，后续发布状态与生产验证在本节回填。
 - **窗口与总结**：写入前 9 节，新增后为 10 节；为保证“窗口最多 10 节”，本轮已把最旧 R242 整节原样搬至 `response-archive/response-R242.md` 并登记索引。requests.md 条目 251 已从占位回填；冲突记录：无撞号；R213 的旧 schema 待定项按展示层方案收敛，不改写 R213 历史正文。
+
+## 2026-10-29（R245：积分页按任务分区、充值活动发布 400 与明细可读性修复）
+
+### R245（用户：「积分充值活动，点击发布报错，400 请求体格式错误。积分页功能太多，堆砌太杂乱了。按照具体的小功能且分优化一下。」；后续补：「积分消耗明细项颜色和背景色几乎一样，根本看不出来」）
+
+- **任务定位**：缺陷修复 + 修改意见，承接 R205 充值倍率活动 / R209 充值页；前端主责 magicbook R245，后端同源 moon-well R229。不是新功能域。PingCode：需求 MB-235（`Nal8mNRY`）、缺陷 MB-21（`xn-uxsjb`）。
+- **400 根因**：浏览器 `datetime-local` 提交 `2026-10-29T00:00:00`，moon-well 全局 Jackson 只接受 `yyyy-MM-dd HH:mm:ss`，DTO 反序列化在 Controller 前失败并映射为「请求体格式错误」。前端现由 `promotionWireTime()` 只替换 `T`、缺秒补 `00`，不 `new Date()`，不改变东八区墙上时间；moon-well R229 同时在两个 DTO 字段上兼容 ISO/空格/分钟级格式，部署顺序不再触发 400。
+- **发布反馈**：活动提交改用共享 `ajax()` + `unwrapStrict()`，成功/失败写入 `#credit-promo-feedback`；失败显示上游 `message` 并保留表单值，不再用 `alert`；成功后刷新活动列表与充值档位。
+- **页面分区**：余额 Hero + `充值 / 积分卡 / 明细 / 管理` 四个任务页签；管理只在管理员侧渲染，内部再分 `积分调整 / 充值活动 / 批量发卡`；积分卡页拆为兑换、购卡赠送、已购卡密。余额快捷按钮只切页签，分享卡密进入页面时自动切到积分卡。
+- **明细可读性**：去掉金额内联颜色，新增 `.credit-amount.income/consume`；获取徽标改深绿字 + 浅绿底 + 边框，消耗徽标改深褐字 + `#f3cf7a` 琥珀底 + 深琥珀边框，金额均加粗。普通行与 Bootstrap 条纹行都不再出现浅棕字贴在浅黄/浅灰底上的低对比问题。
+- **测试**：`tests/test_credit_page_r245.py` 新增 4 条结构/提交/颜色守卫；合并最新基线后定向 `test_credit_page_r245 + test_credit_card + test_credit_consume + test_i18n_seed_contract` 合计 **33 passed / 0 failed**；`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。
+- **文档四问**：能力 → L1 `docs/product/readme/credit.md`；契约/页面消费 → L2 `docs/product/credit/interface.md`；实现边界 → 新建 L3 `docs/product/credit/features/page-layout.md`；本次实现 → `docs/project/iterations/1.0/r245-credit-page-redesign/lld.md` 与 `ac/acceptance.md`；需求基线、产品需求总册和迭代 plan 已回填。
+- **i18n**：R245 新增模板词条已合并进 `zh_Hans_CN/messages.po`；最新基线带来 `.mo` 二进制冲突，按正确姿势从合并后的 PO 重新 `pybabel compile`，没有用 ours/theirs 二选一。
+- **状态与驻留**：**开发完成待验收，尚未 push/merge**。worktree `../magicbook-r245-credit-page-redesign`（分支 `fix/r245-credit-page-redesign`）驻留；实现 `39135634`、明细可读性 `0cc8a0dc`、最新基线合并 `0b9dd082`。push 会触发 fnOS 构建与部署，等用户明确指令。
+- **窗口与总结**：写入前 10 节，新增后 11 节；按“写入即检查”把最旧 R241 整节原样搬至 `response-archive/response-R241.md` 并登记索引，窗口恢复 10。requests.md 条目 245 已从占位回填；冲突记录：无撞号，R251 基线合并仅 `.mo` 产物冲突。

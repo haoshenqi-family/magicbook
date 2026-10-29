@@ -266,7 +266,7 @@
 
 244. **伙伴动效：隐藏消失动画（金光消散）+ 收信动画（站内信预留钩子，纯CSS）**（2026-10-28）：用户「伙伴增加一个消失的动画和一个收到信件的动画」。拍板 1B（点悬浮球隐藏 ✕→金光消散收起→右缘唤回药丸，可逆、跨页记忆）；2 收信为后续站内信（R243）预留，本轮只交展示层 + `window.AICompanion.showLetter()`/`mb:buddy-letter` 钩子，不接数据源；3 纯 CSS + 一点金光、零新素材。复用 `_('Close')`/`_('AI Companion')` 不新增 msgid。见 response.md R244 与 iterations/1.0/r244-buddy-animations/lld.md。
 
-245. **积分页按功能分区重构与充值活动发布 400 修复（前端）**（占号 2026-10-29，待回填）
+245. **积分页按功能分区重构与充值活动发布 400 修复（前端）**（占号 2026-10-29）：用户原话「积分充值活动，点击发布报错，400 请求体格式错误。积分页功能太多，堆砌太杂乱了。按照具体的小功能且分优化一下。」后续补充「积分消耗明细项颜色和背景色几乎一样，根本看不出来」。本仓交付：积分页改为余额 Hero + 充值/积分卡/明细/管理四个任务页签；管理内再分积分调整/充值活动/批量发卡，卡密内分兑换/购卡赠送/已购卡密；分享卡密自动切到积分卡；活动发布前把 `datetime-local` 的 ISO 值规范为 `yyyy-MM-dd HH:mm:ss`，结果改行内反馈；明细获取/消耗徽标与金额改用高对比语义类，去掉浅色内联样式。跨仓 moon-well R229 在 DTO 字段级兼容 ISO/空格格式，不改全局 Jackson。PingCode：需求 MB-235（`Nal8mNRY`）、缺陷 MB-21（`xn-uxsjb`）。状态：**开发完成待验收**（worktree `../magicbook-r245-credit-page-redesign`，分支 `fix/r245-credit-page-redesign`；本地实现 `39135634` + 可读性修复 `0cc8a0dc`，尚未 push）。
 
 246. **R214 验收缺陷：整本任务进度条补充任务类型标识**（占号 2026-10-29）：用户原话「进度条什么都不显示，不知道是哪个任务的进度条」。定性：R214 子项 C 的进度标题复用按钮文案 `t('start-' + kind)`，而详解 kind 为 camelCase `wordDetail`、HTML 属性名解析后为小写 `worddetail`，导致标题取空；即使补齐小写，按钮动作「打开详解页面」也不是任务名。修复：模板新增 `data-t-progress-kind-{translate,tts,worddetail}` 与四种状态句式，`renderProgress()` 先小写化 kind，再渲染「全文单词详解 · 进行中」等标题，并为缺键保留回退，避免再次空白；不改三条整本 job 的接口、轮询、缓存或计费。守卫 `test_progress_title_names_task_and_status` 钉住任务名、状态句式、小写化与回退。状态：**开发完成待验收**（worktree `../magicbook-r246-wholebook-progress-label`，分支 `fix/r246-wholebook-progress-label`；挂 R214 修复不建独立 idea）。
 
