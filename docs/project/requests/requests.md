@@ -271,3 +271,5 @@
 246. **R214 验收缺陷：整本任务进度条补充任务类型标识**（占号 2026-10-29）：用户原话「进度条什么都不显示，不知道是哪个任务的进度条」。定性：R214 子项 C 的进度标题复用按钮文案 `t('start-' + kind)`，而详解 kind 为 camelCase `wordDetail`、HTML 属性名解析后为小写 `worddetail`，导致标题取空；即使补齐小写，按钮动作「打开详解页面」也不是任务名。修复：模板新增 `data-t-progress-kind-{translate,tts,worddetail}` 与四种状态句式，`renderProgress()` 先小写化 kind，再渲染「全文单词详解 · 进行中」等标题，并为缺键保留回退，避免再次空白；不改三条整本 job 的接口、轮询、缓存或计费。守卫 `test_progress_title_names_task_and_status` 钉住任务名、状态句式、小写化与回退。状态：**开发完成待验收**（worktree `../magicbook-r246-wholebook-progress-label`，分支 `fix/r246-wholebook-progress-label`；挂 R214 修复不建独立 idea）。
 
 247. **修复归档书籍内容速览误报 book is unavailable**（占号 2026-10-29）：用户反馈归档书 `/book/145` 显示「内容速览解析失败：book is unavailable」。定性：详情页允许查看归档书，但内容速览复用整本任务的默认取书过滤，影响所有归档 EPUB。修复：`JobServiceBase._book_file()` 新增可选 `allow_show_archived`（默认 false），仅内容速览入口显式允许归档；三条整本任务边界不变。新增归档速览成功与整本任务默认过滤两条回归，相关 174 passed。文档：L1/L3、R214 需求基线、LLD §19、AC B9、迭代 plan。状态：**开发完成待验收**（worktree `../magicbook-r247-archived-insight`，分支 `fix/r247-archived-insight`；挂 R214 修复不建独立 idea）。
+
+248. **整本任务进度条只在书籍详情页显示**（占号 2026-10-29，待回填）
