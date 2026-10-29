@@ -4057,8 +4057,8 @@ msgid "Learn magicbook in 2 minutes"
 msgstr "花 2 分钟学会 magicbook"
 
 msgid ""
-"Take a quick tour of finding books, shelves, reading and the AI companion — "
-"on the real interface."
+"Take a quick tour of finding books, shelves, reading and the AI companion"
+" — on the real interface."
 msgstr "快速走一遍找书、书架、阅读和 AI 伴读——就在真实界面上。"
 
 msgid "Learning profile unavailable: "
@@ -4164,8 +4164,8 @@ msgid "Onboarding Tour"
 msgstr "使用引导"
 
 msgid ""
-"Use the “Onboarding Tour” button at the bottom-right any time to replay the "
-"tour."
+"Use the “Onboarding Tour” button at the bottom-right any time to replay "
+"the tour."
 msgstr "随时点右下角「使用引导」重看本段导览。"
 
 msgid ""
@@ -4651,20 +4651,25 @@ msgstr "难度等级已更新"
 msgid "Apply failed, please try again."
 msgstr "应用失败，请重试。"
 
-
-msgid "AI is generating… (first lookup takes 15-30s, the panel stays open and shows the result automatically)"
+msgid ""
+"AI is generating… (first lookup takes 15-30s, the panel stays open and "
+"shows the result automatically)"
 msgstr "AI 正常生成中…（首次查询约 15~30 秒，面板保持打开并自动显示结果）"
 
 # R126 LLM 任务手动执行面板（llm_tasks.html + 导航 Task Runner）
-
 msgid "Task Runner"
 msgstr "任务执行"
 
 msgid "LLM Task Runner"
 msgstr "LLM 任务执行"
 
-msgid "Manually consume the moon-well LLM task queue: pick a provider, a model, the concurrency and the per-batch limit, then start. The batch runs inside moon-well and stops itself when the limit is reached."
-msgstr "手动消费 moon-well 的 LLM 任务队列：选择供应商、模型、并发数与本批处理上限后开始。批次在 moon-well 进程内执行，达到上限自动结束。"
+msgid ""
+"Manually consume the moon-well LLM task queue: pick a provider, a model, "
+"the concurrency and the per-batch limit, then start. The batch runs "
+"inside moon-well and stops itself when the limit is reached."
+msgstr ""
+"手动消费 moon-well 的 LLM 任务队列：选择供应商、模型、并发数与本批处理上限后开始。批次在 moon-well "
+"进程内执行，达到上限自动结束。"
 
 msgid "Provider"
 msgstr "供应商"
@@ -4675,7 +4680,9 @@ msgstr "模型"
 msgid "async tier (configured default)"
 msgstr "异步档（配置默认值）"
 
-msgid "Leave empty to use the provider async tier. Any model name can be typed in, because the provider model list is not reliable."
+msgid ""
+"Leave empty to use the provider async tier. Any model name can be typed "
+"in, because the provider model list is not reliable."
 msgstr "留空即使用该供应商的异步档模型；模型名可手动填写，因为供应商返回的模型清单不可靠。"
 
 msgid "Caller filter"
@@ -4699,7 +4706,9 @@ msgstr "本批处理上限"
 msgid "Replay failed tasks once the pending queue drains"
 msgstr "待处理队列排空后重放失败任务"
 
-msgid "Only failed rows that never reached the model are eligible, so nothing is charged twice."
+msgid ""
+"Only failed rows that never reached the model are eligible, so nothing is"
+" charged twice."
 msgstr "只重放从未真正调用过模型的失败任务，避免重复计费。"
 
 msgid "Start Batch"
@@ -4763,7 +4772,6 @@ msgid "Stop requested"
 msgstr "已请求停止"
 
 # R126 审查修复补充（M3/S3 面板状态文案）
-
 msgid "Per-batch cap"
 msgstr "本批上限"
 
@@ -4782,9 +4790,10 @@ msgstr "moon-well 未配置任何可用供应商"
 msgid "moon-well does not expose these endpoints yet — it needs a new release."
 msgstr "moon-well 还没有这些接口，需要发新版本。"
 
-msgid "Batches started from this panel are not charged to your credits, but they do consume real model quota."
+msgid ""
+"Batches started from this panel are not charged to your credits, but they"
+" do consume real model quota."
 msgstr "从这里启动的批次不扣积分，但会真实消耗模型配额。"
-
 
 # R132: learning 页（每日学习 / SRS 复习 / 难度匹配）
 msgid "Reading input"
@@ -4880,7 +4889,10 @@ msgstr "7 天保持率"
 msgid "Review Queue"
 msgstr "复习队列"
 
-msgid "Words you marked as unknown while reading come back here on a spaced schedule. Rate each word from \"forgot\" to \"easy\" — the algorithm decides when to show it again."
+msgid ""
+"Words you marked as unknown while reading come back here on a spaced "
+"schedule. Rate each word from \"forgot\" to \"easy\" — the algorithm "
+"decides when to show it again."
 msgstr "阅读时标记的生词会按间隔重复的计划回到这里。对每个词自评「忘记了」到「很轻松」——下次什么时候见由算法安排。"
 
 msgid "Nothing due right now. Keep reading — new words will find their way here."
@@ -4907,9 +4919,11 @@ msgstr "很轻松"
 msgid "Book Difficulty Match"
 msgstr "选书难度匹配"
 
-msgid "Estimated unknown-word density per book, based on your vocabulary. Two to eight unknown words in every hundred is the sweet spot for comfortable reading."
+msgid ""
+"Estimated unknown-word density per book, based on your vocabulary. Two to"
+" eight unknown words in every hundred is the sweet spot for comfortable "
+"reading."
 msgstr "按你的词汇量估算每本书的生词密度。每一百个词里有二到八个生词的书读起来最舒服。"
-
 
 msgid "Type the word from its meaning"
 msgstr "根据释义输入单词"
@@ -4926,9 +4940,6 @@ msgstr "下面哪个词和它的意思最接近？"
 msgid "Correct spelling: {{word}}"
 msgstr "正确拼写：{{word}}"
 
-msgid "Vocabulary"
-msgstr "词汇量"
-
 msgid "Recommended shelf"
 msgstr "推荐书架"
 
@@ -4941,15 +4952,18 @@ msgstr "先完成词汇量测试，按你的量级选书架。"
 msgid "No graded books on this shelf yet."
 msgstr "这个书架暂时没有分级藏书。"
 
+#, python-brace-format
 msgid "Estimating unknown words in {n} books…"
 msgstr "正在估算 {n} 本书的生词量…"
 
-msgid "Books are shelved into six graded stages. We pick the shelf matching your vocabulary size, then estimate unknown-word density per book — two to eight unknown words in every hundred is the sweet spot for comfortable reading."
+msgid ""
+"Books are shelved into six graded stages. We pick the shelf matching your"
+" vocabulary size, then estimate unknown-word density per book — two to "
+"eight unknown words in every hundred is the sweet spot for comfortable "
+"reading."
 msgstr "藏书按六级分阶上架。系统先按你的词汇量选定书架阶，再逐本估算生词密度——每百词 2-8 个生词是舒适阅读的黄金区。"
 
-
 # --- R152 说与写页（speaking_writing）---
-
 msgid "AI Speaking Coach"
 msgstr "AI 口语陪练"
 
@@ -5019,7 +5033,9 @@ msgstr "词汇多样性"
 msgid "Loading"
 msgstr "加载中"
 
-msgid "Meaning-focused output: write with feedback, talk with a coach, retell what you read. Every action counts into your daily strands."
+msgid ""
+"Meaning-focused output: write with feedback, talk with a coach, retell "
+"what you read. Every action counts into your daily strands."
 msgstr "意义聚焦的输出：写作有批改、口语有陪练、读完做复述。每次练习都计入每日四股。"
 
 msgid "New drill"
@@ -5034,7 +5050,10 @@ msgstr "粘贴一段你读过的英文"
 msgid "Retell Drill (4-3-2)"
 msgstr "复述训练（4-3-2）"
 
-msgid "Retell the same passage three times with shorter time limits (4-3-2 minutes). Repeating under time pressure is a proven fluency drill. Paste a paragraph you have read."
+msgid ""
+"Retell the same passage three times with shorter time limits (4-3-2 "
+"minutes). Repeating under time pressure is a proven fluency drill. Paste "
+"a paragraph you have read."
 msgstr "把同一段落用递减的时限复述三遍（4-3-2 分钟）。时间压力下的重复是经过验证的流利度训练。粘贴一段你读过的英文。"
 
 msgid "Reviewing…"
@@ -5112,7 +5131,9 @@ msgstr "训练总结"
 msgid "Travelling"
 msgstr "旅行出行"
 
-msgid "Type what you said (as close to verbatim as you can), then submit the round."
+msgid ""
+"Type what you said (as close to verbatim as you can), then submit the "
+"round."
 msgstr "尽量逐字打出你说的内容，然后提交本轮。"
 
 msgid "Type what you said first"
@@ -5181,9 +5202,7 @@ msgstr "轮"
 msgid "words"
 msgstr "词"
 
-
 # --- R153 计时重读/听写/周视图/coach 朗读 ---
-
 msgid "Accuracy"
 msgstr "正确率"
 
@@ -5280,9 +5299,7 @@ msgstr "朗读音频不可用"
 msgid "Browser blocked auto-play, interact with the page first"
 msgstr "浏览器拦截了自动播放，请先与页面交互"
 
-
 # --- R155 语音输入 ---
-
 msgid "Record voice"
 msgstr "录音"
 
@@ -5301,9 +5318,7 @@ msgstr "录音太短，请重试"
 msgid "No speech detected"
 msgstr "没有识别到语音"
 
-
 # --- R156 麦克风按钮可用性 ---
-
 msgid "Voice input"
 msgstr "语音输入"
 
@@ -5313,18 +5328,19 @@ msgstr "录音中 {{t}} · 再点停止"
 msgid "click to stop"
 msgstr "再点停止"
 
-msgid "Voice input: click the mic, speak, then click again — the transcript fills the input box for you to review before sending. First use asks for microphone permission."
+msgid ""
+"Voice input: click the mic, speak, then click again — the transcript "
+"fills the input box for you to review before sending. First use asks for "
+"microphone permission."
 msgstr "语音输入：点麦克风开始说话，再点一次停止并转写；识别结果会回填输入框，确认或修改后发送。首次使用会请求麦克风权限。"
 
-
 # --- R159 静音检测 ---
-
-msgid "Microphone captured no sound — check the system input device or mute switch"
+msgid ""
+"Microphone captured no sound — check the system input device or mute "
+"switch"
 msgstr "麦克风没有采集到声音——请检查系统输入设备选择或静音开关后重试"
 
-
 # --- R160 麦克风设备选择 ---
-
 msgid "Microphone device"
 msgstr "麦克风设备"
 
@@ -5355,25 +5371,53 @@ msgstr "词汇学习股 · 每天 20 张卡，可继续加练"
 msgid "Reading input strand · choose your next book"
 msgstr "阅读输入股 · 挑下一本读什么"
 
-msgid "Write freely or on an A2-C1 task tied to the book you are reading. The AI returns an overall comment, sentence-by-sentence notes, native upgrades and four scores; revise and submit again to see your progress."
-msgstr "自由写作，或让 AI 按 A2–C1 出与你在读书籍相关的题目。提交后给出总体评价、逐句点评、「母语者会怎么写」的升级表达和四维评分；按批改修订后再交一次就能看到进步。"
+msgid ""
+"Write freely or on an A2-C1 task tied to the book you are reading. The AI"
+" returns an overall comment, sentence-by-sentence notes, native upgrades "
+"and four scores; revise and submit again to see your progress."
+msgstr ""
+"自由写作，或让 AI 按 A2–C1 "
+"出与你在读书籍相关的题目。提交后给出总体评价、逐句点评、「母语者会怎么写」的升级表达和四维评分；按批改修订后再交一次就能看到进步。"
 
-msgid "Pick a scene — coffee shop, interview, travel, small talk or the book you are reading — and start chatting. The coach responds to your meaning first, then encourages, corrects and offers a more idiomatic phrasing. Voice input included."
+msgid ""
+"Pick a scene — coffee shop, interview, travel, small talk or the book you"
+" are reading — and start chatting. The coach responds to your meaning "
+"first, then encourages, corrects and offers a more idiomatic phrasing. "
+"Voice input included."
 msgstr "选一个场景——咖啡店点单、面试、旅行、日常闲聊或聊你在读的书——直接开聊。教练先回应你说的内容，再鼓励、纠错，并给出更地道的说法；支持语音输入。"
 
-msgid "Retell the same paragraph three times while the time limit shrinks from four minutes to three and then two. Speaking against a shrinking clock is the classic fluency drill; each round is scored for speed, filler words and lexical variety."
+msgid ""
+"Retell the same paragraph three times while the time limit shrinks from "
+"four minutes to three and then two. Speaking against a shrinking clock is"
+" the classic fluency drill; each round is scored for speed, filler words "
+"and lexical variety."
 msgstr "同一段落复述三遍，时限从 4 分钟压到 3 分钟再到 2 分钟。顶着越来越短的时钟开口是最经典的流利度训练；每一轮都会统计语速、填充词和词汇多样性。"
 
-msgid "Read one paragraph aloud three times against the timer. Same words, rising speed — the measured words-per-minute curve is the clearest evidence that fluency comes from repetition, not talent. Paragraphs carrying your due words can be recommended."
+msgid ""
+"Read one paragraph aloud three times against the timer. Same words, "
+"rising speed — the measured words-per-minute curve is the clearest "
+"evidence that fluency comes from repetition, not talent. Paragraphs "
+"carrying your due words can be recommended."
 msgstr "掐着表把同一段落朗读三遍。同样的词、越来越快的速度——实测的每分钟词数曲线最能说明流利度来自重复而非天赋。也可以让系统推荐含你到期词的段落。"
 
-msgid "Play a paragraph and type exactly what you hear, as many times as you need. Your answer is diffed word by word — right, wrong, missing, extra — and the words you missed can go straight into the review queue."
+msgid ""
+"Play a paragraph and type exactly what you hear, as many times as you "
+"need. Your answer is diffed word by word — right, wrong, missing, extra —"
+" and the words you missed can go straight into the review queue."
 msgstr "播放段落，把听到的内容逐字打出来，需要就反复听。提交后按词比对——对、错、漏、多——漏写和写错的词可以直接进复习队列。"
 
-msgid "Words you marked while reading come back one card at a time, scheduled to surface just as you are about to forget them. Choose, recall or spell, then rate yourself from forgot to easy — the algorithm decides the next visit."
+msgid ""
+"Words you marked while reading come back one card at a time, scheduled to"
+" surface just as you are about to forget them. Choose, recall or spell, "
+"then rate yourself from forgot to easy — the algorithm decides the next "
+"visit."
 msgstr "阅读时标记的生词会一张一张回到你面前，安排在你快要忘掉的那一刻出现。四选一、回想或拼写，再从「忘记」到「轻松」给自己打个分——下次什么时候再见由算法决定。"
 
-msgid "The library is shelved into six graded stages. We pick the shelf that fits your measured vocabulary, then estimate the unknown-word density of every book on it — two to eight unknown words in a hundred is the comfortable reading zone."
+msgid ""
+"The library is shelved into six graded stages. We pick the shelf that "
+"fits your measured vocabulary, then estimate the unknown-word density of "
+"every book on it — two to eight unknown words in a hundred is the "
+"comfortable reading zone."
 msgstr "书库按难度分成六个分级书架。系统先按你的实测词汇量选定书架，再逐本估算生词密度——每百词 2–8 个生词是最舒服的阅读区间。"
 
 msgid "Start practising"
@@ -5403,13 +5447,18 @@ msgstr "今日计划"
 msgid "This week by strand"
 msgstr "本周四股"
 
-msgid "Play a paragraph and type what you hear. The checker diffs your answer word by word; missed or wrong words can go straight into your review queue."
+msgid ""
+"Play a paragraph and type what you hear. The checker diffs your answer "
+"word by word; missed or wrong words can go straight into your review "
+"queue."
 msgstr "播放段落并打出你听到的内容。检查器会逐词比对答案；漏写或写错的词可以直接进复习队列。"
 
 msgid "Type what you hear, then check. Replay as many times as you need."
 msgstr "把听到的打出来再检查，可以反复播放。"
 
-msgid "Read the same paragraph aloud three times. The timer measures your speed (WPM); repetition builds fluency with words you already know."
+msgid ""
+"Read the same paragraph aloud three times. The timer measures your speed "
+"(WPM); repetition builds fluency with words you already know."
 msgstr "同一段落朗读三遍。计时器实测你的语速（WPM）；重复能让你已经认识的词变得流利。"
 
 msgid "Failed to load your plan — press retry."
@@ -5451,10 +5500,15 @@ msgstr "题目已载入——这一篇还没写过，直接在上面的编辑框
 msgid "Continue your last unfinished draft"
 msgstr "继续上次未完成的写作"
 
-msgid "Click a row to load that task back — its draft goes into the editor and the previous review opens below it."
+msgid ""
+"Click a row to load that task back — its draft goes into the editor and "
+"the previous review opens below it."
 msgstr "点任意一行即可把那个任务装回来：草稿正文进编辑框，上一次的批改结果在它下方展开。"
 
-msgid "Fix the flagged points in the editor above, then press the submit button again — it becomes “Submit revision” and returns a progress check against this draft."
+msgid ""
+"Fix the flagged points in the editor above, then press the submit button "
+"again — it becomes “Submit revision” and returns a progress check against"
+" this draft."
 msgstr "照着点评在上面编辑框里改，再按一次提交按钮——按钮会变成「提交修订稿」，返回与这一稿对比的进步确认。"
 
 msgid "Both drafts finished — this task can only be reviewed now."
@@ -5466,7 +5520,10 @@ msgstr "第 {{n}} 稿已批改。在上面改完再提交一次就是下一稿�
 msgid "Whole-book Word Details"
 msgstr "全文单词详解"
 
-msgid "Backfill only the words of this book that have no word detail yet. The first step is read-only: it counts the words and tells you how many would be generated. Nothing is queued until you press Start."
+msgid ""
+"Backfill only the words of this book that have no word detail yet. The "
+"first step is read-only: it counts the words and tells you how many would"
+" be generated. Nothing is queued until you press Start."
 msgstr "只给这本书补「还没有单词详解」的词。第一步是只读的：它统计正文词数并告诉你将要生成多少个，在你按「开始补缺」之前不会入队任何东西。"
 
 msgid "Loading preview…"
@@ -5514,10 +5571,14 @@ msgstr "失败批次"
 msgid "Queue word details for this book now?"
 msgstr "现在就把这本书的单词详解提交到任务队列？"
 
-msgid "Already-generated words and words still in the queue are skipped by the server."
+msgid ""
+"Already-generated words and words still in the queue are skipped by the "
+"server."
 msgstr "服务端会自动跳过「已生成」与「队列里还没跑完」的词，重复点不会二次计费。"
 
-msgid "Stop this batch? Tasks already queued will still be generated by the queue consumer."
+msgid ""
+"Stop this batch? Tasks already queued will still be generated by the "
+"queue consumer."
 msgstr "停止本批次？已经入队的任务仍会由队列消费者生成完毕。"
 
 msgid "Batch stopped: remaining batches will not be queued."
@@ -5529,10 +5590,13 @@ msgstr "第 {{n}} 稿已批改 · 可继续修订"
 msgid "Continue your last writing"
 msgstr "继续上次的写作"
 
-msgid "Fix the flagged points in the editor above, then press the submit button again — it becomes “Submit revision” and returns a progress check against your last draft. There is no limit on revisions."
+msgid ""
+"Fix the flagged points in the editor above, then press the submit button "
+"again — it becomes “Submit revision” and returns a progress check against"
+" your last draft. There is no limit on revisions."
 msgstr "照着点评在上面编辑框里改，再按一次提交按钮——按钮会变成「提交修订稿」，返回与上一稿对比的进步确认。修订次数不限，可以一直改到满意。"
-# R130 队列监控四区块
 
+# R130 队列监控四区块
 msgid "Accepted"
 msgstr "已受理"
 
@@ -5563,6 +5627,7 @@ msgstr "分类"
 msgid "Completed"
 msgstr "已完成"
 
+#, python-brace-format
 msgid "Confirm Republish of {N} tasks"
 msgstr "确认重发 {N} 条任务"
 
@@ -5599,7 +5664,9 @@ msgstr "每小时吞吐（完成 / 失败，近 24 小时）"
 msgid "Input"
 msgstr "输入"
 
-msgid "Keyword search needs a companion filter: caller, status, error code or user id."
+msgid ""
+"Keyword search needs a companion filter: caller, status, error code or "
+"user id."
 msgstr "关键词查询必须搭配调用方、状态、错误码或用户 ID 之一。"
 
 msgid "Last failure"
@@ -5650,7 +5717,9 @@ msgstr "队列总览"
 msgid "Rate per hour"
 msgstr "每小时速率"
 
-msgid "Read-only view over the moon-well LLM task queue. Only the recovery block writes, and only after an explicit confirmation."
+msgid ""
+"Read-only view over the moon-well LLM task queue. Only the recovery block"
+" writes, and only after an explicit confirmation."
 msgstr "队列视图只读；只有恢复区块会写库，且必须经过显式确认。"
 
 msgid "Recover these"
@@ -5665,7 +5734,10 @@ msgstr "恢复预案（只读）"
 msgid "Replay eligible"
 msgstr "可重放"
 
-msgid "Republish {N} failed tasks of {C} now? This consumes real model quota and cannot be undone."
+#, python-brace-format
+msgid ""
+"Republish {N} failed tasks of {C} now? This consumes real model quota and"
+" cannot be undone."
 msgstr "现在重发调用方 {C} 的 {N} 条失败任务？这会真实消耗模型配额且不可撤销。"
 
 msgid "Republish eligible"
@@ -5701,7 +5773,9 @@ msgstr "任务查询"
 msgid "Task type"
 msgstr "任务类型"
 
-msgid "The plan is read-only. Republishing failed tasks consumes real model quota and cannot be undone."
+msgid ""
+"The plan is read-only. Republishing failed tasks consumes real model "
+"quota and cannot be undone."
 msgstr "预案只读。重发失败任务会真实消耗模型配额且不可撤销。"
 
 msgid "Tokens"
@@ -5714,7 +5788,6 @@ msgid "User id"
 msgstr "用户 ID"
 
 # R130 UI 改版
-
 msgid "Created from"
 msgstr "创建时间从"
 
@@ -5722,15 +5795,20 @@ msgid "Created to"
 msgstr "创建时间至"
 
 # --- R205 单词编故事 ---
-
 msgid "Word Story"
 msgstr "单词编故事"
 
 msgid "Word study strand · 2-3 minutes"
 msgstr "词汇学习股 · 2-3 分钟"
 
-msgid "Take six words from today's review queue — or paste a list of your own — and the AI weaves them into one short English story. Every target word comes back highlighted inside a sentence, with a word card for its meaning, so the memory gets a plot to hold on to."
-msgstr "从今天的复习队列里挑六个词——或粘贴你自己的词表——让 AI 把它们编成一篇简短的英文故事。每个目标词都会在句子里高亮重现，并配一张释义卡，让记忆有个情节可以攀附。"
+msgid ""
+"Take six words from today's review queue — or paste a list of your own — "
+"and the AI weaves them into one short English story. Every target word "
+"comes back highlighted inside a sentence, with a word card for its "
+"meaning, so the memory gets a plot to hold on to."
+msgstr ""
+"从今天的复习队列里挑六个词——或粘贴你自己的词表——让 AI "
+"把它们编成一篇简短的英文故事。每个目标词都会在句子里高亮重现，并配一张释义卡，让记忆有个情节可以攀附。"
 
 msgid "Today's due words"
 msgstr "今天到期的词"
@@ -5783,7 +5861,9 @@ msgstr "你的词表"
 msgid "Buddies"
 msgstr "伙伴"
 
-msgid "Your companion rides along on the AI reading button. Claim a buddy and equip your favourite."
+msgid ""
+"Your companion rides along on the AI reading button. Claim a buddy and "
+"equip your favourite."
 msgstr "你的伙伴会守在 AI 伴读按钮上。领取一只伙伴，再换上你最喜欢的。"
 
 msgid "In use"
@@ -5804,7 +5884,9 @@ msgstr "操作失败"
 msgid "Claim your snowy owl"
 msgstr "领取你的雪鸮"
 
-msgid "Hedwig is free for new readers. Tap Claim and she's yours — she'll ride on the AI reading button."
+msgid ""
+"Hedwig is free for new readers. Tap Claim and she's yours — she'll ride "
+"on the AI reading button."
 msgstr "雪鸮海德薇对新读者免费开放。点「领取」她就归你了——她会守在 AI 伴读按钮上。"
 
 msgid "Swap anytime"
@@ -5816,13 +5898,18 @@ msgstr "装备任意一只你拥有的伙伴，悬浮的 AI 按钮就会换上�
 msgid "Claim your first companion — a snowy owl is waiting for new readers."
 msgstr "领取你的第一位伙伴——一只雪鸮正在等新读者。"
 
-msgid "Reading settings, achievements, credits and your Buddies all live in this dropdown."
+msgid ""
+"Reading settings, achievements, credits and your Buddies all live in this"
+" dropdown."
 msgstr "阅读设置、成就、积分和你的伙伴都在这个下拉菜单里。"
+
 # R208: banner 管理抽屉（learning hub）
 msgid "Manage banner cards"
 msgstr "管理功能卡片"
 
-msgid "Untick an activity to remove it from the banner rotation. Your practice history and strand ledger are unaffected."
+msgid ""
+"Untick an activity to remove it from the banner rotation. Your practice "
+"history and strand ledger are unaffected."
 msgstr "取消勾选的功能不会再出现在轮播里；练习记录与四股入账不受影响。"
 
 msgid "All activities are hidden. Choose the ones you want on the banner:"
@@ -5834,23 +5921,24 @@ msgstr "选择功能"
 msgid "Could not save your selection — please retry."
 msgstr "保存失败，请重试。"
 
-msgid "Save"
-msgstr "保存"
-
-msgid "Close"
-msgstr "关闭"
-
 # R216 /me 偏好页
 msgid "Not set"
 msgstr "未设置"
 
-msgid "Your account is managed by your sign-in provider. Your name and email cannot be changed here."
+msgid ""
+"Your account is managed by your sign-in provider. Your name and email "
+"cannot be changed here."
 msgstr "账号由登录服务管理，姓名与邮箱不能在这里修改。"
 
-msgid "Choose the theme used when you open a book. It is saved to your account and applies on every device; custom colors stay on the device where you pick them."
+msgid ""
+"Choose the theme used when you open a book. It is saved to your account "
+"and applies on every device; custom colors stay on the device where you "
+"pick them."
 msgstr "选择打开书籍时使用的主题。它会保存到账号并在所有设备生效；自定义颜色只留在你挑选它的设备上。"
 
-msgid "Your buddy is the face on the AI reading button. It is appearance only and never changes the AI's role as your English teacher."
+msgid ""
+"Your buddy is the face on the AI reading button. It is appearance only "
+"and never changes the AI's role as your English teacher."
 msgstr "伙伴是 AI 伴读按钮上的那张脸，只改变外观，不会改变 AI 作为你的英语老师的角色。"
 
 msgid "Manage buddies"
@@ -5895,6 +5983,7 @@ msgstr "完成成就后解锁"
 
 msgid "Unlocks with credits"
 msgstr "用积分兑换解锁"
+
 msgid "Translation"
 msgstr "翻译"
 
@@ -5946,7 +6035,7 @@ msgstr "重命名"
 msgid "Memory"
 msgstr "记忆"
 
-#: R213-A 排序 chips 文字标签 / 卡片徽标 / 移动底部导航（2026-10-23）
+#: / R213-A chips 卡片徽标 排序 文字标签 移动底部导航（2026-10-23）
 msgid "Filter and Sort"
 msgstr "筛选与排序"
 
@@ -5986,8 +6075,8 @@ msgstr "学习"
 msgid "Mobile Navigation"
 msgstr "移动端导航"
 
-#: R213-A 高级搜索「阅读状态」四态化（2026-10-23）：旧译「任何/空/确认/没有」
-#: 是 Any/Empty/Yes/No 的直译，中文语境里无法理解，且「空」与「没有」同义。
+#: Any/Empty/Yes/No R213-A 是 的直译，中文语境里无法理解，且「空」与「没有」同义。
+#: 高级搜索「阅读状态」四态化（2026-10-23）：旧译「任何/空/确认/没有」
 msgid "Reading Status"
 msgstr "阅读状态"
 
@@ -6009,7 +6098,9 @@ msgstr "否"
 msgid "Filtering on the custom read column (yes/no only)."
 msgstr "按 calibre 自定义阅读列筛选（该列只有「是 / 否」两个值）。"
 
-msgid "Unread: never opened, or marked as unread. In progress: opened but not finished. Read: finished."
+msgid ""
+"Unread: never opened, or marked as unread. In progress: opened but not "
+"finished. Read: finished."
 msgstr "未读：从没打开过，或手动标记为未读。在读：打开过但没读完。已读：读到最后一页或标记为已读。"
 
 msgid "Continue Reading"
@@ -6036,7 +6127,9 @@ msgstr "登录后进入新首页（/home）"
 msgid "Buddy quick actions"
 msgstr "伙伴悬浮球快捷动作"
 
-msgid "Pick what pops up around the buddy on hover (2-5). The chat bubble always stays."
+msgid ""
+"Pick what pops up around the buddy on hover (2-5). The chat bubble always"
+" stays."
 msgstr "选择悬停伙伴时弹出的动作（2-5 个）。「对话」气泡固定保留。"
 
 msgid "Pick at least 4 actions"
@@ -6052,7 +6145,9 @@ msgstr "你的私人书房"
 msgid "Read deeper. Learn while you read."
 msgstr "读得更深，在阅读中学习。"
 
-msgid "A personal library with instant translation, vocabulary help, and an AI reading companion — all in one quiet place."
+msgid ""
+"A personal library with instant translation, vocabulary help, and an AI "
+"reading companion — all in one quiet place."
 msgstr "一座私人图书馆，集即时翻译、词汇帮助与 AI 阅读伙伴于一体，安放于一隅静好。"
 
 msgid "Books in the library"
@@ -6068,16 +6163,22 @@ msgstr "跨设备记住阅读位置"
 msgid "Reading access is not enabled for this account"
 msgstr "此账号尚未开通阅读权限"
 
-msgid "Ask an administrator to enable “View” in Users → Edit User for your account."
+msgid ""
+"Ask an administrator to enable “View” in Users → Edit User for your "
+"account."
 msgstr "请联系管理员，在「用户」→「编辑用户」中为你的账号勾选「在线阅读」。"
 
 msgid "Download access is not enabled for this account"
 msgstr "此账号尚未开通下载权限"
 
-msgid "Ask an administrator to enable “Download” in Users → Edit User for your account."
+msgid ""
+"Ask an administrator to enable “Download” in Users → Edit User for your "
+"account."
 msgstr "请联系管理员，在「用户」→「编辑用户」中为你的账号勾选「下载」。"
 
-msgid "Self-registered accounts always receive View. Administrators can still adjust it per account. Download is a separate permission."
+msgid ""
+"Self-registered accounts always receive View. Administrators can still "
+"adjust it per account. Download is a separate permission."
 msgstr "自助注册账号默认具备在线阅读权限，管理员仍可按账号调整；下载是独立权限。"
 
 msgid "Read reply aloud"
@@ -6128,7 +6229,10 @@ msgstr "创建导出失败"
 msgid "Export My Learning Data"
 msgstr "导出我的学习数据"
 
-msgid "Download your vocabulary and practice records as an encrypted ZIP: Anki-importable word cards, machine-readable JSON/CSV and a readable review report. Audio is not included."
+msgid ""
+"Download your vocabulary and practice records as an encrypted ZIP: Anki-"
+"importable word cards, machine-readable JSON/CSV and a readable review "
+"report. Audio is not included."
 msgstr "把你的词汇与练习记录打包成加密 ZIP 下载：内含可导入 Anki 的单词卡、机器可读的 JSON/CSV 和一份可读的回顾报告。不包含音频。"
 
 msgid "ZIP password"
@@ -6140,7 +6244,9 @@ msgstr "至少 6 个字符"
 msgid "Repeat password"
 msgstr "再次输入密码"
 
-msgid "The password is used only to encrypt the file. It is never stored — if you forget it, export again."
+msgid ""
+"The password is used only to encrypt the file. It is never stored — if "
+"you forget it, export again."
 msgstr "密码只用于加密文件，系统不会保存；忘记密码只能重新导出。"
 
 msgid "Create export"
@@ -6149,5 +6255,77 @@ msgstr "生成导出"
 msgid "Not encrypted"
 msgstr "未加密"
 
-msgid "Leave the password empty to get an unencrypted ZIP — anyone who gets the file can open it. The password is never stored; if you forget it, export again."
+msgid ""
+"Leave the password empty to get an unencrypted ZIP — anyone who gets the "
+"file can open it. The password is never stored; if you forget it, export "
+"again."
 msgstr "不设密码则导出不加密的 ZIP——任何拿到文件的人都能打开。密码只用于加密文件、系统不保存；忘记密码只能重新导出。"
+
+msgid "Redeem a Credit Card"
+msgstr "兑换积分卡"
+
+msgid ""
+"Anyone signed in can redeem a valid card key. Keys are transferable; "
+"paste the full text and redeem once."
+msgstr "任何已登录用户都可以兑换有效卡密。卡密可转赠；粘贴完整卡密后只能兑换一次。"
+
+msgid "Redeem"
+msgstr "兑换"
+
+msgid "Buy a Credit Card to Gift"
+msgstr "购买积分卡送人"
+
+msgid ""
+"Fixed-price cards do not receive recharge promotion multipliers. After "
+"payment, copy the card key and send it to anyone."
+msgstr "固定价格的积分卡不参与充值倍率活动。支付后复制卡密，即可发给任何人。"
+
+msgid "My Purchased Card Keys"
+msgstr "我购买的卡密"
+
+msgid "Card Key"
+msgstr "卡密"
+
+msgid "Expires"
+msgstr "有效期"
+
+msgid "Credit Promotion (Multiplier)"
+msgstr "积分充值活动（倍率）"
+
+msgid "Publish"
+msgstr "发布"
+
+msgid ""
+"Times are Beijing time (UTC+8). Credits granted = base credits × "
+"multiplier. A published promotion cannot be edited or revoked — verify "
+"the window and multiplier before publishing."
+msgstr "时间按北京时间（UTC+8）解释。到账积分 = 基础积分 × 倍率。活动发布后不可修改或撤销——发布前请核对时间窗口与倍率。"
+
+msgid "End"
+msgstr "结束"
+
+msgid "Multiplier"
+msgstr "倍率"
+
+msgid "Credit Cards: Issue Batch"
+msgstr "积分卡：批量发卡"
+
+msgid "credits"
+msgstr "积分"
+
+msgid "Long-term"
+msgstr "长期有效"
+
+msgid "Issue Cards"
+msgstr "发卡"
+
+msgid ""
+"Default validity is 30 days. Long-term cards have no expiry. Card keys "
+"are bearer secrets: export and store them securely."
+msgstr "默认有效期 30 天，长期有效卡没有到期时间。卡密等同现金凭证：导出后请妥善保存。"
+
+msgid "Validity"
+msgstr "有效期"
+
+msgid "Cards in this batch"
+msgstr "本批次卡密"

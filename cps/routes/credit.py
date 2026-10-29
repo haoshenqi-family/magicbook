@@ -8,6 +8,7 @@ from cps.web import (
 from ..cw_login import current_user
 from ..render_template import render_title_template
 from ..usermanagement import user_login_required
+from flask import Response
 from flask import jsonify
 from flask import redirect
 from flask import request
@@ -266,3 +267,114 @@ def credit_consume_summary():
     payload = request.get_json(silent=True) or {}
     return _moonwell_proxy("/credit/consume/summary", payload, 10,
                            "credit consume summary")
+
+
+# ---------- R242 积分卡 ----------
+
+@web.route("/ajax/credit/card/packages", methods=["GET"])
+@user_login_required
+def credit_card_packages():
+    """Proxy fixed-price gift card packages (moon-well GET /credit/card/packages)."""
+    body, status, headers = _moonwell_proxy("/credit/card/packages", None, 10,
+                                            "credit card packages", method="GET")
+    return body, status, headers
+
+
+@web.route("/ajax/credit/card/redeem", methods=["POST"])
+@user_login_required
+@limiter.limit("10/minute", key_func=get_remote_address)
+def credit_card_redeem():
+    """Proxy card-key redemption; limit brute-force attempts at the browser edge."""
+    payload = request.get_json(silent=True) or {}
+    key = payload.get("key")
+    if not isinstance(key, str) or not key.strip():
+        return jsonify({"success": False, "message": "card key is required"}), 400
+    return _moonwell_proxy("/credit/card/redeem", {"key": key}, 10,
+                           "credit card redeem")
+
+
+@web.route("/ajax/credit/card/purchase-order", methods=["POST"])
+@user_login_required
+@limiter.limit("10/minute", key_func=get_remote_address)
+def credit_card_purchase_order():
+    """Create a CARD purchase order; pricing is decided by moon-well."""
+    payload = request.get_json(silent=True) or {}
+    package_id = payload.get("packageId")
+    if not isinstance(package_id, str) or not package_id:
+        return jsonify({"success": False, "message": "packageId is required"}), 400
+    return _moonwell_proxy("/credit/card/purchase/order", {"packageId": package_id}, 10,
+                           "credit card purchase order")
+
+
+@web.route("/ajax/credit/card/purchase-list", methods=["POST"])
+@user_login_required
+def credit_card_purchase_list():
+    """List cards purchased by the current user; keys are for copying and gifting."""
+    return _moonwell_proxy("/credit/card/purchase/list", {}, 10,
+                           "credit card purchase list")
+
+
+@web.route("/ajax/credit/card/admin-issue", methods=["POST"])
+@user_login_required
+def credit_card_admin_issue():
+    """Issue a card batch (admin-only at this layer and rechecked by moon-well)."""
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": "admin only"}), 403
+    payload = request.get_json(silent=True) or {}
+    issue = {key: payload.get(key) for key in
+             ("credits", "count", "validityDays", "longTerm", "reason")}
+    return _moonwell_proxy("/credit/card/admin/batches", issue, 10,
+                           "credit card admin issue")
+
+
+@web.route("/ajax/credit/card/admin-batches", methods=["POST"])
+@user_login_required
+def credit_card_admin_batches():
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": "admin only"}), 403
+    return _moonwell_proxy("/credit/card/admin/batches/list", {}, 10,
+                           "credit card admin batches")
+
+
+@web.route("/ajax/credit/card/admin-cards", methods=["POST"])
+@user_login_required
+def credit_card_admin_cards():
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": "admin only"}), 403
+    payload = request.get_json(silent=True) or {}
+    batch_id = payload.get("batchId")
+    if batch_id is None:
+        return jsonify({"success": False, "message": "batchId is required"}), 400
+    return _moonwell_proxy("/credit/card/admin/cards", {"batchId": batch_id}, 10,
+                           "credit card admin cards")
+
+
+@web.route("/ajax/credit/card/admin-void", methods=["POST"])
+@user_login_required
+def credit_card_admin_void():
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": "admin only"}), 403
+    payload = request.get_json(silent=True) or {}
+    void = {key: payload.get(key) for key in ("cardId", "reason")}
+    return _moonwell_proxy("/credit/card/admin/void", void, 10,
+                           "credit card admin void")
+
+
+@web.route("/ajax/credit/card/admin-export", methods=["POST"])
+@user_login_required
+def credit_card_admin_export():
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": "admin only"}), 403
+    payload = request.get_json(silent=True) or {}
+    batch_id = payload.get("batchId")
+    if batch_id is None:
+        return jsonify({"success": False, "message": "batchId is required"}), 400
+    result = _moonwell_proxy("/credit/card/admin/export", {"batchId": batch_id}, 15,
+                             "credit card admin export", binary=True)
+    body, status = result[0], result[1]
+    if status != 200:
+        return body, status
+    response = Response(body, status=200, mimetype="text/plain")
+    response.headers["Content-Disposition"] = \
+        'attachment; filename="credit-cards-batch-%s.txt"' % batch_id
+    return response

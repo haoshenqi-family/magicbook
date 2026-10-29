@@ -2662,6 +2662,25 @@ def show_book(book_id):
             except Exception as error:
                 log.warning("whole-book active job lookup failed for book %s: %s", book_id, error)
 
+        # R241：整本能力缓存齐备标识——整本翻译/整本朗读/全文单词详解三项都跑满过
+        # 就点亮「低成本学习」，让读者在书页上直接看到这本书学起来便宜。
+        # Why 不受 admin 门禁限制：三个整本入口是管理员操作，标识是**成本提示**
+        # （普通读者读这本书同样吃这三层缓存）；把提示也锁进 admin 等于目标读者看不到。
+        entry.cache_readiness = None
+        # Why 先判匿名：AnonymousUserMixin 没有 role_viewer 属性，直接调用会 AttributeError
+        # （模板里写 current_user.role_viewer() 没事，那是 Jinja 的 Undefined；Python 侧不行）。
+        if entry.insight_format and not current_user.is_anonymous and current_user.role_viewer():
+            try:
+                # 延迟导入：readiness 依赖 reading_insight.service，模块级互引会成环。
+                from cps.reading_insight.readiness import book_readiness
+                # 复用速览 payload 里已算好的指纹：同一请求不再取一次书、stat 一次文件。
+                entry.cache_readiness = book_readiness(
+                    book_id, entry.insight_format,
+                    fingerprint=(entry.insight or {}).get("fingerprint"))
+            except Exception as error:
+                # 标识是锦上添花：查不到就不显示，绝不拦详情页（同 active_jobs 纪律）。
+                log.warning("cache readiness lookup failed for book %s: %s", book_id, error)
+
         return render_title_template('detail.html',
                                      entry=entry,
                                      cc=cc,

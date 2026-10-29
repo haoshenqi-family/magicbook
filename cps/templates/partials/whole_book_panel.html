@@ -80,15 +80,21 @@
                     下面的数字是粗算，不是账单。
                 </p>
                 <ul class="nav nav-tabs wb-tabs" role="tablist">
+                    {# R241：每个页签在对应缓存已备齐时挂一枚「已缓存」小标——管理员在面板里
+                       看到的与详情页给读者看的是同一份快照，不会两处说法不一。 #}
+                    {% set _cache = entry.cache_readiness %}
                     <li role="presentation" class="active">
                         <a href="#wb-pane-translate" aria-controls="wb-pane-translate"
-                           role="tab" data-toggle="tab" data-kind="translate">整本翻译</a></li>
+                           role="tab" data-toggle="tab" data-kind="translate">整本翻译{% if _cache and _cache.translate.ready %}<span
+                                class="label label-success wb-tab-cached">已缓存</span>{% endif %}</a></li>
                     <li role="presentation">
                         <a href="#wb-pane-tts" aria-controls="wb-pane-tts"
-                           role="tab" data-toggle="tab" data-kind="tts">整本朗读</a></li>
+                           role="tab" data-toggle="tab" data-kind="tts">整本朗读{% if _cache and _cache.tts.ready %}<span
+                                class="label label-success wb-tab-cached">已缓存</span>{% endif %}</a></li>
                     <li role="presentation">
                         <a href="#wb-pane-wordDetail" aria-controls="wb-pane-wordDetail"
-                           role="tab" data-toggle="tab" data-kind="wordDetail">全文单词详解</a></li>
+                           role="tab" data-toggle="tab" data-kind="wordDetail">全文单词详解{% if _cache and _cache.wordDetail.ready %}<span
+                                class="label label-success wb-tab-cached">已缓存</span>{% endif %}</a></li>
                 </ul>
                 <div class="tab-content wb-content">
                     {% for kind in ['translate', 'tts', 'wordDetail'] %}
