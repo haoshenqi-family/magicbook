@@ -315,11 +315,12 @@ pytest tests/ -q
 
 上线验证：
 
-- 实现提交 `af55130797714946cce4270b7e64e2cbdd4ee1c7` 已推送 `origin/develop`；
-- fnOS `build END OK (af55130797714946cce4270b7e64e2cbdd4ee1c7)`；
+- 第二轮初始实现 `af55130797714946cce4270b7e64e2cbdd4ee1c7` 已上线；
+- 验收修正 `3a75a695577da1e4d945b5bb90e0bc7a20d9f08a` 已推送 `origin/develop`；
+- fnOS `build END OK (3a75a695577da1e4d945b5bb90e0bc7a20d9f08a)`；
 - app-manager `deploy SUCCESS`，容器 `running / healthy`；
-- `house.build-sha=af55130797714946cce4270b7e64e2cbdd4ee1c7`，
-  `house.code-digest=24956ed8aba0b42b`；
+- `house.build-sha=3a75a695577da1e4d945b5bb90e0bc7a20d9f08a`，
+  `house.code-digest=dc464e7a3c38db3a`；
 - 生产 `/login` 200；匿名 `/me`、`/buddy`、`/credits`、`/admin/credits`、
   `/translate-all`、`/word-detail-batch`、`/llm-tasks` 均按预期 302 到登录页。
 
