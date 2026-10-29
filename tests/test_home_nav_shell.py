@@ -4,15 +4,17 @@
 渲染性价比低，文本面守卫钉住「接线存在」；行为验收走 AC 文档的人工两档
 视口检查（1440×900 / 390×844）。
 
- deliberately 不断言侧边栏分组——那是 R213 遗留决策项（`ub.Shelf` 无类型
-字段，等拍板后单独一笔）。
+ R251 起侧边栏分组有守卫；分组仍是展示层规则，不改 `ub.Shelf` schema。
 """
 
 from pathlib import Path
 
+from cps import ub
+
 _ROOT = Path(__file__).resolve().parent.parent
 _TEMPLATES = _ROOT / "cps" / "templates"
 _CSS = _ROOT / "cps" / "static" / "css" / "style.css"
+_SHELL_CSS = _ROOT / "cps" / "static" / "css" / "magicbook.css"
 
 
 def test_sort_chips_have_text_labels():
@@ -59,6 +61,46 @@ def test_mobile_bottom_nav_present():
     assert "web.learning_page" in html, "学习入口缺失"
     css = _CSS.read_text(encoding="utf-8")
     assert ".mb-bottom-nav" in css
+
+
+def test_r251_primary_domains_use_one_navigation_layer():
+    """R251：五个一级域共享同一层主导航，不再混入 Settings 下拉。"""
+    html = (_TEMPLATES / "layout.html").read_text(encoding="utf-8")
+    css = _SHELL_CSS.read_text(encoding="utf-8")
+    for anchor in ("top_home", "top_library", "top_learning", "top_me", "top_admin"):
+        assert f'id="{anchor}"' in html, f"一级域入口缺失：{anchor}"
+    assert html.index('id="top_home"') < html.index('id="top_mb_settings"')
+    assert '.nav.navbar-nav:not(.navbar-right)' in css
+
+
+def test_r251_shelf_groups_never_drop_a_shelf():
+    """R251：侧栏可按展示规则分组，但必须渲染原始书架集合的每个入口。"""
+    html = (_TEMPLATES / "layout.html").read_text(encoding="utf-8")
+    for label in ('{{_(\'Shelves\')}}', '{{_(\'Levels\')}}', '{{_(\'Media\')}}'):
+        assert label in html, f"侧栏分组标题缺失：{label}"
+    # 兜底组必须显式排除已分组 id，避免规则重叠或后续调整时丢书架。
+    assert "rejectattr('id', 'in', level_ids + media_ids)" in html
+
+
+def test_r251_sidebar_groups_render_without_dropping_shelves(admin_client, ub_session):
+    """真实渲染路径的守卫：分类规则可调整，但入口数量必须守恒。"""
+    for shelf in ub_session.query(ub.Shelf).all():
+        ub_session.delete(shelf)
+    ub_session.add_all([
+        ub.Shelf(name="阶1", is_public=1, user_id=1),
+        ub.Shelf(name="TED", is_public=1, user_id=1),
+        ub.Shelf(name="我的书架", is_public=0, user_id=1),
+    ])
+    ub_session.commit()
+
+    rv = admin_client.get("/reading/settings")
+    assert rv.status_code == 200
+    html = rv.data.decode("utf-8")
+    assert html.count('href="/shelf/') == 4, (
+        "三个书架 + Create a Shelf 入口都应存在；少一个即分组丢入口"
+    )
+    for label in ("Levels", "Media", "Shelves"):
+        assert label in html, f"侧栏分组标题未渲染：{label}"
 
 
 def test_create_shelf_cut_fix():

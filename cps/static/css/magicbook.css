@@ -1,0 +1,118 @@
+/* MagicBook R251 UI shell.
+   This is the product-owned layer above Calibre-Web's Bootstrap 3 UI.
+   Keep selectors additive: do not rewrite vendored Calibre styles here. */
+
+/* Primary domains: Home / Library / Learning / Account / Admin. */
+.nav.navbar-nav:not(.navbar-right) > li > a {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 15px 12px;
+  border-bottom: 3px solid transparent;
+  color: #52606d;
+  font-weight: 500;
+}
+
+.nav.navbar-nav:not(.navbar-right) > li > a:hover,
+.nav.navbar-nav:not(.navbar-right) > li > a:focus,
+.nav.navbar-nav:not(.navbar-right) > li.active > a {
+  color: #2f8f7c;
+  background: transparent;
+  border-bottom-color: #45b29d;
+}
+
+.nav.navbar-nav:not(.navbar-right) > li > a .glyphicon {
+  color: #45b29d;
+}
+
+/* Sidebar: four stable groups with the same visual rhythm. */
+#scnd-nav .nav-head {
+  margin-top: 18px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #e6ecec;
+  color: #7b8a94;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#scnd-nav .nav-head:first-child {
+  margin-top: 0;
+}
+
+#scnd-nav .mb-shelf-group > li > a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#scnd-nav .mb-shelf-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#scnd-nav .badge-sm {
+  flex: 0 0 auto;
+}
+
+/* Section titles and cards: one product-wide language. */
+.home-section-title,
+.discover > h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 14px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid #e6ecec;
+  color: #334149;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.home-section-title::before,
+.discover > h2::before {
+  content: "";
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: #45b29d;
+  flex: 0 0 auto;
+}
+
+.home-plan-card,
+.mb-card {
+  background: #fff;
+  border: 1px solid #e5e7e9;
+  border-radius: 6px;
+  padding: 14px;
+  box-shadow: 0 1px 2px rgba(31, 47, 51, .03);
+}
+
+.mb-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: #edf6f4;
+  color: #2f8f7c;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+/* Mobile: keep domain actions thumb-reachable. */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 56px;
+  }
+
+  .mb-bottom-item {
+    padding: 7px 0 5px;
+  }
+}

@@ -19,6 +19,7 @@
     <link href="{{ url_for('static', filename='css/libs/bootstrap.min.css') }}" rel="stylesheet" media="screen">
     {% block header %}{% endblock %}
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet" media="screen">
+    <link href="{{ url_for('static', filename='css/magicbook.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/onboarding.css') }}" rel="stylesheet" media="screen">
     <link href="{{ url_for('static', filename='css/upload.css') }}" rel="stylesheet" media="screen">
     {% if current_user.is_authenticated and not current_user.is_anonymous %}
@@ -64,11 +65,16 @@
         <div class="navbar-collapse collapse">
           {% if current_user.is_authenticated or g.allow_anonymous %}
           <ul class="nav navbar-nav ">
-            {# R154：每日学习是一级使用入口（每天都要进），平铺在左侧主导航。
-               不收进 Settings 下拉（用户反馈：藏设置里层级不对）。
-               R166：说与写五个面板并入每日学习中枢的功能 banner，一级项随之撤掉 #}
+            {# R251：MagicBook 壳层导航。保留 Calibre 的 Bootstrap 3 导航骨架，
+               只把自有入口收敛为“首页 / 书库 / 学习 / 我的 / 管理”五个域；
+               原有 id 全部保留，测试与 onboarding 锚点不迁移。 #}
+            {% if not current_user.is_anonymous %}
+            <li><a href="{{url_for('web.home')}}" id="top_home"><span class="glyphicon glyphicon-home"></span><span class="hidden-sm"> {{_('Home')}}</span></a></li>
+            {% endif %}
+            <li><a href="{{url_for('web.index')}}" id="top_library"><span class="glyphicon glyphicon-book"></span><span class="hidden-sm"> {{_('Library')}}</span></a></li>
             {% if not current_user.is_anonymous %}
             <li><a href="{{url_for('web.learning_page')}}" id="top_learning"><span class="glyphicon glyphicon-repeat"></span><span class="hidden-sm"> {{_('Daily Learning')}}</span></a></li>
+            <li><a href="{{url_for('web.profile')}}" id="top_me"><span class="glyphicon glyphicon-user"></span><span class="hidden-sm"> {{_('Account')}}</span></a></li>
             {% endif %}
             {% if simple==true %} <li><a href="{{url_for('basic.index')}}" id="basic"><span class="glyphicon glyphicon-phone"></span><span>{{_('Simple Theme')}}</span></a><li>{% endif %}
           </ul>
@@ -210,10 +216,47 @@
                 {% endif %}
               {% endfor %}
               {% if current_user.is_authenticated or g.allow_anonymous %}
-                <li class="nav-head hidden-xs public-shelves">{{_('Shelves')}}</li>
+                {# R251：书架按用途分组。首字符规则无额外依赖：阶→分级，
+                   TED/A/音/听→媒体；判定不出的一律回默认书架组，不丢入口。 #}
+                {% set level_shelves = [] %}
+                {% set media_shelves = [] %}
                 {% for shelf in g.shelves_access %}
-                  <li><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"><span class="glyphicon glyphicon-list shelf"></span> {{shelf.name|shortentitle(40)}}{% if shelf.is_public == 1 %} {{_('(Public)')}}{% endif %} <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
+                  {% if shelf.name and shelf.name.startswith('阶') %}
+                    {% if level_shelves.append(shelf) %}{% endif %}
+                  {% elif shelf.name and shelf.name.startswith(('TED', 'Audio', 'Listening', '音频', '听力')) %}
+                    {% if media_shelves.append(shelf) %}{% endif %}
+                  {% endif %}
                 {% endfor %}
+                {% set level_ids = level_shelves | map(attribute='id') | list %}
+                {% set media_ids = media_shelves | map(attribute='id') | list %}
+                {% set normal_shelves = g.shelves_access | rejectattr('id', 'in', level_ids + media_ids) | list %}
+
+                {% if normal_shelves %}
+                <li class="nav-head hidden-xs public-shelves">{{_('Shelves')}}</li>
+                <li><ul class="list-unstyled mb-shelf-group">
+                {% for shelf in normal_shelves %}
+                  <li><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"><span class="glyphicon glyphicon-list shelf"></span> <span class="mb-shelf-name">{{shelf.name|shortentitle(40)}}{% if shelf.is_public == 1 %} {{_('(Public)')}}{% endif %}</span> <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
+                {% endfor %}
+                </ul></li>
+                {% endif %}
+
+                {% if level_shelves %}
+                <li class="nav-head hidden-xs">{{_('Levels')}}</li>
+                <li><ul class="list-unstyled mb-shelf-group">
+                {% for shelf in level_shelves %}
+                  <li><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"><span class="glyphicon glyphicon-education"></span> <span class="mb-shelf-name">{{shelf.name|shortentitle(40)}}</span> <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
+                {% endfor %}
+                </ul></li>
+                {% endif %}
+
+                {% if media_shelves %}
+                <li class="nav-head hidden-xs">{{_('Media')}}</li>
+                <li><ul class="list-unstyled mb-shelf-group">
+                {% for shelf in media_shelves %}
+                  <li><a href="{{url_for('shelf.show_shelf', shelf_id=shelf.id)}}"><span class="glyphicon glyphicon-film"></span> <span class="mb-shelf-name">{{shelf.name|shortentitle(40)}}</span> <span class="badge badge-sm">{{shelf.books.all()|length}}</span></a></li>
+                {% endfor %}
+                </ul></li>
+                {% endif %}
               {% if not current_user.is_anonymous %}
                 <li id="nav_createshelf" class="create-shelf"><a href="{{url_for('shelf.create_shelf')}}">{{_('Create a Shelf')}}</a></li>
                 <li id="nav_about" {% if page == 'stat' %}class="active"{% endif %}><a href="{{url_for('about.stats')}}"><span class="glyphicon glyphicon-info-sign"></span> {{_('About')}}</a></li>
@@ -300,10 +343,15 @@
     {# R109 引导模式：必须在 jQuery 之后（onboarding.js 依赖 $），故放在 block js 之后 #}
     {% include 'i18n_seed.html' %}
     {% include 'onboarding_mount.html' %}
-    {# R213-A：移动端底部导航（书架 / 学习 / 我的）——窄屏侧栏收进汉堡菜单后， #}
-    {# 三个一级入口要始终可达；仅 xs 显示，桌面端不占地方（见 style.css） #}
+    {# R251：移动端底部导航（首页 / 书库 / 学习 / 我的）——窄屏侧栏收进 #}
+    {# 汉堡菜单后，一级域入口仍要可达；管理入口保留在顶栏，不占移动底栏。 #}
     {% if current_user.is_authenticated or g.allow_anonymous %}
     <nav class="mb-bottom-nav visible-xs" aria-label="{{_('Mobile Navigation')}}">
+      {% if not current_user.is_anonymous %}
+      <a href="{{url_for('web.home')}}" class="mb-bottom-item{% if page == 'home' %} active{% endif %}">
+        <span class="glyphicon glyphicon-home"></span><span class="mb-bottom-label">{{_('Home')}}</span>
+      </a>
+      {% endif %}
       <a href="{{url_for('web.index')}}" class="mb-bottom-item{% if page in ['index', 'discover', 'hot', 'newest', 'oldest', 'rated', 'author', 'series', 'category', 'publisher', 'language'] %} active{% endif %}">
         <span class="glyphicon glyphicon-book"></span><span class="mb-bottom-label">{{_('Library')}}</span>
       </a>

@@ -6454,3 +6454,9 @@ msgstr "有效期"
 
 msgid "Cards in this batch"
 msgstr "本批次卡密"
+
+msgid "Levels"
+msgstr "分级"
+
+msgid "Media"
+msgstr "媒体"
