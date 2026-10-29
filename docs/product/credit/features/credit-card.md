@@ -22,6 +22,7 @@
 - 已购表 `#credit-card-purchased-rows` 展示 `key/credits/statusText/expiresAt`。
 - 管理员区 `#credit-card-admin-panel` 只在 `current_user.role_admin()` 时输出，且整页只出现一次。
 - 收银台 `#credit-checkout` 使用 Bootstrap 模态；创建订单后立即弹窗，避免长页面下方的二维码被用户忽略。
+- 模态正文使用 `credit-checkout-layout` Flex 双列，不依赖本页会高度塌陷的 Bootstrap 浮动栅格。
 
 **脚本** `cps/static/js/credits.js`
 

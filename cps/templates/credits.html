@@ -35,6 +35,14 @@
   .credit-card-row td { vertical-align: middle !important; }
   #credit-card-packages .credit-package-card { border-color: #b9d7c9; }
   #credit-card-redeem input { max-width: 420px; }
+  /* R242：不依赖 Bootstrap 浮动栅格，避免模态正文高度塌陷后内容溢出到遮罩。 */
+  .credit-checkout-layout { display: flex; align-items: flex-start; gap: 24px; }
+  .credit-checkout-layout .credit-checkout-qr { flex: 0 0 200px; text-align: center; }
+  .credit-checkout-layout .credit-checkout-copy { flex: 1 1 auto; min-width: 0; }
+  @media (max-width: 600px) {
+    .credit-checkout-layout { display: block; }
+    .credit-checkout-layout .credit-checkout-qr { margin: 0 auto 16px; }
+  }
 </style>
 {% endblock %}
 
@@ -115,11 +123,11 @@
           <h4 class="modal-title" id="credit-checkout-title">{{_('Alipay Scan to Pay')}}</h4>
         </div>
         <div class="modal-body">
-          <div class="row">
-            <div class="col-sm-4 text-center">
+          <div class="credit-checkout-layout">
+            <div class="credit-checkout-qr">
               <div id="credit-qr"></div>
             </div>
-            <div class="col-sm-8">
+            <div class="credit-checkout-copy">
               <p id="credit-checkout-info" class="lead"></p>
               <p id="credit-countdown" class="text-muted"></p>
               <p id="credit-status"></p>
