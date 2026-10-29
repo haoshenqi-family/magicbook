@@ -67,7 +67,7 @@ def logged_in_client(app):
     最贴近线上「登录后携带 moonwell token」的真实会话。
     """
     client = app.test_client()
-    rv = client.post("/login", data={"username": "admin", "password": "admin123"})
+    rv = client.post("/login", data={"username": "admin", "password": "admin123", "remember_me": "1"})
     assert rv.status_code == 302, f"login did not redirect: {rv.status_code}"
     # 同 conftest admin_client: 登录触发 config save()→load() 会把 db_configured 复位
     from cps import config as cw_config
@@ -90,6 +90,16 @@ def test_logout_clears_moonwell_tokens(app, logged_in_client):
     assert any("Max-Age=0" in h or "Expires=Thu, 01 Jan 1970" in h
                for h in session_del), f"登出应删除会话 cookie, 实际: {session_del}"
 
-    # 后续请求不再携带任何会话内容
+    # remember_token 也必须删除：cw_login.logout_user() 靠 session["_remember"]="clear"
+    # 通知 after_request 清 cookie；若它被提前 clear 掉，下一次请求会从 remember cookie
+    # 自动恢复登录态（R255 回归：注销后仍停留在已登录状态）。
+    remember_name = app.config.get("REMEMBER_COOKIE_NAME", "remember_token")
+    remember_del = [h for h in rv.headers.getlist("Set-Cookie")
+                    if h.startswith(remember_name + "=")]
+    assert remember_del, "登出响应应处理 remember_token cookie"
+    assert any("Max-Age=0" in h or "Expires=Thu, 01 Jan 1970" in h
+               for h in remember_del), f"登出应删除 remember_token, 实际: {remember_del}"
+
+    # 后续请求不再携带任何会话内容，且不会被 remember cookie 自动登回
     rv2 = logged_in_client.get("/login")
     assert rv2.status_code == 200
