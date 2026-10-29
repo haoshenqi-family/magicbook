@@ -1,9 +1,9 @@
 # 整本任务进度条（L3 实现说明）
 
-> 建立：2026-10-29（R246；R248 补齐挂载位置）。读者是**要改书籍详情页整本任务进度条的人**——这里只讲实现与边界；
+> 建立：2026-10-29（R246；R248 补齐挂载位置，R249 补齐朗读 worker 会话隔离）。读者是**要改书籍详情页整本任务进度条的人**——这里只讲实现与边界；
 > 用户视角见 L1 [`product/readme/library.md`](../../readme/library.md)；
 > 本次缺陷的取舍见 LLD
-> [`project/iterations/1.0/r214-book-detail/lld.md`](../../../project/iterations/1.0/r214-book-detail/lld.md) §18 / §20。
+> [`project/iterations/1.0/r214-book-detail/lld.md`](../../../project/iterations/1.0/r214-book-detail/lld.md) §18 / §20 / §21。
 
 ## 1. 组成
 
@@ -54,10 +54,33 @@ HTML 属性名会被浏览器统一解析成小写。因此模板写
 - **失败可见**：轮询单次失败不清空进度；恢复按钮失败原因留在进度条内显示。
 - **响应式**：窄屏允许标题、进度条、计数换行，不横向溢出。
 
-## 5. 测试
+## 5. 后台 worker 必须使用独立会话
+
+`ub.session` 是请求线程构造并复用的普通 Session 实例，不是可以在 daemon 线程里
+长期持有的线程本地会话。整本朗读的 `_synth_worker()` 因此必须经
+`_thread_db_session()` 创建独立 engine + 线程作用域会话，并：
+
+- 每段完成后通过 `_commit_with_retry(session)` 提交，不碰 `ub.session`；
+- 每轮读取 job 前 `expire_all()`，让请求线程写入的 `CANCELLED` 能被及时看见；
+- 统计 `done/failed` 时显式传入 worker session；
+- 请求线程的 `progress()` 在提交后 `refresh(job)`，读取 worker 刚写入的终态。
+
+若 worker 复用 `ub.session`，请求线程的 commit/close 会让 worker 下一次 autoflush
+抛出 `ResourceClosedError: This transaction is closed`，批次停在 `RUNNING`，
+页面只能显示「继续」。这是 R249 的生产根因。
+
+批次台账与音频缓存是两个口径：ES/MinIO 中可能已有大部分音频（R249 实测 book 145
+为 1347/1348 段），但只要本次 item 尚未逐段请求成功并标为 `DONE`，页面仍会按台账
+显示进度和「继续」。不能仅凭 ES 有音频就把批次直接改成 `COMPLETED`，否则会掩盖
+缺失段；续跑会命中已有缓存并快速核验，只对 miss 段真正合成。
+
+该修复仍是 R240 迁移前的存量 daemon 临时收敛，不代表新任务可以继续复制
+「每 job 一条 daemon 线程 + 进程内花名册」；整本朗读后续仍须迁入统一异步 runtime。
+
+## 6. 测试
 
 ```bash
-pytest tests/test_book_detail_r214.py -q
+pytest tests/test_reading_tts_service.py tests/test_book_detail_r214.py -q
 node --check cps/static/js/whole-book-panel.js
 ```
 
@@ -66,4 +89,5 @@ node --check cps/static/js/whole-book-panel.js
 `test_whole_book_partial_is_not_rendered_in_xhr_fragment` 与
 `test_progress_bar_is_appended_to_detail_task_slot` 钉住详情页挂载边界；
 改回全局 `insertAfter(navbar)`、在 XHR 片段下发 partial，或去掉 `toLowerCase()`
-都必须报红。
+都必须报红。`test_synth_worker_never_uses_request_session` 把全局会话换成任何访问
+都会报错的哨兵，确认 worker 只用独立会话并跑到 `COMPLETED`。

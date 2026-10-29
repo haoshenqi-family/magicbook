@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；**R246 进度条任务类型标识已开发**（2026-10-29，§18）；**R247 归档书内容速览误报已修**（2026-10-29，§19，待验收）；**R248 进度条挂载位置已开发**（2026-10-29，§20，待部署验收）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；**R246 进度条任务类型标识已开发**（2026-10-29，§18）；**R247 归档书内容速览误报已修**（2026-10-29，§19，待验收）；**R248 进度条挂载位置已开发**（2026-10-29，§20，待部署验收）；**R249 朗读 worker 会话隔离已开发**（2026-10-29，§21，待部署验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -528,3 +528,60 @@ canResume 的服务端语义；`test_stalled_tts_batch_has_a_frontend_resume_ent
 - `test_whole_book_partial_is_not_rendered_in_xhr_fragment`：partial 不进入 XHR 片段；
 - `test_progress_bar_is_appended_to_detail_task_slot`：JS 不再 `insertAfter(navbar)`；
 - `test_progress_close_stays_collapsed_during_polling`：收起后轮询不重新弹出。
+
+## 21. 验收缺陷：整本朗读 worker 复用请求会话，批次停在进行中（2026-10-29，R249，`fix/r249-tts-worker-session`）
+
+**现象**：`/book/145` 的整本朗读批次停在 `RUNNING 207/1348`，页面显示
+「整本朗读 · 进行中」并提供「继续」。用户误以为批次已经完成，实际后台线程已退出，
+只是数据库状态仍停在非终态。
+
+**根因**：生产 `init_db()` 把主线程构造的普通 `Session` 实例赋给 `ub.session`。
+整本朗读 daemon 与 HTTP 请求线程共用这一个会话。请求线程在 11:39:51 提交阅读状态后，
+worker 于 11:41:59 的下一轮 autoflush 命中已关闭事务：
+
+```text
+sqlalchemy.exc.ResourceClosedError: This transaction is closed
+```
+
+`JobServiceBase._worker_guarded()` 只把线程从 `_live_workers` 花名册摘除并记录异常，
+不会把 job 改成失败终态；由于仍剩 1141 个 `PENDING` item，状态接口返回
+`canResume=true`，前端因此显示「继续」。这不是缓存齐备标识或 `COMPLETED` 状态被误判，
+而是 worker 在请求事务被关闭后崩溃。
+
+**ES / MinIO 缓存核验（2026-10-29）**：
+
+- 批次台账共 1348 个去重段落；`magicbook-read-paragraph` 中按这些段落 hash 查到
+  1347 个文档，均带 `audioObject`，且对应 1347 个 `reading-tts/<hash>.mp3` 对象都在
+  MinIO 中存在、均非空；只缺第 1117 段（1 段）。
+- 1347 个音频引用的 `bookName` 全部是 `Matilda`，生成日期为 2026-10-09/10，说明用户
+  感知到的「已经完成」来自既有的整本音频缓存，不是本次 2026-10-29 批次的完成状态。
+- 本次批次实际已向 moon-well 发出 207 次 `source=book-tts-batch` 的
+  `/tts/speak` 请求，全部命中旧缓存；`app-log-moon-well` 同时间窗内这 207 次请求
+  无 ERROR。台账只会在逐段请求返回后把 item 标为 `DONE`，所以缓存已备齐的 1140 段
+  仍显示为 `PENDING`，页面继续显示「继续」。
+- 因此「继续」不是重复合成整本 1347 段，而是从第 207 段断点继续核验缓存，并补合成
+  唯一缺失的第 1117 段，最后把批次收口为 `COMPLETED`。
+
+**修法**：
+
+- `WholeBookTtsService._synth_worker()` 改用整本翻译/详解已在用的
+  `_thread_db_session()`：独立 engine + 线程作用域会话，worker 不再访问 `ub.session`；
+- worker 内所有 job/item 查询、计数与终态写回都显式使用该 session，逐段通过
+  `_commit_with_retry()` 提交；
+- 每轮开始 `expire_all()`，保证请求线程写入的 `CANCELLED` 能被 worker 看到；
+- `_refresh_counts(job, session=None)` 支持显式 session；请求侧 `progress()` 在提交后
+  `refresh(job)`，避免返回请求会话中的旧 `RUNNING` 快照；
+- start/status/retry/cancel 端点、轮询频率、moon-well 缓存与计费语义均不变。
+
+**守卫**：
+
+- `test_synth_worker_never_uses_request_session` 把 `ub.session` 换成任何属性访问都会
+  报错的哨兵，worker 仍必须使用独立会话把批次跑到 `COMPLETED`；
+- 既有 `test_start_creates_batch_dedupes_and_speaks_with_batch_source` 继续钉住起批、
+  去重、选角与三元组代理契约；
+- 既有 `test_cancel_stops_batch` 与 `test_progress_can_resume_only_when_pending_and_no_live_worker`
+  钉住取消可见性与「继续」边界。
+
+**迁移债务**：本修复只收敛 R240 迁移前存量 daemon 的线程会话隔离，不改变
+「每 job 一条 daemon + 进程内花名册」结构；整本朗读后续仍须迁入统一 async-task
+runtime 的数据库租约、心跳与 fencing 机制。相关 268 passed，0 failed。
