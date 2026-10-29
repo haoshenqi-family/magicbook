@@ -38,7 +38,10 @@ def _book_file(book_id, book_format):
     # 复用 job 基类的正文定位/指纹原语（LLD §2）：缓存键必须与三个 job 的
     # 「同一本书同一格式」口径逐字一致，否则两套指纹会对不上。_book_file 不触碰
     # 实例状态，以未绑定函数调用；_fingerprint 本就是 staticmethod。
-    return JobServiceBase._book_file(None, book_id, book_format)
+    # 详情页允许直接打开归档书（show_book 同样传 allow_show_archived=True），速览必须
+    # 跟随同一可见性，否则页面能显示书目却在内容区误报“book is unavailable”（R247）。
+    return JobServiceBase._book_file(
+        None, book_id, book_format, allow_show_archived=True)
 
 
 def _fingerprint(path):
@@ -362,7 +365,9 @@ def _estimate_credits(kind, chars, words, rates, coverage_known):
     if not per1k:
         return {"known": False, "reason": "rate-unavailable"}
     tokens = words * TOKENS_PER_WORD_DETAIL if kind == "wordDetail" else chars / CHARS_PER_TOKEN
-    estimated = int(math.ceil(tokens / 1000.0) * per1k)
+    # R222：按实际 token 比例计费，向上取整到 1 积分；旧的“不足千按千”
+    # 会把 150 token 收成 10 积分，与积分流水不一致。
+    estimated = int(math.ceil(tokens * per1k / 1000.0))
     result = {"known": True, "estimated": estimated,
               "upperBound": int(math.ceil(estimated * UPPER_BOUND_FACTOR)),
               "rate": {"per1kToken": per1k}}

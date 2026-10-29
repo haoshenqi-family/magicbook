@@ -79,8 +79,13 @@ class JobServiceBase:
         tables.extend(model.__table__ for model in self.extra_tables)
         ub.Base.metadata.create_all(bind, tables=tables)
 
-    def _book_file(self, book_id, book_format):
-        book = calibre_db.get_filtered_book(book_id)
+    def _book_file(self, book_id, book_format, allow_show_archived=False):
+        # 整本任务默认沿用归档过滤；内容速览与详情页共用“归档书仍可查看”的可见性，
+        # 因此由调用方显式放宽。不要把默认值改宽，否则会改变三条整本任务的取书语义。
+        if allow_show_archived:
+            book = calibre_db.get_filtered_book(book_id, allow_show_archived=True)
+        else:
+            book = calibre_db.get_filtered_book(book_id)
         if not book:
             raise ValueError("book is unavailable")
         normalized = (book_format or "").lower()

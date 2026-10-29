@@ -35,14 +35,13 @@
             return;
         }
 
-        // Why：partial 从 block js 下发，实际 DOM 会落在详情页的 .container-fluid 内。
-        // 该容器的 Bootstrap 浮动列尚未清除，进度条外层会从容器顶部盒起算、内层被
-        // 浮动挤到底部，最终变成一个覆盖整页的透明层（R237 验收：只剩进度条可点）。
-        // 移到导航栏之后即可回到正常文档流，sticky 仍按原设计吸在页顶。
+        // R248：进度条只挂在完整详情页「整本任务」按钮下方的专用 slot。
+        // XHR 书卡弹层不会下发 partial/JS，书架页因此不会出现跨页进度条。
         var $progress = $('#whole-book-progress');
-        var $nav = $('body > .navbar').first();
-        if ($progress.length && $nav.length) {
-            $progress.insertAfter($nav);
+        var $progressSlot = $('#whole-book-progress-slot');
+        var $openButton = $('#whole-book-panel-open');
+        if ($progress.length && $progressSlot.length) {
+            $progress.appendTo($progressSlot);
         }
 
         var el = $panel[0];
@@ -75,7 +74,8 @@
             estimates: {},
             loading: {},
             job: {},
-            timers: {}
+            timers: {},
+            progressCollapsed: false
         };
 
         function t(key, vars) {
@@ -250,7 +250,10 @@
             if (!job) {
                 return;
             }
-            $progress.prop('hidden', false);
+            if (!state.progressCollapsed) {
+                $progress.prop('hidden', false);
+                $openButton.prop('hidden', true);
+            }
             var percent = job.total > 0 ? Math.min(100, Math.round(job.done * 100 / job.total)) : 0;
             $progress.find('.progress-bar')
                 .css('width', percent + '%')
@@ -258,15 +261,19 @@
                 .text(percent + '%');
             $progress.find('.wb-progress-count').text(fmtNum(job.done) + ' / ' + fmtNum(job.total));
 
-            var label = t('start-' + kind);
+            // Why 单独用 progress-kind 而不是按钮文案：按钮是动作（如「打开详解页面」），
+            // 进度条要先回答「这是哪条任务」。kind 必须折成小写，wordDetail 的 HTML
+            // 属性名解析后是 worddetail，直接拼驼峰会取到空文案。
+            var taskLabel = t('progress-kind-' + String(kind).toLowerCase()) || kind;
+            var statusKey = 'progress-running';
             if (job.status === 'COMPLETED') {
-                label = t('progress-done');
+                statusKey = 'progress-done';
             } else if (job.status === 'CANCELED' || job.status === 'CANCELLED') {
-                label = t('progress-cancelled');
+                statusKey = 'progress-cancelled';
             } else if (job.status === 'PARTIAL_FAILED') {
-                label = t('progress-failed');
+                statusKey = 'progress-failed';
             }
-            $progress.find('.wb-progress-title').text(label);
+            $progress.find('.wb-progress-title').text(t(statusKey, {task: taskLabel}) || taskLabel);
             var $resume = $progress.find('.wb-progress-resume');
             // Why 只在服务端说「有 PENDING 且没有活 worker」时出现：活线程仍在跑时
             // 重复点击 retry 不会双开（后端有锁），但把按钮露出来只会制造误解。
@@ -363,6 +370,7 @@
                 data: JSON.stringify(payload)
             }).done(function (snapshot) {
                 $panel.modal('hide');
+                state.progressCollapsed = false;
                 var total = snapshot.totalCount !== undefined ? snapshot.totalCount : snapshot.total;
                 var done = snapshot.completedCount !== undefined
                     ? snapshot.completedCount
@@ -418,7 +426,9 @@
         });
 
         $('#whole-book-progress .wb-progress-close').on('click', function () {
+            state.progressCollapsed = true;
             $(this).closest('#whole-book-progress').prop('hidden', true);
+            $openButton.prop('hidden', false);
         });
 
         $('#whole-book-progress .wb-progress-resume').on('click', function () {

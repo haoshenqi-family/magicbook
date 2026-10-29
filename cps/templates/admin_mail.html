@@ -1,0 +1,175 @@
+{% extends "layout.html" %}
+
+{% block header %}
+<link href="{{ url_for('static', filename='css/admin_mail.css') }}" rel="stylesheet" media="screen">
+{% endblock %}
+
+{% block body %}
+<input type="hidden" id="credit-csrf" value="{{ csrf_token() }}">
+<div class="admin-mail-shell" id="admin-mail-page" data-admin-mail-page="1">
+  <header class="admin-mail-hero">
+    <div>
+      <p class="admin-mail-eyebrow">{{_('Administrator operation')}}</p>
+      <h1>{{_('Admin Mail')}}</h1>
+      <p class="admin-mail-intro">
+        {{_('Write one plain-text announcement, preview the exact audience, then send it to selected users or everyone.')}}
+      </p>
+    </div>
+    <a class="admin-mail-back" href="{{ url_for('admin.admin') }}">{{_('Back to Admin')}}</a>
+  </header>
+
+  <div id="admin-mail-alert" class="admin-mail-alert" role="alert" hidden></div>
+
+  <div class="admin-mail-grid">
+    <section class="admin-mail-card admin-mail-compose" aria-labelledby="admin-mail-compose-title">
+      <div class="admin-mail-card-head">
+        <div>
+          <p class="admin-mail-step">{{_('01 / Compose')}}</p>
+          <h2 id="admin-mail-compose-title">{{_('Write the mail')}}</h2>
+        </div>
+        <span class="admin-mail-limit">{{_('Plain text only')}}</span>
+      </div>
+
+      <form id="admin-mail-form" novalidate>
+        <fieldset class="admin-mail-fieldset">
+          <legend>{{_('Audience')}}</legend>
+          <div class="admin-mail-segment" role="radiogroup" aria-label="{{_('Audience')}}">
+            <label>
+              <input type="radio" name="admin-mail-audience" value="SELECTED" checked>
+              <span>{{_('Selected users')}}</span>
+            </label>
+            <label>
+              <input type="radio" name="admin-mail-audience" value="ALL">
+              <span>{{_('All users')}}</span>
+            </label>
+          </div>
+          <p id="admin-mail-all-hint" class="admin-mail-hint" hidden>
+            {{_('All users includes every account, including administrator accounts.')}}
+          </p>
+
+          <div id="admin-mail-selected" class="admin-mail-selected">
+            <label class="admin-mail-label" for="admin-mail-user-search">{{_('Find users')}}</label>
+            <div class="admin-mail-search-row">
+              <input id="admin-mail-user-search" class="admin-mail-input" type="search"
+                     autocomplete="off" placeholder="{{_('Name, email or user ID')}}">
+              <button id="admin-mail-user-search-button" class="admin-mail-button" type="button">
+                {{_('Search')}}
+              </button>
+            </div>
+            <div id="admin-mail-user-results" class="admin-mail-user-results" aria-live="polite"></div>
+            <div class="admin-mail-recipient-head">
+              <span>{{_('Selected recipients')}}</span>
+              <span id="admin-mail-selected-count">0</span>
+            </div>
+            <div id="admin-mail-recipients" class="admin-mail-recipients"></div>
+          </div>
+        </fieldset>
+
+        <fieldset class="admin-mail-fieldset">
+          <legend>{{_('Message')}}</legend>
+          <div class="admin-mail-field-head">
+            <label class="admin-mail-label" for="admin-mail-title">{{_('Title')}}</label>
+            <span id="admin-mail-title-count" class="admin-mail-counter">0 / 80</span>
+          </div>
+          <input id="admin-mail-title" class="admin-mail-input" type="text"
+                 maxlength="80" autocomplete="off" placeholder="{{_('Short, specific title')}}">
+
+          <div class="admin-mail-field-head admin-mail-field-gap">
+            <label class="admin-mail-label" for="admin-mail-body">{{_('Message body')}}</label>
+            <span id="admin-mail-body-count" class="admin-mail-counter">0 / 500</span>
+          </div>
+          <textarea id="admin-mail-body" class="admin-mail-input admin-mail-textarea"
+                    maxlength="500" rows="8" placeholder="{{_('What should users know?')}}"></textarea>
+
+          <label class="admin-mail-label admin-mail-field-gap" for="admin-mail-action">
+            {{_('Optional destination')}}
+          </label>
+          <select id="admin-mail-action" class="admin-mail-input">
+            <option value="">{{_('No action button')}}</option>
+            <option value="/credits">{{_('Credits')}}</option>
+            <option value="/buddy">{{_('Buddies')}}</option>
+            <option value="/achievements">{{_('Achievements')}}</option>
+            <option value="/learning">{{_('Daily Learning')}}</option>
+            <option value="/mail">{{_('Mail')}}</option>
+          </select>
+        </fieldset>
+
+        <div class="admin-mail-actions">
+          <button id="admin-mail-preview" class="admin-mail-button admin-mail-button-primary"
+                  type="button">{{_('Preview')}}</button>
+          <span class="admin-mail-hint">{{_('Sending requires a second confirmation.')}}</span>
+        </div>
+      </form>
+    </section>
+
+    <aside class="admin-mail-side">
+      <section class="admin-mail-card admin-mail-preview-card" aria-labelledby="admin-mail-preview-title">
+        <div class="admin-mail-card-head">
+          <div>
+            <p class="admin-mail-step">{{_('02 / Preview')}}</p>
+            <h2 id="admin-mail-preview-title">{{_('What users receive')}}</h2>
+          </div>
+          <span id="admin-mail-preview-audience" class="admin-mail-audience-pill">-</span>
+        </div>
+        <div id="admin-mail-preview-empty" class="admin-mail-empty">
+          {{_('Complete the form and choose Preview to see the exact card.')}}
+        </div>
+        <div id="admin-mail-preview-content" class="admin-mail-preview" hidden>
+          <div class="admin-mail-preview-top">
+            <span class="admin-mail-preview-envelope" aria-hidden="true">&#9993;</span>
+            <span>{{_('MagicBook Mail')}}</span>
+          </div>
+          <h3 id="admin-mail-preview-title-text"></h3>
+          <p id="admin-mail-preview-body-text"></p>
+          <span id="admin-mail-preview-action" class="admin-mail-preview-action" hidden></span>
+        </div>
+        <button id="admin-mail-send" class="admin-mail-button admin-mail-button-send"
+                type="button" disabled>{{_('Send announcement')}}</button>
+      </section>
+
+      <section class="admin-mail-card admin-mail-guardrails">
+        <h2>{{_('Before you send')}}</h2>
+        <ul>
+          <li>{{_('Up to 5000 recipients per send.')}}</li>
+          <li>{{_('Title 1-80 characters; body 1-500 characters.')}}</li>
+          <li>{{_('Recall removes the whole batch from inboxes and cannot be undone.')}}</li>
+          <li>{{_('The campaign audit record is retained after recall.')}}</li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+
+  <section class="admin-mail-card admin-mail-history" aria-labelledby="admin-mail-history-title">
+    <div class="admin-mail-card-head">
+      <div>
+        <p class="admin-mail-step">{{_('03 / Audit')}}</p>
+        <h2 id="admin-mail-history-title">{{_('Send history')}}</h2>
+      </div>
+      <button id="admin-mail-history-refresh" class="admin-mail-button" type="button">
+        {{_('Refresh')}}
+      </button>
+    </div>
+    <div id="admin-mail-history-loading" class="admin-mail-empty" role="status">
+      {{_('Loading history...')}}
+    </div>
+    <div id="admin-mail-history-empty" class="admin-mail-empty" hidden>
+      {{_('No operation mail has been sent yet.')}}
+    </div>
+    <div id="admin-mail-history-error" class="admin-mail-alert" role="alert" hidden></div>
+    <div id="admin-mail-history-list" class="admin-mail-history-list" hidden></div>
+    <div id="admin-mail-history-pager" class="admin-mail-pager" hidden>
+      <button id="admin-mail-history-prev" class="admin-mail-button" type="button">
+        {{_('Previous')}}
+      </button>
+      <span id="admin-mail-history-page"></span>
+      <button id="admin-mail-history-next" class="admin-mail-button" type="button">
+        {{_('Next')}}
+      </button>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/admin_mail.js') }}"></script>
+{% endblock %}

@@ -46,6 +46,29 @@
   font-weight: normal;
 }
 
+/* R252：整本成本摘要。放在缓存标识之后，用两行文字给出可比较的价格，
+   不再塞进 label chip——token、字符与“缓存（原价）”需要换行空间。 */
+.book-cost-summary {
+  margin: 4px 0 10px;
+  padding: 8px 10px;
+  border-left: 3px solid #d9edf7;
+  background: #f7fbfd;
+  font-size: 13px;
+}
+
+.book-cost-summary p {
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+
+.book-cost-summary p:last-child {
+  margin-bottom: 0;
+}
+
+.book-cost-note {
+  margin-top: 2px !important;
+}
+
 .wb-tab-cached {
   margin-left: 6px;
   font-size: 10px;
@@ -116,12 +139,21 @@
 /* ---- R214 子项 C：整本任务代价面板 + 进度条 ---- */
 
 .wb-progress {
-  position: sticky;
-  top: 0;
+  position: static;
   z-index: 1030;
   background: #f7f7f9;
   border-bottom: 1px solid #ddd;
   box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+}
+
+.wb-progress-slot {
+  clear: both;
+  margin: 10px 0 14px;
+}
+
+.wb-progress-slot .wb-progress-inner {
+  max-width: none;
+  padding: 8px 10px;
 }
 
 .wb-progress[hidden] {

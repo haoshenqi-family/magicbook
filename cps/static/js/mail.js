@@ -17,7 +17,9 @@
   var ACTION_LABELS = {
     "/buddy": "Open Buddies",
     "/achievements": "View achievements",
-    "/credits": "View Credits"
+    "/credits": "View Credits",
+    "/learning": "Open Daily Learning",
+    "/mail": "Open Mail"
   };
   var state = {
     status: "idle",
@@ -299,6 +301,10 @@
       } else {
         body = t("Credits were added to your account.");
       }
+    } else if (mail && mail.mailType === "ADMIN_ANNOUNCEMENT") {
+      title = text(mail.title).trim() || t("Announcement");
+      // Why 留空：运营邮件的正文是必填事实，缺失时不能伪装成一条通用公告。
+      body = "";
     } else {
       body = t("You have a new notification.");
     }

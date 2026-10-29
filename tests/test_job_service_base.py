@@ -159,3 +159,26 @@ def test_边界值上新鲜与停滞不是取反关系(monkeypatch):
     assert base_svc.JobServiceBase._is_stale(job) is True
     assert base_svc.JobServiceBase._is_fresh(job) is False
 
+
+def test_book_file_default_keeps_archived_filter_for_whole_book_jobs(monkeypatch):
+    """R247：放宽内容速览不得顺带放宽整本任务。
+
+    三条整本链路沿用骨架默认值，归档书仍按原策略不可用。反向变异：把骨架默认值
+    改成允许归档，或让整本服务显式传 True，这条用例必须报红。
+    """
+    calls = []
+
+    class _CalibreDB:
+        @staticmethod
+        def get_filtered_book(book_id, allow_show_archived=False):
+            calls.append((book_id, allow_show_archived))
+            return None
+
+    monkeypatch.setattr(service_base, "calibre_db", _CalibreDB)
+
+    with pytest.raises(ValueError) as error:
+        JobServiceBase._book_file(None, 145, "epub")
+
+    assert str(error.value) == "book is unavailable"
+    assert calls == [(145, False)]
+

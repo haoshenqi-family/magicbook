@@ -192,6 +192,11 @@
                     {% endif %}
                 </div>
             </div>
+            {# R248：进度条只属于完整书籍详情页的「整本任务」区域。书卡弹层是
+               XHR 片段，不渲染 slot/partial/JS；弹层里的入口仍跳完整详情页。 #}
+            {% if current_user.role_admin() and not is_xhr %}
+            <div id="whole-book-progress-slot" class="wb-progress-slot"></div>
+            {% endif %}
             <h2 id="title">{{ entry.title }}</h2>
             <p class="author">
                 {% for author in entry.ordered_authors %}
@@ -257,7 +262,7 @@
                     {% endif %}
                     {% if _cache.translate.ready %}
                     <span class="label label-default cache-ready-chip" data-kind="translate"
-                          title="整本翻译缓存已备齐（{{ _cache.translate.done }}/{{ _cache.translate.total }} 段），命中缓存不额外计费">整本翻译已缓存</span>
+                          title="整本翻译缓存已备齐（{{ _cache.translate.done }}/{{ _cache.translate.total }} 段），命中缓存按 1 积分/段计">整本翻译已缓存</span>
                     {% endif %}
                     {% if _cache.tts.ready %}
                     <span class="label label-default cache-ready-chip" data-kind="tts"
@@ -268,6 +273,51 @@
                           title="全文单词详解已备齐（全书 {{ _cache.wordDetail.wholeWords or _cache.wordDetail.total }} 词均已覆盖），查词命中缓存不再生成">全文详解已缓存</span>
                     {% endif %}
                 </p>
+            </div>
+            {% endif %}
+
+            {# R252：整本成本摘要。翻译按 token，朗读按字符；已缓存时用
+               「缓存值（全文原价）」并列，避免把“听已缓存音频”误写成“重新生成”。
+               数字只来自速览快照、readiness 台账与 moon-well 费率，不探测缓存。 #}
+            {% set _cost = entry.book_cost_summary %}
+            {% if _cost %}
+            <div class="book-cost-summary" id="book-cost-summary">
+                <p data-kind="translate"
+                   title="缓存翻译按 {{ _cost.translate.cachedPerSegment }} 积分/段；全文生成按 token">
+                    <strong>完整翻译：</strong>
+                    约 {{ "{:,}".format(_cost.translate.tokens) }} tokens
+                    {% if _cost.translate.cached %}
+                        · 缓存翻译 {{ "{:,}".format(_cost.translate.cachedCredits) }} 积分
+                        {% if _cost.translate.fullCredits is not none %}
+                            （全文生成原价约 {{ "{:,}".format(_cost.translate.fullCredits) }} 积分）
+                        {% else %}
+                            （全文生成费率暂不可得）
+                        {% endif %}
+                    {% elif _cost.translate.fullCredits is not none %}
+                        · 全文生成原价约 {{ "{:,}".format(_cost.translate.fullCredits) }} 积分
+                    {% else %}
+                        · 全文生成费率暂不可得
+                    {% endif %}
+                </p>
+                <p data-kind="tts"
+                   title="TTS 不按 token 计费；全文生成按字符，已缓存收听按 {{ _cost.tts.cachedPerSegment }} 积分/段">
+                    <strong>完整朗读：</strong>
+                    约 {{ "{:,}".format(_cost.tts.chars) }} 字符
+                    （TTS 不按 token，约 {{ "{:,}".format(_cost.tts.segments) }} 段）
+                    {% if _cost.tts.cached %}
+                        · 缓存收听 {{ "{:,}".format(_cost.tts.cachedCredits) }} 积分
+                        {% if _cost.tts.fullCredits is not none %}
+                            （全文生成原价约 {{ "{:,}".format(_cost.tts.fullCredits) }} 积分）
+                        {% else %}
+                            （全文生成费率暂不可得）
+                        {% endif %}
+                    {% elif _cost.tts.fullCredits is not none %}
+                        · 全文生成原价约 {{ "{:,}".format(_cost.tts.fullCredits) }} 积分
+                    {% else %}
+                        · 全文生成费率暂不可得
+                    {% endif %}
+                </p>
+                <p class="book-cost-note text-muted"><small>按当前费率粗算，不是账单。</small></p>
             </div>
             {% endif %}
 
@@ -548,7 +598,7 @@
 {# R214 C：整本任务代价面板 + 进度条（partial 自带文案与端点 data-*）。
    整段只在管理员可见：三个整本入口本就是 admin 专属（拍板①），
    非管理员连模态骨架和 JS 都没必要下发。 #}
-{% if current_user.role_admin() %}
+{% if current_user.role_admin() and not is_xhr %}
 {% include 'partials/whole_book_panel.html' %}
 <script src="{{ url_for('static', filename='js/whole-book-panel.js') }}"></script>
 {% endif %}

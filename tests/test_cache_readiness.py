@@ -245,6 +245,7 @@ def test_detail_renders_all_three_cache_chips():
     for kind in ("translate", "tts", "wordDetail"):
         assert "_cache.{0}.ready".format(kind) in src
     assert "_cache.all" in src
+    assert "命中缓存按 1 积分/段计" in src
 
 
 def test_panel_tabs_carry_cached_marker():

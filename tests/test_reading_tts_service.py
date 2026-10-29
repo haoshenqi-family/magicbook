@@ -142,6 +142,39 @@ def test_start_creates_batch_dedupes_and_speaks_with_batch_source(env):
         assert call["timeout"] >= 200
 
 
+def test_synth_worker_never_uses_request_session(env, monkeypatch):
+    """生产事故回归：后台 worker 不得复用 ub.session。
+
+    Why：生产 init_db 把普通 Session 实例赋给 ub.session；请求线程关闭事务后，
+    worker 再查询就会抛 ``ResourceClosedError: This transaction is closed``，
+    批次永久停在 RUNNING。这里把全局 session 换成任何访问都会报错的哨兵，
+    worker 仍必须用独立线程会话把批次跑到 COMPLETED。
+    """
+    service = svc.WholeBookTtsService(env.proxy)
+    monkeypatch.setattr(service, "_spawn_synth_worker", lambda job_id: None)
+    job_id = service.start(1, "EPUB")["jobId"]
+
+    class _ClosedRequestSession:
+        def __getattr__(self, name):
+            raise AssertionError("worker touched request-scoped ub.session: %s" % name)
+
+    monkeypatch.setattr(svc.ub, "session", _ClosedRequestSession(), raising=False)
+
+    service._synth_worker(job_id)
+
+    factory = ub.get_new_session_instance()
+    session = factory()
+    try:
+        job = session.query(ReadingTtsJob).get(job_id)
+        items = (session.query(ReadingTtsJobItem)
+                 .filter(ReadingTtsJobItem.job_id == job_id).all())
+    finally:
+        factory.remove()
+    assert job.status == "COMPLETED"
+    assert job.done_count == 2
+    assert {item.status for item in items} == {"DONE"}
+
+
 def test_start_reuses_active_batch_for_same_book(env):
     service = _make_service(env)
     env.monkeypatch.setattr(service, "_spawn_synth_worker", lambda job_id: None)

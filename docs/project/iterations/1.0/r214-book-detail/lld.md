@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；**R246 进度条任务类型标识已开发**（2026-10-29，§18）；**R247 归档书内容速览误报已修**（2026-10-29，§19，待验收）；**R248 进度条挂载位置已开发**（2026-10-29，§20，待部署验收）；**R249 朗读 worker 会话隔离已上线并完成生产核验**（2026-10-29，§21，待用户验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -445,3 +445,156 @@ canResume 的服务端语义；`test_stalled_tts_batch_has_a_frontend_resume_ent
 （非 docs-only）与 app-manager 部署均成功；生产镜像 label
 `house.build-sha=a2a1e88f...`，容器 `healthy`，线上 JS 已包含 `canResume` 与
 `.wb-progress-resume` 的 retry 接线。待管理员在 `/book/50` 的失联批次上真机点击「继续」验收。
+
+## 18. 验收缺陷：整本任务进度条只剩百分比，看不出任务类型（2026-10-29，R246，`fix/r246-wholebook-progress-label`）
+
+**现象**：全文单词详解批次运行时，吸顶进度条显示 `74%` 与 `735 / 990`，左侧任务标题为空；
+用户无法判断这是翻译、朗读还是详解任务。
+
+**根因**：进度标题原先复用按钮动作文案 `t('start-' + kind)`。详解的 `kind` 是 camelCase
+`wordDetail`，而浏览器会把 `data-t-start-wordDetail` 属性名统一解析成
+`data-t-start-worddetail`，键名不一致导致 `t()` 返回空串。即使补上小写，按钮文案
+「打开详解页面」也不适合作为进行中任务的标题。
+
+**修法**：
+
+- 模板新增独立 `data-t-progress-kind-{translate,tts,worddetail}` 任务名，以及
+  `data-t-progress-{running,done,failed,cancelled}` 状态句式；
+- `renderProgress()` 先把 `kind` 折成小写再取任务名，再按 job 状态选择句式，统一渲染
+  「全文单词详解 · 进行中」这类标题；
+- 不改三条整本 job 的端点、轮询频率、缓存或计费口径。
+
+**守卫**：`test_progress_title_names_task_and_status` 钉住三类任务文案、四种状态句式与
+`kind.toLowerCase()`；反向改回 `t('start-' + kind)` 或去掉小写化即报红。
+
+## 19. 验收缺陷：归档书内容速览误报 `book is unavailable`（2026-10-29，R247，`fix/r247-archived-insight`）
+
+**现象**：`/book/145` 的书目、封面和简介正常显示，但内容速览区域提示
+`内容速览解析失败：book is unavailable`。书目的「归档」勾选为选中状态。
+
+**根因**：`show_book()` 明确以 `allow_show_archived=True` 读取归档书，因此详情页本身
+可以打开；但 `reading_insight.service._book_file()` 复用
+`JobServiceBase._book_file()` 时没有传归档可见性，后者调用
+`calibre_db.get_filtered_book(book_id)` 默认排除归档书，于是同一本书在详情页可见、
+在内容速览中却不可用。该缺陷影响所有归档 EPUB，不是 book 145 的个别文件损坏。
+
+**修法**：
+
+- `JobServiceBase._book_file()` 新增可选参数 `allow_show_archived=False`；
+  默认分支仍用原来的 `get_filtered_book(book_id)`，三条整本任务语义不变；
+- `reading_insight.service._book_file()` 显式传 `allow_show_archived=True`，与
+  `show_book()` 的归档可见性对齐；
+- 因为内容速览、AI 简介、估算、活跃批次和缓存标识都复用该入口，归档书在这些路径上的
+  取书口径一次收敛，避免只修详情页首屏、其他操作仍报同一错误。
+
+**边界**：内容速览放宽归档过滤不等于放宽整本任务。整本翻译、整本朗读、全文单词详解
+仍使用默认值，归档书不能因此新开整本批次。归档书只有在实际文件存在且格式为 EPUB/KEPUB
+时才能解析；文件缺失仍显示真实错误。
+
+**测试**：
+
+- `test_archived_book_can_build_insight`：模拟默认过滤会隐藏归档书，确认
+  `get_or_build()` 仍能取到书并生成章节；反向改回默认过滤即报
+  `book is unavailable`。
+- `test_book_file_default_keeps_archived_filter_for_whole_book_jobs`：确认骨架默认值
+  仍排除归档书，防止修复内容速览时顺带改变整本任务边界。
+- 相关回归（内容速览、详情、估算、缓存标识、翻译/朗读/详解任务）**174 passed**。
+
+## 20. 验收缺陷：进度条出现在书架/书卡弹层，且位置不对（2026-10-29，R248，`fix/r248-progress-detail-only`）
+
+**现象**：书架页打开书卡详情弹层时，页面顶部出现「全文单词详解 · 进行中」进度条；
+用户明确要求进度条应显示在书籍详情页的整本任务区域，而不是全局页面顶部。
+
+**根因**：`detail.html` 的 partial 原先只按管理员门禁下发，XHR 片段也包含
+`whole_book_panel.html` 和 JS；`whole-book-panel.js` 初始化时又主动把
+`#whole-book-progress` `insertAfter(body > .navbar)`。因此书卡弹层加载片段后，
+进度条被挂到书架页面的全局导航下方，既跨页又脱离整本任务上下文。
+
+**修法**：
+
+- `detail.html` 在完整详情页的整本任务按钮下方新增
+  `#whole-book-progress-slot`，仅在 `role_admin() and not is_xhr` 时渲染；
+- partial 与 `whole-book-panel.js` 同步加 `not is_xhr` 门禁，书卡弹层不再加载进度条骨架；
+- JS 改为把 `#whole-book-progress` 追加到详情页 slot，不再移动到全局 navbar；
+- 进度条使用详情页内联布局（不再 sticky），有活跃批次时隐藏「整本任务」按钮，收起后恢复按钮；
+  收起状态在轮询期间保持，不被下一帧重新弹出。
+
+**边界**：这仍是 R214 子项 C 的 UI 挂载修复；任务 start/status/retry 端点、轮询频率、
+缓存、计费与归档取书语义均不变。书卡弹层内的「整本任务」链接仍跳完整详情页。
+
+**守卫**：
+
+- `test_whole_book_progress_slot_is_full_detail_only`：slot 同时受 admin 与 `not is_xhr` 门禁；
+- `test_whole_book_partial_is_not_rendered_in_xhr_fragment`：partial 不进入 XHR 片段；
+- `test_progress_bar_is_appended_to_detail_task_slot`：JS 不再 `insertAfter(navbar)`；
+- `test_progress_close_stays_collapsed_during_polling`：收起后轮询不重新弹出。
+
+## 21. 验收缺陷：整本朗读 worker 复用请求会话，批次停在进行中（2026-10-29，R249，`fix/r249-tts-worker-session`）
+
+**现象**：`/book/145` 的整本朗读批次停在 `RUNNING 207/1348`，页面显示
+「整本朗读 · 进行中」并提供「继续」。用户误以为批次已经完成，实际后台线程已退出，
+只是数据库状态仍停在非终态。
+
+**根因**：生产 `init_db()` 把主线程构造的普通 `Session` 实例赋给 `ub.session`。
+整本朗读 daemon 与 HTTP 请求线程共用这一个会话。请求线程在 11:39:51 提交阅读状态后，
+worker 于 11:41:59 的下一轮 autoflush 命中已关闭事务：
+
+```text
+sqlalchemy.exc.ResourceClosedError: This transaction is closed
+```
+
+`JobServiceBase._worker_guarded()` 只把线程从 `_live_workers` 花名册摘除并记录异常，
+不会把 job 改成失败终态；由于仍剩 1141 个 `PENDING` item，状态接口返回
+`canResume=true`，前端因此显示「继续」。这不是缓存齐备标识或 `COMPLETED` 状态被误判，
+而是 worker 在请求事务被关闭后崩溃。
+
+**ES / MinIO 缓存核验（2026-10-29）**：
+
+- 批次台账共 1348 个去重段落；`magicbook-read-paragraph` 中按这些段落 hash 查到
+  1347 个文档，均带 `audioObject`，且对应 1347 个 `reading-tts/<hash>.mp3` 对象都在
+  MinIO 中存在、均非空；只缺第 1117 段（1 段）。
+- 1347 个音频引用的 `bookName` 全部是 `Matilda`，生成日期为 2026-10-09/10，说明用户
+  感知到的「已经完成」来自既有的整本音频缓存，不是本次 2026-10-29 批次的完成状态。
+- 本次批次实际已向 moon-well 发出 207 次 `source=book-tts-batch` 的
+  `/tts/speak` 请求，全部命中旧缓存；`app-log-moon-well` 同时间窗内这 207 次请求
+  无 ERROR。台账只会在逐段请求返回后把 item 标为 `DONE`，所以缓存已备齐的 1140 段
+  仍显示为 `PENDING`，页面继续显示「继续」。
+- 因此「继续」不是重复合成整本 1347 段，而是从第 207 段断点继续核验缓存，并补合成
+  唯一缺失的第 1117 段，最后把批次收口为 `COMPLETED`。
+
+**修法**：
+
+- `WholeBookTtsService._synth_worker()` 改用整本翻译/详解已在用的
+  `_thread_db_session()`：独立 engine + 线程作用域会话，worker 不再访问 `ub.session`；
+- worker 内所有 job/item 查询、计数与终态写回都显式使用该 session，逐段通过
+  `_commit_with_retry()` 提交；
+- 每轮开始 `expire_all()`，保证请求线程写入的 `CANCELLED` 能被 worker 看到；
+- `_refresh_counts(job, session=None)` 支持显式 session；请求侧 `progress()` 在提交后
+  `refresh(job)`，避免返回请求会话中的旧 `RUNNING` 快照；
+- start/status/retry/cancel 端点、轮询频率、moon-well 缓存与计费语义均不变。
+
+**守卫**：
+
+- `test_synth_worker_never_uses_request_session` 把 `ub.session` 换成任何属性访问都会
+  报错的哨兵，worker 仍必须使用独立会话把批次跑到 `COMPLETED`；
+- 既有 `test_start_creates_batch_dedupes_and_speaks_with_batch_source` 继续钉住起批、
+  去重、选角与三元组代理契约；
+- 既有 `test_cancel_stops_batch` 与 `test_progress_can_resume_only_when_pending_and_no_live_worker`
+  钉住取消可见性与「继续」边界。
+
+**迁移债务**：本修复只收敛 R240 迁移前存量 daemon 的线程会话隔离，不改变
+「每 job 一条 daemon + 进程内花名册」结构；整本朗读后续仍须迁入统一 async-task
+runtime 的数据库租约、心跳与 fencing 机制。相关 268 passed，0 failed。
+
+**上线与生产验证（2026-10-29）**：
+
+- 实现 `39759318` 已快进推送 `origin/develop`；fnOS 构建并部署成功，生产容器
+  `running/healthy`，镜像 label `house.build-sha=39759318a53cd35f8d877c0afffd6783e861ba0d`；
+- 生产点击「继续」后，worker 从 207 段断点续跑至 `COMPLETED`，最终
+  `done=1348 / failed=0 / pending=0`，日志记录
+  `job ... finished (done=1348 failed=0)`，部署后无新的 `worker crashed` 或
+  `ResourceClosedError`；
+- ES `magicbook-read-paragraph` 已从 1347/1348 补齐为 1348/1348，MinIO 对应
+  1348 个 `reading-tts/<hash>.mp3` 对象全部存在且非空；
+- 生产 `/book/145` 进度条显示「整本朗读 · 已完成」「100%」「1,348 / 1,348」，
+  「继续」按钮消失；刷新后出现「整本朗读已缓存」标识。

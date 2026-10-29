@@ -87,6 +87,23 @@ def test_whole_book_panel_has_three_kinds():
     assert "whole_book_panel.html" in _read(), "detail.html 没 include 面板"
 
 
+def test_whole_book_progress_slot_is_full_detail_only():
+    """R248：进度条 slot 只在完整详情页的整本任务区出现。"""
+    gates = _enclosing_conditions(_read(), 'id="whole-book-progress-slot"')
+    assert any("role_admin" in gate for gate in gates), \
+        "进度条 slot 不在管理员门禁内: {0}".format(gates)
+    assert any("is_xhr" in gate for gate in gates), \
+        "进度条 slot 没有排除 XHR 书卡弹层: {0}".format(gates)
+
+
+def test_whole_book_partial_is_not_rendered_in_xhr_fragment():
+    """R248：书卡弹层不加载面板/进度条 partial，避免跨页进度条。"""
+    src = _read()
+    include_idx = src.index("partials/whole_book_panel.html")
+    prefix = src[:include_idx]
+    assert "current_user.role_admin() and not is_xhr" in prefix.rsplit("{% if ", 1)[-1]
+
+
 def test_legacy_whole_book_buttons_are_gone():
     """旧的三个并列按钮不许回来：它们是「点一下就下单」的形态，面板存在的理由就是替代它。"""
     src = _read()
@@ -445,6 +462,30 @@ def test_start_label_keys_are_lowercase():
     assert "toLowerCase()" in _read_panel_js()
 
 
+def test_progress_title_names_task_and_status():
+    """R246：进度条必须明确标出任务类型与状态，不能只剩百分比。
+
+    Why：详解任务的 kind 是 camelCase `wordDetail`，但 HTML 属性名解析后是
+         `data-t-progress-kind-worddetail`。进度标题若直接拼 `start-<kind>`，
+         不仅会取空，还会把动作文案（「打开详解页面」）误当成任务名。
+    反向变异：改回 `t('start-' + kind)` 或去掉 toLowerCase() → 报红。
+    """
+    panel = _read_panel()
+    for kind, label in (("translate", "整本翻译"),
+                        ("tts", "整本朗读"),
+                        ("worddetail", "全文单词详解")):
+        assert 'data-t-progress-kind-{0}="{1}"'.format(kind, label) in panel
+    for status in ("running", "done", "failed", "cancelled"):
+        assert 'data-t-progress-{0}="{{task}}'.format(status) in panel
+
+    js = _read_panel_js()
+    render = js[js.index("function renderProgress"):js.index("function stopPoll")]
+    assert "t('progress-kind-' + String(kind).toLowerCase())" in render
+    assert "t(statusKey, {task: taskLabel})" in render
+    assert "|| kind" in render and "|| taskLabel" in render, "文案缺键时必须回退，不能再次留空"
+    assert "t('start-' + kind)" not in render
+
+
 def test_stalled_tts_batch_has_a_frontend_resume_entry():
     """R237 验收缺陷：容器重启杀掉 worker 后，页面必须能原地续跑。
 
@@ -460,16 +501,21 @@ def test_stalled_tts_batch_has_a_frontend_resume_entry():
     assert "'#whole-book-progress .wb-progress-resume'" in js
 
 
-def test_progress_bar_is_moved_out_of_float_layout():
-    """R237：进度条必须移出详情页浮动列所在的 .container-fluid。
-
-    Why：block js 的 DOM 实际落在该容器内；容器里的 Bootstrap 浮动列未被清除时，
-         进度条会被撑成整屏透明层并拦住正文点击。只把 partial 放回 block js 不够，
-         必须显式移到导航栏之后，回到不带浮动影响的正常文档流。
-    """
+def test_progress_bar_is_appended_to_detail_task_slot():
+    """R248：进度条必须挂在详情页整本任务 slot，而不是全局导航下方。"""
     js = _read_panel_js()
-    assert "$progress.insertAfter($nav)" in js
-    assert "$('body > .navbar')" in js
+    assert "$progress.appendTo($progressSlot)" in js
+    assert "$('#whole-book-progress-slot')" in js
+    assert "$progress.insertAfter($nav)" not in js
+    assert "$('body > .navbar')" not in js
+
+
+def test_progress_close_stays_collapsed_during_polling():
+    """收起进度条后轮询不能把它重新弹出来，否则用户无法在详情页阅读。"""
+    js = _read_panel_js()
+    assert "progressCollapsed" in js
+    assert "state.progressCollapsed = true" in js
+    assert "if (!state.progressCollapsed)" in js
 
 
 def test_estimate_route_reports_instead_of_bare_500():

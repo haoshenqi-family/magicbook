@@ -13,6 +13,7 @@ import time
 from .. import ub, logger
 from ..cw_login import current_user
 from ..reading_job.service_base import JobServiceBase
+from ..reading_translation.service import _commit_with_retry, _thread_db_session
 from ..reading_translation.timeutil import now_utc
 from ..reading_translation.models import TranslationJob  # noqa: F401  (表注册顺序依赖)
 from .extractor import extract_epub_paragraphs
@@ -214,76 +215,88 @@ class WholeBookTtsService(JobServiceBase):
         return self._spawn_worker(job_id, self._synth_worker)
 
     def _synth_worker(self, job_id):
-        # Why 自建查询而非闭包 session：scoped_session 绑定线程作用域，后台线程不能复用
-        # 请求线程的 session；线程内自建会话操作（翻译同款）。鉴权由路由层注入的 proxy
-        # 闭包封装（请求线程定格的令牌快照），service 不接触任何凭据概念。
+        # Why 必须自建 session：生产 init_db 把主线程构造的普通 Session 实例赋给
+        # ub.session，请求线程与 daemon 线程共享它。请求线程 commit/close 后，worker
+        # 下一次 autoflush 会撞 "This transaction is closed"，批次停在 RUNNING。
+        # How 与整本翻译/详解共用 _thread_db_session：独立 engine + 线程作用域会话，
+        # 每段提交后仍由 worker 独占，不与任何 HTTP 请求共享事务。
         proxy = self._proxy
-        while True:
-            job = ub.session.query(ReadingTtsJob).get(job_id)
-            if job is None or job.status == "CANCELLED":
-                return
-            item = (ub.session.query(ReadingTtsJobItem)
-                    .filter(ReadingTtsJobItem.job_id == job_id,
-                            ReadingTtsJobItem.status == "PENDING")
-                    .order_by(ReadingTtsJobItem.paragraph_index)
-                    .first())
-            if item is None:
-                self._refresh_counts(job)
-                pending = (ub.session.query(ReadingTtsJobItem)
-                           .filter(ReadingTtsJobItem.job_id == job_id,
-                                   ReadingTtsJobItem.status == "PENDING").count())
-                if pending == 0:
-                    failed = (ub.session.query(ReadingTtsJobItem)
-                              .filter(ReadingTtsJobItem.job_id == job_id,
-                                      ReadingTtsJobItem.status == "FAILED").count())
-                    job.status = "PARTIAL_FAILED" if failed else "COMPLETED"
-                    ub.session.commit()
-                    log.info("whole-book tts: job %s finished (done=%s failed=%s)",
-                             job.id, job.done_count, job.failed_count)
-                return
-            ok = False
-            error = None
-            for attempt in (1, 2):
-                try:
-                    # 三元组契约同上：二元组解包抛 ValueError → 每段重试两次后全数
-                    # FAILED（R237 前生产形态：done=0、failed 全量、每段两次合成白烧）。
-                    body, status, _headers = proxy(SPEAK_PATH,
-                                                   {"text": item.text, "bookName": job.book_name,
-                                                    "chapter": item.chapter, "source": SOURCE_BOOK_TTS_BATCH},
-                                                   SYNTH_TIMEOUT_SECONDS, "whole-book tts synth",
-                                                   binary=True)
-                    if 200 <= status < 300:
-                        ok = True
-                        break
-                    error = "moon-well /tts/speak HTTP %s" % status
-                except Exception as exc:  # 网络抖动/moon-well 重启：重试一次后 FAILED
-                    error = str(exc)
-                time.sleep(1)
-            item.attempt_count = attempt
-            item.status = "DONE" if ok else "FAILED"
-            item.error_message = None if ok else (error or "unknown")[:500]
-            if not ok:
-                job.failed_count = (ub.session.query(ReadingTtsJobItem)
-                                    .filter(ReadingTtsJobItem.job_id == job_id,
-                                            ReadingTtsJobItem.status == "FAILED").count())
-            job.done_count = (ub.session.query(ReadingTtsJobItem)
-                              .filter(ReadingTtsJobItem.job_id == job_id,
-                                      ReadingTtsJobItem.status == "DONE").count())
-            job.updated_at = now_utc()
-            ub.session.commit()
-            time.sleep(SYNTH_INTERVAL_SECONDS)
+        with _thread_db_session() as session:
+            while True:
+                # Why 每轮重新读状态：取消由请求线程写入另一条 session，必须让
+                # identity map 过期后才能看见 CANCELLED，不能拿上一轮的 job 对象。
+                session.expire_all()
+                job = session.query(ReadingTtsJob).get(job_id)
+                if job is None or job.status == "CANCELLED":
+                    return
+                item = (session.query(ReadingTtsJobItem)
+                        .filter(ReadingTtsJobItem.job_id == job_id,
+                                ReadingTtsJobItem.status == "PENDING")
+                        .order_by(ReadingTtsJobItem.paragraph_index)
+                        .first())
+                if item is None:
+                    self._refresh_counts(job, session)
+                    pending = (session.query(ReadingTtsJobItem)
+                               .filter(ReadingTtsJobItem.job_id == job_id,
+                                       ReadingTtsJobItem.status == "PENDING").count())
+                    if pending == 0:
+                        failed = (session.query(ReadingTtsJobItem)
+                                  .filter(ReadingTtsJobItem.job_id == job_id,
+                                          ReadingTtsJobItem.status == "FAILED").count())
+                        job.status = "PARTIAL_FAILED" if failed else "COMPLETED"
+                        _commit_with_retry(session)
+                        log.info("whole-book tts: job %s finished (done=%s failed=%s)",
+                                 job.id, job.done_count, job.failed_count)
+                    return
+                ok = False
+                error = None
+                for attempt in (1, 2):
+                    try:
+                        # 三元组契约同上：二元组解包抛 ValueError → 每段重试两次后全数
+                        # FAILED（R237 前生产形态：done=0、failed 全量、每段两次合成白烧）。
+                        body, status, _headers = proxy(
+                            SPEAK_PATH,
+                            {"text": item.text, "bookName": job.book_name,
+                             "chapter": item.chapter, "source": SOURCE_BOOK_TTS_BATCH},
+                            SYNTH_TIMEOUT_SECONDS, "whole-book tts synth",
+                            binary=True)
+                        if 200 <= status < 300:
+                            ok = True
+                            break
+                        error = "moon-well /tts/speak HTTP %s" % status
+                    except Exception as exc:  # 网络抖动/moon-well 重启：重试一次后 FAILED
+                        error = str(exc)
+                    time.sleep(1)
+                item.attempt_count = attempt
+                item.status = "DONE" if ok else "FAILED"
+                item.error_message = None if ok else (error or "unknown")[:500]
+                if not ok:
+                    job.failed_count = (session.query(ReadingTtsJobItem)
+                                        .filter(ReadingTtsJobItem.job_id == job_id,
+                                                ReadingTtsJobItem.status == "FAILED").count())
+                job.done_count = (session.query(ReadingTtsJobItem)
+                                  .filter(ReadingTtsJobItem.job_id == job_id,
+                                          ReadingTtsJobItem.status == "DONE").count())
+                job.updated_at = now_utc()
+                _commit_with_retry(session)
+                time.sleep(SYNTH_INTERVAL_SECONDS)
 
-    def _refresh_counts(self, job):
-        job.done_count = (ub.session.query(ReadingTtsJobItem)
+    @staticmethod
+    def _refresh_counts(job, session=None):
+        session = session or ub.session
+        job.done_count = (session.query(ReadingTtsJobItem)
                           .filter(ReadingTtsJobItem.job_id == job.id,
                                   ReadingTtsJobItem.status == "DONE").count())
-        job.failed_count = (ub.session.query(ReadingTtsJobItem)
+        job.failed_count = (session.query(ReadingTtsJobItem)
                             .filter(ReadingTtsJobItem.job_id == job.id,
                                     ReadingTtsJobItem.status == "FAILED").count())
 
     def progress(self, job):
-        self._refresh_counts(job)
+        self._refresh_counts(job, ub.session)
         ub.session.commit()
+        # Worker 使用独立 session；提交会过期请求会话里的实例，显式 refresh
+        # 让状态与 worker 刚写入的终态一致，避免接口仍返回旧的 RUNNING。
+        ub.session.refresh(job)
         done = job.done_count
         failed = job.failed_count
         # Why 由服务端判定：页面只能看到 DB 状态，无法知道 daemon 线程是否随容器重启

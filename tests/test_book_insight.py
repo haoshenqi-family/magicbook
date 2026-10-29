@@ -126,9 +126,30 @@ def test_single_language_epub_stats(tmp_dir):
     assert len(result["chapters"]) == 3
     assert result["paragraphCount"] == 4
     assert result["charCount"] > 0
+    assert result["billableParagraphCount"] == 4
+    assert result["billableCharCount"] == result["charCount"]
     assert result["englishWordCount"] > 0
     assert result["excerpt"], "首章起的摘录不应为空"
     assert result["excerpt"][0]["chapter"] == "Chapter 1"
+
+
+def test_billable_counts_deduplicate_normalized_text(tmp_dir):
+    """成本口径按 text_hash 去重；仅空白不同的重复段落不能重复计价。"""
+    files = {
+        "c1.xhtml": _chapter_xhtml("Chapter 1", ["Hello world.", "Hello   world."]),
+        "c2.xhtml": _chapter_xhtml("Chapter 2", ["Second paragraph."]),
+    }
+    result = _parse(_make_epub(
+        tmp_dir,
+        "<dc:language>eng</dc:language>",
+        files=files,
+        spine=["c1.xhtml", "c2.xhtml"],
+    ))
+
+    assert result["paragraphCount"] == 3
+    assert result["charCount"] == len("Hello world.") + len("Hello world.") + len("Second paragraph.")
+    assert result["billableParagraphCount"] == 2
+    assert result["billableCharCount"] == len("Hello world.") + len("Second paragraph.")
 
 
 def test_dual_language_epub_declares_both(tmp_dir):
@@ -193,3 +214,61 @@ def test_first_paragraph_and_counts_per_chapter(tmp_dir):
     assert result["chapters"][0]["paragraphCount"] == 2
     assert result["chapters"][1]["paragraphCount"] == 1
     assert result["chapters"][2]["paragraphCount"] == 1
+
+
+def test_archived_book_can_build_insight(app, tmp_dir, monkeypatch):
+    """R247：详情页允许打开的归档 EPUB，内容速览也必须能取到同一本书。
+
+    反向变异：速览取书退回 `get_filtered_book(book_id)` 的默认归档过滤 →
+    这里立即得到 `book is unavailable`，与生产 `/book/145` 的现象一致。
+    """
+    from cps import ub
+    from cps.reading_insight import service
+    from cps.reading_insight.models import BookInsight
+    from cps.reading_job import service_base
+
+    _three_chapter_book(tmp_dir)
+    calls = []
+
+    class _Book:
+        path = "."
+
+    class _CalibreDB:
+        @staticmethod
+        def get_filtered_book(book_id, allow_show_archived=False):
+            calls.append((book_id, allow_show_archived))
+            return _Book() if allow_show_archived else None
+
+        @staticmethod
+        def get_book_format(book_id, book_format):
+            class _Format:
+                name = "test"
+
+            return _Format()
+
+    class _Config:
+        @staticmethod
+        def get_book_path():
+            return tmp_dir
+
+    monkeypatch.setattr(service_base, "calibre_db", _CalibreDB)
+    monkeypatch.setattr(service_base, "config", _Config)
+    service._ensure_tables()
+
+    book_id = 90247
+    ub.session.query(BookInsight).filter(
+        BookInsight.book_id == book_id,
+        BookInsight.book_format == "epub",
+    ).delete()
+    ub.session.commit()
+    try:
+        payload = service.get_or_build(book_id, "epub")
+        assert payload["bookId"] == book_id
+        assert payload["chapters"]
+        assert calls == [(book_id, True)]
+    finally:
+        ub.session.query(BookInsight).filter(
+            BookInsight.book_id == book_id,
+            BookInsight.book_format == "epub",
+        ).delete()
+        ub.session.commit()
