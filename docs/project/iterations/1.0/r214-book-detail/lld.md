@@ -1,6 +1,6 @@
 # LLD — R214 书籍详情（A 基础信息 / B 内容速览 / C 代价面板）
 
-> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；**R246 进度条任务类型标识已开发**（2026-10-29，§18）；拍板⑦：AI 简介无「重新生成」按钮
+> 状态：**定稿（2026-10-23）**；子项 A **已上线**（c4a98e54→develop，push 040b627b 触发部署）＋**A 验收缺陷 R218 已修**（§12，88ba3626/8643f8fe）；子项 B **已合入 develop**（f10fd755 缓存/解析/端点 + 3a52c102 模板三区块，2026-10-23，测试全绿）；**B 验收缺陷 R222 已上线**（§14，上游故障改 502 + Magpie 白名单，push `a2056ec5`）；**子项 C 开发完成**（2026-10-24：`estimate()` + `/ajax/whole-book-estimate` + 面板 partial/JS，实现修正见 §4.3 表内；待真机验收）；**入口可达性缺陷 R236 已修**（2026-10-28，§15：弹层内恢复「整本任务」入口，链接跳完整详情页）；**R237 已修并部署**（2026-10-28，§16：后端 proxy 三元组被 tts 二元组解包 + 前端进度条被浮动列撑成整屏透明层，`8c388234`；§17：部署重启打断 worker 后进度条提供「继续」入口，`b48a29ed` 已随 `a2a1e88f` 上线，待验收）；**R246 进度条任务类型标识已开发**（2026-10-29，§18）；**R247 归档书内容速览误报已修**（2026-10-29，§19，待验收）；拍板⑦：AI 简介无「重新生成」按钮
 > **2026-10-23 子项 A 验收缺陷修复**：`/book/<id>` 对「在任意书架里的书」整页 500（难度阶把 shelf id 当 Shelf 对象取 `.name`）——见 §12，分支 `fix/r214-detail-500`
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-13 · Ship MAGICBOOK-221
@@ -466,3 +466,36 @@ canResume 的服务端语义；`test_stalled_tts_batch_has_a_frontend_resume_ent
 
 **守卫**：`test_progress_title_names_task_and_status` 钉住三类任务文案、四种状态句式与
 `kind.toLowerCase()`；反向改回 `t('start-' + kind)` 或去掉小写化即报红。
+
+## 19. 验收缺陷：归档书内容速览误报 `book is unavailable`（2026-10-29，R247，`fix/r247-archived-insight`）
+
+**现象**：`/book/145` 的书目、封面和简介正常显示，但内容速览区域提示
+`内容速览解析失败：book is unavailable`。书目的「归档」勾选为选中状态。
+
+**根因**：`show_book()` 明确以 `allow_show_archived=True` 读取归档书，因此详情页本身
+可以打开；但 `reading_insight.service._book_file()` 复用
+`JobServiceBase._book_file()` 时没有传归档可见性，后者调用
+`calibre_db.get_filtered_book(book_id)` 默认排除归档书，于是同一本书在详情页可见、
+在内容速览中却不可用。该缺陷影响所有归档 EPUB，不是 book 145 的个别文件损坏。
+
+**修法**：
+
+- `JobServiceBase._book_file()` 新增可选参数 `allow_show_archived=False`；
+  默认分支仍用原来的 `get_filtered_book(book_id)`，三条整本任务语义不变；
+- `reading_insight.service._book_file()` 显式传 `allow_show_archived=True`，与
+  `show_book()` 的归档可见性对齐；
+- 因为内容速览、AI 简介、估算、活跃批次和缓存标识都复用该入口，归档书在这些路径上的
+  取书口径一次收敛，避免只修详情页首屏、其他操作仍报同一错误。
+
+**边界**：内容速览放宽归档过滤不等于放宽整本任务。整本翻译、整本朗读、全文单词详解
+仍使用默认值，归档书不能因此新开整本批次。归档书只有在实际文件存在且格式为 EPUB/KEPUB
+时才能解析；文件缺失仍显示真实错误。
+
+**测试**：
+
+- `test_archived_book_can_build_insight`：模拟默认过滤会隐藏归档书，确认
+  `get_or_build()` 仍能取到书并生成章节；反向改回默认过滤即报
+  `book is unavailable`。
+- `test_book_file_default_keeps_archived_filter_for_whole_book_jobs`：确认骨架默认值
+  仍排除归档书，防止修复内容速览时顺带改变整本任务边界。
+- 相关回归（内容速览、详情、估算、缓存标识、翻译/朗读/详解任务）**174 passed**。

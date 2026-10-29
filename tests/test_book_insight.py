@@ -193,3 +193,61 @@ def test_first_paragraph_and_counts_per_chapter(tmp_dir):
     assert result["chapters"][0]["paragraphCount"] == 2
     assert result["chapters"][1]["paragraphCount"] == 1
     assert result["chapters"][2]["paragraphCount"] == 1
+
+
+def test_archived_book_can_build_insight(app, tmp_dir, monkeypatch):
+    """R247：详情页允许打开的归档 EPUB，内容速览也必须能取到同一本书。
+
+    反向变异：速览取书退回 `get_filtered_book(book_id)` 的默认归档过滤 →
+    这里立即得到 `book is unavailable`，与生产 `/book/145` 的现象一致。
+    """
+    from cps import ub
+    from cps.reading_insight import service
+    from cps.reading_insight.models import BookInsight
+    from cps.reading_job import service_base
+
+    _three_chapter_book(tmp_dir)
+    calls = []
+
+    class _Book:
+        path = "."
+
+    class _CalibreDB:
+        @staticmethod
+        def get_filtered_book(book_id, allow_show_archived=False):
+            calls.append((book_id, allow_show_archived))
+            return _Book() if allow_show_archived else None
+
+        @staticmethod
+        def get_book_format(book_id, book_format):
+            class _Format:
+                name = "test"
+
+            return _Format()
+
+    class _Config:
+        @staticmethod
+        def get_book_path():
+            return tmp_dir
+
+    monkeypatch.setattr(service_base, "calibre_db", _CalibreDB)
+    monkeypatch.setattr(service_base, "config", _Config)
+    service._ensure_tables()
+
+    book_id = 90247
+    ub.session.query(BookInsight).filter(
+        BookInsight.book_id == book_id,
+        BookInsight.book_format == "epub",
+    ).delete()
+    ub.session.commit()
+    try:
+        payload = service.get_or_build(book_id, "epub")
+        assert payload["bookId"] == book_id
+        assert payload["chapters"]
+        assert calls == [(book_id, True)]
+    finally:
+        ub.session.query(BookInsight).filter(
+            BookInsight.book_id == book_id,
+            BookInsight.book_format == "epub",
+        ).delete()
+        ub.session.commit()

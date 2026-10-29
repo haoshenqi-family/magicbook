@@ -10,3 +10,5 @@
 
 **编号说明**：占号时发现 pip trusted-host 会话与 /home 会话存在既有漂移（origin 上 pip=229、本地记 230）——该漂移已由当事会话按「不修改既有记录、续编下一个空号」处置（pip 最终 R231，见台账 231 条），本轮 R230 在 origin 上为干净占位，无冲突。
 **台账总结**：requests.md R230 已回填完整状态；response.md 本条新增。
+
+**验收与清理（2026-10-26 晚）**：用户确认「可以了」，验收通过。驻留 worktree 与分支已按闸门清理（本轮功能跨两仓，登记于此两处）：`moon-well-r220-user-data-export`（feat/r220-user-data-export @ df72cc4）与 `magicbook-r230-user-data-export`（feat/r230-user-data-export @ eecc514b）均已 `git worktree remove` + `git branch -d`（-d 通过=确认已合并），树与分支核验清净。PingCode MB-230 → Completed。

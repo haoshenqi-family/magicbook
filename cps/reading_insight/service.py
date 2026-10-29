@@ -38,7 +38,10 @@ def _book_file(book_id, book_format):
     # 复用 job 基类的正文定位/指纹原语（LLD §2）：缓存键必须与三个 job 的
     # 「同一本书同一格式」口径逐字一致，否则两套指纹会对不上。_book_file 不触碰
     # 实例状态，以未绑定函数调用；_fingerprint 本就是 staticmethod。
-    return JobServiceBase._book_file(None, book_id, book_format)
+    # 详情页允许直接打开归档书（show_book 同样传 allow_show_archived=True），速览必须
+    # 跟随同一可见性，否则页面能显示书目却在内容区误报“book is unavailable”（R247）。
+    return JobServiceBase._book_file(
+        None, book_id, book_format, allow_show_archived=True)
 
 
 def _fingerprint(path):

@@ -64,28 +64,15 @@
 - `response-archive/response-R221-R222.md`：R221 AI 口语陪练语音优先 + R222 书籍简介验收缺陷——2026-10-26 R233 写入触发轮转搬移，原文无改写
 - `response-archive/response-R223.md`：R223 Buddy 悬浮球化（透明头像 + hover 径向快捷气泡）——2026-10-26 R232 会话合并 origin/develop（R233 一节并入）后窗口达 11 节，原样搬移不改写
 - `response-archive/response-R224.md`：R224 本轮测试修复未完成项收口（R219 / R212 / R213-B6 / R214-C）——2026-10-26 R234 写入触发轮转搬移，原样搬移不改写
-- `response-archive/response-R230.md`：R230 个人学习数据导出入口与任务下载 UI——2026-10-29 R241 写入使窗口达 11 节，原样搬移不改写
+- `response-archive/response-R230.md`：R230 个人学习数据导出入口与任务下载 UI——2026-10-29 R241 写入使窗口达 11 节，原样搬移不改写；R247 轮转把原误置于 R234 后的 R230 验收清理段归回本节
 - `response-archive/response-R232.md`：R232 伴读面板不再显示 token 用量——2026-10-29 R243 合并 R244 后窗口达 11 节，原样搬移不改写
 - `response-archive/response-R233.md`：R233 AI 回复中的本站链接可点击并在新窗口打开——2026-10-29 R246 写入使窗口达 11 节，原样搬移不改写
+- `response-archive/response-R234.md`：R234 悬浮球快捷动作 AI 对话恒首位——2026-10-29 R247 写入使窗口达 11 节，原样搬移不改写
 
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事）
 
-## 2026-10-26（R234：悬浮球快捷动作——AI 对话恒在第一位且不可删除，升级为服务端不变量）
-
-### R234（用户：「伙伴悬浮球快捷动作，AI 对话始终在第一位切不可删除」）
-
-- **结论先行**：这条铁律此前只由前端保证（`/buddy` 页 chat chip 固定选中不可取消 + `renderBubbles` 恒把 chat 排第一位），服务端 POST 不校验 chat——直连 API 可把 chat 存成缺失（气泡渲染成 6 个，突破 4–5 口径）或末位，存量旧值读回也不归一。本轮把「恒第一位、不可删」落为**服务端不变量**，用户可见行为不变。
-- **实现**：`cps/routes/buddy.py` 新增 `_pin_chat_first()`（白名单过滤 + 保序去重 + chat 钉首位）。POST 归一后落库：缺 chat 补首位、错位前移；数量口径连 chat 一起算（4–5），发 5 个非 chat＝6 个，**400 拒绝而非静默截断**。`current_user_view_settings()` 读回对存量旧值（R223 期写入）同样归一并截上限 5，归一后不足 4 个或含白名单外动作回落默认四项——无需数据迁移的惰性纠正。常量 `QUICK_ACTION_PINNED/MIN/MAX` 钉口替代裸数字。
-- **前端零行为改动**：仅更正 `buddy.js` 注释（「勾选 2-5 个」实为 4-5 个）；`renderBubbles` 的 `["chat"].concat(...)` 保留作双保险。
-- **测试**：`tests/test_buddy_page.py` +3——`test_quick_actions_post_pins_chat_first`（缺 chat 补位 / chat 中位前移，均读回归一结果）、`test_quick_actions_post_rejects_over_max_counting_pinned_chat`（5 个非 chat 400 且不落库）、`test_quick_actions_read_normalizes_legacy_values`（直写 view_settings 模拟三类存量旧值 + 坏数据回落默认）。定向回归 **26 passed**（buddy 页 + R215 结构 + i18n 契约）、buddy 全家 **50 passed**；`git diff --check` 通过。既有 R223 三条校验用例语义不变（2 个 / 未知 / 重复仍 400）。
-- **文档四问**：能力 → L1 `readme/companion.md` 悬浮球条目补「恒在第一位且不可删除（R234）」；契约 → 端点形制不变（POST 语义收紧已写进基线）；实现/边界 → 新建 L3 `companion/features/buddy-quick-actions.md`；本次实现 → `iterations/1.0/r234-buddy-qa-chat-first/lld.md`。需求基线 `companion/requirements.md` §R234、R223 LLD 边界两条标注〔已被 R234 取代〕、迭代 `plan.md` 已同步。
-- **台账与驻留**：R234 由 `claim.sh` 占号并 push（`500a7316`，纯台账）；实现 `bbd482ae`。写入前 response.md 已有 10 节，按「写入即检查」把最早 R224 节原样搬至 `response-archive/response-R224.md` 并登记索引，窗口恢复 10 节。worktree `../magicbook-r234-buddy-qa-chat-first`（分支 `feat/r234-buddy-qa-chat-first`）按闸门驻留待用户验收。
-- **总结**：requests.md 条目 234 已从占位回填；本条为回应。冲突记录：无撞号；主检出未提交的 `messages.po` 改动（去掉积分说明里「约每千 token 消耗 1 积分」一句）经核对与 origin/develop 中 R230 `eecc514b` 已合入的同一 hunk 逐字一致（重复劳动），ff 拉齐前以 stash 挪开、push 后确认该改动已在 HEAD 中，**stash 条目保留未动**（如为并行会话在途工作可自行处置）。
-
-
-**验收与清理（2026-10-26 晚）**：用户确认「可以了」，验收通过。驻留 worktree 与分支已按闸门清理（本轮功能跨两仓，登记于此两处）：`moon-well-r220-user-data-export`（feat/r220-user-data-export @ df72cc4）与 `magicbook-r230-user-data-export`（feat/r230-user-data-export @ eecc514b）均已 `git worktree remove` + `git branch -d`（-d 通过=确认已合并），树与分支核验清净。PingCode MB-230 → Completed。
 ## 2026-10-28（R236：弹层恢复「整本任务」入口——跳完整详情页的普通链接）
 
 ### R236（用户：「弹层里恢复『整本任务』按钮。不要做其他的」）
@@ -249,3 +236,15 @@
 - **真机验收点**：管理员打开任意书详情页，运行任一整本任务；吸顶进度条应分别显示「整本翻译 / 整本朗读 / 全文单词详解 · 进行中」，结束后显示已完成、有失败段落或已取消。截图对应的详解任务应显示「全文单词详解 · 进行中」。
 - **窗口与驻留**：写入前 10 节，新增后达 11 节；按「写入即检查」把最早 R233 整节原样搬至 `response-archive/response-R233.md` 并登记索引，窗口恢复 10。worktree `../magicbook-r246-wholebook-progress-label`（分支 `fix/r246-wholebook-progress-label`）按闸门保留待验收，验收通过后删除。
 - **总结**：requests.md 条目 246 已从占位回填；本条为回应。冲突记录：无撞号。
+
+## 2026-10-29（R247：归档书内容速览误报 `book is unavailable`）
+
+### R247（用户：「报错了」；截图为归档书 `/book/145` 的内容速览错误）
+
+- **结论先行**：已修复，归档书不是数据损坏。`/book/145` 的详情页明确允许查看归档书，但内容速览复用了整本任务默认的取书过滤，导致同一本书在详情页可见、在内容速览中却报 `book is unavailable`；影响所有归档 EPUB。
+- **根因**：`show_book()` 使用 `get_book_read_archived(..., allow_show_archived=True)`；内容速览的 `reading_insight.service._book_file()` 则调用 `JobServiceBase._book_file()` 的默认路径，最终走到 `calibre_db.get_filtered_book(book_id)`，默认排除归档书。内容速览、AI 简介、估算、活跃批次和缓存标识共用这个入口，所以错误不只出现在首屏解析。
+- **修复**：`JobServiceBase._book_file()` 新增可选参数 `allow_show_archived=False`；默认分支保持原调用，整本翻译/朗读/详解边界不变。内容速览入口显式传 `allow_show_archived=True`，与详情页可见性对齐，一次覆盖速览、简介、估算、活跃批次与缓存标识。
+- **测试**：新增 `test_archived_book_can_build_insight`，从生产同款 `book is unavailable` 红灯转为成功生成章节；新增 `test_book_file_default_keeps_archived_filter_for_whole_book_jobs`，确认整本任务仍排除归档书。内容速览、详情、估算、缓存标识与三条任务链路相关回归 **174 passed / 0 failed**；后续执行 `git diff --check`。
+- **文档四问**：能力 → L1 `docs/product/readme/library.md` 明确归档书仍可看内容速览；契约 → 无变化；实现/边界 → 新建 L3 `docs/product/library/features/book-insight.md`，并修正缓存标识 L3 的归档口径；本次实现 → R214 LLD §19、AC B9、R214 需求基线与迭代 `plan.md`。
+- **驻留**：worktree `../magicbook-r247-archived-insight`（分支 `fix/r247-archived-insight`）按闸门保留待用户验收；挂 R214 修复，不建独立 idea。
+- **窗口与总结**：写入前 10 节，新增后达 11 节；按「写入即检查」把最早 R234 整节原样搬至 `response-archive/response-R234.md` 并登记索引，窗口恢复 10。requests.md 条目 247 已从占位回填；本条为回应。冲突记录：无撞号。
