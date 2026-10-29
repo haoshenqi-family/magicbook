@@ -243,8 +243,8 @@ i18n 契约 5 例仍全绿）。worktree 说明：原树被大清理删除后本
 - **安全**：本仓不保存卡密、不生成卡密、不计算价格；页面只显示文本与复制按钮，不渲染二维码/图片。复制优先 Clipboard API，失败回退 `execCommand('copy')` 并给可见错误。
 - **管理员**：批量发卡默认 30 天，可设 1–3650 天或长期；批次列表、查看卡密、作废未使用卡、下载 `credit-cards-batch-<id>.txt` 全部接通。
 - **i18n**：模板新增词条已补 `zh_Hans_CN/messages.po` 并只重编译中文 `messages.mo`；JS 动态文案直写中文；`CARD_REDEEM` 显示「积分卡兑换」。
-- **测试**：`tests/test_credit_card.py + test_credit_consume.py` **23 passed**；契约/i18n 回归 **11 passed**；`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。开发态未跑全量。
+- **测试与发布**：正式发布态全量 `1033 passed / 0 failed / 4 warnings`；`tests/test_credit_card.py + test_credit_consume.py` 23 passed、契约/i18n 11 passed，`node --check cps/static/js/credits.js` 与 `git diff --check` 通过。远端新增 R243 文档后合并为 `8e0efe95` 并 push `origin/develop`；fnOS 于 2026-10-29 09:41:54 返回 `deploy SUCCESS`、`build END OK (8e0efe95...)`。
 - **文档四问**：L1 `readme/credit.md`、L2 `credit/interface.md`、L3 `credit/features/credit-card.md`、需求基线 `credit/requirements.md`、本次 HLD/LLD/AC 与迭代 `plan.md` 均已回填。
-- **状态与驻留**：R242 占号 `03df95b5`；PingCode MB-233 已流转 `In progress`；worktree `../magicbook-r242-credit-card`（分支 `feat/r242-credit-card`，功能 `7364b00f` + 收口修复 `d990f38d`）保留，待 moon-well R227 先上线后真机验收；**未 push**。主检出仍有并行未提交改动，本轮未在共享检出 merge。
+- **状态与驻留**：R242 已上线待验收。现网 `magicbook` 容器 `running/healthy`，`house.build-sha=8e0efe95...`；`/credits` 与卡密代理按预期重定向登录，生产的 `credits.js` 已包含兑换、购卡与管理导出接线。PingCode MB-233 保持 `In progress`；worktree `../magicbook-r242-credit-card`（分支 `feat/r242-credit-card`）保留待真机验收，验收后再清理。
 - **窗口**：写入前 10 节，按「写入即检查」把最早 R229 整节原样搬至 `response-archive/response-R229.md` 并登记索引，窗口保持 10。
 - **总结**：requests.md 条目 242 已从占位回填；本条为回应。冲突记录：无撞号。
