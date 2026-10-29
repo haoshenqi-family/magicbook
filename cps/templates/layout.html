@@ -357,7 +357,7 @@
     {# R109 引导模式：必须在 jQuery 之后（onboarding.js 依赖 $），故放在 block js 之后 #}
     {% include 'i18n_seed.html' %}
     {% include 'onboarding_mount.html' %}
-    {# R251：移动端底部导航（首页 / 书库 / 学习 / 我的）——窄屏侧栏收进 #}
+    {# R251：移动端底部导航（首页 / 书库 / 学习 / 账号）——窄屏侧栏收进 #}
     {# 汉堡菜单后，一级域入口仍要可达；管理入口保留在顶栏，不占移动底栏。 #}
     {% if current_user.is_authenticated or g.allow_anonymous %}
     <nav class="mb-bottom-nav visible-xs" aria-label="{{_('Mobile Navigation')}}">
@@ -375,7 +375,7 @@
       </a>
       {% endif %}
       <a href="{% if not current_user.is_anonymous %}{{url_for('web.profile')}}{% else %}{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}{% endif %}" class="mb-bottom-item{% if account_active %} active{% endif %}"{% if account_active %} aria-current="page"{% endif %}>
-        <span class="glyphicon glyphicon-user"></span><span class="mb-bottom-label">{% if current_user.is_authenticated %}{{current_user.name}}{% else %}{{_('Login')}}{% endif %}</span>
+        <span class="glyphicon glyphicon-user"></span><span class="mb-bottom-label">{% if current_user.is_authenticated %}{{_('Account')}}{% else %}{{_('Login')}}{% endif %}</span>
       </a>
     </nav>
     {% endif %}
