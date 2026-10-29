@@ -10,6 +10,7 @@ from ..render_template import render_title_template
 from ..usermanagement import user_login_required
 from flask import Response
 from flask import jsonify
+from flask import make_response
 from flask import redirect
 from flask import request
 from flask import url_for
@@ -131,6 +132,19 @@ def subscription_order_status():
 def credits_page():
     """积分充值页：余额 + 档位 + 支付宝扫码收银台，数据经 /ajax/credit-* 异步加载。"""
     return render_title_template("credits.html", title=_("Credits"))
+
+
+@web.route("/credit-card/share", methods=["GET"])
+def credit_card_share_page():
+    """Public share landing page; the bearer key stays in the URL fragment."""
+    response = make_response(render_title_template(
+        "credit_card_share.html", title="积分卡分享"))
+    # Why: the page explains a bearer credential. Never cache or index it, and
+    # never leak it through Referer; the fragment itself is browser-only.
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
 
 
 @web.route("/ajax/credit/account", methods=["POST"])

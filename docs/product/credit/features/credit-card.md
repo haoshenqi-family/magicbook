@@ -9,7 +9,8 @@
 | --- | --- | --- |
 | 兑换积分卡 | 积分页「Redeem a Credit Card」 | 输入完整卡密，兑换成功后余额、明细与已购列表刷新 |
 | 购买积分卡 | 积分页「Buy a Credit Card to Gift」 | 三档固定价格，购买后走支付宝扫码，支付成功生成一张卡 |
-| 已购卡密 | 积分页「My Purchased Card Keys」 | 显示本人购买的卡密、面额、状态、有效期和复制按钮 |
+| 已购卡密 | 积分页「My Purchased Card Keys」 | 显示本人购买的卡密、面额、状态、有效期，以及「复制卡密」「复制并分享」按钮 |
+| 分享落地页 | `/credit-card/share` | 显示卡密、复制按钮、兑换步骤；不自动兑换 |
 | 管理员发卡 | 积分页管理员面板 | 批量发卡、查看批次、查看卡密、作废、文本导出 |
 
 ## 2. 前端实现
@@ -32,7 +33,9 @@
 - `loadPurchasedCards(highlightOrderNo)`：按 `purchaseOrderNo` 高亮本次新卡。
 - `redeemCard()`：提交卡密，成功后刷新余额、明细、已购列表；失败显示上游 message。
 - `issueCardBatch()` / `renderAdminBatches()` / `loadAdminCards()` / `voidCard()` / `exportBatch()`：管理员闭环。
-- `copyText()`：Clipboard API 优先，失败回退 `execCommand('copy')`；按钮短暂显示「已复制」。
+- `cardShareUrl()`：生成 `/credit-card/share#key=...&credits=...`，卡密只进 fragment。
+- `copyText()`：Clipboard API 优先，失败回退 `execCommand('copy')`；区分「卡密已复制」与「分享链接已复制」。
+- `consumeSharedCardKey()`：从 `#redeem=` 或登录前写入的 `sessionStorage` 恢复卡密，填入兑换框并滚动到兑换区，随后从地址栏移除 fragment。
 
 ## 3. 状态与交互
 
@@ -57,6 +60,14 @@
 - 提交期间禁用按钮，完成后恢复。
 - 成功后清空输入框并显示新增积分与当前余额。
 - 上游业务失败原样显示，避免把「已兑换」误报为网络错误。
+
+### 分享与落地页
+
+- 「复制卡密」只复制原始 bearer key。
+- 「复制并分享」复制分享页链接，不触发兑换。
+- 分享页从 fragment 读取 `key/credits`，展示卡密、复制按钮与三步使用方法。
+- 已登录用户点击「去积分页兑换」进入 `/credits#redeem=...`；匿名用户点击登录前先把卡密暂存到同标签页 `sessionStorage`，登录后积分页自动填入。
+- 分享页禁缓存、禁索引、禁 Referer，并明确每张卡密只能兑换一次。
 
 ### 管理员发卡
 
@@ -90,6 +101,7 @@
 - 卡密、购卡订单、已购列表、管理员发卡/批次/卡密/作废的上游路径与 payload。
 - 导出 binary 与附件文件名。
 - 页面结构、收银台模态、管理员面板唯一性、九条 JS 端点、复制 fallback、`CARD_REDEEM` 与 `purchaseOrderNo`。
+- 分享页公开访问、安全响应头、使用说明、fragment 读取、登录前暂存与不自动兑换守卫。
 
 关联回归：
 

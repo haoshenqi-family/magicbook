@@ -35,6 +35,7 @@
 - `#credit-card-admin-panel`：仅在管理员时渲染，包含发卡表单、批次表和卡密明细。
 - `#credit-checkout`：Bootstrap 模态收银台，创建订单并拿到二维码后自动弹出。
 - 收银台内容使用 Flex 双列布局，不复用 Bootstrap 浮动栅格；生产实测该页面全局样式会让 `.row` 高度塌陷，导致正文溢出到遮罩。
+- `#credit-page[data-card-share-url]` 提供分享落地页公网 URL，前端只拼 fragment。
 
 `#credit-page[data-is-admin]` 只用于前端显隐，不承担权限。
 
@@ -84,14 +85,19 @@ submit #credit-card-redeem-form
 ## 6. 复制
 
 ```text
-copyText(text, button)
+copyText(text, button, successText, errorText)
   ├─ navigator.clipboard.writeText → 成功 done()
   └─ 不可用/拒绝 → textarea + execCommand('copy')
         ├─ 返回 true → done()
-        └─ 返回 false 或异常 → showError('复制失败，请手动选择卡密复制。')
+        └─ 返回 false 或异常 → showError(errorText)
 ```
 
-按钮成功后显示「已复制」1.5 秒，再恢复原文。
+卡密行提供两个动作：
+
+- 「复制卡密」→ 原始 key，成功显示「卡密已复制」。
+- 「复制并分享」→ `cardShareUrl(card)`，成功显示「分享链接已复制」。
+
+按钮成功后显示对应反馈 1.5 秒，再恢复原文。
 
 ## 7. 文案与 i18n
 
@@ -117,3 +123,11 @@ copyText(text, button)
 - 管理员导出是唯一批量明文出口，必须视为敏感文件。
 - 部署顺序：moon-well bootstrap SQL + secret → moon-well → magicbook。
 - 本功能无新增 magicbook 数据库迁移。
+
+## 10. 分享链接
+
+- 新增公开路由 `GET /credit-card/share`；响应 `no-store`、`no-referrer`、`noindex, nofollow`。
+- URL 形态：`/credit-card/share#key=<encoded>&credits=<n>`。fragment 由浏览器保留，不进入 HTTP 请求、反向代理日志或服务端访问日志。
+- 落地页只展示并复制卡密，不自动调用兑换；每张卡密只能使用一次，自动兑换会被聊天预览/误点消耗。
+- 已登录：跳转 `/credits#redeem=<encoded>`，`consumeSharedCardKey()` 填入兑换框、显示提示、滚动到兑换区，并用 `history.replaceState` 清掉 fragment。
+- 匿名：登录前把 `{key,credits,savedAt}` 写入同标签页 `sessionStorage`；登录完成回 `/credits` 后恢复，超过 1 小时丢弃。
