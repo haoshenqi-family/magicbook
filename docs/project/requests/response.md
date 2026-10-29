@@ -214,7 +214,7 @@
 - **用户侧渲染**：运营邮件复用现有 `/mail`、抽屉 Mail、设置入口与伙伴信封；`mail.js` 用文本节点渲染 `title` 与 `customMessage`，不使用 `innerHTML`。原三类系统邮件的投递、已读/解决语义不变；服务端读取运营路径时也再次校验白名单。
 - **文档四问**：能力 → `docs/product/readme/companion.md`；契约 → `docs/product/companion/interface.md`；实现/边界 → 新建 `docs/product/companion/features/admin-mail.md` 并同步 `mail-inbox.md`；本次实现 → `docs/project/iterations/1.0/r250-admin-mail/`（HLD/LLD/AC，状态开发完成待验收），迭代 `plan.md` 已补行。R243 的“不做运营群发”边界标注为已被 R250 取代。
 - **验证**：`tests/test_admin_mail_r250.py tests/test_mail_proxy_r243.py tests/test_mail_ui_r243.py tests/test_i18n_seed_contract.py` 合计 **103 passed / 2 warnings**；`node --check` 与 `git diff --check` 在本轮最终闸门重跑。5000/5001 边界拆成两个独立 Node 进程，避免异步状态互相污染。
-- **状态与驻留**：worktree `../magicbook-r250-admin-mail`（分支 `feat/r250-admin-mail`，占号 `64b0b1a9`）继续驻留待验收；本轮提交后会合并最新 `origin/develop`，再串行重跑定向闸门。不 push `develop`、不上线，除非用户明确要求。
+- **状态与驻留**：worktree `../magicbook-r250-admin-mail`（分支 `feat/r250-admin-mail`，占号 `64b0b1a9`）继续驻留待验收。实现提交 `be4aebbd`，台账冲突合并 `5562db69`，最新基线合并 `e9c5d8fe`；最新基线复跑定向 **103 passed**，静态检查通过。主检出 `develop` 尚有并行会话未提交文档改动，本轮未强行动作，故分支尚未 merge 回 develop；待主检出无并行改动时按闸门合并，再进入验收。不 push、不上线，除非用户明确要求。
 - **窗口与总结**：写入前窗口 10 节；写入后达 11，按「写入即检查」把最早 R238 整节原样搬至 `response-archive/response-R238.md` 并登记索引，窗口恢复 10。requests.md 条目 250 已从占位回填；冲突记录：无撞号，moon-well R230 为跨仓同源编号。
 
 ## 2026-10-29（R252：书籍详情页展示整本朗读与翻译费用及缓存费用）
