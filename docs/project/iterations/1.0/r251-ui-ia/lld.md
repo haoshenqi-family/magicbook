@@ -1,6 +1,6 @@
 # LLD — R251 MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页
 
-> 状态：**已上线待验收（第二轮）**（2026-10-29；第一轮 `70aa636c` 已上线；本轮补账号/管理 L2 拆页、完整功能树与长期原则）
+> 状态：**已上线待验收（第四轮侧栏范围补充）**（2026-10-30；前两轮 `70aa636c` / `3a75a695` 已上线；本轮把 Calibre 侧栏限定在书库域）
 > 工作项：R251 · 迭代 1.0
 > 需求基线：[library requirements](../../../../product/library/requirements.md) · 验收：[acceptance.md](./ac/acceptance.md)
 
@@ -339,6 +339,9 @@ L3 [`ui-information-architecture.md` §4](../../../../product/library/features/u
   不修改 vendored CSS、Calibre 路由或模型。
 - 真实渲染守卫通过 `/shelf/create` 验证书库页存在 `#scnd-nav` 且内容右移；通过
   `/reading/settings` 验证账号页不渲染侧栏、内容占满十二列。
+- 实现 `8abb1c09` 已推送并上线：fnOS `build END OK`、app-manager `deploy SUCCESS`，
+  容器 `running/healthy`，`house.build-sha=8abb1c092440f2f158f9aaea5058de5a5e9372fd`、
+  `house.code-digest=3bc155512e571d32`。
 
 ## 12. 第二轮验证
 

@@ -1,6 +1,6 @@
 # AC — R251 MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页
 
-> 状态：已上线待验收（第二轮；第一轮 `70aa636c`、初始实现 `af551307`、验收修正 `3a75a695` 均已上线）
+> 状态：已上线待验收（第四轮侧栏范围补充；前两轮 `70aa636c`、`af551307`、`3a75a695` 均已上线）
 
 ## A. 一级导航
 
@@ -126,3 +126,7 @@
   账号页无侧栏，内容 x=15、宽 1425px，`scrollWidth == innerWidth == 1440`。
 - [x] 390×844 实测：书库与账号页 `scrollWidth == innerWidth == 390`；移动端继续由
   Calibre 原生折叠菜单承接书目入口，非书库页内容满宽。
+- [x] `pytest tests/test_home_nav_shell.py tests/test_account_admin_ia_r251.py -q`：
+  23 passed / 0 failed / 2 warnings；正式发布态全量 1206 passed / 0 failed / 4 warnings。
+- [x] 实现 `8abb1c09` 已推送 `origin/develop`；fnOS `build END OK`、app-manager
+  `deploy SUCCESS`，容器 `running/healthy`，`house.code-digest=3bc155512e571d32`。
