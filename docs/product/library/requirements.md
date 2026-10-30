@@ -150,7 +150,7 @@
   - 伙伴归 A2 `/buddy`，是 AI 伴读的入口和外观；点击“打开 AI 伴读”复用全站共享抽屉，不新建第二套聊天。
   - 用户积分 `/credits` 与管理员积分治理 `/admin/credits` 物理分页；用户页不渲染治理 DOM。
   - 顶栏“管理”直达 M1 `/admin/usertable`；旧 `/admin/view` 只保留 302 兼容。
-  - MagicBook 自有功能必须有一份完整树状清单；Calibre 原生能力不计入自有功能树，但在路由表中保留其挂载位置。
+  - MagicBook 自有功能必须有一份完整树状清单，单一来源为 L1 `readme/feature-map.md`，产品 README 提供入口；Calibre 原生能力不计入自有功能树，但在路由表中保留其挂载位置。
 - **最小侵入约束**：
   - 不重写 Calibre 的 Bootstrap 导航骨架、不修改 vendored CSS、不改路由与书架模型。
   - 产品判断集中放在 `cps/ui_ia.py`，模板只消费过滤结果。

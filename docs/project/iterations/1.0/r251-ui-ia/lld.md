@@ -205,10 +205,12 @@ pytest tests/ -q
 
 ## 10. 功能树与路由定稿
 
-完整 MagicBook 非 Calibre 功能树落在 L3
-[`ui-information-architecture.md` §4](../../../../product/library/features/ui-information-architecture.md#4-magicbook-自有功能树)。
+完整 MagicBook 非 Calibre 功能地图落在 L1
+[`feature-map.md`](../../../../product/readme/feature-map.md)，并由产品 README 引用。
 树按用户任务分为首页、书库增强、阅读器增强、词汇、学习、伙伴与 AI 伴读、账号、管理八支；
 叶节点是可独立理解和操作的“小功能”，例如难度档位与词汇量测试分别成叶。
+L3 [`ui-information-architecture.md` §4](../../../../product/library/features/ui-information-architecture.md#4-功能地图与页面归属)
+只保留页面归属、权限边界与测试要求，不再复制整棵树。
 
 账号 A1–A7：
 
@@ -289,6 +291,19 @@ pytest tests/ -q
   `house.build-sha=2de2a5388d2cf598a2f36a65ada778d7e8f8c29d`、
   `house.code-digest=533d440f819b943e`。
 
+### 11.6 功能地图独立成 L1 文档
+
+> 「把完善好的功能地图写入文档，在 readme 里引用」
+
+- 新增 L1 `docs/product/readme/feature-map.md`，集中维护五域总览、按任务找功能、
+  八支完整功能树以及 A1–A7 / M1–M13 页面索引。
+- `docs/product/readme/readme.md` 增加「功能地图」主入口，模块手册继续承担各功能的
+  使用细节，不复制全图。
+- L3 `ui-information-architecture.md` 删除重复功能树，只保留页面归属、权限边界、
+  active 与测试要求，并链接 L1 功能地图。
+- 长期规则写入 KB：用户视角功能树只维护一份；新增或移动功能时先改功能地图，
+  再同步模块手册与实现边界。
+
 ## 12. 第二轮验证
 
 定向回归：
@@ -357,8 +372,9 @@ pytest tests/ -q
   同步账号/管理拆页、伙伴入口、主题与积分页归属。
 - 契约变了：`credit/interface.md` 更新用户积分页与 `/admin/credits` 的页面/DOM 边界；
   HTTP 代理端点本身不变。
-- 实现/边界变了：L3 `product/library/features/ui-information-architecture.md` 增加完整功能树、
-  A/M 路由表、伙伴关系与用户/管理治理分离；`reading/features/reader-theme-sync.md`、
+- 实现/边界变了：L1 新增独立 `product/readme/feature-map.md`（功能地图单一来源）；
+  L3 `product/library/features/ui-information-architecture.md` 保留 A/M 路由表、伙伴关系与
+  用户/管理治理分离并引用该地图；`reading/features/reader-theme-sync.md`、
   `credit/features/page-layout.md`、`credit/features/credit-card.md` 同步迁页。
 - 本次怎么实现：本 LLD、AC、需求基线与 `REQUIREMENTS.md`；长期原则追加到
   `docs/kb/instructions/coding/ui-information-architecture.md`。
