@@ -295,6 +295,7 @@ MagicBook 功能地图
 
 ## 7. 相关手册
 
+- [账号与学习数据](account.md)
 - [书库与阅读入口](library.md)
 - [阅读器](reading.md)
 - [词汇](vocabulary.md)

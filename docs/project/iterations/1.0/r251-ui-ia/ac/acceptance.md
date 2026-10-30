@@ -101,3 +101,15 @@
 - [x] 验收修正 `3a75a695` 已推送 `origin/develop`；fnOS 构建、app-manager 部署、容器健康与生产匿名路由检查完成。
 - [x] 统一账号中心入口 `2de2a538` 已上线；390×844 / 1440×1200 无横向溢出，生产容器 `running/healthy`，`house.code-digest=533d440f819b943e`。
 - [x] L1/L2/L3、需求基线、LLD、AC、response 与长期 KB 已同步。
+
+## K. README 全册巡检
+
+- [x] `docs/product/readme/` 全部 10 份 Markdown 已逐份检查。
+- [x] 新增账号手册 `account.md`，覆盖 A1–A7、统一账号中心与 SSO 注销边界。
+- [x] 产品 README 与功能地图均提供账号手册入口。
+- [x] L2 覆盖现状与仓库实况一致；面向用户的“账号/管理 L2”称谓已清理。
+- [x] MagicLens 接管与阅读器内置兜底关系统一，过期版本号与划词下线说明已修正。
+- [x] 全文单词详解的管理员发起权限、失效后端指针与 mail L2 状态已修正。
+- [x] README 目录全部 Markdown 相对链接有效，`git diff --check` 通过。
+- [x] R251 与导航壳定向回归 23 passed / 0 failed / 2 warnings。
+- [x] 未改代码、模板、CSS、路由、模型或 Schema。

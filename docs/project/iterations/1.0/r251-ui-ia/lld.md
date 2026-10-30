@@ -304,6 +304,24 @@ L3 [`ui-information-architecture.md` §4](../../../../product/library/features/u
 - 长期规则写入 KB：用户视角功能树只维护一份；新增或移动功能时先改功能地图，
   再同步模块手册与实现边界。
 
+### 11.7 README 全册巡检
+
+> 「检查 readme 文件夹，更新里边的文档。然后 merge develop push」
+
+- 逐份检查 `docs/product/readme/` 全部 10 份 Markdown：系统索引、书库、阅读器、
+  词汇、学习、伙伴、积分、管理和功能地图，并新增账号手册 `account.md`。
+- `account.md` 用 A1–A7 索引账号任务，统一说明统一账号中心、OIDC、注销只结束本站
+  SSO 会话以及管理入口仅管理员可见。
+- 产品 README 补齐账号域入口，按仓库实况纠正 L2 覆盖数量，并删除面向用户的
+  “账号/管理 L2”称谓；页头内部层级缩写不再出现在使用手册。
+- MagicLens 统一表述为“扩展优先接管、阅读器内置能力兜底”，删除硬编码且已过期的
+  扩展版本号，修正“阅读器划词已下线”和全文单词详解发起权限两处历史漂移。
+- 失效后端指针改为现行路径；moon-well `mail/requirements.md` 明确标为语义参考，
+  不把尚未建立的 mail L2 冒充接口契约。
+- 本巡检只改文档，不改代码、模板、CSS、路由、模型或 Schema。目录内 10 份 Markdown
+  共 72 条相对链接全部有效；`test_account_admin_ia_r251.py` 与
+  `test_home_nav_shell.py` 定向回归 23 passed / 0 failed / 2 warnings。
+
 ## 12. 第二轮验证
 
 定向回归：
