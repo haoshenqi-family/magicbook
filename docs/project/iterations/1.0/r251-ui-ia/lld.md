@@ -321,6 +321,8 @@ L3 [`ui-information-architecture.md` §4](../../../../product/library/features/u
 - 本巡检只改文档，不改代码、模板、CSS、路由、模型或 Schema。目录内 10 份 Markdown
   共 72 条相对链接全部有效；`test_account_admin_ia_r251.py` 与
   `test_home_nav_shell.py` 定向回归 23 passed / 0 failed / 2 warnings。
+- README 巡检提交 `a4a166bf` 已推送 `origin/develop`；fnOS 识别 15 个文件全部为文档，
+  输出 `build SKIPPED (docs-only)`，未构建、未部署、未重启服务。
 
 ## 12. 第二轮验证
 

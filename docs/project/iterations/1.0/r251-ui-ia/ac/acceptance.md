@@ -112,4 +112,5 @@
 - [x] 全文单词详解的管理员发起权限、失效后端指针与 mail L2 状态已修正。
 - [x] README 目录全部 Markdown 相对链接有效，`git diff --check` 通过。
 - [x] R251 与导航壳定向回归 23 passed / 0 failed / 2 warnings。
+- [x] README 巡检提交 `a4a166bf` 已推送 `origin/develop`，fnOS 正确跳过 docs-only 构建与部署。
 - [x] 未改代码、模板、CSS、路由、模型或 Schema。
