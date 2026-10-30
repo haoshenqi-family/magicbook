@@ -108,7 +108,23 @@ unknown ("")
 
 ## 5. 侧栏分组契约
 
-### 5.1 分级
+### 5.1 显示范围
+
+Calibre 书目侧栏只属于 `library` 一级域。模板用 `current_domain` 计算
+`show_library_sidebar`，不另维护页面名单：
+
+```text
+library              -> 显示原 Calibre Browse / 书架 / 分级 / 媒体 / 系统
+home / learning /
+account / admin /
+unknown              -> 不渲染侧栏，内容区使用 col-sm-12
+```
+
+这是产品层最小侵入边界：不删除、不搬走 Calibre 的书目侧栏，只在非书库域停止渲染；
+非书库页不显示空栏，也不需要为不同域临时复制一套假侧栏。移动端继续沿用 Calibre
+原有行为，把书目入口收进折叠菜单，不另造移动侧栏。
+
+### 5.2 分级
 
 ```text
 ^(?:分级)?阶\s*(\d+)
@@ -117,11 +133,11 @@ unknown ("")
 只识别明确以“阶N / 分级阶N”开头的书架；`第一阶段` 不冒充阶 1。
 同组按解析出的整数升序，规则不锚定结尾，允许“阶3 桥梁书”。
 
-### 5.2 媒体
+### 5.3 媒体
 
 名称大小写不敏感，以 `TED`、`Audio`、`Listening`、`音频`、`听力` 开头。
 
-### 5.3 默认兜底
+### 5.4 默认兜底
 
 除分级、媒体之外的用户书架全部进入 `Shelves`。模板用已分组 id 排除后取剩余集合，
 使分类互相重叠或规则调整时仍不丢入口。
@@ -135,6 +151,8 @@ unknown ("")
 - 保留 `top_home` / `top_library` / `top_learning` / `top_me` / `top_admin`。
   onboarding 与测试依赖这些锚点。
 - `current_domain` 是 active 的唯一来源；不要为每个页面再写一套 active 条件。
+- `show_library_sidebar` 只由 `current_domain == 'library'` 与访问权限决定；非书库域
+  不渲染 `#scnd-nav`，内容列必须切到 `col-sm-12`。
 - Calibre 的 Browse 项仅在域为 `library` 且 page 匹配时 active。
 - 移动底栏与桌面主导航使用同一个 `current_domain`，避免两套名单产生不同答案。
 - 系统空组不渲染标题；CaliBlur 自己承接系统操作时隐藏 MagicBook 的系统标题。
@@ -166,6 +184,8 @@ unknown ("")
 6. 关键 DOM ID 未漂移。
 7. L2：A1–A7 / M1–M13 每个路由恰好一个 active；用户积分与管理员治理 DOM 分离。
 8. 入口：`/buddy` 只保留一个“打开 AI 伴读”入口，不新建第二套聊天实现。
+9. 侧栏范围：书库页存在原生书目侧栏；账号等非书库页不得渲染 `#scnd-nav`，
+   内容区必须占满十二列。
 
 ```bash
 pytest tests/test_home_nav_shell.py -q

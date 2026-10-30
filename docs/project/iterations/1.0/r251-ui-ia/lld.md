@@ -324,6 +324,22 @@ L3 [`ui-information-architecture.md` §4](../../../../product/library/features/u
 - README 巡检提交 `a4a166bf` 已推送 `origin/develop`；fnOS 识别 15 个文件全部为文档，
   输出 `build SKIPPED (docs-only)`，未构建、未部署、未重启服务。
 
+### 11.8 侧栏只在书库域显示
+
+> 「能否只在书籍的选项下，左侧暂时原来 calibre 的书籍选项，其他的修改左侧侧边栏，
+> 如果不好做就自动隐藏。」
+
+- 采用最小侵入方案：不复制或重写 Calibre 侧栏，只按 `current_domain` 决定是否渲染。
+- `layout.html` 新增 `show_library_sidebar = current_domain == 'library' and
+  (current_user.is_authenticated or g.allow_anonymous)`：
+  - 书库域保留原 `col-sm-2` 侧栏和全部 Browse/书架/分级/媒体/系统入口；
+  - 首页、学习、账号、管理、未知页面不渲染侧栏，内容列改为 `col-sm-12 mb-full-content`。
+- 不新增跨域临时侧栏，不向非书库页塞无关快捷入口；没有可靠上下文时自动隐藏是正式方案。
+- 模板只加两个产品层 class：`mb-library-sidebar` / `mb-library-content` 供断言和后续样式使用；
+  不修改 vendored CSS、Calibre 路由或模型。
+- 真实渲染守卫通过 `/shelf/create` 验证书库页存在 `#scnd-nav` 且内容右移；通过
+  `/reading/settings` 验证账号页不渲染侧栏、内容占满十二列。
+
 ## 12. 第二轮验证
 
 定向回归：

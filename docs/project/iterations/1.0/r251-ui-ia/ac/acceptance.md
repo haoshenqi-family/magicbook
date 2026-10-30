@@ -114,3 +114,15 @@
 - [x] R251 与导航壳定向回归 23 passed / 0 failed / 2 warnings。
 - [x] README 巡检提交 `a4a166bf` 已推送 `origin/develop`，fnOS 正确跳过 docs-only 构建与部署。
 - [x] 未改代码、模板、CSS、路由、模型或 Schema。
+
+## L. 侧栏显示范围
+
+- [x] 书库域继续显示 Calibre 原生 Browse / 书架 / 分级 / 媒体 / 系统侧栏。
+- [x] 首页、学习、账号、管理与未知页面不渲染 `#scnd-nav`，不保留空侧栏。
+- [x] 非书库页内容区切换为 `col-sm-12 mb-full-content` 并占满可用宽度。
+- [x] 判定只消费 `current_domain == 'library'`，不新增第二份页面名单。
+- [x] 真实渲染守卫同时覆盖书库显示与账号隐藏。
+- [x] 1440×1200 实测：书库侧栏 x=15、宽 237.5px，内容 x=252.5、宽 1187.5px；
+  账号页无侧栏，内容 x=15、宽 1425px，`scrollWidth == innerWidth == 1440`。
+- [x] 390×844 实测：书库与账号页 `scrollWidth == innerWidth == 390`；移动端继续由
+  Calibre 原生折叠菜单承接书目入口，非书库页内容满宽。

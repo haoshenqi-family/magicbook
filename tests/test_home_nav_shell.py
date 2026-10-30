@@ -131,7 +131,7 @@ def test_r251_shelf_groups_never_drop_a_shelf():
 
 
 def test_r251_sidebar_groups_render_without_dropping_shelves(admin_client, ub_session):
-    """真实渲染路径的守卫：分类规则可调整，但入口数量必须守恒。"""
+    """书库页渲染原生书目侧栏，分类规则可调整，但入口数量必须守恒。"""
     for shelf in ub_session.query(ub.Shelf).all():
         ub_session.delete(shelf)
     ub_session.add_all([
@@ -144,9 +144,17 @@ def test_r251_sidebar_groups_render_without_dropping_shelves(admin_client, ub_se
     ub_session.commit()
 
     try:
-        rv = admin_client.get("/reading/settings")
+        # /shelf/create 也属于书库域，但不查询测试环境缺失的 metadata.db；
+        # 仍走同一 layout.html，足以验证「书库显示原生侧栏、账号自动隐藏」。
+        rv = admin_client.get("/shelf/create")
         assert rv.status_code == 200
         html = rv.data.decode("utf-8")
+        assert 'class="col-sm-2 mb-library-sidebar"' in html, (
+            "书库页必须保留 Calibre 原生书目侧栏"
+        )
+        assert 'class="col-sm-10 mb-library-content"' in html, (
+            "书库页内容区必须为侧栏留出宽度"
+        )
         assert html.count('href="/shelf/') == 6, (
             "五个书架 + Create a Shelf 入口都应存在；少一个即分组丢入口"
         )
@@ -156,12 +164,25 @@ def test_r251_sidebar_groups_render_without_dropping_shelves(admin_client, ub_se
         assert html.index("阶1") < html.index("阶2") < html.index("阶10"), (
             "分级书架必须按数字升序渲染"
         )
-        assert 'id="top_me" aria-current="page"' in html, "账号设置页未点亮「账号」域"
-        assert 'id="top_library" aria-current="page"' not in html, (
-            "账号设置页不应同时点亮「书库」域"
+        assert 'id="top_library" aria-current="page"' in html, (
+            "书库页未点亮「书库」域"
         )
-        assert '<li id="nav_list" class="active">' not in html, (
-            "账号页不应误点亮 Calibre 侧栏的 Books List"
+
+        account = admin_client.get("/reading/settings")
+        assert account.status_code == 200
+        account_html = account.data.decode("utf-8")
+        assert 'id="scnd-nav"' not in account_html, (
+            "账号页必须自动隐藏只服务书库的 Calibre 侧栏"
+        )
+        assert "mb-library-sidebar" not in account_html
+        assert 'class="col-sm-12 mb-full-content"' in account_html, (
+            "侧栏隐藏后内容区必须占满十二列"
+        )
+        assert 'id="top_me" aria-current="page"' in account_html, (
+            "账号设置页未点亮「账号」域"
+        )
+        assert 'id="top_library" aria-current="page"' not in account_html, (
+            "账号设置页不应同时点亮「书库」域"
         )
     finally:
         for shelf in ub_session.query(ub.Shelf).all():
