@@ -419,7 +419,10 @@
                             <input id="have_read_cb" data-checked="{{ _('Mark As Unread') }}"
                                    data-unchecked="{{ _('Mark As Read') }}" type="checkbox"
                                    {% if entry.read_status %}checked{% endif %}>
-                            <span data-toggle="tooltip" title="{{_('Mark Book as Read or Unread')}}">{{ _('Read') }}</span>
+                            {# R256：label 不能复用 msgid "Read"（po 译「已读」）——
+                               它是阅读状态开关的固定标签，不是状态徽章；所有书都会
+                               渲染这行字，译成「已读」让未读书籍看起来已读。 #}
+                            <span data-toggle="tooltip" title="{{_('Mark Book as Read or Unread')}}">{{ _('Reading status') }}</span>
                         </label>
                     </form>
                     </p>

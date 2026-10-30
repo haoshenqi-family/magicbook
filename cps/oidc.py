@@ -189,6 +189,35 @@ def new_user_locale(claims):
     return _normalize_locale(getattr(config, "config_default_locale", None)) or "en"
 
 
+def new_user_sidebar_view():
+    """新账号初始侧栏可见性位组合（R256，缺陷根因修复点）。
+
+    Why：浏览类路由（/author、/category、/series、/publisher、/language、
+        /ratings、/formats、/rated、/downloadlist）以 ``check_visibility(SIDEBAR_X)``
+        作门槛，位缺失直接 ``abort(404)``。``ub.User.sidebar_view`` 的列默认值
+        是 1（只含 DETAIL_RANDOM 位），OIDC 建号此前漏赋值，新用户九个侧栏
+        浏览入口全部 404（R256 黑盒体验报告 B1，已在生产实验闭环验证）。
+    How：与本地 /register 路径同口径取 ``config.config_default_show``；配置未
+        初始化（None）时回退 0，交由管理员在后台补——不猜一个位组合。
+    """
+    from . import config
+
+    default_show = getattr(config, "config_default_show", None)
+    return int(default_show) if default_show else 0
+
+
+def create_oidc_user(username, email, claims):
+    """OIDC 首登建号唯一入口（R256 收拢：角色/语言/侧栏位三项默认值一次取齐）。
+
+    Why 收拢成 helper：三项都是「站点默认值 → 新账号」的透传，散在建号调用点
+        就会发生漏项（R211 修角色、R256 修侧栏位，同一调用点两次踩坑）。
+    """
+    return ub.User(name=username, email=email,
+                   role=resolve_new_user_role(),
+                   locale=new_user_locale(claims),
+                   sidebar_view=new_user_sidebar_view())
+
+
 def init_oidc(app):
     issuer = os.getenv("AUTHENTIK_ISSUER", "").rstrip("/")
     client_id = os.getenv("AUTHENTIK_MAGICBOOK_CLIENT_ID", "")
@@ -351,9 +380,9 @@ def callback():
         if user is None:
             # R211：自助注册不再继承管理员权限——一律站点默认角色（已剔除管理员位），
             # 管理员由人在管理后台手动赋予（2026-10-23 用户拍板）。
-            user = ub.User(name=username, email=email,
-                          role=resolve_new_user_role(),
-                          locale=new_user_locale(userinfo))
+            # R256：角色/语言/侧栏位三项站点默认值统一走 create_oidc_user，
+            # 侧栏位缺失会让浏览类路由全部 404（见 new_user_sidebar_view）。
+            user = create_oidc_user(username, email, userinfo)
             ub.session.add(user)
         user.oidc_issuer = issuer
         user.oidc_subject = subject

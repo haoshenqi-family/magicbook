@@ -378,6 +378,11 @@ def create_edit_shelf(shelf, page_title, page, shelf_id=False):
                     ub.ShelfArchive.uuid == shelf.uuid).delete()
                 ub.session_commit()
         shelf_title = to_save.get("title", "")
+        # R256：空标题书架会绕过唯一性检查直接入库，且页面上没有删除入口可清理
+        # （侧栏只渲染空名字+计数），因此必须在入口处拒绝，而不是事后补救。
+        if not shelf_title.strip():
+            flash(_("Shelf title cannot be empty"), category="error")
+            return redirect(url_for('web.index'))
         if check_shelf_is_unique(shelf_title, is_public, shelf_id):
             shelf.name = shelf_title
             shelf.is_public = is_public

@@ -60,17 +60,25 @@ class TestResolveNewUserRole:
 
 
 class TestCallbackContract:
-    """形制守卫：建号分支必须走决策函数，不能写死管理员角色。"""
+    """形制守卫：建号分支必须走决策函数，不能写死管理员角色。
+
+    R256 起建号三项默认值（角色/语言/侧栏位）收拢进 ``oidc.create_oidc_user``，
+    回调只做「查无此人 → 委托 helper」；契约随之钉在 helper 上——它是建号唯一
+    入口，守在这里比守在回调更硬。
+    """
 
     def test_建号处不再直写管理员角色(self):
-        src = inspect.getsource(oidc.callback)
-        assert "ADMIN_USER_ROLES" not in src, "回调不得再写死 ADMIN_USER_ROLES"
-        assert src.count("role=resolve_new_user_role()") == 1
+        callback_src = inspect.getsource(oidc.callback)
+        assert "ADMIN_USER_ROLES" not in callback_src, "回调不得再写死 ADMIN_USER_ROLES"
+        # 回调内不允许出现任何 role= 直写；决策只发生在 helper。
+        assert "role=" not in callback_src, "回调只应委托 create_oidc_user 建号"
+        helper_src = inspect.getsource(oidc.create_oidc_user)
+        assert helper_src.count("role=resolve_new_user_role()") == 1
 
     def test_既有账号合并路径不赋值角色(self):
         """存量账号（OIDC subject 或 email 命中）只补绑定，不得动 role。"""
         src = inspect.getsource(oidc.callback)
-        assert src.count("role=") == 1, "role= 只应出现在新建账号分支"
+        assert "role=" not in src, "role 赋值只允许出现在 create_oidc_user（新建分支）"
 
     def test_模块内不存在邮箱白名单提权路径(self):
         assert "OIDC_ADMIN_EMAILS" not in inspect.getsource(oidc)

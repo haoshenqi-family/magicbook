@@ -105,6 +105,16 @@
   var STRAND_ORDER = ['input', 'language', 'output', 'fluency'];
   var STRAND_COLORS = ['#5b9bd5', '#ed7d31', '#a5a5a5', '#ffc000'];
 
+  // R256：Calibre 元数据的标题可能存着未解码的 HTML 实体（如 Why you need a
+  // good night&#039;s sleep）；textContent 不做实体解码，用户会直接看到原始
+  // 串。借 textarea 一次性解码——innerHTML 里的脚本不会执行，读取 value 安全。
+  function decodeHtmlEntities(text) {
+    if (!text || text.indexOf('&') < 0) return text;
+    var el = document.createElement('textarea');
+    el.innerHTML = text;
+    return el.value;
+  }
+
   // 听力素材下拉（计时重读 tts 档 / 听写 ted 档共用，R153）
   function loadMaterials(select, source, done) {
     var urls = window.learningUrls || {};
@@ -115,7 +125,7 @@
       items.forEach(function (m) {
         var opt = document.createElement('option');
         opt.value = m.bookId;
-        opt.textContent = (m.title || '') + (m.author ? ' · ' + m.author : '');
+        opt.textContent = decodeHtmlEntities(m.title || '') + (m.author ? ' · ' + decodeHtmlEntities(m.author) : '');
         select.appendChild(opt);
       });
       if (done) done(items);
