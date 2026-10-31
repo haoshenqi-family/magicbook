@@ -127,6 +127,25 @@
         return '¥' + parseFloat(value).toFixed(2);
     }
 
+    // R258 方案五：积分数值口语化（≥1万 显示 x万，其余千分位）——
+    // 「5000000」与「¥999.00」混排是旧卡可读性差的主因之一。
+    function formatCredits(value) {
+        var n = Number(value) || 0;
+        if (n >= 10000) {
+            var wan = n / 10000;
+            var text = (wan % 1 === 0) ? String(wan) : wan.toFixed(1);
+            return text + ' 万积分';
+        }
+        return n.toLocaleString('en-US') + ' 积分';
+    }
+
+    function formatPricePerWan(price, credits) {
+        var c = Number(credits) || 0;
+        if (c < 10000) { return null; }
+        var perWan = (Number(price) || 0) / (c / 10000);
+        return '≈ 每万积分 ' + formatMoney(perWan);
+    }
+
     function renderBalance(account) {
         var balance = account ? account.balance : null;
         if (balance === null || balance === undefined) {
@@ -185,26 +204,44 @@
             return;
         }
         visible.forEach(function (pkg) {
+            // R258 方案五：充值卡五段式，从上到下权重递减——
+            // 价格大字 → 得到什么 → 活动说明 → 主按钮 → 单价辅助行；
+            // 「花多少 / 得多少 / 截止何时」3 秒可读。
             var onPromotion = pkg.multiplier > 1;
             var card = $('<div>').addClass('credit-package-card');
-            var nameRow = $('<div>').addClass('pkg-name').text(pkg.title);
-            if (onPromotion) {
-                nameRow.append($('<span>').addClass('pkg-badge').text('内测 ×' + pkg.multiplier));
-            }
-            card.append(nameRow);
-            if (onPromotion && pkg.baseTitle) {
-                card.append($('<div>').addClass('pkg-base').text(pkg.baseTitle));
-            }
+
+            // ① 价格大字
             card.append($('<div>').addClass('pkg-price').text(formatMoney(pkg.price)));
-            card.append($('<div>').addClass('pkg-desc').text(pkg.description || ''));
-            if (onPromotion && pkg.promotionEndTimeEpochMs) {
-                card.append($('<div>').addClass('pkg-promo')
-                    .attr('data-promo-end', String(pkg.promotionEndTimeEpochMs))
-                    .text(formatPromotionRemain(pkg.promotionEndTimeEpochMs - Date.now())));
+
+            // ② 得到什么：最终积分 + 基础额度×倍率的构成（内测加赠说人话）
+            var gainText = formatCredits(pkg.credits);
+            if (onPromotion && pkg.baseCredits) {
+                gainText += '（内测 ' + pkg.multiplier + ' 倍 = ' + formatCredits(pkg.baseCredits) + ' 基础额度）';
             }
+            card.append($('<div>').addClass('pkg-gain').text(gainText));
+
+            // ③ 活动说明：内测角标 + 截止倒计时
+            if (onPromotion && pkg.promotionEndTimeEpochMs) {
+                var promoLine = $('<div>').addClass('pkg-promo')
+                    .attr('data-promo-end', String(pkg.promotionEndTimeEpochMs))
+                    .text(t('Beta bonus ends in ') + formatPromotionRemain(pkg.promotionEndTimeEpochMs - Date.now()));
+                card.append(promoLine);
+            }
+
+            // ④ 主按钮（单一中文按钮）
             card.append($('<button>').addClass('btn btn-primary btn-sm pkg-buy-btn')
                 .attr('data-package-id', pkg.id)
                 .text(t('Recharge Now')));
+
+            // ⑤ 单价辅助行（自动算好帮助比价；不足一万积分的测试档不显示）
+            var perWan = formatPricePerWan(pkg.price, pkg.credits);
+            if (perWan) {
+                card.append($('<div>').addClass('pkg-unit-price').text(perWan));
+            }
+
+            if (pkg.description) {
+                card.append($('<div>').addClass('pkg-desc').text(pkg.description));
+            }
             container.append(card);
         });
         startPromotionCountdown();

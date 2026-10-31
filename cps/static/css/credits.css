@@ -46,9 +46,11 @@
   .credit-packages { display: flex; flex-wrap: wrap; gap: 15px; margin-top: 15px; }
   .credit-package-card { flex: 1 1 220px; max-width: 320px; border: 1px solid #ddd;
                          border-radius: 6px; padding: 15px; display: flex; flex-direction: column; }
-  .credit-package-card .pkg-name { font-size: 16px; font-weight: bold; margin-bottom: 5px; }
-  .credit-package-card .pkg-price { font-size: 24px; font-weight: bold; }
-  .credit-package-card .pkg-desc { color: #777; font-size: 12px; margin: 8px 0; }
+  /* R258 方案五：五段式——价格大字在最上，所得加粗，单价弱化，desc 沉底 */
+  .credit-package-card .pkg-price { font-size: 26px; font-weight: bold; }
+  .credit-package-card .pkg-gain { font-size: 15px; font-weight: 600; margin: 6px 0 2px; }
+  .credit-package-card .pkg-unit-price { color: #777; font-size: 12px; margin-top: 4px; }
+  .credit-package-card .pkg-desc { color: #999; font-size: 12px; margin: 8px 0 0; }
   /* R205：活动角标 / 划线原价 / 倒计时 */
   .credit-package-card .pkg-badge { display: inline-block; background: #d9534f; color: #fff;
                                     font-size: 12px; border-radius: 10px; padding: 1px 8px;

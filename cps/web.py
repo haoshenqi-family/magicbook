@@ -2621,7 +2621,12 @@ def show_book(book_id):
         read_book = entries[1]
         archived_book = entries[2]
         entry = entries[0]
-        entry.read_status = read_book == ub.ReadBook.STATUS_FINISHED
+        # R258 方案十：详情页保留三态原值（0 未读 / 1 已读 / 2 在读）。
+        # 旧实现压成布尔，把「在读」渲染成未读——阅读器明明写了
+        # IN_PROGRESS（reading.py:601），界面上却与没读过无差别。
+        entry.read_status = (read_book if read_book is not None else ub.ReadBook.STATUS_UNREAD)
+        entry.read_status_finished = read_book == ub.ReadBook.STATUS_FINISHED
+        entry.read_status_in_progress = read_book == ub.ReadBook.STATUS_IN_PROGRESS
         entry.is_archived = archived_book
         for lang_index in range(0, len(entry.languages)):
             entry.languages[lang_index].language_name = isoLanguages.get_language_name(get_locale(), entry.languages[

@@ -419,13 +419,17 @@
                           method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <label class="block-label">
+                            {# R258 方案十：三态区分——已读勾选，在读半选态加
+                               「在读」标签，未读留空；三态数据由阅读器写入
+                               book_read_link（reading.py），此前被布尔化丢掉。 #}
                             <input id="have_read_cb" data-checked="{{ _('Mark As Unread') }}"
                                    data-unchecked="{{ _('Mark As Read') }}" type="checkbox"
-                                   {% if entry.read_status %}checked{% endif %}>
+                                   {% if entry.read_status_finished %}checked{% endif %}>
                             {# R256：label 不能复用 msgid "Read"（po 译「已读」）——
                                它是阅读状态开关的固定标签，不是状态徽章；所有书都会
                                渲染这行字，译成「已读」让未读书籍看起来已读。 #}
                             <span data-toggle="tooltip" title="{{_('Mark Book as Read or Unread')}}">{{ _('Reading status') }}</span>
+                            {% if entry.read_status_in_progress %}<span class="label label-info" id="read-in-progress-badge">{{_('Reading now')}}</span>{% endif %}
                         </label>
                     </form>
                     </p>

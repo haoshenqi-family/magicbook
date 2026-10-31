@@ -155,7 +155,10 @@ def test_credits_page_renders_admin_user_dropdown(admin_client, moonwell_configu
     assert "/ajax/credit/admin-users" in js_text
     # 划线原价文案不再带「原到账」前缀（验收微调：baseTitle 服务端文案直接展示）
     assert "'原到账 '" not in js_text
-    assert "pkg-base" in js_text
+    # R258 方案五：五段式重排后基础额度并入「所得」构成行（内测 N 倍 = 基础额度），
+    # 独立划线行 pkg-base 不再渲染。
+    assert "pkg-base" not in js_text
+    assert "pkg-gain" in js_text and "基础额度" in js_text
 
 
 def test_credits_page_renders_admin_panel_for_admin(admin_client, moonwell_configured):

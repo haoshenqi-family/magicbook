@@ -2912,6 +2912,10 @@ msgstr "界面语言已切换"
 msgid "More languages"
 msgstr "更多语言"
 
+#: cps/static/js/credits.js:196
+msgid "Beta bonus ends in "
+msgstr "内测加赠，剩 "
+
 #: cps/shelf.py:533 cps/templates/layout.html:240
 msgid "Untitled Shelf"
 msgstr "未命名书架"
@@ -2919,6 +2923,10 @@ msgstr "未命名书架"
 #: cps/templates/reading_settings.html:201
 msgid "View review queue"
 msgstr "查看复习队列"
+
+#: cps/templates/detail.html:430
+msgid "Reading now"
+msgstr "在读"
 
 #: cps/templates/learning_review.html:25
 msgid "Nothing due right now — your notebook words are scheduled by the forgetting curve and will come back when they are due. Keep reading: words you mark as unknown join the queue automatically."
