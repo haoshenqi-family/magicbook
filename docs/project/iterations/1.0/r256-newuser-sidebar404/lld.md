@@ -1,6 +1,6 @@
 # LLD — R256 黑盒体验报告缺陷修复（OIDC 建号侧栏位 / 空书架 / 已读歧义 / 实体解码）
 
-> 状态：**开发中（待验收）**
+> 状态：**已上线待验收（2026-10-31）**
 > 工作项：R256 · 迭代 1.0
 > 需求来源：新用户黑盒体验报告（2026-10-30，`magicbook-体验报告-2026-10-30.md`，账号 mbtester1030）
 
@@ -57,6 +57,16 @@ pytest tests/test_oidc.py tests/test_oidc_signup.py
 
 - 新增 10 用例：建号位组合/九浏览位覆盖/config 未初始化回退/helper 三项取齐 ×4、空标题拒绝(2 参数化)+正常可建、po/mo 词条双侧校验、JS 解码契约。
 - 契约更新 2 用例：`TestCallbackContract` 随 R256 收拢结构演进（意图不变：建号不得直写角色、合并路径不动角色）。
+
+### 3.1 上线验证（2026-10-31）
+
+- push `db3f445f..7906fa5b`；fnOS `build END OK (7906fa5b)`，容器 `Up (healthy)`，容器内代码含 `new_user_sidebar_view`。
+- 存量 SQL 已执行（LLD §2.1 口径 + 排除 Guest）：sunny/uxprobe/r214probe/mbtester1030 → 262143；**Guest 保留 1**（匿名 Helper 账号受限侧栏是 Calibre 原版语义，不属于缺陷）。
+- 端到端：全新 OIDC 用户 `mbtester1031` 注册登录，库内 `sidebar_view=262143`；九入口抽验 `/category /series /publisher /language /ratings /formats /rated /author` 均 200。
+
+### 3.2 已知边界（不夹带修复）
+
+`/downloadlist` 对普通用户仍 404：Calibre 原版该路由是双重门槛 `check_visibility(SIDEBAR_DOWNLOAD) and role_admin()`（下载统计列表仅管理员可达），而侧栏渲染只查可见性位——普通用户看得到入口点不开。修复前后行为不变差（修复前位缺失同样 404），属原版遗留的「入口与门槛不一致」，归体验报告设计方案一（入口盘点对齐：侧栏只承诺真实可达的入口）后续处理。
 
 ## 4. 文档四问
 
