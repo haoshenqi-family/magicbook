@@ -1,6 +1,6 @@
 # R260 AI 了解我：用户自我介绍 · LLD
 
-> 状态：**开发完成待验收**（2026-10-31）
+> 状态：**已上线待验收**（2026-10-31）
 > 工作项：R260（magicbook 消费侧；后端主责 moon-well R234）· 迭代 1.0
 > 用户原话：「AI应该了解用户才能更好的跟他聊天，帮助他。AI伴读那里增加一个用户填写自我介绍的部分，并把这部分内容放到系统提示词里。」
 
@@ -69,9 +69,16 @@ moon-well R234 的关键边界：
 - R260 静态与行为契约：`tests/test_ai_user_profile_r260.py`。
 - JS 语法：`node --check cps/static/js/ai_chat.js`。
 - 联合回归：moon-well R234 的 49 条档案、提示词与日志测试。
+- 正式发布态全量：**1251 passed / 0 failed / 4 warnings**。
 - 真机验收：保存、刷新后重开、清空、书内问答、网页问答、长文本、失败态和移动端触控。
 
-当前状态为开发完成待验收；未 merge、未 push、未部署。
+**发布与线上核验（2026-10-31）**：
+
+- 实现提交 `7b96323e2f5ce04d7d06bbffb41b42e829b61862` 已快进推送 `origin/develop`；fnOS 输出 `build END OK (7b96323e...)` 与 `deploy SUCCESS`。
+- 容器 `running/healthy`，本机入口返回 `302`，镜像标签 `house.build-sha=7b96323e...`、`house.code-digest=92f502a325ca3318`。
+- Nacos `agent-chat-system` 与 `agent-chat-system-web` 均已发布 `1.3.0`，发布前逐字预检与发布后回读均 PASS。
+
+当前状态为**已上线待验收**。验收通过前保留 worktree 与分支。
 
 ## 8. 后续方案（本轮不做）
 
