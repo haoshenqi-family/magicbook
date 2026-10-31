@@ -108,6 +108,7 @@
 ### 5.2 头部与 FAB
 
 - **2026-11-01 验收修订**：`ai_chat_panel.html` 的 4 个操作按钮在所有宽度只渲染 `.ai-ctl-icon`，不再渲染 `.ai-ctl-label`；`title` + `aria-label` 保留「新建 / 重命名 / 删除 / 记忆」的可访问名称。这样桌面 420px 抽屉头部和移动全屏都不再被文字标签挤占。
+- **上线核验（2026-11-01）**：实现 `76625eb2` 已推 `origin/develop`；fnOS `build END OK`、`deploy SUCCESS`，容器 `healthy`、`house.code-digest=b5bbeb8acf27d751`；公网 CSS 与容器内模板的旧标签计数均为 0。
 - FAB：`#ai-companion-fab` 加品牌色外环（box-shadow 2 层）+ `#ai-companion-fab-label`（「伴读」小标签）。桌面常显；移动端首次进入显示，首次打开抽屉后写 `localStorage['calibre.ai.fabLabelSeen']=1` 并隐藏。裂图/未装备仍回落「AI」文字。
 
 ### 5.3 思考中
