@@ -74,6 +74,20 @@ def test_AI面板恢复覆盖式抽屉():
     assert "--side-panel-width" not in reader_css, "侧栏宽度变量应已删除"
 
 
+def test_AI面板头部操作只显示图标():
+    """2026-11-01 验收修订：四个操作在所有宽度都只显示图标，避免头部拥挤。"""
+    html = _read("cps/templates/ai_chat_panel.html")
+    assert 'class="ai-ctl-label"' not in html, "操作按钮不应再渲染可见文字标签"
+    for anchor in ("ai-chat-new", "ai-chat-rename", "ai-chat-delete", "ai-chat-memory"):
+        block = html.split('id="%s"' % anchor, 1)[1].split("</button>", 1)[0]
+        assert 'class="ai-ctl-icon"' in block, "图标缺失：%s" % anchor
+        assert 'title="' in block and 'aria-label="' in block, "图标按钮缺少可访问名称：%s" % anchor
+    css = _read("cps/static/css/ai_chat.css")
+    assert ".ai-ctl-label" not in css
+    assert "ai-ctl-label-visible" not in css
+    assert "只显示图标" in css
+
+
 def test_AI面板FAB标签状态与覆盖式生命周期():
     js = _read("cps/static/js/ai_chat.js")
     assert 'calibre.ai.fabLabelSeen' in js

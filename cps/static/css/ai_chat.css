@@ -232,10 +232,8 @@
 #ai-companion-drawer header button {
   background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;
   min-width: 36px; min-height: 36px;
-  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
 }
-#ai-companion-drawer header button.ai-ctl-label-visible { font-size: 12px; }
-.ai-ctl-label { font-size: 11px; font-weight: 500; white-space: nowrap; }
 
 /* Conversation switcher bar (dropdown + "+ new conversation") */
 .ai-chat-conv-bar { display: flex; align-items: center; gap: 6px; flex: 1; margin: 0 10px; min-width: 0; }
@@ -244,7 +242,7 @@
   font-size: 13px; background: #fff; color: #333;
 }
 #ai-chat-new { flex: 0 0 auto; font-size: 18px; line-height: 1; }
-/* Rename / delete action buttons (hide text, keep icon + touch target) */
+/* R215 验收修订：四个操作在所有宽度只显示图标，名称由 title / aria-label 提供。 */
 #ai-chat-rename, #ai-chat-delete, #ai-chat-memory { flex: 0 0 auto; font-size: 15px; line-height: 1; }
 #ai-chat-rename:hover, #ai-chat-delete:hover, #ai-chat-memory:hover { color: #ffe0b2; }
 
@@ -404,7 +402,6 @@
   /* Slightly more compact header so the conversation dropdown + title fit. */
   #ai-companion-drawer header { padding: 10px 12px; }
   #ai-companion-drawer header h3 { font-size: 15px; }
-  .ai-ctl-label { display: none; }
   #ai-companion-drawer header button { min-width: 44px; min-height: 44px; font-size: 20px; }
 
   /* Bigger touch targets for the input and send button. */

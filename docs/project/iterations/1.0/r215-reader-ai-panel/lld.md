@@ -1,6 +1,6 @@
 # LLD — R215 阅读器与 AI 伴读面板
 
-> 状态：**开发中（2026-10-23，代码已落 worktree，待验收）**
+> 状态：**已上线待验收**（2026-11-01 验收修订：AI 面板头部操作改为纯图标）
 > 对应 HLD：[`hld.md`](./hld.md) · 验收：[`ac/acceptance.md`](./ac/acceptance.md)
 > 迭代 1.0 · PJM MB-14 · Ship MAGICBOOK-222
 > 实现范围：EPUB 阅读器（`read.html`）为主；AI 面板改动对 `readpdf.html` / `readtxt.html` 生效，但桌面「推挤正文」的布局契约只在 EPUB 生效（其它阅读器保持覆盖，见 §4.6）。
@@ -12,7 +12,7 @@
 | 新增 | `cps/static/js/reading/reader-toolbar.js` | 顶栏窄屏折叠 / 「更多」菜单 / 标签状态；无跨模块别名、无 `init` |
 | 改 | `cps/templates/read.html` | `#main` 加 `reader-main` 类；顶栏标签 + `#title-more` |
 | 改 | `cps/static/css/reader.css` | 阅读器作用域内的顶栏、段尾菜单、移动端覆盖 |
-| 改 | `cps/static/css/ai_chat.css` | 桌面 420px 覆盖式抽屉、移动全屏、头部标签、FAB 环/标签 |
+| 改 | `cps/static/css/ai_chat.css` | 桌面 420px 覆盖式抽屉、移动全屏、头部纯图标、FAB 环/标签 |
 | 改 | `cps/static/css/onboarding.css` | `#onb-help` 避让页码 |
 | 改 | `cps/static/js/reading/reader-tts.js` | 段尾 4 图标 + 触屏「⋯」菜单 |
 | 改 | `cps/static/js/reading/reader-immersive.js` | 恢复 R183 段内译文（插入/缓存/显隐/重试） |
@@ -107,7 +107,7 @@
 
 ### 5.2 头部与 FAB
 
-- `ai_chat_panel.html` 的 4 个操作按钮加 `<span class="ai-ctl-label">新建/重命名/删除/记忆</span>`；≥900px 显示文字，窄屏只留图标 + `aria-label` + `title`。
+- **2026-11-01 验收修订**：`ai_chat_panel.html` 的 4 个操作按钮在所有宽度只渲染 `.ai-ctl-icon`，不再渲染 `.ai-ctl-label`；`title` + `aria-label` 保留「新建 / 重命名 / 删除 / 记忆」的可访问名称。这样桌面 420px 抽屉头部和移动全屏都不再被文字标签挤占。
 - FAB：`#ai-companion-fab` 加品牌色外环（box-shadow 2 层）+ `#ai-companion-fab-label`（「伴读」小标签）。桌面常显；移动端首次进入显示，首次打开抽屉后写 `localStorage['calibre.ai.fabLabelSeen']=1` 并隐藏。裂图/未装备仍回落「AI」文字。
 
 ### 5.3 思考中
@@ -144,7 +144,7 @@ body[data-side-panel] #onb-help{display:none;}
 | `tests/test_reader_module_surface.py` | `ALIASES` 不变（新模块无跨模块别名、无 `init`）；`test_声明_init_的模块必须被显式调用` 仍只允许 `ReaderImmersive` |
 | `tests/test_onboarding_tour.py` | 顶栏 ID 与 `#onb-help` 追加逻辑保持不变 |
 | `tests/test_reader_lens_handoff.py` | 保留 `getElementById('immersive-translate')` |
-| 新增 `tests/test_reader_r215_ui.py` | ① 顶栏有 `.tb-label` / `#title-more` / 原有 ID；② 段尾工具行内、无绝对定位；③ `ai_chat.css` 为 420px 覆盖式 / 移动全屏且无 `data-side-panel`；④ `sendMessage` 中 `beginThinking` 先于 `getPageContextAsync`；⑤ placeholder 三个口径；⑥ `#onb-help` 右移；⑦ 译文恢复段内（`insertTranslation` 存在、无 `translation-rail`） |
+| `tests/test_reader_r215_ui.py` | ① 顶栏有 `.tb-label` / `#title-more` / 原有 ID；② 段尾工具行内、无绝对定位；③ `ai_chat.css` 为 420px 覆盖式 / 移动全屏且无 `data-side-panel`；④ `sendMessage` 中 `beginThinking` 先于 `getPageContextAsync`；⑤ placeholder 三个口径；⑥ `#onb-help` 右移；⑦ 译文恢复段内（`insertTranslation` 存在、无 `translation-rail`）；⑧ 2026-11-01 增补：AI 头部操作纯图标，无 `.ai-ctl-label`，四个按钮均有 `title` / `aria-label` |
 | 反向变异 | 逐条注入旧行为（恢复双重 opacity、把译文改成右栏、把思考中移回 streamChat）确认报红 |
 
 开发态闸门：`node --check` 全部改动 JS + 上述 pytest 文件全绿。正式发布态按仓规跑全量。
