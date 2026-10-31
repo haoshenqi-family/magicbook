@@ -169,6 +169,17 @@ def memory_delete():
     return _relay_json("/ai/agent/memory/delete", _body(), "agent memory delete")
 
 
+@aiagent.route("/ai/agent/profile", methods=["GET"])
+def user_profile():
+    """本人 AI 自我介绍（GET → moon-well POST /ai/agent/profile）。"""
+    return _relay_json("/ai/agent/profile", {}, "agent user profile")
+
+
+@aiagent.route("/ai/agent/profile/save", methods=["POST"])
+def user_profile_save():
+    return _relay_json("/ai/agent/profile/save", _body(), "agent user profile save")
+
+
 @aiagent.route("/ai/agent/book-profile", methods=["GET"])
 def book_profile():
     """book 学情摘要（懒计算入口；GET ?bookId= → moon-well POST）。"""

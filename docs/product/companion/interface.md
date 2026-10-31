@@ -1,6 +1,6 @@
 # companion · L2 接口说明
 
-> 读者：调用者 / 集成者。本轮登记 R243 站内信消费侧代理、R250 管理员运营发信后台与 R254 独立伙伴邮件弹层；companion 的 AI 对话、伙伴目录等历史接口仍以文末指针为准。后端邮件事实、幂等、已读/已解决语义唯一权威是 moon-well R228；运营发信事实与批次审计唯一权威是 moon-well R230。
+> 读者：调用者 / 集成者。本文件登记站内信消费侧代理、管理员运营发信后台、独立伙伴邮件弹层与 R260 AI 用户自我介绍代理；companion 的 AI 对话、伙伴目录等历史接口仍以文末指针为准。后端邮件事实、幂等、已读/已解决语义唯一权威是 moon-well R228；运营发信事实与批次审计唯一权威是 moon-well R230；用户自我介绍存储与提示词注入唯一权威是 moon-well R234。
 
 ## 能力边界
 
@@ -42,6 +42,44 @@ magicbook 只提供登录后的邮件入口、页面、纯文本渲染与薄代�
 - 邮件正文由前端按当前 locale 渲染结构化参数；`customMessage` 覆盖默认正文，但始终以文本节点显示。
 - 跳转只允许 `/buddy`、`/achievements`、`/credits`、`/learning`、`/mail`，其余 `actionPath` 不生成按钮。运营邮件无按钮时服务端返回 `actionPath=null`。
 - AI 对话抽屉只承载 Chat 与记忆面板；邮件由 `#buddy-mail-popover` 独立承载。FAB 在无浮层打开时按未读分流：有未读开邮件、无未读开聊天；任一浮层打开时再点 FAB 关闭。快捷气泡“对话”始终直接打开 Chat。
+
+## AI 用户自我介绍代理（R260）
+
+两条代理都要求 `@user_login_required`，只操作当前登录用户在 moon-well 的档案；浏览器不能传 `userId`。成功与上游失败均原样保持 `_moonwell_proxy` 三元组 `(body, status, headers)`，失败必须进入界面可见错误态。
+
+| magicbook 端点 | moon-well 端点 | 上游方法 | 超时 | 说明 |
+| --- | --- | --- | --- | --- |
+| `GET /ai/agent/profile` | `POST /ai/agent/profile` | POST | 默认 | 无业务 payload；读取本人档案 |
+| `POST /ai/agent/profile/save` | `POST /ai/agent/profile/save` | POST | 默认 | 透传 `{"selfIntroduction": "..."}`；空串清空 |
+
+### 响应形态
+
+moon-well 返回统一 `Result`：
+
+```json
+{
+  "success": true,
+  "result": {
+    "selfIntroduction": "我正在准备四级，喜欢科幻，希望先给结论。",
+    "updatedAt": "2026-10-31T12:34:56"
+  },
+  "message": null,
+  "code": null
+}
+```
+
+- `selfIntroduction` 最多 2000 字符；未填写或已清空时为空串。
+- `updatedAt` 在未填写、已清空或上游返回空对象时为 `null`。
+- 空串、纯空白或 `null` 均表示清空；保存成功返回同一 VO。
+- `success=false` 或上游非 2xx 时，前端展示 `message`/HTTP 错误，不得静默显示成“没有填写”。
+
+### 前端消费契约
+
+- 记忆面板打开时加载一次；输入框 `maxlength=2000`，计数按当前文本长度显示。
+- 用户文本只能用 `.val()`/文本节点写入，禁止拼 HTML。
+- 保存必须带 `X-CSRFToken`；保存中禁用保存与清空按钮，完成后恢复。
+- 清空必须二次确认；失败保留原输入并展示错误。
+- 不在 localStorage/sessionStorage 保存档案正文；退出登录不得继续显示上一账号档案。
 
 ## 管理员运营发信代理（R250）
 

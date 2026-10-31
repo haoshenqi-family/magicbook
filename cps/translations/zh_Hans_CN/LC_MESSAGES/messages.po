@@ -3896,6 +3896,61 @@ msgid ""
 "below)"
 msgstr "（暂无长期记忆——对话里说「记住…」或在下方面板手动添加）"
 
+msgid "What AI knows about me"
+msgstr "AI 了解我"
+
+msgid "Your background, goals, interests, and explanation preferences"
+msgstr "你的背景、目标、兴趣与讲解偏好"
+
+msgid ""
+"For example: I am preparing for CET-4, enjoy science fiction, and prefer "
+"a short conclusion before a Chinese explanation."
+msgstr "例如：我正在准备四级，喜欢科幻；希望先给简短结论，再解释中文。"
+
+msgid ""
+"This profile is sent to AI with every question. Do not include passwords, "
+"keys, ID numbers, or other sensitive information."
+msgstr "这段资料会随每次提问发送给 AI。请勿填写密码、密钥、证件号等敏感信息。"
+
+msgid "Save profile"
+msgstr "保存介绍"
+
+msgid "Clear"
+msgstr "清空"
+
+msgid "This book"
+msgstr "本书"
+
+msgid "Long-term memory"
+msgstr "长期记忆"
+
+msgid "Loading your profile…"
+msgstr "正在加载你的介绍…"
+
+msgid "Profile unavailable: "
+msgstr "介绍加载失败："
+
+msgid "Write something about yourself first"
+msgstr "请先写一点自我介绍"
+
+msgid "Saving…"
+msgstr "保存中…"
+
+msgid "Profile saved"
+msgstr "自我介绍已保存"
+
+msgid "Clear your AI profile? AI will no longer use this background."
+msgstr "清空你的 AI 自我介绍？清空后 AI 将不再使用这些背景信息。"
+
+msgid "Clearing…"
+msgstr "清空中…"
+
+msgid "Clear failed: "
+msgstr "清空失败："
+
+msgid "Profile cleared"
+msgstr "自我介绍已清空"
+
 msgid "AI Companion"
 msgstr "AI 伴读"
 

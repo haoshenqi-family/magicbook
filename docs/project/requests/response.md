@@ -81,6 +81,7 @@
 - `response-archive/response-R247.md`：R247 归档洞察（2026-10-31 R257 写入触发轮转搬移，原样搬移不改写）。
 - `response-archive/response-R248.md`：R248 整本任务进度条只在书籍详情页显示——2026-10-31 R259 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R248.md`：R248 整本进度仅留详情（2026-10-31 R258 写入触发轮转搬移，原样搬移不改写）。
+- `response-archive/response-R249-R250.md`：R249 整本朗读后台线程共享会话崩溃 + R250 管理员运营站内信（2026-10-31 R260 写入触发轮转搬移，原样搬移不改写）。
 
 ---
 
@@ -88,37 +89,6 @@
 
 
 
-
-## 2026-10-29（R249：整本朗读 worker 复用请求会话，批次停在进行中）
-
-### R249（用户：「book 145 的整本朗读不是已经完成了吗？为什么显示未完成，我点击还可以继续」；追加：「搜索 es 缓存 确定一下」）
-
-- **结论先行**：用户的直觉对了一半。ES/MinIO 里的整本音频缓存此前已经基本齐全，但批次台账确实没有完成；`RUNNING 207/1348` 不是缓存被清空，而是后台 worker 在请求线程关闭数据库事务后崩溃，剩余 1141 段一直没有被台账收口。
-- **ES/缓存核验（修复前）**：按 book 145 当前批次的 1348 个 `text_hash` 查 `magicbook-read-paragraph`，命中 1347 个文档且全部带 `audioObject`；对应 1347 个 `reading-tts/<hash>.mp3` 在 MinIO 中全部存在、均非空，只有第 1117 段缺失。1347 条音频的 `bookName` 全是 `Matilda`，生成日期为 2026-10-09/10，所以用户看到过整本朗读效果，但 2026-10-29 新批次尚未收口。
-- **根因**：生产 `init_db()` 把普通 `Session` 实例赋给 `ub.session`，整本朗读 daemon 与 HTTP 请求线程共用它。请求线程提交/关闭事务后，worker 于 11:41:59 下一轮 autoflush 抛 `sqlalchemy.exc.ResourceClosedError: This transaction is closed`；线程被花名册注销，但 job 仍为 `RUNNING`，且还有 PENDING 段，因此接口返回 `canResume=true`，页面显示「继续」。
-- **为什么 207 次请求无异常**：`app-log-moon-well` 同时间窗内 `source=book-tts-batch` 的 `/tts/speak` 正好 207 次且无 ERROR，均命中旧缓存；台账只有逐段请求成功后才标 `DONE`，所以缓存已存在的 1140 段仍显示 `PENDING`。缓存齐备不等于批次完成，二者不能混为同一状态。
-- **修复**：`WholeBookTtsService._synth_worker()` 改用 `_thread_db_session()` 的独立 engine + 线程作用域会话，逐段 `_commit_with_retry()`；每轮 `expire_all()` 让请求线程写入的 `CANCELLED` 可见；`_refresh_counts()` 显式接收 worker session；请求侧 `progress()` 提交后 `refresh(job)`，避免返回旧 `RUNNING` 快照。start/status/retry/cancel 契约、轮询、缓存与计费口径不变。
-- **测试**：新增 `test_synth_worker_never_uses_request_session`，把 `ub.session` 换成任何访问都会报错的哨兵，worker 仍用独立会话跑到 `COMPLETED`。相关回归 **268 passed / 0 failed**，`git diff --check` 通过。
-- **上线与生产验收**：实现 `39759318` 已快进推送 `origin/develop`；fnOS 构建并部署成功，容器 `running/healthy`，镜像 label `house.build-sha=39759318a53cd35f8d877c0afffd6783e861ba0d`。生产点击「继续」后从 207 段续跑至 `COMPLETED`，最终 `done=1348 / failed=0 / pending=0`，日志记录 `finished (done=1348 failed=0)`，部署后无新的 `worker crashed` 或 `ResourceClosedError`。
-- **缓存补齐**：续跑后 ES `magicbook-read-paragraph` 为 1348/1348 段音频引用，MinIO 对应 1348 个对象全部存在且非空。`/book/145` 页面显示「整本朗读 · 已完成」「100%」「1,348 / 1,348」，「继续」按钮消失；刷新后出现「整本朗读已缓存」标识。
-- **文档四问**：能力 → L1 `docs/product/readme/library.md` 明确后台任务不随页面请求中断；契约 → 无变化；实现/边界 → L3 `docs/product/library/features/whole-book-progress.md` 增加 worker 独立会话与「台账/缓存双口径」；本次实现 → R214 LLD §21、AC C12、需求基线、迭代 `plan.md` 与 requests.md R249。
-- **窗口与驻留**：写入前 10 节，新增后达 11 节；按「写入即检查」把最早 R237 整节原样搬至 `response-archive/response-R237.md` 并登记索引，窗口恢复 10。worktree `../magicbook-r249-tts-worker-session`（分支 `fix/r249-tts-worker-session`）按闸门保留待用户验收，验收通过后再清理。
-- **总结**：requests.md 条目 249 已从占位回填；本条为回应。冲突记录：无撞号。迁移债务：本修复只隔离 R240 迁移前的存量 daemon 会话，整本朗读后续仍须迁入统一 async-task runtime 的租约、心跳与 fencing。
-
-## 2026-10-29（R250：管理员运营站内信——自由撰写、单发/群发、发送历史与整批撤回）
-
-### R250（用户：「我需要开发这个功能」；拍板：正文 500 字、仅管理员、单次最多 5000 人、支持撤回、全体包含管理员本人）
-
-- **结论先行**：功能已上线，当前为**已上线待验收**；本轮沿用 `../magicbook-r250-admin-mail` worktree，不新建树。magicbook 提供管理员后台与薄代理，moon-well R230 持有运营邮件事实、批次审计与整批撤回。
-- **页面与权限**：新增 `/admin/mail`，从 `/admin` 管理页进入，页面仅 `role_admin()` 可访问。五个代理 `users / audience-count / send / campaigns / recall` 都先校验 `role_admin()`；moon-well 再用 `credit.admin-user-ids` 做第二层白名单，非管理员本地 403 且不触达上游。
-- **发送能力**：支持指定一人/多人或全体；全体包含管理员本人；指定用户去重后 1–5000 人，5001 在前端与服务端均拒绝。标题 trim 后 1–80 字，正文纯文本 1–500 字；跳转仅 `/credits`、`/buddy`、`/achievements`、`/learning`、`/mail`，无按钮时服务端返回 `actionPath=null`。
-- **精确人数与确认**：全体模式通过独立 `audience-count` 代理读取真实人数，不加载全量名单估算；人数未知时禁止预览/发送，5000 可预览、5001 被阻止。编辑标题/正文只使预览失效，不丢失已取得的人数；发送确认显示精确人数，并说明可整批撤回、但收件人可能已看到，不误称发送不可撤销。
-- **历史与撤回**：历史按发送时间倒序分页，显示范围、标题、目标/成功人数、操作人、正文与撤回状态；未撤回批次可整批撤回。撤回二次确认明确不可恢复；成功后刷新历史与 `MBMail` 未读数，失败显示上游 message，不乐观删行。moon-well 只删本批 `ADMIN_ANNOUNCEMENT`，审计永久保留，重复撤回幂等。
-- **用户侧渲染**：运营邮件复用现有 `/mail`、抽屉 Mail、设置入口与伙伴信封；`mail.js` 用文本节点渲染 `title` 与 `customMessage`，不使用 `innerHTML`。原三类系统邮件的投递、已读/解决语义不变；服务端读取运营路径时也再次校验白名单。
-- **文档四问**：能力 → `docs/product/readme/companion.md`；契约 → `docs/product/companion/interface.md`；实现/边界 → 新建 `docs/product/companion/features/admin-mail.md` 并同步 `mail-inbox.md`；本次实现 → `docs/project/iterations/1.0/r250-admin-mail/`（HLD/LLD/AC，状态已上线待验收），迭代 `plan.md` 已补行。R243 的“不做运营群发”边界标注为已被 R250 取代。
-- **验证**：合并最新基线后定向回归 **160 passed / 2 warnings**；正式发布态全量 **1182 passed / 0 failed / 4 warnings**。`node --check` 与 `git diff --check` 通过；5000/5001 边界拆成两个独立 Node 进程，避免异步状态互相污染。
-- **状态与驻留**：worktree `../magicbook-r250-admin-mail`（分支 `feat/r250-admin-mail`，占号 `64b0b1a9`）保留待验收。实现提交 `be4aebbd`，台账冲突合并 `5562db69`，最新基线合并 `e9c5d8fe`，发布合并 `77eacb85` 已推 `origin/develop`（`25d4af9f..77eacb85`）；fnOS `build END OK`、app-manager `deploy SUCCESS`、容器 `running/healthy`、`house.build-sha=77eacb85ad1849884819fba433a4dc840aba46c9`，生产 `/login` 200，匿名 `/admin/mail` 302 到登录页。
-- **窗口与总结**：合并 R252/R253 基线后窗口达 11 节，按「写入即检查」把最早 R244 整节原样搬至 `response-archive/response-R244.md` 并登记索引，窗口恢复 10。requests.md 条目 250 已回填；冲突记录：无撞号，moon-well R230 为跨仓同源编号。
 
 ## 2026-10-29（R252：书籍详情页展示整本朗读与翻译费用及缓存费用）
 
@@ -254,3 +224,18 @@
 - **文档四问**：能力→credit L1 随验收回填；契约→无；实现/边界→`docs/project/iterations/1.0/r258-plan5-plan10/lld.md`。
 - **状态与驻留**：**已 merge 待 push/待验收**。develop `d34c6968`；worktree `../magicbook-r258-plan5-plan10`（分支 `feat/r258-plan5-plan10`）保留；push 待用户拍板。
 - **窗口与总结**：写入后 11 节，按「写入即检查」把最旧一节（R248）原样搬至 `response-archive/response-R248.md` 并登记索引，窗口恢复 10。冲突记录：无撞号。
+
+## 2026-10-31（R260：AI 了解我——用户自我介绍与系统提示词注入）
+
+### R260（用户：「AI应该了解用户才能更好的跟他聊天，帮助他。AI伴读那里增加一个用户填写自我介绍的部分，并把这部分内容放到系统提示词里。」）
+
+- **结论先行**：已在 AI 伴读记忆面板顶部增加「AI 了解我」，保存后由 moon-well 在书内与网页伴读的每次问答中注入系统提示词。用户主动声明的背景与 AI 自动抽取的长期记忆保持分层，互不覆盖；本轮状态为**开发完成待验收**，未 merge、未 push、未部署。
+- **后端（moon-well R234）**：新增 `ai_user_profile`，每用户一行、上限 2000 字符、清空即删行；`POST /ai/agent/profile` 读取、`POST /ai/agent/profile/save` 保存，身份只取 `UserContext`，统一返回显式 `Result` 包装。`/ai/agent/profile*` 整路径排除 HTTP 请求/响应日志。
+- **提示词注入**：两套默认模板、Nacos 在线模板与渲染异常兜底路径均支持 `{{userProfile}}`。先补伙伴名、最后回填用户正文，防止正文中的伙伴名压掉名称段；用户正文中的 `{{memory}}` 等变量保持字面值，`& < >` 转义后放入 `<user_profile>`，并声明其不能改变角色、权限、工具或安全规则。空档案不留下空标题，旧在线模板缺段时安全补注一次。
+- **前端（magicbook R260）**：记忆面板支持加载、编辑、实时 2000 字计数、保存、二次确认清空以及加载/保存/清空错误态；新增两条薄代理连接 moon-well。用户文本只用 `.val()` 渲染，不拼 HTML；固定提示不要填写密码、密钥、证件号等敏感信息。新文案已进入 i18n seed、中文 `.po` 与编译后的 `.mo`。
+- **测试**：后端 5 类定向回归 **49 tests / 0 failures / 0 errors / 0 skipped / BUILD SUCCESS**（JDK 25.0.2）；前端 `test_ai_agent_proxy.py` + `test_ai_user_profile_r260.py` **14 passed**，`node --check cps/static/js/ai_chat.js` 与两仓 `git diff --check` 均通过。
+- **测试环境**：按用户最终确认口径从 fnOS `/app/moon-well/.env` 取得依赖环境，MinIO 使用群晖 `http://192.168.31.10:9000`；本轮功能测试不实际读写 MinIO，该地址与现网 `.env` 和 `/ops` 一致。
+- **文档四问**：能力 → `docs/product/readme/companion.md`；契约 → `docs/product/companion/interface.md`；实现/边界 → 新建 `docs/product/companion/features/user-profile.md`；本次实现 → `docs/project/iterations/1.0/r260-ai-user-profile/lld.md` 与迭代 `plan.md`。后续结构化档案与 AI 摘要方案记录在 LLD §8，不阻塞本轮首版。
+- **状态与驻留**：两仓均为**开发完成待验收**。moon-well worktree `../moon-well-r234-ai-user-profile`，分支 `feat/r234-ai-user-profile`；magicbook worktree `../magicbook-r260-ai-user-profile`，分支 `feat/r260-ai-user-profile`。均未 merge、未 push、未部署，按闸门保留。
+- **上线顺序**：moon-well 代码 → magicbook 代码 → Nacos 提示词 `1.3.0`。新后端遇旧模板可安全补注，因此模板必须晚于后端代码发布。
+- **窗口与总结**：写入前 `response.md` 为 11 节；按「写入即检查」把最早 R249、R250 两节原样搬至 `response-archive/response-R249-R250.md` 并登记索引，新增 R260 后恢复 10 节。requests.md 条目 260 已从占位回填；本条为回应，冲突记录已并入上面的 MinIO 环境项。

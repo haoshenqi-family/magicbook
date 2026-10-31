@@ -368,6 +368,9 @@
     $("#ai-chat-delete").on("click", deleteConversation);
     $("#ai-chat-memory").on("click", toggleMemoryPanel);
     $("#ai-memory-close").on("click", function () { $("#ai-memory-panel").removeClass("open"); });
+    $("#ai-user-profile-save").on("click", saveUserProfile);
+    $("#ai-user-profile-clear").on("click", clearUserProfile);
+    $("#ai-user-profile-input").on("input", updateUserProfileCount);
     $("#ai-memory-add").on("click", addMemory);
     $("#buddy-mail-mark-all").on("click", markAllBuddyMailRead);
     $("#buddy-mail-retry").on("click", function () { loadBuddyMailPeek(true); });
@@ -1469,9 +1472,101 @@
   }
 
   function loadMemoryPanel() {
+    loadUserProfile();
     if (BOOK_ID) loadBookProfile();
     else $("#ai-memory-profile").empty();
     loadMemories();
+  }
+
+  var USER_PROFILE_MAX = 2000;
+
+  function updateUserProfileCount() {
+    var length = ($("#ai-user-profile-input").val() || "").length;
+    $("#ai-user-profile-count")
+      .text(length + " / " + USER_PROFILE_MAX)
+      .toggleClass("at-limit", length >= USER_PROFILE_MAX);
+  }
+
+  function setUserProfileStatus(message, isError) {
+    $("#ai-user-profile-status")
+      .text(message || "")
+      .toggleClass("is-error", !!isError);
+  }
+
+  function loadUserProfile() {
+    var $input = $("#ai-user-profile-input");
+    setUserProfileStatus(t("Loading your profile…"), false);
+    $.getJSON("/ai/agent/profile")
+      .then(function (raw) {
+        var profile;
+        try { profile = unwrap(raw) || {}; } catch (e) {
+          setUserProfileStatus(t("Profile unavailable: ") + e.message, true);
+          return;
+        }
+        $input.val(profile.selfIntroduction || "");
+        updateUserProfileCount();
+        setUserProfileStatus("", false);
+      })
+      .fail(function (xhr) {
+        setUserProfileStatus(t("Profile unavailable: ") + errText(xhr), true);
+      });
+  }
+
+  function saveUserProfile() {
+    var $input = $("#ai-user-profile-input");
+    var text = ($input.val() || "").trim();
+    if (!text) {
+      setUserProfileStatus(t("Write something about yourself first"), true);
+      $input.trigger("focus");
+      return;
+    }
+    setUserProfileStatus(t("Saving…"), false);
+    $("#ai-user-profile-save, #ai-user-profile-clear").prop("disabled", true);
+    $.ajax({
+      url: "/ai/agent/profile/save",
+      method: "POST",
+      contentType: "application/json",
+      headers: { "X-CSRFToken": getCsrfToken() },
+      data: JSON.stringify({ selfIntroduction: text }),
+    }).then(function (raw) {
+      var profile;
+      try { profile = unwrap(raw) || {}; } catch (e) {
+        setUserProfileStatus(t("Save failed: ") + e.message, true);
+        return;
+      }
+      $input.val(profile.selfIntroduction || text);
+      updateUserProfileCount();
+      setUserProfileStatus(t("Profile saved"), false);
+    }).fail(function (xhr) {
+      setUserProfileStatus(t("Save failed: ") + errText(xhr), true);
+    }).always(function () {
+      $("#ai-user-profile-save, #ai-user-profile-clear").prop("disabled", false);
+    });
+  }
+
+  function clearUserProfile() {
+    if (!window.confirm(t("Clear your AI profile? AI will no longer use this background."))) return;
+    setUserProfileStatus(t("Clearing…"), false);
+    $("#ai-user-profile-save, #ai-user-profile-clear").prop("disabled", true);
+    $.ajax({
+      url: "/ai/agent/profile/save",
+      method: "POST",
+      contentType: "application/json",
+      headers: { "X-CSRFToken": getCsrfToken() },
+      data: JSON.stringify({ selfIntroduction: "" }),
+    }).then(function (raw) {
+      try { unwrap(raw); } catch (e) {
+        setUserProfileStatus(t("Clear failed: ") + e.message, true);
+        return;
+      }
+      $("#ai-user-profile-input").val("");
+      updateUserProfileCount();
+      setUserProfileStatus(t("Profile cleared"), false);
+    }).fail(function (xhr) {
+      setUserProfileStatus(t("Clear failed: ") + errText(xhr), true);
+    }).always(function () {
+      $("#ai-user-profile-save, #ai-user-profile-clear").prop("disabled", false);
+    });
   }
 
   function loadBookProfile() {

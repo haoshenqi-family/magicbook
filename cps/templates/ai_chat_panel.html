@@ -58,7 +58,27 @@
         <span>{{_('Memory & Book Profile')}}</span>
         <button id="ai-memory-close" type="button">&times;</button>
       </div>
+      <section class="ai-user-profile" aria-labelledby="ai-user-profile-title">
+        <div class="ai-user-profile-heading">
+          <div>
+            <span id="ai-user-profile-title" class="ai-memory-section-title">{{_('What AI knows about me')}}</span>
+            <p class="ai-user-profile-subtitle">{{_('Your background, goals, interests, and explanation preferences')}}</p>
+          </div>
+          <span id="ai-user-profile-count" class="ai-user-profile-count">0 / 2000</span>
+        </div>
+        <textarea id="ai-user-profile-input" maxlength="2000" rows="6"
+                  aria-describedby="ai-user-profile-hint ai-user-profile-status"
+                  placeholder="{{_('For example: I am preparing for CET-4, enjoy science fiction, and prefer a short conclusion before a Chinese explanation.')}}"></textarea>
+        <p id="ai-user-profile-hint" class="ai-user-profile-hint">{{_('This profile is sent to AI with every question. Do not include passwords, keys, ID numbers, or other sensitive information.')}}</p>
+        <div class="ai-user-profile-actions">
+          <button id="ai-user-profile-save" type="button">{{_('Save profile')}}</button>
+          <button id="ai-user-profile-clear" type="button" class="secondary">{{_('Clear')}}</button>
+          <span id="ai-user-profile-status" class="ai-user-profile-status" role="status" aria-live="polite"></span>
+        </div>
+      </section>
+      <div class="ai-memory-section-title">{{_('This book')}}</div>
       <div id="ai-memory-profile" class="ai-memory-profile"></div>
+      <div class="ai-memory-section-title">{{_('Long-term memory')}}</div>
       <div id="ai-memory-list" class="ai-memory-list"></div>
       <div class="ai-memory-add">
         <textarea id="ai-memory-input" placeholder="{{_('Add a memory...')}}"></textarea>

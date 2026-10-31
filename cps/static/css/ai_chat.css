@@ -293,6 +293,36 @@
 #ai-memory-panel.open { display: flex; }
 .ai-memory-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 10px; }
 .ai-memory-header button { background: none; border: none; font-size: 20px; cursor: pointer; }
+.ai-user-profile {
+  margin-bottom: 18px; padding: 14px;
+  border: 1px solid #cfdded; border-radius: 14px;
+  background: linear-gradient(145deg, #f7fbff 0%, #eef5fc 100%);
+  box-shadow: 0 6px 20px rgba(53, 92, 133, .07);
+}
+.ai-user-profile-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ai-memory-section-title { display: block; color: #263b52; font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+.ai-user-profile-subtitle { margin: 4px 0 0; color: #6f8195; font-size: 12px; line-height: 1.45; }
+.ai-user-profile-count { flex: 0 0 auto; color: #7a8aa2; font-size: 11px; font-variant-numeric: tabular-nums; padding-top: 2px; }
+.ai-user-profile-count.at-limit { color: #b42318; font-weight: 600; }
+#ai-user-profile-input {
+  width: 100%; min-height: 118px; margin-top: 10px; padding: 10px 11px;
+  border: 1px solid #b9cbe0; border-radius: 10px; resize: vertical;
+  background: rgba(255, 255, 255, .92); color: #263b52; font: inherit; font-size: 13px; line-height: 1.55;
+}
+#ai-user-profile-input:focus { outline: 2px solid rgba(66, 133, 244, .22); border-color: #4285f4; }
+.ai-user-profile-hint { margin: 8px 0 0; color: #6f8195; font-size: 11px; line-height: 1.5; }
+.ai-user-profile-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.ai-user-profile-actions button {
+  min-height: 38px; padding: 7px 15px;
+  border: 1px solid #4285f4; border-radius: 9px;
+  background: #4285f4; color: #fff; cursor: pointer; font-size: 13px;
+}
+.ai-user-profile-actions button.secondary { background: #fff; color: #40566e; border-color: #b9cbe0; }
+.ai-user-profile-actions button:disabled { opacity: .55; cursor: not-allowed; }
+.ai-user-profile-status { color: #39704a; font-size: 12px; }
+.ai-user-profile-status.is-error { color: #b42318; }
+.ai-memory-section-title + .ai-memory-profile { margin-top: 7px; }
+.ai-memory-section-title:not(:first-of-type) { margin-top: 14px; }
 .ai-memory-profile {
   background: #f2f7ff; border: 1px solid #d7e3f7; border-radius: 10px;
   padding: 10px 12px; font-size: 12px; color: #33475e; margin-bottom: 12px;
@@ -383,6 +413,8 @@
   /* R227：麦克风与朗读按钮一起抬到 44px 触达盒（R215 移动端硬指标） */
   .ai-chat-mic { min-height: 44px; font-size: 15px; }
   .ai-chat-speak { min-height: 44px; padding: 8px 14px; font-size: 13px; }
+  .ai-user-profile-actions button { min-height: 44px; font-size: 15px; }
+  #ai-user-profile-input { min-height: 144px; font-size: 16px; }
   #ai-chat-new { padding: 4px 8px; font-size: 20px; }
   #ai-chat-rename, #ai-chat-delete { padding: 4px 8px; font-size: 17px; }
 

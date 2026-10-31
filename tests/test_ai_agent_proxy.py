@@ -160,3 +160,39 @@ def test_memory_save_relays_body(admin_client, monkeypatch):
     assert rv.status_code == 200
     assert captured["path"] == "/ai/agent/memory/save"
     assert captured["payload"]["memory"] == "偏好简洁"
+
+
+def test_user_profile_get_relays_to_moonwell_post(admin_client, monkeypatch):
+    captured = {}
+
+    def fake_proxy(path, payload, timeout, label, **kwargs):
+        captured.update({"path": path, "payload": payload})
+        return json.dumps({
+            "success": True,
+            "result": {"selfIntroduction": "喜欢科幻", "updatedAt": None},
+        }), 200, {"Content-Type": "application/json"}
+
+    monkeypatch.setattr(_mb_client, "proxy", fake_proxy)
+    rv = admin_client.get("/ai/agent/profile")
+    assert rv.status_code == 200
+    assert captured["path"] == "/ai/agent/profile"
+    assert captured["payload"] == {}
+    assert rv.get_json()["result"]["selfIntroduction"] == "喜欢科幻"
+
+
+def test_user_profile_save_relays_body(admin_client, monkeypatch):
+    captured = {}
+
+    def fake_proxy(path, payload, timeout, label, **kwargs):
+        captured.update({"path": path, "payload": payload})
+        return json.dumps({
+            "success": True,
+            "result": {"selfIntroduction": payload.get("selfIntroduction", "")},
+        }), 200, {}
+
+    monkeypatch.setattr(_mb_client, "proxy", fake_proxy)
+    rv = admin_client.post("/ai/agent/profile/save",
+                           json={"selfIntroduction": "四级水平，偏好先看结论"})
+    assert rv.status_code == 200
+    assert captured["path"] == "/ai/agent/profile/save"
+    assert captured["payload"]["selfIntroduction"] == "四级水平，偏好先看结论"
