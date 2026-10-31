@@ -294,4 +294,4 @@
 
 258. **方案五充值卡五段式重排+方案十已读状态口径诊断与修正**（占号 2026-10-31，待回填）
 
-259. **设置页生词提示语对齐 R232 新口径（该等级及以上）**（占号 2026-10-31，待回填）
+259. **设置页生词提示语对齐 R232 新口径（该等级及以上）**（占号 2026-10-31）：承接 moon-well R232（生词判定兜底改「词档 ≥ 用户档位」、档位=学习目标线、存量档位 +1 迁移）。本仓零判定逻辑改动，只同步用户可见表述：`cps/templates/reading_settings.html` 提示语 msgid 改「Words at or above this level are marked as unknown while reading. Default: CET4.」，zh_Hans_CN messages.po/msgstr 同步「阅读时该等级及以上的词会被标记为生词。默认：CET4。」并 pybabel 重编译 .mo；L1 `readme/vocabulary.md` 档位句补「正在学的目标水平」口径，需求基线变更记录加 R259 行。其余 27 locale 无此条翻译走英文源文回退。定向 `test_nav_settings_dropdown + test_i18n_seed_contract + test_me_preferences + test_common_api_contract` 共 28 passed。跨仓主线 moon-well R232；PingCode MB-236。状态：**已上线待验收**（worktree `../magicbook-r259-judge-tooltip`，分支 `feat/r259-judge-tooltip`，保留待验收）。

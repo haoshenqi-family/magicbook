@@ -4564,9 +4564,9 @@ msgstr ""
 "译文会在后台逐段生成，完成后阅读时自动显示。"
 
 msgid ""
-"Words harder than this level are marked as unknown while reading. "
+"Words at or above this level are marked as unknown while reading. "
 "Default: CET4."
-msgstr "阅读时高于该等级的词会被标记为生词。默认：CET4。"
+msgstr "阅读时该等级及以上的词会被标记为生词。默认：CET4。"
 
 msgid "Write something to remember first"
 msgstr "先写一条要记住的内容"
