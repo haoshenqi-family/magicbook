@@ -157,7 +157,10 @@ def test_difficulty_entry_is_reusable_and_fails_loud():
 def test_home_mounts_difficulty_entry_once():
     index = _template("index.html")
     assert "{% if page == 'newest' %}" in index
-    assert index.count("include 'difficulty_entry.html'") == 1
+    # R257 方案七（用户拍板）：书库首页不再常驻难度横幅——设置项不占内容首屏；
+    # 模板本体保留，阅读器与 /reading/settings 仍可复用。
+    assert index.count("include 'difficulty_entry.html'") == 0
+    assert os.path.exists(os.path.join(TEMPLATE_DIR, "difficulty_entry.html"))
 
 
 def test_achievement_locked_state_is_not_a_gray_placeholder():

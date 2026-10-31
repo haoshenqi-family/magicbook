@@ -81,14 +81,17 @@
                         {# R225：Downloads are a separate permission from reading.
                            Explain the gate instead of letting users discover it via 403. #}
                         <div class="btn-group" role="group">
+                            {# R257 方案四：界面只说用户能做的事——后台路径与角色名
+                               不出现在用户界面，引导统一走联系管理员。 #}
                             <button type="button" class="btn btn-default disabled"
-                                    id="download-permission-hint" aria-disabled="true">
+                                    id="download-permission-hint" aria-disabled="true"
+                                    title="{{ _('Download is not available; online reading is unaffected.') }}">
                                 <span class="glyphicon glyphicon-lock"></span>
-                                {{ _('Download access is not enabled for this account') }}
+                                {{ _('Download is not available; online reading is unaffected.') }}
                             </button>
                         </div>
                         <p class="text-muted" id="download-permission-help">
-                            {{ _('Ask an administrator to enable “Download” in Users → Edit User for your account.') }}
+                            {{ _('If you need download access, please contact the site administrator.') }}
                         </p>
                     {% endif %}
                     {# R214 §3.5 阅读入口解禁（QA §四 核出的缺陷，子项 A 第一笔）：
@@ -152,7 +155,7 @@
                             </button>
                         </div>
                         <p class="text-muted" id="read-permission-help">
-                            {{ _('Ask an administrator to enable “View” in Users → Edit User for your account.') }}
+                            {{ _('If you need reading access, please contact the site administrator.') }}
                         </p>
                     {% endif %}
                     {% if entry.audio_entries|length > 0 and current_user.role_viewer() %}

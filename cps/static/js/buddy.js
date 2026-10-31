@@ -48,7 +48,14 @@
       if (b.rarity) {
         var rar = document.createElement("div");
         rar.className = "buddy-rarity " + b.rarity;
-        rar.textContent = b.rarity;
+        // R257：稀有度枚举经 mbT 走 i18n（字面量形式可被 generate_i18n_seed 扫描）。
+        var rarityLabels = {
+          COMMON: mbT("COMMON"),
+          RARE: mbT("RARE"),
+          EPIC: mbT("EPIC"),
+          LEGENDARY: mbT("LEGENDARY")
+        };
+        rar.textContent = rarityLabels[b.rarity] || b.rarity;
         card.appendChild(rar);
       }
 

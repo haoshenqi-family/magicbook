@@ -143,10 +143,15 @@ class TestLocaleSelection:
             assert oidc.new_user_locale({}) == "zh_Hans_CN"
 
     def test_only_new_user_creation_initializes_locale(self):
-        """既有 OIDC / email 命中路径不得写 locale——那会覆盖用户偏好。"""
-        source = __import__("inspect").getsource(oidc.callback)
-        assert source.count("locale=") == 1
-        assert "locale=new_user_locale(userinfo)" in source
+        """既有 OIDC / email 命中路径不得写 locale——那会覆盖用户偏好。
+
+        R256 收拢后 locale= 只允许出现在 create_oidc_user（建号唯一入口）；
+        回调内任何直写都意味着合并路径可能覆盖既有用户偏好。
+        """
+        callback_src = __import__("inspect").getsource(oidc.callback)
+        assert "locale=" not in callback_src, "回调只应委托 create_oidc_user 建号"
+        helper_src = __import__("inspect").getsource(oidc.create_oidc_user)
+        assert helper_src.count("locale=new_user_locale(claims)") == 1
 
 
 class TestTopNavLanguage:

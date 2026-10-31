@@ -204,7 +204,7 @@
             }
             card.append($('<button>').addClass('btn btn-primary btn-sm pkg-buy-btn')
                 .attr('data-package-id', pkg.id)
-                .text('Recharge Now'));
+                .text(t('Recharge Now')));
             container.append(card);
         });
         startPromotionCountdown();
@@ -772,8 +772,8 @@
         }
         // R50：Total Tokens 不再展示（后端仍随流水记录，随时可恢复展示）
         var stats = [
-            { strong: summary.totalAmount || 0, span: 'Credits Spent' },
-            { strong: summary.totalCount || 0, span: 'AI Calls' }
+            { strong: summary.totalAmount || 0, span: t('Credits Spent') },
+            { strong: summary.totalCount || 0, span: t('AI Calls') }
         ];
         stats.forEach(function (st) {
             var item = $('<div>').addClass('stat');

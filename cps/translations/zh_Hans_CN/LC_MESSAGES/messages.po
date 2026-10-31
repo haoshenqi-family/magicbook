@@ -2860,6 +2860,70 @@ msgstr "将书籍标记为已读或未读"
 msgid "Reading status"
 msgstr "阅读状态"
 
+#: cps/static/js/credits.js:207
+msgid "Recharge Now"
+msgstr "立即充值"
+
+#: cps/static/js/credits.js:775
+msgid "Credits Spent"
+msgstr "累计消耗"
+
+#: cps/static/js/credits.js:776
+msgid "AI Calls"
+msgstr "AI 调用次数"
+
+#: cps/static/js/buddy.js:51
+msgid "COMMON"
+msgstr "普通"
+
+#: cps/static/js/buddy.js:52
+msgid "RARE"
+msgstr "稀有"
+
+#: cps/static/js/buddy.js:53
+msgid "EPIC"
+msgstr "史诗"
+
+#: cps/static/js/buddy.js:54
+msgid "LEGENDARY"
+msgstr "传说"
+
+#: cps/templates/buddy.html:33
+msgid "Pick what pops up around the buddy on hover (4-5). The chat bubble always stays."
+msgstr "选择悬浮球展开时显示的快捷动作（4-5 个）。对话气泡始终保留。"
+
+#: cps/templates/detail.html:90
+msgid "Download is not available; online reading is unaffected."
+msgstr "下载功能未开放；在线阅读不受影响。"
+
+#: cps/templates/detail.html:98
+msgid "If you need download access, please contact the site administrator."
+msgstr "如需下载权限，请联系站点管理员。"
+
+#: cps/templates/detail.html:158
+msgid "If you need reading access, please contact the site administrator."
+msgstr "如需阅读权限，请联系站点管理员。"
+
+#: cps/web.py:2428
+msgid "Interface language updated"
+msgstr "界面语言已切换"
+
+#: cps/templates/layout.html:155
+msgid "More languages"
+msgstr "更多语言"
+
+#: cps/shelf.py:533 cps/templates/layout.html:240
+msgid "Untitled Shelf"
+msgstr "未命名书架"
+
+#: cps/templates/reading_settings.html:201
+msgid "View review queue"
+msgstr "查看复习队列"
+
+#: cps/templates/learning_review.html:25
+msgid "Nothing due right now — your notebook words are scheduled by the forgetting curve and will come back when they are due. Keep reading: words you mark as unknown join the queue automatically."
+msgstr "当前没有到期的复习——生词本里的词由遗忘曲线排程，到期会自动回来。继续阅读：阅读时标记的生词会自动加入队列。"
+
 #: cps/shelf.py:384
 msgid "Shelf title cannot be empty"
 msgstr "书架名称不能为空"

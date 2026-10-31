@@ -197,6 +197,10 @@
           <p class="text-muted vt-chart-title">{{_('Words known per frequency band')}}</p>
           <div id="vt-band-chart" class="vt-chart"></div>
           <p class="text-muted vt-el" id="vt-notebook-line" hidden></p>
+          {# R257 方案三：测试落本的词要去哪看——结果旁直达复习队列（≤1 跳）。 #}
+          <p class="vt-el" id="vt-notebook-link-row" hidden>
+            <a href="{{ url_for('web.learning_review_page') }}" id="vt-notebook-link">{{_('View review queue')}} →</a>
+          </p>
           {# R125 难度推荐：后端按估算词汇量派生建议档位；与当前档位不同时给一键应用。
              按钮文案用独特 msgid——po 里上游的 "Apply" 已被误译为「查询」，撞上就回错词 #}
           <p class="text-muted vt-el" id="vt-reco-line" hidden></p>

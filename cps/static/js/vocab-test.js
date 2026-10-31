@@ -474,8 +474,10 @@
       els['vt-notebook-line'].textContent =
           window.mbT('Unknown words were added to your notebook') + ' (+' + added + ')';
       show(els['vt-notebook-line'], true);
+      show(els['vt-notebook-link-row'], true);
     } else {
       show(els['vt-notebook-line'], false);
+      show(els['vt-notebook-link-row'], false);
     }
     renderLevelRecommendation(report);
     renderLast(report);

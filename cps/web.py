@@ -2421,12 +2421,21 @@ def update_preferences():
         if update_book_language:
             current_user.default_language = book_language
         ub.session.commit()
-        flash(_("Success! Profile Updated"), category="success")
+        if update_book_language:
+            flash(_("Success! Profile Updated"), category="success")
+        else:
+            # R257 方案八：顶栏只切了界面语言，用户没有「保存资料」的动作预期，
+            # 反馈必须说清楚发生了什么；同时停留在当前页（next 只收站内相对路径），
+            # 不再把用户甩到 /me。
+            flash(_("Interface language updated"), category="success")
         log.debug("Preferences updated")
     except OperationalError as e:
         ub.session.rollback()
         log.error("Database error: %s", e)
         flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
+    next_target = request.form.get("next", "")
+    if next_target.startswith("/") and not next_target.startswith("//"):
+        return redirect(next_target)
     return redirect(url_for("web.profile"))
 
 

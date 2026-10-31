@@ -530,7 +530,9 @@ def render_show_shelf(shelf_type, shelf_id, page_no, sort_param):
         return render_title_template(page,
                                      entries=result,
                                      pagination=pagination,
-                                     title=_("Shelf: '%(name)s'", name=shelf.name),
+                                     # R257 方案九：存量空标题书架兜底「未命名书架」，
+                                     # 避免详情页渲染出孤零零的「书架：」。
+                                     title=_("Shelf: '%(name)s'", name=shelf.name or _("Untitled Shelf")),
                                      shelf=shelf,
                                      page="shelf",
                                      status=status,

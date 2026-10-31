@@ -167,6 +167,14 @@ $("#form-upload-format").uploadprogress({
 });
 
 $(document).ready(function() {
+    // R257 方案六：语言菜单收敛——「更多语言」折叠组的手风琴开关。
+    $("#mb-lang-more-toggle").click(function(event) {
+        event.preventDefault();
+        var expanded = $(this).attr("aria-expanded") === "true";
+        $(this).attr("aria-expanded", expanded ? "false" : "true");
+        $("#top_language .mb-lang-more-item").toggle();
+    });
+
     var inp = $('#query').first()
     if (inp.length) {
         var val = inp.val()

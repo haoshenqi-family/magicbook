@@ -2,7 +2,6 @@
 {% extends "layout.html" %}
 {% block body %}
 {% if page == 'newest' %}
-  {% include 'difficulty_entry.html' %}
 {% endif %}
 {% if current_user.show_detail_random() and page != "discover" %}
 <div class="discover random-books">

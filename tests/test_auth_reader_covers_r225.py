@@ -43,21 +43,25 @@ def test_all_missing_covers_use_the_same_brand_asset():
 
 
 def test_detail_page_explains_missing_reading_permission():
+    """R257 方案四演进：门禁解释保留，但后台路径/角色名不再出现在用户界面。"""
     path = os.path.join(ROOT, "cps", "templates", "detail.html")
     with open(path, encoding="utf-8") as fh:
         source = fh.read()
     assert 'id="read-permission-hint"' in source
     assert "Reading access is not enabled for this account" in source
-    assert "enable “View”" in source
+    assert "contact the site administrator" in source
+    assert "Users → Edit User" not in source
 
 
 def test_detail_page_explains_download_is_a_separate_permission():
+    """R257 方案四演进：下载门禁提示改为用户视角（在线阅读不受影响）。"""
     path = os.path.join(ROOT, "cps", "templates", "detail.html")
     with open(path, encoding="utf-8") as fh:
         source = fh.read()
     assert 'id="download-permission-hint"' in source
-    assert "Download access is not enabled for this account" in source
-    assert "enable “Download”" in source
+    assert "online reading is unaffected" in source
+    assert "contact the site administrator" in source
+    assert "Users → Edit User" not in source
 
 
 def test_permission_hints_are_compiled_into_chinese_catalog():
