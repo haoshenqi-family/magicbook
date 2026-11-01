@@ -86,14 +86,20 @@ MOON_WELL_READING_URL=http://fnos:8082
   "success": true,
   "code": 200,
   "result": [
-    { "word": "serendipity", "translation": "好运", "lastBookName": "...",
-      "lastChapter": "...", "lastPage": "...", "lastStudyTime": "...",
-      "studyTimes": 2, "unknown": true }
+    { "word": "serendipity", "unknown": true,
+      "gloss": "n. 好运" }
   ]
 }
 ```
 
-前端仅在 `unknown: true` 时用波浪线标注该词；`translation` 为空时回退「点击查看学习记录」。
+> **R139（2026-10）**：上方示例中的 `translation/lastBookName/lastChapter/lastPage/lastStudyTime/studyTimes`
+> 七个死字段已从契约删除（自 2026-09-14 起永不赋值）；moon-well VO 仅 `word/unknown`。
+> **R236（2026-11）**：新增 `gloss`——词目中文首义项（词典文档缓存批量查询，屈折候选展开；
+> 词典无文档为 null），服务阅读器行内小字释义（Word Wise 式，可选功能默认关）。
+
+前端仅在 `unknown: true` 时用波浪线标注该词；阅读器设置开启「行内小字释义」且 `gloss`
+非空时，波浪线词上方再浮一行小字（`data-gloss` 属性 + iframe 注入样式 `::after` 渲染，
+`epub.js` `markVocabulary` 挂属性、`window.ReaderVocabGloss.remark` 切换重标）。
 
 ### moon-well 侧职责
 

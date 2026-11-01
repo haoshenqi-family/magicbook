@@ -64,3 +64,29 @@ MinIO 保留 7 天；音频不导；D5 入口=个人页 `/me`。数据主体与�
 **修订（2026-10-26，用户拍板「用户也可以不设置导出密码」）**：密码可选——空/缺省=发起
 不加密导出（代理转发空 payload），提供则仍 6-128 加密导出；表单密码框去必填、帮助文案
 明示两种形态；任务行按 TaskVO.encrypted 显示「未加密」标志。
+
+## R261 · Jinshu 借鉴三件套：行内 gloss / Book Fit 话术 / 复习小件（2026-11-01）
+
+来源：竞品 Jinshu（built4.fun 分级 EPUB 阅读器）调研，用户拍板三项落地两项不做。
+PingCode：MB-238。moon-well 侧 R236（gloss 字段/repeatedUnknownCount/两设置列，基线与
+LLD 权威在那边）；实现细节见 [LLD](../../project/iterations/2026-11-jinshu-borrow/lld.md)。
+
+**应该长什么样**：
+
+1. **行内小字释义（阅读器，可选默认关）**：阅读器设置弹窗新增开关（localStorage
+   `calibre.reader.vocabGloss` 本机记忆）；开启后 `markVocabulary` 给生词 span 挂
+   `data-gloss`（moon-well analyze `gloss` 字段），小字经 READER_TOOLS_STYLE 注入 iframe
+   的 `::after` attr 渲染，绝对定位不占文档流；切换经 `window.ReaderVocabGloss.remark`
+   用已缓存生词记录即时重标，不发新请求；MagicLens 接管高亮时整条链路照旧让位。
+2. **Book Fit 话术**：选书页每本书新增「~N 个重复出现的超纲词」行（字段 null 隐藏容错），
+   生词样例从仅挑战读放宽到 正合适/挑战读；三档徽章与密度口径不变。
+3. **复习小件（学习模块，默认关）**：学习抽屉「复习小件」组两开关（随账号走，null 不落库
+   同 R208 口径）——复习卡来源书 chip（镜像键 `ln-review-source-chip-v1`，只亮书名、无遇见
+   记录不显示）；学习入口待复习角标（顶栏+移动底栏，镜像 `ln-hub-due-badge-v1` 判关零请求，
+   stats 会话内 5 分钟缓存，`MBDueBadge.refresh` 保存即刷新）。
+
+**已评估不做（防重复评估）**：标注纠错反馈回路（用户口径：我们有 AI 伴读覆盖）、
+墨水屏模式（家族无 e-ink 场景）。
+
+**验收要点**：阅读器开/关 gloss 即时生效且关掉小字消失；选书页重复词数行随重算出现；
+两开关保存后跨页生效、老请求不抹已开启开关；ES 降级时 chip/角标优雅降级。
