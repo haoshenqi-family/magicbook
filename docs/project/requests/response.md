@@ -224,6 +224,13 @@
 
 ## R263 · 阅读器朗读速度选项：TED/博客类原声与整本连播支持 0.75x/0.5x（2026-11-01）
 
+### 修订轮（同日用户验收：「这个UI 不太好」）
+
+- **意见① 语速显隐时机**：改为起播后出现（与「停止」同进退）。落点=共用渲染点 `ttsButtonsRender`：无播放态 `display:none`、有播放态显示；模板默认隐藏。单段朗读不经该函数，与「停止」按钮行为一致，档位沿用记忆值。
+- **意见② 三钮分组**：`read.html` 包 `<span id="tts-group" class="tb-group">`，CSS 分段控件（共享浅底胶囊 + `.tb-tool + .tb-tool` 分隔线——display:none 不改 DOM 邻接，停止隐藏时语速左缘分隔线仍在）；未播放时组内仅朗读一颗。
+- **意见③ 收纳**：书签（自动记录阅读进度后冗余）与整本翻译常驻「更多」菜单；reader-toolbar.js 拆 `MENU_ALWAYS=[bookmark, whole-book-translate]` / `MENU_NARROW_ONLY=[setting, fullscreen]`，宽屏也收，「更多」常显；导览撤书签步骤（onboarding.js + 锚点测试）。
+- **自检与测试**：真实 CSS 拼 mock 双状态截图（桌面+390px）自检通过（窄屏折算 ≈292px 放得下）；修订静态锁 5 条并入 test_r263_tts_speed.py，定向 45 + 回归 153 = **198 passed**。修订实现 `6dfe2975`。
+
 ### R263（用户：「增加一个 0.75 0.5 朗读速度的选项。博客类的对于初学者可能太快了」）
 
 - **结论先行**：阅读器顶栏新增「语速」按钮（`#tts-speed`，位于「停止」之后），点击在 1.0x → 0.75x → 0.5x 循环并即时生效，选择存 localStorage（`calibre.reader.ttsSpeed`）跨会话记忆；TED/博客类真人原声伴听、整本 TTS 连播、单段朗读三条链路统一套速，`preservesPitch` 变速不变调。
