@@ -232,5 +232,6 @@
 - **UI 细节**：图标槽显示当前档位（15px 加粗，「0.75x」五字符不能按 24px 摆）；载入即回显记忆档位；书既无原声也无 TTS 端点时随 `#tts-book` 一并隐藏；窄屏折叠清单（reader-toolbar.js）不动，语速与朗读组同留主栏。
 - **测试**：新增 `tests/test_r263_tts_speed.py` 5 条静态锁；定向回归 `test_reader_module_surface + test_i18n_seed_contract + test_ted_audio_proxy + test_nav_settings_dropdown + test_reader_theme_sync + test_design_plan_r257` 共 49 passed，第二批 `test_reader_r226_acceptance + test_reader_lens_handoff + test_onboarding_tour + test_onboarding_reader_visual + test_r261_jinshu_borrow + test_common_api_contract + test_learning_pages_static + test_mail_ui_r243` 共 128 passed，合计 **177 passed / 0 failed**。
 - **文档四问**：能力 → L1 `readme/reading.md` 朗读条补「语速三档」句；契约 → 无 HTTP 契约变化；实现/边界 → LLD `iterations/2026-11-tts-speed/lld.md`；需求 → `REQUIREMENTS.md` 变更记录加 R263 行。
+- **上线**：实现 `6cf91a65` + 台账 `f8ec9187` 快进推送 `origin/develop`（`7e65f174..f8ec9187`）；fnOS `build END OK (f8ec9187)`、app-manager `deploy SUCCESS`、容器 `running/healthy`。
 - **窗口与驻留**：写入前窗口 9 节（本会话先按「写入即检查」把最旧 R253 整节搬至 `response-archive/response-R253.md` 并登记索引），本条写入后窗口 10。worktree `../magicbook-r263-tts-speed`（分支 `feat/r263-tts-speed`）按闸门保留待验收。
 - **总结**：requests.md 条目 263 已从占位回填；本条为回应。冲突记录：占号时 262 已被并行会话（整本成本摘要修正）占走，自动顺延 263，无撞号。
