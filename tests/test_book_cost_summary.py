@@ -40,7 +40,8 @@ def test_uncached_book_shows_full_generation_costs_only():
 
     assert result["translate"] == {
         "tokens": 1001,
-        "fullCredits": 11,
+        "segments": 101,
+        "fullCredits": 112,
         "cachedCredits": None,
         "cached": False,
         "cachedSegments": 0,
@@ -61,7 +62,8 @@ def test_cached_translation_is_one_credit_per_segment_plus_full_price():
     assert result["translate"]["cachedSegments"] == 101
     assert result["translate"]["cachedCredits"] == 101
     assert result["translate"]["cachedPerSegment"] == 1
-    assert result["translate"]["fullCredits"] == 11
+    # R262：全文原价 = token 换算(11) + 段落数(101)
+    assert result["translate"]["fullCredits"] == 112
 
 
 def test_tts_cached_listening_is_one_credit_per_cached_segment():
@@ -83,7 +85,7 @@ def test_both_cached_keep_cached_and_original_prices_side_by_side():
     result = build_book_cost_summary(PAYLOAD, readiness=readiness, rates=RATES)
 
     assert (result["translate"]["cachedCredits"],
-            result["translate"]["fullCredits"]) == (101, 11)
+            result["translate"]["fullCredits"]) == (101, 112)
     assert (result["tts"]["cachedCredits"],
             result["tts"]["fullCredits"]) == (101, 80)
 
@@ -147,9 +149,9 @@ def test_detail_template_renders_cached_value_next_to_original_price():
     assert "缓存翻译 {{ \"{:,}\".format(_cost.translate.cachedCredits) }} 积分" in src
     assert "缓存收听 {{ \"{:,}\".format(_cost.tts.cachedCredits) }} 积分" in src
     assert src.count("全文生成原价约") >= 2
-    assert "TTS 不按 token" in src
+    # R262：TTS 括号说明已删
+    assert "TTS 不按 token，约" not in src
     assert "约 {{ \"{:,}\".format(_cost.tts.chars) }} 字符" in src
-    assert "约 {{ \"{:,}\".format(_cost.tts.segments) }} 段" in src
     assert "全文生成费率暂不可得" in src
     assert "命中缓存按 1 积分/段计" in src
 
@@ -164,9 +166,11 @@ def test_cost_block_renders_cached_and_original_prices_together():
 
     assert "约 1,001 tokens" in html
     assert "缓存翻译 101 积分" in html
-    assert "全文生成原价约 11 积分" in html
+    # R262：翻译原价 = token 换算 11 + 段落 101
+    assert "全文生成原价约 112 积分" in html
     assert "约 4,001 字符" in html
-    assert "TTS 不按 token，约 101 段" in html
+    # tooltip 里的「TTS 不按 token 计费」是悬浮说明，保留；要删的是可见括号
+    assert "（TTS 不按 token，约" not in html
     assert "缓存收听 101 积分" in html
     assert "全文生成原价约 80 积分" in html
 

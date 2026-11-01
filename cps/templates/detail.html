@@ -306,7 +306,6 @@
                    title="TTS 不按 token 计费；全文生成按字符，已缓存收听按 {{ _cost.tts.cachedPerSegment }} 积分/段">
                     <strong>完整朗读：</strong>
                     约 {{ "{:,}".format(_cost.tts.chars) }} 字符
-                    （TTS 不按 token，约 {{ "{:,}".format(_cost.tts.segments) }} 段）
                     {% if _cost.tts.cached %}
                         · 缓存收听 {{ "{:,}".format(_cost.tts.cachedCredits) }} 积分
                         {% if _cost.tts.fullCredits is not none %}
