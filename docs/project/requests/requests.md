@@ -303,4 +303,4 @@
 
 262. **整本成本摘要修正：翻译积分=token 换算+段落数，朗读去括号说明**（占号 2026-11-01，待回填）
 
-263. **阅读器朗读速度选项：TED/博客类原声与整本连播支持 0.75x/0.5x（初学者降速）**（占号 2026-11-01，待回填）
+263. **阅读器朗读速度选项：TED/博客类原声与整本连播支持 0.75x/0.5x（初学者降速）**（占号 2026-11-01）：用户原话「增加一个 0.75 0.5 朗读速度的选项。博客类的对于初学者可能太快了」。口径：客户端 `playbackRate` 三档 1.0x/0.75x/0.5x 循环（顶栏「语速」按钮，localStorage `calibre.reader.ttsSpeed` 记忆，preservesPitch 变速不变调），不改音频缓存键（SHA-256(原文)）、不加服务端参数——变速落服务端会击穿永久缓存设计；TED/博客类整段原声（tedAudioStart）、整本 TTS 连播（startAudio 每块新建 Audio）、单段朗读（activeTts）三条链路统一套速，浏览器兜底 utterance.rate 乘档位；书既无原声也无 TTS 端点时语速按钮随 #tts-book 一并隐藏；窄屏折叠清单不动（语速留主栏）。新增 msgid `Reading speed`=「语速」（zh po+mo，其余 locale 英文回退）、reader-core 档位存取（白名单校验脏值回落 1）、`tests/test_r263_tts_speed.py` 静态锁 5 条；定向回归 reader/i18n/UI 结构 5 批共 177 passed。文档：L1 reading.md、LLD `iterations/2026-11-tts-speed/`、需求基线变更记录 R263 行。状态：**已上线待验收**（实现 `6cf91a65` 已推 `origin/develop`；worktree `../magicbook-r263-tts-speed`，分支 `feat/r263-tts-speed`，保留待验收）。
