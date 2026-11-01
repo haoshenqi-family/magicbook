@@ -68,9 +68,11 @@
 	        <div id="title-controls">
 	            <a id="immersive-translate" class="tb-tool" title="{{_('Translate this page (click again to hide)')}}" aria-pressed="false"><span class="tb-icon">译</span><span class="tb-label">{{_('Translation')}}</span></a>
 	        {% if current_user.role_admin() %}<a id="whole-book-translate" class="tb-tool tb-secondary" title="{{_('Translate this book')}}"><span class="tb-icon">整</span><span class="tb-label">{{_('Translate this book')}}</span></a>{% endif %}
+	        <span id="tts-group" class="tb-group">
 	        <a id="tts-book" class="tb-tool" title="{{_('Read aloud')}}"><span class="tb-icon">▶</span><span class="tb-label">{{_('Read aloud')}}</span></a>
 	        <a id="tts-book-stop" class="tb-tool" style="display:none" title="{{_('Stop')}}"><span class="tb-icon">■</span><span class="tb-label">{{_('Stop')}}</span></a>
-	        <a id="tts-speed" class="tb-tool" title="{{_('Reading speed')}}"><span class="tb-icon">1.0x</span><span class="tb-label">{{_('Reading speed')}}</span></a>
+	        <a id="tts-speed" class="tb-tool" style="display:none" title="{{_('Reading speed')}}"><span class="tb-icon">1.0x</span><span class="tb-label">{{_('Reading speed')}}</span></a>
+	        </span>
 	        <a id="bookmark" class="tb-tool icon-bookmark-empty" title="{{_('Bookmark')}}"><span class="tb-label">{{_('Bookmark')}}</span></a>
 	            <a id="setting" class="tb-tool icon-cog" title="{{_('Settings')}}"><span class="tb-label">{{_('Settings')}}</span></a>
 	            <a id="fullscreen" class="tb-tool icon-resize-full" title="{{_('Fullscreen')}}"><span class="tb-label">{{_('Fullscreen')}}</span></a>

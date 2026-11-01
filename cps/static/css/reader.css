@@ -586,7 +586,21 @@
 .reader-main #titlebar a#tts-book .tb-icon,
 .reader-main #titlebar a#tts-book-stop .tb-icon { font-size: 20px; }
 .reader-main #titlebar a#tts-speed .tb-icon { font-size: 15px; font-weight: 700; }
-.reader-main #titlebar a.tb-more { display: none; min-width: 44px; }
+/* R263 修订：朗读/停止/语速三钮分组（分段控件观感）。分隔线用相邻兄弟选择器：
+   停止隐藏时语速的左邻仍是停止节点（display:none 不改变 DOM 邻接），分隔线照常落在
+   可见的语速左缘；整组共享一个浅底胶囊，未播放时只有朗读一颗，观感即普通按钮。 */
+.reader-main #titlebar .tb-group {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  background: rgba(127, 127, 127, .10);
+  overflow: hidden;
+}
+.reader-main #titlebar .tb-group a.tb-tool { border-radius: 0; }
+.reader-main #titlebar .tb-group a.tb-tool:hover { background: rgba(127, 127, 127, .14); }
+.reader-main #titlebar .tb-group a.tb-tool + a.tb-tool { border-left: 1px solid rgba(127, 127, 127, .22); }
+/* R263 修订：「更多」从窄屏专属改为常显——书签/整本翻译已常驻菜单，宽屏也要有入口 */
+.reader-main #titlebar a.tb-more { display: inline-flex; min-width: 44px; }
 
 .title-more-menu {
   position: fixed;
@@ -638,7 +652,6 @@
     font-size: 11px;
   }
   .reader-main #titlebar a#immersive-translate { min-width: 64px; }
-  .reader-main #titlebar a.tb-more { display: inline-flex; }
   .reader-main #metainfo { font-size: 13px; }
   .title-more-menu { top: 60px; right: 8px; }
 }

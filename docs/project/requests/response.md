@@ -5,6 +5,7 @@
 
 **归档索引**
 
+- `response-archive/response-R251.md`：R251（MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页）——2026-11-01 R265 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R01-R31.md`：R1–R31（2026-08-14 ～ 2026-08-31）
 - `response-archive/response-R159.md`：R159 语音输入静音检测（2026-10-14 R169 轮转，窗口转入 R160 起）
 - `response-archive/response-R160-R164.md`：R160 麦克风设备选择器 + 同节嵌套的 R164 worktree 纪律修订（2026-10-14 R170 写入触发轮转搬移，父级日期标题随节一并搬移）
@@ -91,32 +92,6 @@
 
 
 
-
-## 2026-10-29（R251：MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页）
-
-### R251（用户：「目前的UI系统有一点乱，帮我设计一个更好看更合理的分组，显示。并总结经验教训，设计原则。以后按照这个来。magicbook 的UI系统，尽量少修改 calibre的UI系统。先按照你的设计做一版」；补充：「先找到magicbook（非calibre的部分）所有的功能，列出来；分类分级成树状结构；A账号的各个L2现在都堆在一个页面，改成类似S学习的L2，不用卡片，但不要把多个L2放在一起；M管理也跟A账号一样改造」）
-
-- **结论先行**：第一轮已完成顶栏五域、侧栏分组和 active 唯一归属；第二轮按补充要求把账号拆成 A1–A7、管理拆成 M1–M13，每页只承担一个用户任务，页头改用分组纯文字 L2，不再把多个 L2 堆进同一页，也不把目录卡片化。MagicBook 非 Calibre 功能的完整树状清单和长期设计原则已落文档，后续 UI 任务按此评审。
-- **一级域与 active**：新增 `cps/ui_ia.py` 的 `nav_domain()`，按 home → learning → account → admin → library → unknown 顺序返回唯一域。账号页 `/reading/settings` 只点亮账号，Calibre 的 Books List 不再误亮；`/stats`、`/login` 等未知页不冒充书库。管理员入口从 Settings 下拉移到主导航，但普通用户不渲染。
-- **侧栏分组**：新增 `shelf_nav_group()` 与 `shelf_level_sort()`。`阶1 / 阶 2 / 分级阶3` 进「分级」，TED / Audio / Listening / 音频 / 听力进「媒体」，其余进「书架」；分级按整数排序，`阶1 < 阶2 < 阶10`。每个非空组显示数量，空组不渲染标题；识别不出的书架进默认组。CaliBlur 下系统标题隐藏，其余分组标题从 60px 收紧到约 34px。
-- **最小侵入**：`cps/jinjia.py` 只新增 1 个 import 与 3 个模板过滤器注册；`layout.html` 保留 Calibre 的 Bootstrap 骨架、原有链接与 `top_home/top_library/top_learning/top_me/top_admin` 等 DOM ID；`magicbook.css` 只做产品层增量，不修改 vendored Calibre CSS；不新增 `shelf.kind`、不迁移 schema。此实现替代 R213 中「侧边栏分组必须新增 `Shelf.kind`」的待拍板假设：当前只是展示层规则，先用名称规则即可。
-- **响应式**：移动底栏改为四列 flex，并覆盖 Bootstrap `.visible-xs { display:block!important }`；第四项固定显示“账号”，避免长用户名挤压布局。悬浮球用 `body #ai-companion-fab-wrap` 提高一级特异度，修复后加载 `ai_chat.css` 把它压回底栏的问题。实测 390×844 下悬浮球底部 780px、底栏顶部约 795px，无重叠；1440px 与 390px 的 `scrollWidth` 均等于视口宽度。
-- **功能树**：2026-10-30 收口为 L1 单一来源 `docs/product/readme/feature-map.md`，按首页、书库增强、阅读器增强、词汇、学习、伙伴与 AI 伴读、账号、管理八支展开；难度档位、词测、细筛、主题、导出等小功能分别成叶，不把“一个页面”误当成“一个功能”。L3 §4 只引用该地图并保留实现边界，不再复制第二棵树。
-- **账号 A1–A7**：A1 `/me` 资料与语言、A2 `/buddy` 伙伴与 AI 伴读入口、A3 `/mail`、A4 `/reading/settings` 阅读与词汇、A5 `/credits`、A6 `/achievements`、A7 `/me/export`。`/me` 不再加载难度、词测、主题、伙伴和导出；主题与使用引导迁到 A4，导出迁到 A7。
-- **验收修正**：按用户线上反馈移除“账号 / 管理”后的内部层级小字 `L2`；A1 用户名/邮箱不再使用 `dl-horizontal` 的右对齐标签列，改为 14px 左对齐资料网格；删除 `/me` 底部“阅读难度、词汇量测试与阅读主题见…”迁移提示。390×844 与 1440×1200 实测 `scrollWidth == innerWidth`，标题只显示“账号”，资料字号与对齐、旧提示消失均有渲染守卫。
-- **管理 M1–M13**：M1 用户权限、M2 站点注册、M3 整本翻译、M4 全文单词详解、M5 LLM 任务、M6 积分治理、M7 运营站内信、M8 UI 配置、M9 数据库、M10 邮件服务器、M11 计划任务、M12 日志、M13 调试。顶栏“管理”直达 M1，旧 `/admin/view` 保留 302 兼容 Calibre Back/Cancel；M4 无 `book_id` 时给选书说明，不再 400。
-- **伙伴与 AI 的关系**：`/buddy` 被明确定义为 AI 伴读的入口和外观，A2 只负责花名册、装备、快捷动作与“打开 AI 伴读”；按钮调用 `window.AICompanion.openChat()`，对话、记忆、工具调用、语音和站内链接继续复用共享抽屉，不新建第二套聊天。
-- **用户/管理员积分分离**：`/credits` 只保留用户充值、积分卡、明细；新增 `/admin/credits` 承载积分调整、充值活动、批量发卡。用户页不渲染治理 DOM，普通用户直接访问管理页 403；JS 按 `data-credit-mode` 初始化各自页面，共享代理但不共享页面结构。
-- **README 全册巡检与纠漂移**：逐份检查 `docs/product/readme/` 全部 10 份手册，新增 `account.md` 作为账号 A1–A7 用户入口；产品 README 补齐账号域、纠正 L2 覆盖现状，并清理面向用户的“账号/管理 L2”措辞。统一 MagicLens 的“扩展优先接管、阅读器内置能力兜底”关系，删除已过期的扩展版本号，修正划词下线与全文单词详解发起权限；管理手册把 moon-well 邮件需求文档标为语义参考而非接口契约。72 条 Markdown 相对链接全部有效，R251 与导航壳定向回归 **23 passed / 0 failed / 2 warnings**；未改代码、模板、CSS、路由、模型或 Schema。提交 `a4a166bf` 已推送 `origin/develop`，fnOS 判定 15 个文件全部为文档并输出 `build SKIPPED (docs-only)`，未构建、未部署、未重启服务。
-- **测试**：第一轮 `test_home_nav_shell.py` 定向 12 passed；第二轮新增 `test_account_admin_ia_r251.py` 覆盖 A/M 数量、每条路由唯一 active、账号拆页、伙伴入口、旧管理跳转、积分治理隔离和 M4 落地页。本轮 11 个相关文件定向 **150 passed / 0 failed / 2 warnings**；收尾补齐 JS i18n 清单、Help 文案与旧 LLM/Word Detail 契约后，相关三文件 **76 passed**；验收修正定向 **26 passed**。合并 R254 基线后正式发布态全量 **1205 passed / 0 failed / 4 warnings**；`node --check` 全部改动 JS、`py_compile` 改动 Python、`git diff --check` 通过。部署验证待本轮提交后回填。
-- **移动验证纠错**：排查发现“390px 横向溢出”是 Headless Chrome 的最小 500px 布局视口造成：截图被裁成 390px，但 CSS 实际按 500px 排版，于是卡片和第四项底栏看似被截断。改用 CDP `Emulation.setDeviceMetricsOverride(390×844)` 后，关键账号页 `scrollWidth == 390`，四个底栏项完整可见；后续移动验收必须同时断言几何值，不能只看裁切 PNG。
-- **第三轮验收补充**：按用户反馈在 `/me` 账号说明下方增加 `#me-account-center`，中文文案「前往统一账号中心」，新窗口指向 `https://account.haoshenqi.top/`，并带 `noopener noreferrer`；只改产品层模板、CSS 与中文 PO/MO。全量测试 **1206 passed / 0 failed / 4 warnings**；CDP 实测 390×844 与 1440×1200 均 `scrollWidth == innerWidth`，链接 14px、可见且无溢出。实现 `2de2a538` 已推送并上线，fnOS `build END OK`、app-manager `deploy SUCCESS`，容器 `running/healthy`，`house.build-sha=2de2a5388d2cf598a2f36a65ada778d7e8f8c29d`、`house.code-digest=533d440f819b943e`。
-- **第四轮侧栏范围补充**：按用户「只在书籍的选项下，左侧暂时原来 calibre 的书籍选项，其他的……如果不好做就自动隐藏」的要求，采用最小侵入自动隐藏方案。`layout.html` 由 `current_domain == 'library'` 计算 `show_library_sidebar`：书库域继续渲染 Calibre 原 Browse/书架/分级/媒体/系统侧栏；首页、学习、账号、管理与未知页不渲染 `#scnd-nav`，内容列切到 `col-sm-12 mb-full-content`。没有复制第二套跨域侧栏，也没有改 Calibre 路由、模型或 vendored CSS。渲染守卫用 `/shelf/create` 验证书库侧栏与入口守恒、用 `/reading/settings` 验证账号页隐藏与满宽。定向 **23 passed**，正式发布态全量 **1206 passed / 0 failed / 4 warnings**；CDP 实测 1440×1200 书库侧栏 x=15/宽 237.5、内容 x=252.5/宽 1187.5，账号页无侧栏且内容 x=15/宽 1425；390×844 两页均 `scrollWidth == innerWidth == 390`。实现 `8abb1c09` 已推 `origin/develop` 并上线：fnOS `build END OK`、app-manager `deploy SUCCESS`、容器 `running/healthy`、`house.build-sha=8abb1c092440f2f158f9aaea5058de5a5e9372fd`、`house.code-digest=3bc155512e571d32`。
-- **文档四问**：能力 → L1 新增 `docs/product/readme/feature-map.md` 并在 `readme.md` 增加主入口，各模块手册继续说明使用细节；契约 → `credit/interface.md` 更新用户页与管理治理页边界；实现/边界 → L3 只保留路由、权限、active 与测试边界并引用功能地图，reading、credit 的迁页说明同步；本次实现 → `docs/project/iterations/1.0/r251-ui-ia/lld.md` 与 `ac/acceptance.md`。需求基线、产品需求总册、requests/response 均已回填；长期经验教训和评审清单更新到 `docs/kb/instructions/coding/ui-information-architecture.md`。
-- **功能地图独立成 L1**：新增 `feature-map.md`，用“我想做什么 → 先去哪里”承接任务视角，并收录五域总览、八支完整功能树、A1–A7 / M1–M13 路由索引和维护规则。产品 README 只提供清晰入口，不复制整棵树；L3 与需求基线都指向同一来源，后续新增或移动功能先改地图，再同步模块手册和实现边界。
-- **上线与验证**：第一轮实现 `1910fce7`、移动账号标签修正与发布 `70aa636c`；第二轮初始实现 `af55130797714946cce4270b7e64e2cbdd4ee1c7`；验收修正 `3a75a695577da1e4d945b5bb90e0bc7a20d9f08a` 已推送 `origin/develop`（`96a75611..3a75a695`）。fnOS `build END OK (3a75a695577da1e4d945b5bb90e0bc7a20d9f08a)`，app-manager `deploy SUCCESS`，容器 `running / healthy`，`house.build-sha=3a75a695577da1e4d945b5bb90e0bc7a20d9f08a`、`house.code-digest=dc464e7a3c38db3a`。生产 `/login` 200；匿名 `/me` 与 `/admin/credits` 均正确 302 到登录页。桌面与移动视觉证据以本地真实模板 Chromium 验收为准。
-- **状态与驻留**：第一轮 `70aa636c`、第二轮初始实现 `af551307`、验收修正 `3a75a695` 与第四轮侧栏范围补充 `8abb1c09` 均已上线；功能地图、README 全册巡检与本轮文档收口为纯文档提交，推送后由 fnOS 按 docs-only 跳过构建与服务重启。整体状态为**已上线待验收**。worktree `../magicbook-r251-ui-ia`（分支 `feat/r251-ui-ia`）按闸门原样保留待用户验收，验收通过后再清理。
-- **窗口与总结**：写入前 9 节，新增后为 10 节；为保证“窗口最多 10 节”，本轮已把最旧 R242 整节原样搬至 `response-archive/response-R242.md` 并登记索引。requests.md 条目 251 已从占位回填；冲突记录：无撞号；R213 的旧 schema 待定项按展示层方案收敛，不改写 R213 历史正文。
 
 ## 2026-10-29（R254：伙伴邮件弹层与 AI 对话抽屉分离）
 
@@ -224,6 +199,13 @@
 
 ## R263 · 阅读器朗读速度选项：TED/博客类原声与整本连播支持 0.75x/0.5x（2026-11-01）
 
+### 修订轮（同日用户验收：「这个UI 不太好」）
+
+- **意见① 语速显隐时机**：改为起播后出现（与「停止」同进退）。落点=共用渲染点 `ttsButtonsRender`：无播放态 `display:none`、有播放态显示；模板默认隐藏。单段朗读不经该函数，与「停止」按钮行为一致，档位沿用记忆值。
+- **意见② 三钮分组**：`read.html` 包 `<span id="tts-group" class="tb-group">`，CSS 分段控件（共享浅底胶囊 + `.tb-tool + .tb-tool` 分隔线——display:none 不改 DOM 邻接，停止隐藏时语速左缘分隔线仍在）；未播放时组内仅朗读一颗。
+- **意见③ 收纳**：书签（自动记录阅读进度后冗余）与整本翻译常驻「更多」菜单；reader-toolbar.js 拆 `MENU_ALWAYS=[bookmark, whole-book-translate]` / `MENU_NARROW_ONLY=[setting, fullscreen]`，宽屏也收，「更多」常显；导览撤书签步骤（onboarding.js + 锚点测试）。
+- **自检与测试**：真实 CSS 拼 mock 双状态截图（桌面+390px）自检通过（窄屏折算 ≈292px 放得下）；修订静态锁 5 条并入 test_r263_tts_speed.py，定向 45 + 回归 153 = **198 passed**。修订实现 `6dfe2975`。
+
 ### R263（用户：「增加一个 0.75 0.5 朗读速度的选项。博客类的对于初学者可能太快了」）
 
 - **结论先行**：阅读器顶栏新增「语速」按钮（`#tts-speed`，位于「停止」之后），点击在 1.0x → 0.75x → 0.5x 循环并即时生效，选择存 localStorage（`calibre.reader.ttsSpeed`）跨会话记忆；TED/博客类真人原声伴听、整本 TTS 连播、单段朗读三条链路统一套速，`preservesPitch` 变速不变调。
@@ -235,3 +217,20 @@
 - **上线**：实现 `6cf91a65` + 台账 `f8ec9187` 快进推送 `origin/develop`（`7e65f174..f8ec9187`）；fnOS `build END OK (f8ec9187)`、app-manager `deploy SUCCESS`、容器 `running/healthy`。
 - **窗口与驻留**：写入前窗口 9 节（本会话先按「写入即检查」把最旧 R253 整节搬至 `response-archive/response-R253.md` 并登记索引），本条写入后窗口 10。worktree `../magicbook-r263-tts-speed`（分支 `feat/r263-tts-speed`）按闸门保留待验收。
 - **总结**：requests.md 条目 263 已从占位回填；本条为回应。冲突记录：占号时 262 已被并行会话（整本成本摘要修正）占走，自动顺延 263，无撞号。
+
+## R265 · 站内信新增类型与来源文案（承接 moon-well R235，2026-11-01）
+
+**需求**：moon-well R235 把积分到账从「管理员勾选才发」改成「注册赠送/充值/兑换/购卡全部自动发」，并新增余额不足与归零提醒。本仓是消费侧，必须让这些信在收件箱里能被读懂，而不是掉进 `You have a new notification.` 兜底文案。
+
+**做了什么**
+
+1. `describeMail` 的 `CREDIT_GRANTED` 分支按 `params.source` 分流：新人赠送、充值到账（附订单号）、卡兑换（附卡密掩码）；**没有 source 的历史邮件仍走原通用文案**——线上已经存在 13 封 hedwig/积分信，不能因为新增字段就把老信渲染成空白标题。
+2. 三个新分支：`CREDIT_CARD_PURCHASED`（面额 + 掩码 + 有效期，无 `expiresAt` 视为长期有效）、`CREDIT_BALANCE_LOW`、`CREDIT_BALANCE_ZERO`，都跳 `/credits`（白名单已含，无需扩）。
+3. 15 条新词条同时落 `i18n_seed.html`、`zh_Hans_CN` PO 并重编译 MO。仓库的 `test_mail_js_translations_are_in_seed_po_and_mo` 会把 mail.js 里每个 `t()` 字面量拿去跟 seed/po/mo 三方比对，漏一处就红——这也是为什么不能只在 JS 里写英文。
+4. 新增 Node 守卫 `test_credit_mail_variants_render_by_source_and_type`：直接执行生产 `describeMail`，覆盖 4 种来源 + 3 种新类型 + 历史回退，并断言跳转白名单。
+
+**验证**：`test_mail_ui_r243.py` 25 例、`test_mail_proxy_r243.py`、`test_admin_mail_r250.py` 共 101 例全绿；`test_i18n_seed_contract.py`、积分页/积分卡/明细 34 例全绿。
+
+**未做**：管理员「同时发送到账通知」默认勾选。R243 的守卫用例断言了 `syncAdminNotificationState` 里 `prop('checked', false)`，改默认勾选要连守卫一起改；这是 UX 决策而非缺陷，留给你拍板。
+
+**驻留**：worktree `../magicbook-r265-credit-mail-render`，分支 `feat/r265-credit-mail-render`。

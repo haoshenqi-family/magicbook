@@ -12,7 +12,8 @@
 - **独立弹层**：`#buddy-mail-popover` 是 AI 抽屉外的独立 `role=dialog`，AI 抽屉只保留 `#ai-chat-pane` 与记忆面板。`openBuddyMail()` 先关抽屉，`openDrawer()` 先关邮件弹层，因此两个浮层不会同时出现。
 - **邮件预览**：最近 5 封，空态、错误与重试分离；打开弹层只拉列表，不调用已读。单封点击展开后才调用 `MBMail.markRead(id)`；再次打开时保留本页展开状态，已发起的已读不重复。
 - **独立页**：`mail.html` 使用 `layout.html` 与同一个 `MBMail`，固定每页 20 封，上一页/下一页、全部已读、空/加载/错误/重试均由状态机渲染。
-- **正文**：按 `BUDDY_CLAIMABLE / ACHIEVEMENT_UNLOCKED / CREDIT_GRANTED` 从结构化参数生成 locale 文案；`customMessage` 覆盖默认正文。R250 的 `ADMIN_ANNOUNCEMENT` 读取服务端 `title` 与 `customMessage`，正文缺失时保持空文本，不伪造通用公告。所有动态值都用 `textContent` 或文本节点，模块不使用 `innerHTML`。
+- **正文**：按 `BUDDY_CLAIMABLE / ACHIEVEMENT_UNLOCKED / CREDIT_GRANTED / CREDIT_CARD_PURCHASED / CREDIT_BALANCE_LOW / CREDIT_BALANCE_ZERO` 从结构化参数生成 locale 文案；`customMessage` 覆盖默认正文。
+- **积分到账来源（R265 / moon-well R235）**：`CREDIT_GRANTED` 按 `params.source` 分流——`REGISTER` 新人赠送、`RECHARGE` 充值到账（附订单号）、`CARD` 卡兑换（附卡密掩码）；历史邮件没有 `source` 时回退通用到账文案，不显示空白标题。购卡成功读 `credits/maskedKey/expiresAt`（有效期缺省视为长期有效），余额提醒读 `balanceAfter` 与可选 `threshold`。R250 的 `ADMIN_ANNOUNCEMENT` 读取服务端 `title` 与 `customMessage`，正文缺失时保持空文本，不伪造通用公告。所有动态值都用 `textContent` 或文本节点，模块不使用 `innerHTML`。
 - **跳转**：`safeActionPath()` 只放行 `/buddy`、`/achievements`、`/credits`、`/learning`、`/mail`；外链、协议相对地址与危险协议不生成动作按钮。运营邮件无按钮时服务端返回 `actionPath=null`，系统邮件仍按类型派生。
 - **刷新**：初始化、`visibilitychange` 可见、`focus`、`pageshow`、打开伙伴邮件弹层时刷新；聚焦请求由 `lastRefreshAt` 做 1 秒去重，不设置 `setInterval`。
 
@@ -34,6 +35,6 @@
 ## 守卫
 
 - `tests/test_mail_proxy_r243.py`：登录门禁、paging 归一、read 参数、三元组透传、credit 通知字段。
-- `tests/test_mail_ui_r243.py`：模板结构、载入顺序、真实 Node 执行 FAB 分流/五路径白名单/纯文本渲染/状态层、i18n。
+- `tests/test_mail_ui_r243.py`：模板结构、载入顺序、真实 Node 执行 FAB 分流/五路径白名单/纯文本渲染/状态层、i18n；R265 增补 `test_credit_mail_variants_render_by_source_and_type`，用 Node 直接跑生产 `describeMail` 断言四种来源、三种新类型与历史回退。
 - `tests/test_common_api_contract.py`：四个挂载 Buddy 的模板 API/Mail/面板顺序。
 - `tests/test_i18n_seed_contract.py`：种子、zh PO、编译 MO 一致。

@@ -233,8 +233,9 @@ def test_reader_step_anchors_exist_in_template():
     """导览步骤表指向的阅读器控件不得改名失联（尤其 AI 伴读入口）。"""
     with open(os.path.join(TEMPLATE_DIR, "read.html"), encoding="utf-8") as fh:
         src = fh.read()
+    # R263 修订：书签按钮收进「更多」菜单、导览同步撤步，不再是导览锚点
     for anchor in ('id="show-Toc"', 'id="next"', 'id="setting"',
-                   'id="immersive-translate"', 'id="bookmark"', 'id="fullscreen"'):
+                   'id="immersive-translate"', 'id="fullscreen"'):
         assert anchor in src, "{0} 已从阅读器模板消失，需同步 onboarding.js".format(anchor)
 
     with open(os.path.join(TEMPLATE_DIR, "ai_chat_panel.html"), encoding="utf-8") as fh:

@@ -5501,6 +5501,66 @@ msgstr "已到账 {amount} 积分，当前余额 {balance}。"
 msgid "Credits were added to your account."
 msgstr "积分已到账。"
 
+#: cps/static/js/mail.js
+msgid "Starter credits received"
+msgstr "新人赠送到账"
+
+#: cps/static/js/mail.js
+msgid "Welcome! {amount} starter credits have been added. Current balance: {balance}."
+msgstr "欢迎！已为你赠送 {amount} 积分，当前余额：{balance}。"
+
+#: cps/static/js/mail.js
+msgid "Recharge received"
+msgstr "充值到账"
+
+#: cps/static/js/mail.js
+msgid "{amount} credits from your recharge are in. Current balance: {balance}."
+msgstr "充值到账 {amount} 积分，当前余额：{balance}。"
+
+#: cps/static/js/mail.js
+msgid "Order {orderNo}."
+msgstr "订单号 {orderNo}。"
+
+#: cps/static/js/mail.js
+msgid "Credit card redeemed"
+msgstr "积分卡兑换到账"
+
+#: cps/static/js/mail.js
+msgid "{amount} credits were added from your card. Current balance: {balance}."
+msgstr "卡密兑换成功，已到账 {amount} 积分，当前余额：{balance}。"
+
+#: cps/static/js/mail.js
+msgid "Credit card ready"
+msgstr "积分卡已生成"
+
+#: cps/static/js/mail.js
+msgid "{credits} credits card is ready. Card: {maskedKey}."
+msgstr "{credits} 积分卡已生成，卡密：{maskedKey}。"
+
+#: cps/static/js/mail.js
+msgid "Valid until {date}."
+msgstr "有效期至 {date}。"
+
+#: cps/static/js/mail.js
+msgid "Valid indefinitely."
+msgstr "长期有效。"
+
+#: cps/static/js/mail.js
+msgid "Credits running low"
+msgstr "积分余额不足"
+
+#: cps/static/js/mail.js
+msgid "Only {balance} credits left. Top up to keep using AI features."
+msgstr "当前仅剩 {balance} 积分，充值后可继续使用 AI 功能。"
+
+#: cps/static/js/mail.js
+msgid "Credits used up"
+msgstr "积分已用完"
+
+#: cps/static/js/mail.js
+msgid "Your credits are used up (balance {balance}). Top up to keep using AI features."
+msgstr "积分已用完（当前余额 {balance}），充值后可继续使用 AI 功能。"
+
 #: cps/templates/i18n_seed.html:462
 msgid "You have a new notification."
 msgstr "你收到一条新通知。"
