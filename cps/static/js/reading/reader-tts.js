@@ -343,12 +343,15 @@
     function ttsButtonsRender(st) {
         var btn = document.getElementById('tts-book');
         var stopBtn = document.getElementById('tts-book-stop');
+        var speedBtn = document.getElementById('tts-speed');
         if (!btn) return;
         if (!st) {
             setToolIcon(btn, '▶');
             btn.title = mbT('Listen to this book');
             btn.classList.remove('active');
             if (stopBtn) stopBtn.style.display = 'none';
+            // R263 修订：语速与停止同进退——起播才出现，停止即收起
+            if (speedBtn) speedBtn.style.display = 'none';
             return;
         }
         btn.classList.add('active');
@@ -359,6 +362,7 @@
             setToolIcon(stopBtn, '■');
             stopBtn.title = mbT('Stop reading aloud');
         }
+        if (speedBtn) speedBtn.style.display = '';
     }
 
     function bookPlayerUpdateButtons() { ttsButtonsRender(bookPlayer); }

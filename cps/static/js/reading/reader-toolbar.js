@@ -10,6 +10,9 @@
  * How：≤767px 时把次要项 append 进 #title-more-menu，回到宽屏时按原顺序
  * 插回 #title-more 之前；节点搬家因此不影响各自的事件处理。本文件不导出
  * window 命名空间、不声明 init：载入即绑定，避免触发「声明 init 必须显式调用」守卫。
+ *
+ * R263 修订：书签（自动记录阅读进度后冗余）与整本翻译（低频管理项）**常驻菜单**、
+ * 任何宽度都不进顶栏；设置/全屏仍宽屏直达、仅窄屏折叠。「更多」按钮因此常显。
  */
 (function () {
     "use strict";
@@ -18,16 +21,19 @@
     var menu = document.getElementById("title-more-menu");
     if (!more || !menu) return;
 
-    // 顺序即视觉顺序；whole-book-translate 仅管理员存在
-    var ITEM_IDS = ["bookmark", "setting", "fullscreen", "whole-book-translate"];
+    // 常驻菜单项：任何宽度都在「更多」里（宽屏菜单顺序 = 本清单顺序）
+    var MENU_ALWAYS = ["bookmark", "whole-book-translate"];
+    // 仅窄屏折叠项：宽屏插回 #title-more 之前（保持本清单相对顺序）
+    var MENU_NARROW_ONLY = ["setting", "fullscreen"];
+    // 窄屏菜单顺序：与 R215 时代顶栏顺序一致（书签/设置/全屏/整本翻译）
+    var MENU_NARROW_ALL = ["bookmark", "setting", "fullscreen", "whole-book-translate"];
     var narrowQuery = window.matchMedia("(max-width: 767px)");
-    var moved = [];
     var menuOpen = false;
 
     more.setAttribute("aria-haspopup", "true");
 
-    function collect() {
-        return ITEM_IDS.map(function (id) {
+    function collect(ids) {
+        return ids.map(function (id) {
             return document.getElementById(id);
         }).filter(Boolean);
     }
@@ -46,20 +52,28 @@
         more.setAttribute("aria-expanded", "true");
     }
 
-    function syncLayout() {
-        if (narrowQuery.matches) {
-            if (moved.length) return;
-            moved = collect();
-            moved.forEach(function (el) { menu.appendChild(el); });
-            return;
-        }
-        // 宽屏：按原顺序插回 #title-more 之前。逐个 insertBefore 后，
-        // 已插入项自然排在 more 前面，顺序与 ITEM_IDS 一致。
-        moved.forEach(function (el) {
+    function toMenu(ids) {
+        collect(ids).forEach(function (el) {
+            if (el.parentNode !== menu) menu.appendChild(el);
+        });
+    }
+
+    function toBar(ids) {
+        collect(ids).forEach(function (el) {
             if (el.parentNode === menu) menu.removeChild(el);
+            // insertBefore 对「已在 more 之前」的节点是原位 no-op
             more.parentNode.insertBefore(el, more);
         });
-        moved = [];
+    }
+
+    function syncLayout() {
+        if (narrowQuery.matches) {
+            toMenu(MENU_NARROW_ALL);
+            return;
+        }
+        // 宽屏：窄屏折叠项插回顶栏，常驻项留菜单（已在菜单则原地不动）
+        toBar(MENU_NARROW_ONLY);
+        toMenu(MENU_ALWAYS);
         closeMenu();
     }
 
