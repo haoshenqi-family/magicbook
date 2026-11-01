@@ -251,6 +251,7 @@
             btn.classList.add('is-playing');
             var url = URL.createObjectURL(blob);
             var audio = new Audio(url);
+            RC.applyTtsSpeed(audio); // R263 语速档位（顶栏 #tts-speed，localStorage 记忆）
             activeTts = {audio: audio, url: url, btn: btn};
             audio.onended = function () { if (activeTts && activeTts.audio === audio) stopTts(); };
             audio.onerror = function () {
@@ -276,7 +277,8 @@
         var lang = speechLang(text);
         var utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = lang;
-        utterance.rate = 0.95;
+        // R263：浏览器兜底链路同受语速档位约束（0.95 是 AI 语音对齐过的基线倍率）
+        utterance.rate = 0.95 * RC.ttsSpeed();
         var voices = window.speechSynthesis.getVoices() || [];
         for (var i = 0; i < voices.length; i++) {
             if (voices[i].lang && voices[i].lang.toLowerCase().indexOf(lang.slice(0, 2).toLowerCase()) === 0) {
@@ -360,6 +362,14 @@
     }
 
     function bookPlayerUpdateButtons() { ttsButtonsRender(bookPlayer); }
+
+    // R263：顶栏 #tts-speed 切档后把新档位套到本模块两条在播链路。
+    // 浏览器兜底链路（utterance）无 audio 元素、SpeechSynthesisUtterance 不可中途改 rate，
+    // 对在播的那句不追改，下一句自然生效。
+    function applyTtsSpeedToActive() {
+        RC.applyTtsSpeed(activeTts && activeTts.audio);
+        RC.applyTtsSpeed(bookPlayer && bookPlayer.audio);
+    }
 
     // 超长段落切分为 ≤2000 字符的朗读块：优先在后 1/3 窗口找句读断句，找不到硬切。
     // Why: 单段朗读把 2000 字符以外直接截断（paragraphSpeechText），听书模式不能
@@ -578,6 +588,7 @@
                 st.url = url;
                 var audio = new Audio(url);
                 st.audio = audio;
+                RC.applyTtsSpeed(audio); // R263 语速档位：每块新建 Audio 都要重套（暂停/继续沿用原元素无需重套）
                 audio.onplay = function () { if (seq === st.chunkSeq) bookPlayerMaybePrefetch(); };
                 audio.onended = function () {
                     if (seq !== st.chunkSeq) return;
@@ -829,6 +840,7 @@
         getTtsEngine: getTtsEngine,
         buildSpeechUtterance: buildSpeechUtterance,
         ttsButtonsRender: ttsButtonsRender,
+        applyTtsSpeedToActive: applyTtsSpeedToActive,
         followPageInSection: followPageInSection,
         bookPlayerToggle: bookPlayerToggle,
         bookPlayerStop: bookPlayerStop,

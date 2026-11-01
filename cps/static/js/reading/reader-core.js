@@ -152,6 +152,38 @@
         return text.length > 2000 ? text.slice(0, 2000) : text;
     }
 
+    // ===== R263 朗读速度（1.0 / 0.75 / 0.5 三档循环）=====
+    // Why 客户端 playbackRate 而非服务端 TTS 变速：音频缓存键=SHA-256(段落原文)，
+    // 变速落服务端要么同文双份缓存要么击穿永久缓存设计；浏览器 playbackRate 配合
+    // preservesPitch 变速不变调，TED/博客类真人原声与整本 TTS 连播都适用，切换即时零成本。
+    // 初学者场景：TED/博客类是真人常速演讲，0.75/0.5 是听得清的最小集合。
+    var TTS_SPEED_KEY = "calibre.reader.ttsSpeed";
+    var TTS_SPEED_STEPS = [1, 0.75, 0.5]; // 循环顺序：常速 → 慢 → 更慢 → 回常速
+    function ttsSpeed() {
+        var saved = null;
+        try { saved = localStorage.getItem(TTS_SPEED_KEY); } catch (e) {}
+        var value = parseFloat(saved);
+        return TTS_SPEED_STEPS.indexOf(value) >= 0 ? value : 1;
+    }
+    function ttsSpeedLabel() {
+        var value = ttsSpeed();
+        return value === 1 ? '1.0x' : value + 'x'; // 0.75x / 0.5x
+    }
+    function cycleTtsSpeed() {
+        var next = TTS_SPEED_STEPS[(TTS_SPEED_STEPS.indexOf(ttsSpeed()) + 1) % TTS_SPEED_STEPS.length];
+        try { localStorage.setItem(TTS_SPEED_KEY, String(next)); } catch (e) {}
+        return ttsSpeedLabel();
+    }
+    // 对任一在播 <audio> 套当前档位；preservesPitch 显式钉住（Safari 旧名 webkitPreservesPitch）
+    function applyTtsSpeed(audio) {
+        if (!audio) return;
+        try {
+            audio.playbackRate = ttsSpeed();
+            audio.preservesPitch = true;
+            audio.webkitPreservesPitch = true;
+        } catch (e) {}
+    }
+
     window.ReaderCore = {
         PARAGRAPH_SELECTOR: PARAGRAPH_SELECTOR,
         BLOCK_CHILD_SELECTOR: BLOCK_CHILD_SELECTOR,
@@ -165,6 +197,12 @@
         toast: toast,
         injectToolsStyle: injectReaderToolsStyle,
         collectParagraphs: collectParagraphElements,
-        paragraphSpeechText: paragraphSpeechText
+        paragraphSpeechText: paragraphSpeechText,
+        TTS_SPEED_KEY: TTS_SPEED_KEY,
+        TTS_SPEED_STEPS: TTS_SPEED_STEPS,
+        ttsSpeed: ttsSpeed,
+        ttsSpeedLabel: ttsSpeedLabel,
+        cycleTtsSpeed: cycleTtsSpeed,
+        applyTtsSpeed: applyTtsSpeed
     };
 })();

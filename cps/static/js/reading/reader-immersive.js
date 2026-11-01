@@ -31,6 +31,7 @@
         tedAudioActive: function () { return false; },
         bookListenToggle: function () { },
         isTedBook: function () { return false; },
+        applyTtsSpeedToActive: function () { },
         currentChapterTitle: function () { return ''; }
     };
 
@@ -364,6 +365,20 @@
     // （calibre.bookFormat 是 Calibre 文件格式，见 TED_BOOK 定义处），故点击统一走 bookListenToggle。
     var ttsBookBtn = document.getElementById('tts-book');
     var ttsBookStopBtn = document.getElementById('tts-book-stop');
+    // R263 语速按钮：1.0x → 0.75x → 0.5x 循环，localStorage 记忆（RC.ttsSpeed）；
+    // 档位存取与 audio 套速都在 ReaderCore，这里只管图标回显与把新档位推给两条在播链路。
+    var ttsSpeedBtn = document.getElementById('tts-speed');
+    function renderTtsSpeedLabel() {
+        var icon = ttsSpeedBtn && ttsSpeedBtn.querySelector('.tb-icon');
+        if (icon) icon.textContent = RC.ttsSpeedLabel();
+    }
+    if (ttsSpeedBtn) {
+        renderTtsSpeedLabel(); // 载入即回显记忆档位，不必等播放
+        ttsSpeedBtn.addEventListener('click', function () {
+            ttsSpeedBtn.querySelector('.tb-icon').textContent = RC.cycleTtsSpeed();
+            host.applyTtsSpeedToActive();
+        });
+    }
     if (ttsBookStopBtn) {
         ttsBookStopBtn.addEventListener('click', function () {
             if (host.tedAudioActive()) host.tedAudioStop();

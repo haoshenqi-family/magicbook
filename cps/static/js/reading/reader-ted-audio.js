@@ -74,6 +74,54 @@
         return {segments: segments, byChapter: byChapter};
     }
 
+    // ===== R264 无时间轴原声的近似逐段高亮 =====
+    // BBC 类原声（segmentStatus=UNSUPPORTED）没有逐段时间轴，原声伴听此前整集播完
+    // 无任何高亮。注册表段落清单恰为「有原声的内容」（导入即按剧集解析），按字符
+    // 占比在整段音频时长上铺一条虚拟时间轴，既有「时间轴高亮/翻章跟随/点段切播」
+    // 机器零改动生效。近似误差：片头语速不均；导入后新增段落（概要/问答不在注册
+    // 表里）天然不参与高亮——它们本就不在音频中。
+    function tedAudioSynthTimeline(paragraphs, durationSeconds) {
+        var paras = (paragraphs || []).filter(function (p) {
+            return p && (p.text || '').trim();
+        });
+        if (!paras.length || !(durationSeconds > 0)) return [];
+        var total = 0;
+        var lens = paras.map(function (p) {
+            var len = (p.text || '').replace(/\s+/g, ' ').trim().length;
+            total += len;
+            return len;
+        });
+        if (!total) return [];
+        var totalMs = durationSeconds * 1000;
+        var t = 0;
+        var segs = paras.map(function (p, i) {
+            var dur = totalMs * (lens[i] / total);
+            var seg = {
+                order: p.order == null ? i + 1 : Number(p.order),
+                chapterTitle: p.chapterTitle || '',
+                chapterOrder: p.chapterOrder == null ? null : Number(p.chapterOrder),
+                startMs: t, endMs: t + dur,
+                text: (p.text || '').replace(/\s+/g, ' ').trim(),
+                approx: true
+            };
+            t += dur;
+            return seg;
+        });
+        segs.sort(function (a, b) { return a.startMs - b.startMs; });
+        return segs;
+    }
+
+    function tedAudioGroupByChapter(segs) {
+        var byChapter = {};
+        (segs || []).forEach(function (seg) {
+            (byChapter[seg.chapterTitle] || (byChapter[seg.chapterTitle] = [])).push(seg);
+        });
+        Object.keys(byChapter).forEach(function (key) {
+            byChapter[key].sort(function (a, b) { return a.startMs - b.startMs; });
+        });
+        return byChapter;
+    }
+
     function tedAudioFetch(url) {
         return fetch(url, {
             method: 'POST', credentials: 'same-origin',
@@ -98,6 +146,9 @@
         if (tedAudioMetaOk) return;
         if (calibre.readingTtsUrl) return;
         btn.style.display = 'none';
+        // R263：整页毫无播放能力时语速按钮一并隐藏（两条播放链路都不可用）
+        var speedBtn = document.getElementById('tts-speed');
+        if (speedBtn) speedBtn.style.display = 'none';
     }
 
     function tedAudioEnsureLoaded() {
@@ -109,9 +160,21 @@
             var meta = res[0] || null;
             var list = res[1] || {};
             var index = tedAudioIndex(list.paragraphs);
+            var segments = index.segments, byChapter = index.byChapter;
+            var approx = false;
+            if (meta && meta.audioUrl && !segments.length) {
+                // R264：无时间轴原声（BBC）→ 注册表段落按字符占比合成虚拟时间轴
+                var synth = tedAudioSynthTimeline(
+                    list.paragraphs, Number(meta.durationSeconds));
+                if (synth.length) {
+                    segments = synth;
+                    byChapter = tedAudioGroupByChapter(synth);
+                    approx = true;
+                }
+            }
             tedAudioData = {
                 audioUrl: meta && meta.audioUrl ? meta.audioUrl : '',
-                segments: index.segments, byChapter: index.byChapter
+                segments: segments, byChapter: byChapter, approx: approx
             };
             tedAudioMetaOk = !!tedAudioData.audioUrl;
             TED_BOOK = tedAudioMetaOk;  // 有整段原声 → 本页按原声伴听分流
@@ -190,7 +253,14 @@
             segs.forEach(function (seg, i) { map[seg.order] = els[i]; });
             return {map: map, matched: els.length, total: els.length};
         }
-        var pool = segs || st.segments;
+        // R264：章内段落数与注册表组不符（如 R177 合并章：注册表「X · 第 2 段」
+        // 已并入 DOM 的「X」）时，兜底桶扩到全书注册表段落——两侧文本同源，跨章按
+        // 出现序消费仍能对齐；音频外段落（概要/问答）无同文段，自然不匹配（降级
+        // 不高亮，符合「不在音频里」的事实）。
+        var pool = st.segments;
+        if (segs && segs.length && segs.length === els.length) {
+            pool = segs;  // 数量恰合：按位对齐更快更稳（原主路径）
+        }
         var buckets = {};
         pool.forEach(function (seg) {
             (buckets[seg.text] || (buckets[seg.text] = [])).push(seg);
@@ -364,6 +434,7 @@
             tedAudioSetAligned(st, view.section, view.doc);
             var audio = new Audio(data.audioUrl);
             st.audio = audio;
+            RC.applyTtsSpeed(audio); // R263 语速档位：TED/博客类真人原声是初学者降速的主场景
             audio.addEventListener('ended', function () {
                 if (tedAudioPlayer === st) tedAudioStop();
             });
@@ -468,6 +539,7 @@
         onRendered: tedAudioOnRendered,
         stop: tedAudioStop,
         updateButtons: tedAudioUpdateButtons,
+        applyTtsSpeedToActive: function () { RC.applyTtsSpeed(tedAudioPlayer && tedAudioPlayer.audio); },
         listenToggle: bookListenToggle,
         isActive: function () { return !!(tedAudioPlayer && tedAudioPlayer.active); },
         isTedBook: function () { return !!TED_BOOK; }
