@@ -58,14 +58,13 @@ def build_book_cost_summary(payload, readiness=None, rates=None):
     readiness = readiness or {}
     chars = _as_int(payload.get("billableCharCount") or payload.get("charCount"))
     tokens = int(math.ceil(chars / float(CHARS_PER_TOKEN))) if chars else 0
+    paragraph_count = _as_int(
+        payload.get("billableParagraphCount") or payload.get("paragraphCount")
+    )
     tts_readiness = readiness.get("tts") or {}
     tts_ready = bool(tts_readiness.get("ready"))
     tts_cached_segments = _as_int(tts_readiness.get("total")) if tts_ready else 0
-    segments = _as_int(
-        tts_cached_segments
-        or payload.get("billableParagraphCount")
-        or payload.get("paragraphCount")
-    )
+    segments = _as_int(tts_cached_segments or paragraph_count)
 
     translate_readiness = readiness.get("translate") or {}
     translate_ready = bool(translate_readiness.get("ready"))
@@ -74,10 +73,17 @@ def build_book_cost_summary(payload, readiness=None, rates=None):
     )
     tts_full, tts_billing_enabled = _tts_full_credits(chars, rates)
 
+    # R262：翻译按段逐次调用计费（每段不足 1 积分按 1 积分），整本原价 =
+    # token 换算积分 + 段落数；只算 token 会把「一段一句话」的书报价过低。
+    translate_base = _token_credits(tokens, rates)
+    translate_full = (translate_base + paragraph_count
+                      if translate_base is not None else None)
+
     return {
         "translate": {
             "tokens": tokens,
-            "fullCredits": _token_credits(tokens, rates),
+            "segments": paragraph_count,
+            "fullCredits": translate_full,
             "cachedCredits": (
                 translate_cached_segments * TRANSLATION_CACHED_CREDITS_PER_SEGMENT
                 if translate_ready else None
