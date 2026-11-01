@@ -82,7 +82,7 @@
             {% endif %}
             <li{% if library_active %} class="active"{% endif %}><a href="{{url_for('web.index')}}" id="top_library"{% if library_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-book"></span><span class="hidden-sm"> {{_('Library')}}</span></a></li>
             {% if not current_user.is_anonymous %}
-            <li{% if learning_active %} class="active"{% endif %}><a href="{{url_for('web.learning_page')}}" id="top_learning"{% if learning_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-repeat"></span><span class="hidden-sm"> {{_('Learning')}}</span></a></li>
+            <li{% if learning_active %} class="active"{% endif %}><a href="{{url_for('web.learning_page')}}" id="top_learning"{% if learning_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-repeat"></span><span class="hidden-sm"> {{_('Learning')}}</span><span class="ln-due-badge" id="ln-due-badge-top" hidden></span></a></li>
             <li{% if account_active %} class="active"{% endif %}><a href="{{url_for('web.profile')}}" id="top_me"{% if account_active %} aria-current="page"{% endif %}><span class="glyphicon glyphicon-user"></span><span class="hidden-sm"> {{_('Account')}}</span></a></li>
             {% endif %}
             {% if current_user.role_admin() %}
@@ -393,13 +393,58 @@
       </a>
       {% if not current_user.is_anonymous %}
       <a href="{{url_for('web.learning_page')}}" class="mb-bottom-item{% if learning_active %} active{% endif %}"{% if learning_active %} aria-current="page"{% endif %}>
-        <span class="glyphicon glyphicon-repeat"></span><span class="mb-bottom-label">{{_('Learning')}}</span>
+        <span class="glyphicon glyphicon-repeat"></span><span class="mb-bottom-label">{{_('Learning')}}</span><span class="ln-due-badge" id="ln-due-badge-mobile" hidden></span>
       </a>
       {% endif %}
       <a href="{% if not current_user.is_anonymous %}{{url_for('web.profile')}}{% else %}{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}{% endif %}" class="mb-bottom-item{% if account_active %} active{% endif %}"{% if account_active %} aria-current="page"{% endif %}>
         <span class="glyphicon glyphicon-user"></span><span class="mb-bottom-label">{% if current_user.is_authenticated %}{{_('Account')}}{% else %}{{_('Login')}}{% endif %}</span>
       </a>
     </nav>
+    {% endif %}
+    {% if current_user.is_authenticated and not current_user.is_anonymous %}
+    <script>
+      // R261 学习入口待复习角标（学习设置开关，默认关）：镜像判关——关/未配置零请求；
+      // 开启才拉 /learning/srs/stats 取 dueNow，会话内 5 分钟缓存避免每页一拉。
+      // 镜像可能跨设备滞后（装饰性提示，可接受）；学习中枢抽屉保存后经 MBDueBadge.refresh 即时重渲。
+      (function () {
+        var MIRROR = 'ln-hub-due-badge-v1', CACHE = 'ln-due-badge-cache';
+        var mirrorOn = null;
+        try { mirrorOn = localStorage.getItem(MIRROR); } catch (e) {}
+        if (mirrorOn !== 'true') return;
+        function render(due) {
+          if (!due || due <= 0) return;
+          ['ln-due-badge-top', 'ln-due-badge-mobile'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) { el.textContent = due > 99 ? '99+' : String(due); el.hidden = false; }
+          });
+        }
+        var cached = null;
+        try { cached = JSON.parse(sessionStorage.getItem(CACHE) || 'null'); } catch (e) {}
+        if (cached && Date.now() - cached.at < 300000) { render(cached.due); }
+        else {
+          fetch('/ajax/learning/srs/stats', { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function (data) {
+              var due = data && data.result && data.result.dueNow;
+              if (due == null) return;
+              try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), due: due })); } catch (e) {}
+              render(due);
+            }).catch(function () { /* 角标是增强，失败即不显示 */ });
+        }
+        window.MBDueBadge = {
+          refresh: function () {
+            try { sessionStorage.removeItem(CACHE); } catch (e) {}
+            fetch('/ajax/learning/srs/stats', { credentials: 'same-origin' })
+              .then(function (r) { return r.ok ? r.json() : null; })
+              .then(function (data) {
+                var due = data && data.result && data.result.dueNow;
+                try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), due: due || 0 })); } catch (e) {}
+                if (due) render(due);
+              }).catch(function () {});
+          }
+        };
+      })();
+    </script>
     {% endif %}
   </body>
 </html>

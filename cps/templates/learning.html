@@ -171,6 +171,12 @@
           <label class="lh-manage-item"><input type="checkbox" data-key="story" checked> {{_('Word Story')}}</label>
           <label class="lh-manage-item"><input type="checkbox" data-key="match" checked> {{_('Book Difficulty Match')}}</label>
         </div>
+        {# ---------- R261 复习小件（可选，默认关）：来源书 chip 会提前透露出处、 #}
+        {# 待复习角标常驻导航——是否承担由用户显式勾选，不混入上面的轮播勾选语义。 #}
+        <div class="lh-manage-list" role="group" aria-label="{{_('Review extras')}}">
+          <label class="lh-manage-item"><input type="checkbox" id="lh-review-source-chip"> {{_('Show the source book on review cards (may hint the answer)')}}</label>
+          <label class="lh-manage-item"><input type="checkbox" id="lh-hub-due-badge"> {{_('Show a due-review badge on the Learning nav entry')}}</label>
+        </div>
         <p id="lh-manage-error" class="help-block lh-manage-error" hidden>{{_('Could not save your selection — please retry.')}}</p>
         <button type="button" id="lh-manage-save" class="btn btn-primary btn-sm">{{_('Save')}}</button>
         <button type="button" id="lh-manage-close" class="btn btn-default btn-sm">{{_('Close')}}</button>

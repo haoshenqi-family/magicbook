@@ -60,7 +60,12 @@
         '.reading-annotation-btn::before{content:"✎"}',
         '.reading-companion-btn::before{content:"✨"}',
         '.reading-companion-btn.is-loading::before{content:"⟳"}',
-        '.reading-tts-speaking{background:rgba(255,193,7,.24);box-shadow:inset 3px 0 0 rgba(255,152,0,.85)}'
+        '.reading-tts-speaking{background:rgba(255,193,7,.24);box-shadow:inset 3px 0 0 rgba(255,152,0,.85)}',
+        // R261 行内小字释义（Word Wise 式，可选功能默认关）：小字浮在词头顶上一行，
+        // 不占文档流（gloss 挂 data-gloss 属性，::after 取 attr 渲染）——占流会推动
+        // 分栏重排、翻页时全文抖动。opacity 压到 .78 弱于正文，颜色随主题 currentColor
+        '.reading-vocabulary-unknown[data-gloss]{position:relative}',
+        '.reading-vocabulary-unknown[data-gloss]::after{content:attr(data-gloss);position:absolute;left:0;bottom:calc(100% + 1px);font-size:10px;line-height:1.1;white-space:nowrap;opacity:.78;pointer-events:none;font-style:normal;text-transform:none;letter-spacing:0}'
     ].join('');
 
     function translationDisplaySecondsPer100() {

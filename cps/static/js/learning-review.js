@@ -20,7 +20,7 @@
    'ln-continue', 'ln-card', 'ln-word', 'ln-encounters', 'ln-stem', 'ln-context',
    'ln-context-source', 'ln-choices', 'ln-recall', 'ln-reveal', 'ln-spell',
    'ln-spell-input', 'ln-spell-check', 'ln-grades', 'ln-feedback', 'ln-card-error',
-   'ln-skip', 'ln-note',
+   'ln-skip', 'ln-note', 'ln-source-chip',
   ].forEach(function (id) { els[id] = $(id); });
 
   // 后端会认识而前端不认识的题型一律按 SELF 出卡：未知题型若原样渲染，四选一/揭示/
@@ -111,6 +111,7 @@
     if (current.encounterCount > 0) {
       els['ln-encounters'].textContent = mbT('met {{count}}×').replace('{{count}}', current.encounterCount);
     }
+    renderSourceChip();
     show(els['ln-stem'], hasMeaning || isDiscriminate);
     if (isDiscriminate) {
       els['ln-stem'].textContent = mbT('Which word below is closest in meaning to it?');
@@ -146,6 +147,22 @@
       ? (current.contextBook || '') + (current.contextChapter ? ' · ' + current.contextChapter : '')
       : '';
     show(els['ln-context-source'], on);
+  }
+
+  /**
+   * R261 来源书 chip（学习设置开关，默认关）：答题前常驻「最近遇见于《书名》」，
+   * 把回忆挂回阅读现场（Jinshu 复习卡借鉴）。Why 只亮书名不亮章节/原句：原句含
+   * 目标词是泄题（R137 门控的根因），书名的轻微提示性由用户显式开启承担；
+   * 开关读 localStorage 镜像（写入口=学习中枢抽屉），跨设备可能滞后一程，
+   * 装饰性提示可接受。无遇见记录（测试/手动入池词）contextBook 为 null 不显示。
+   */
+  function renderSourceChip() {
+    var on = false;
+    try { on = localStorage.getItem('ln-review-source-chip-v1') === 'true'; } catch (e) {}
+    var text = on && current && current.contextBook
+      ? mbT('Recently met in') + '《' + current.contextBook + '》' : '';
+    els['ln-source-chip'].textContent = text;
+    show(els['ln-source-chip'], !!text);
   }
 
   function renderChoices(item) {

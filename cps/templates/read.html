@@ -128,6 +128,11 @@
             <input type="checkbox" id="showPagesCount" name="showPagesCount"/>{{_('Show pages count')}}
           </p>
         </div>
+        <div class="form-group">
+          <p>
+            <input type="checkbox" id="vocabGloss" name="vocabGloss"/>{{_('Show short gloss above vocabulary words')}}
+          </p>
+        </div>
         <div class="form-group fontSizeWrapper">
           <label>{{ _('Font Size') }}</label>
           <div class="font-size-controls" style="display: flex;align-items: center;gap: 10px;margin-top: 2px;">
@@ -412,6 +417,21 @@
                     localStorage.setItem(key, String(val));
                     var target = document.getElementById("pages-count");
                     if (target) target.style.visibility = val ? "visible" : "hidden";
+                });
+            }
+        })();
+
+        // R261 行内小字释义开关（Word Wise 式 gloss，可选功能默认关）：
+        // 本机偏好存 localStorage（与页码计数同款范式）；切换即对当前页重标，
+        // 生词数据已在 epub.js 缓存，无需重新请求 moon-well
+        (function () {
+            var checkbox = document.getElementById("vocabGloss");
+            var key = "calibre.reader.vocabGloss";
+            if (checkbox) {
+                checkbox.checked = localStorage.getItem(key) === "true";
+                checkbox.addEventListener("change", function () {
+                    localStorage.setItem(key, String(checkbox.checked));
+                    if (window.ReaderVocabGloss) window.ReaderVocabGloss.remark();
                 });
             }
         })();

@@ -352,6 +352,12 @@ var reader;
             return Object.keys(vocabularyRecords).map(function (w) { return vocabularyRecords[w]; });
         }
     });
+    // R261 设置弹窗开关桥：read.html 的「生词行内释义」checkbox 切换时调用。
+    // 生词台账（vocabularyRecords）留在本 IIFE 内，桥只暴露开关读取与当前页重标
+    window.ReaderVocabGloss = {
+        enabled: vocabGlossEnabled,
+        remark: remarkVocabularyForGlossToggle
+    };
     // ===== 单词详解面板（R123）——实现已迁出 reader-word-detail.js（R183 B4 批次 2）=====
     // 面板 DOM/请求守卫/六板块渲染都在模块内；这里只留气泡调用点需要的薄委托与宿主回调。
     function appendWordDetailButton(popover, text) {
@@ -595,6 +601,32 @@ var reader;
         } catch (e) { done(''); }
     }
 
+    // R261 行内小字释义开关（Word Wise 式 gloss，可选功能默认关）：
+    // localStorage 与 showPagesCount / 沉浸式翻译同款本机偏好范式，不走服务端——
+    // 纯阅读器渲染开关、跨设备无同步诉求
+    var VOCAB_GLOSS_KEY = "calibre.reader.vocabGloss";
+
+    function vocabGlossEnabled() {
+        try { return localStorage.getItem(VOCAB_GLOSS_KEY) === "true"; } catch (e) { return false; }
+    }
+
+    /** 开关切换后对当前页重标：gloss 属性挂在已缓存的生词 span 上，无需重新请求。 */
+    function remarkVocabularyForGlossToggle() {
+        if (RS.lensOwnsHighlight()) return;
+        reader.rendition.getContents().forEach(function (content) {
+            var doc = content.document;
+            if (!doc || !doc.body) return;
+            doc.querySelectorAll("span.reading-vocabulary-unknown").forEach(function (span) {
+                var record = vocabularyRecords[span.dataset.word];
+                if (vocabGlossEnabled() && record && record.gloss) {
+                    span.dataset.gloss = record.gloss;
+                } else {
+                    delete span.dataset.gloss;
+                }
+            });
+        });
+    }
+
     function markVocabulary(records) {
         // 扩展高亮引擎在跑时不画内置波浪线（它经 contentDocument 跨文档标注，同页并存
         // 就是一个词两条线）；引擎关了 / 未登录 / 站点被禁用时它会自己清掉标记，内置随即
@@ -626,11 +658,10 @@ var reader;
                     var span = doc.createElement('span');
                     span.className = 'reading-vocabulary-unknown';
                     span.textContent = match[0];
-                    // Why: 暂时下线生词信息的两种展示（悬停 tooltip / 点击 alert）——
-                    // 「释义 + 上次：书 · 章节」文本太长干扰阅读，仅保留波浪线标注；
-                    // 恢复时连同取消注释即可（moon-well analyze 也已暂停返回 translation）。
-                    // span.title = (record.translation || '点击查看学习记录') +
-                    //     (record.lastBookName ? '\n上次：' + record.lastBookName + ' · ' + (record.lastChapter || '') : '');
+                    // R261 行内小字释义（Word Wise 式，可选功能默认关）：开关开且词典
+                    // 有释义时把 gloss 挂在词上，小字由 iframe 注入样式的 ::after 渲染；
+                    // 词典无文档（record.gloss 缺失）即不挂属性、自然降级为仅波浪线。
+                    if (vocabGlossEnabled() && record.gloss) span.dataset.gloss = record.gloss;
                     span.dataset.word = word;
                     // span.addEventListener('click', function () {
                     //     alert(this.title);

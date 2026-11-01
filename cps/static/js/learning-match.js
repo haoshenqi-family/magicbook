@@ -88,7 +88,19 @@
         density.textContent = item.densityPct + '% ' + mbT('unknown words') +
           (item.unknownTokenCount != null ? ' (~' + item.unknownTokenCount + ')' : '');
         li.appendChild(density);
-        if (item.unknownSample && item.unknownSample.length && item.level === 'HARD') {
+        // R261 Book Fit 话术借鉴：密度是抽象百分比，「N 个重复出现的超纲词」更可感——
+        // 一次性偶现难词已被后端剔除（freq≥2 的 distinct 词目才算），字段 null
+        // （存量画像未重算）时整行不显示
+        if (item.repeatedUnknownCount != null) {
+          var repeated = document.createElement('span');
+          repeated.className = 'ln-match-density';
+          repeated.textContent = '~' + item.repeatedUnknownCount + ' ' +
+            mbT('repeated above-level words to learn');
+          li.appendChild(repeated);
+        }
+        // R261 样例词从仅 HARD 放宽到 FIT/HARD：黄金区的书同样值得预览要面对的词
+        if (item.unknownSample && item.unknownSample.length &&
+            (item.level === 'HARD' || item.level === 'FIT')) {
           var sample = document.createElement('span');
           sample.className = 'ln-match-sample';
           sample.textContent = item.unknownSample.slice(0, 5).join(', ');

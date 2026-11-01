@@ -359,10 +359,36 @@
   var manageBtn = els['lh-manage-btn'];
   var manageErrorText = els['lh-manage-error'].textContent;
 
+  // R261 复习小件两个开关（可选，默认关）：勾选态以 moon-well 设置为真相、
+  // localStorage 镜像供复习页（来源 chip）与全站导航（待复习角标）免请求判开关。
+  // 镜像可能跨设备滞后：导航角标是装饰性提示，滞后一程可接受（R208 同款权衡）。
+  var chipToggle = $('lh-review-source-chip');
+  var badgeToggle = $('lh-hub-due-badge');
+  var CHIP_MIRROR = 'ln-review-source-chip-v1';
+  var BADGE_MIRROR = 'ln-hub-due-badge-v1';
+
+  function readToggleMirror(key) {
+    try { return window.localStorage.getItem(key) === 'true'; } catch (error) { return false; }
+  }
+
+  function writeToggleMirror(key, value) {
+    try { window.localStorage.setItem(key, String(value)); } catch (error) { /* 真相在服务端 */ }
+  }
+
   function syncBoxes() {
     boxes.forEach(function (box) {
       box.checked = !hiddenKeys[box.getAttribute('data-key')];
     });
+    // 开关勾选态随 plan/today 带回的 settings 回填（null=未配置按关），尚未到手按镜像
+    var settings = lastPlan && lastPlan.settings;
+    if (chipToggle) {
+      chipToggle.checked = settings && settings.reviewSourceChip != null
+        ? !!settings.reviewSourceChip : readToggleMirror(CHIP_MIRROR);
+    }
+    if (badgeToggle) {
+      badgeToggle.checked = settings && settings.hubDueBadge != null
+        ? !!settings.hubDueBadge : readToggleMirror(BADGE_MIRROR);
+    }
   }
 
   function openManage() {
@@ -415,7 +441,15 @@
         show(els['lh-manage-error'], true);
         return;
       }
-      var payload = Object.assign({}, base, { bannerHiddenKeys: hiddenList });
+      var payload = Object.assign({}, base, {
+        bannerHiddenKeys: hiddenList,
+        // R261 两个小开关显式随存：全量替换接口，null=不动；抽屉是它们的唯一编辑口，
+        // 保存即同步镜像（导航角标如已暴露 refresh 钩子则即时重渲，不用等下次翻页）
+        reviewSourceChip: chipToggle ? !!chipToggle.checked : undefined,
+        hubDueBadge: badgeToggle ? !!badgeToggle.checked : undefined,
+      });
+      if (payload.reviewSourceChip === undefined) delete payload.reviewSourceChip;
+      if (payload.hubDueBadge === undefined) delete payload.hubDueBadge;
       MB.busy(els['lh-manage-save'], true, els['lh-manage-save'].textContent);
       postJson(urls.settings, payload).then(function (response) {
         MB.busy(els['lh-manage-save'], false);
@@ -430,6 +464,10 @@
         hiddenList.forEach(function (key) { hiddenKeys[key] = true; });
         saveMirror();
         applyVisibility();
+        // R261 开关镜像随保存落盘：复习页与导航读镜像判开关，服务端真相下次 plan 回来对齐
+        if (chipToggle) writeToggleMirror(CHIP_MIRROR, chipToggle.checked);
+        if (badgeToggle) writeToggleMirror(BADGE_MIRROR, badgeToggle.checked);
+        if (badgeToggle && window.MBDueBadge) window.MBDueBadge.refresh();
         closeManage();
       }).catch(function () {
         MB.busy(els['lh-manage-save'], false);

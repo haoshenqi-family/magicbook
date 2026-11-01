@@ -316,7 +316,9 @@ body.blur #scnd-nav .mb-group-count {
     display: flex !important;
   }
 
+  /* R261 底栏角标定位锚 */
   .mb-bottom-item {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -355,4 +357,26 @@ body.blur #scnd-nav .mb-group-count {
   body #ai-companion-fab-wrap {
     bottom: 64px;
   }
+}
+
+/* R261 学习入口待复习角标（学习设置开关，默认关）：顶栏与移动底栏的「学习」项旁 */
+.ln-due-badge {
+  display: inline-block;
+  min-width: 17px;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 9px;
+  background: #d9534f;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  vertical-align: text-top;
+}
+.mb-bottom-item .ln-due-badge {
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 22px);
+  margin-left: 0;
 }
