@@ -302,3 +302,5 @@
 261. **Jinshu 借鉴三件套：行内生词释义/Book Fit 话术/复习小件**（占号 2026-11-01）：竞品 Jinshu（built4.fun）调研后用户拍板三项——①阅读器行内小字释义（Word Wise 式，可选默认关：设置弹窗开关 localStorage 记忆，markVocabulary 双守卫挂 data-gloss，READER_TOOLS_STYLE 注入 iframe 的 ::after attr 渲染，切换经 ReaderVocabGloss.remark 用缓存即时重标；数据接 moon-well R236 analyze gloss 字段）②选书页每本书新增「~N 个重复出现的超纲词」行（null 容错隐藏），样例词放宽 正合适/挑战读；③复习小件（学习抽屉「复习小件」组两开关，null 不落库同 R208 口径）：复习卡来源书 chip（只亮书名）+ 学习入口待复习角标（镜像判关零请求、stats 5 分钟缓存、MBDueBadge.refresh）。已评估不做：标注纠错反馈回路（AI 伴读覆盖）、墨水屏模式。i18n 五步链 6 词条；新增 8 条静态锁 tests/test_r261_jinshu_borrow.py。PingCode `MB-238`；后端 moon-well R236。状态：**开发完成待验收**（worktree `../magicbook-r261-jinshu-borrow`，分支 `feat/r261-jinshu-borrow`，保留待验收）。
 
 262. **整本成本摘要修正：翻译积分=token 换算+段落数，朗读去括号说明**（占号 2026-11-01，待回填）
+
+263. **阅读器朗读速度选项：TED/博客类原声与整本连播支持 0.75x/0.5x（初学者降速）**（占号 2026-11-01，待回填）
