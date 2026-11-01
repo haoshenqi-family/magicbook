@@ -432,6 +432,11 @@ var reader;
         tedAudioActive: RT.isActive,
         bookListenToggle: RT.listenToggle,
         isTedBook: RT.isTedBook,
+        // R263 语速切档：把新档位同时推给 TTS 连播/单段朗读与 TED 原声两条链路
+        applyTtsSpeedToActive: function () {
+            RTTS.applyTtsSpeedToActive();
+            RT.applyTtsSpeedToActive();
+        },
         currentChapterTitle: currentChapterTitle
     });
     RI.init();

@@ -5254,6 +5254,10 @@ msgstr "朗读"
 msgid "Stop"
 msgstr "停止"
 
+#: cps/templates/read.html:73
+msgid "Reading speed"
+msgstr "语速"
+
 #: cps/templates/i18n_seed.html:392 cps/templates/read.html:76
 msgid "More"
 msgstr "更多"

@@ -98,6 +98,9 @@
         if (tedAudioMetaOk) return;
         if (calibre.readingTtsUrl) return;
         btn.style.display = 'none';
+        // R263：整页毫无播放能力时语速按钮一并隐藏（两条播放链路都不可用）
+        var speedBtn = document.getElementById('tts-speed');
+        if (speedBtn) speedBtn.style.display = 'none';
     }
 
     function tedAudioEnsureLoaded() {
@@ -364,6 +367,7 @@
             tedAudioSetAligned(st, view.section, view.doc);
             var audio = new Audio(data.audioUrl);
             st.audio = audio;
+            RC.applyTtsSpeed(audio); // R263 语速档位：TED/博客类真人原声是初学者降速的主场景
             audio.addEventListener('ended', function () {
                 if (tedAudioPlayer === st) tedAudioStop();
             });
@@ -468,6 +472,7 @@
         onRendered: tedAudioOnRendered,
         stop: tedAudioStop,
         updateButtons: tedAudioUpdateButtons,
+        applyTtsSpeedToActive: function () { RC.applyTtsSpeed(tedAudioPlayer && tedAudioPlayer.audio); },
         listenToggle: bookListenToggle,
         isActive: function () { return !!(tedAudioPlayer && tedAudioPlayer.active); },
         isTedBook: function () { return !!TED_BOOK; }

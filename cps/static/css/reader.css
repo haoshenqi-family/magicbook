@@ -585,6 +585,7 @@
 .reader-main #titlebar a#whole-book-translate .tb-icon { font-size: 18px; font-weight: 700; }
 .reader-main #titlebar a#tts-book .tb-icon,
 .reader-main #titlebar a#tts-book-stop .tb-icon { font-size: 20px; }
+.reader-main #titlebar a#tts-speed .tb-icon { font-size: 15px; font-weight: 700; }
 .reader-main #titlebar a.tb-more { display: none; min-width: 44px; }
 
 .title-more-menu {
