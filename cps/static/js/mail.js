@@ -296,13 +296,48 @@
         body = t("You unlocked a new achievement.");
       }
     } else if (mail && mail.mailType === "CREDIT_GRANTED") {
+      // R235：四种来源共用一种邮件类型，按 params.source 选文案；
+      // 历史邮件没有 source（或来源未知）时回退到通用到账文案。
       title = t("Credits received");
       if (p.amount !== undefined && p.balanceAfter !== undefined) {
-        body = replaceTokens(t("{amount} credits were added. Current balance: {balance}."),
-          { amount: p.amount, balance: p.balanceAfter });
+        if (p.source === "REGISTER") {
+          title = t("Starter credits received");
+          body = replaceTokens(t("Welcome! {amount} starter credits have been added. Current balance: {balance}."),
+            { amount: p.amount, balance: p.balanceAfter });
+        } else if (p.source === "RECHARGE") {
+          title = t("Recharge received");
+          body = replaceTokens(t("{amount} credits from your recharge are in. Current balance: {balance}."),
+            { amount: p.amount, balance: p.balanceAfter });
+          if (p.orderNo) body += " " + replaceTokens(t("Order {orderNo}."), { orderNo: p.orderNo });
+        } else if (p.source === "CARD") {
+          title = t("Credit card redeemed");
+          body = replaceTokens(t("{amount} credits were added from your card. Current balance: {balance}."),
+            { amount: p.amount, balance: p.balanceAfter });
+          if (p.maskedKey) body += " " + text(p.maskedKey);
+        } else {
+          body = replaceTokens(t("{amount} credits were added. Current balance: {balance}."),
+            { amount: p.amount, balance: p.balanceAfter });
+        }
       } else {
         body = t("Credits were added to your account.");
       }
+    } else if (mail && mail.mailType === "CREDIT_CARD_PURCHASED") {
+      title = t("Credit card ready");
+      body = replaceTokens(t("{credits} credits card is ready. Card: {maskedKey}."),
+        { credits: p.credits, maskedKey: p.maskedKey });
+      if (p.expiresAt) {
+        body += " " + replaceTokens(t("Valid until {date}."), { date: formatDate(p.expiresAt) });
+      } else {
+        body += " " + t("Valid indefinitely.");
+      }
+    } else if (mail && mail.mailType === "CREDIT_BALANCE_LOW") {
+      title = t("Credits running low");
+      body = replaceTokens(t("Only {balance} credits left. Top up to keep using AI features."),
+        { balance: p.balanceAfter });
+    } else if (mail && mail.mailType === "CREDIT_BALANCE_ZERO") {
+      title = t("Credits used up");
+      body = replaceTokens(t("Your credits are used up (balance {balance}). Top up to keep using AI features."),
+        { balance: p.balanceAfter });
     } else if (mail && mail.mailType === "ADMIN_ANNOUNCEMENT") {
       title = text(mail.title).trim() || t("Announcement");
       // Why 留空：运营邮件的正文是必填事实，缺失时不能伪装成一条通用公告。

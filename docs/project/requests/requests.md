@@ -307,4 +307,4 @@
 
 264. **BBC 原声伴听近似逐段高亮：无时间轴原声按字符占比合成虚拟时间轴**（占号 2026-11-01，待回填）
 
-265. **站内信渲染 R235 同源：积分到账来源文案、购卡成功、余额不足/归零提醒**（占号 2026-11-01，待回填）
+265. **站内信渲染 R235 同源：积分到账来源文案、购卡成功、余额不足/归零提醒**（占号 2026-11-01；**开发完成待验收**）：moon-well R235 新增/扩展了站内信类型，本仓同步消费侧渲染：①`CREDIT_GRANTED` 按 `params.source` 分流（REGISTER 新人赠送 / RECHARGE 充值到账带订单号 / CARD 卡兑换带卡密掩码），历史无 `source` 回退原通用文案；②新增 `CREDIT_CARD_PURCHASED`（卡面额 + 掩码 + 有效期，缺省视为长期有效）、`CREDIT_BALANCE_LOW`、`CREDIT_BALANCE_ZERO` 三个分支，跳转仍是 `/credits`；③15 条新词条落 `i18n_seed.html` + `zh_Hans_CN` PO 并重新编译 MO（`pybabel compile`）；④`tests/test_mail_ui_r243.py` 新增 `test_credit_mail_variants_render_by_source_and_type`，用 Node 直接执行生产 `describeMail` 断言 7 种输入（含历史回退与跳转白名单）。守卫：`test_mail_ui_r243.py`(25) + `test_mail_proxy_r243.py` + `test_admin_mail_r250.py` 共 101 例全绿；`test_i18n_seed_contract.py` + 积分页/积分卡/明细 34 例全绿。未改：管理员「同时发送到账通知」默认勾选（会命中 R243 守卫用例，待用户确认）。worktree `../magicbook-r265-credit-mail-render`（分支 `feat/r265-credit-mail-render`）驻留待验收。

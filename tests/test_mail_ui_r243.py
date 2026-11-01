@@ -635,3 +635,54 @@ def test_mail_js_translations_are_in_seed_po_and_mo():
     still_english = sorted(msgid for msgid in literals
                            if translations.gettext(msgid) == msgid)
     assert not still_english, "t() 词条在编译后的 mo 没有译文：{!r}".format(still_english)
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is required")
+def test_credit_mail_variants_render_by_source_and_type():
+    """R235：到账来源、购卡成功、余额不足/归零各有自己的文案，历史邮件回退通用文案。"""
+    source = _read("cps", "static", "js", "mail.js")
+    helper = _function(source, "describeMail", "formatDate")
+    helpers = _function(source, "safeActionPath", "describeMail")
+    script = r"""
+const body = process.argv[1];
+const shared = process.argv[2];
+function t(value) { return value; }
+function text(value) { return value === null || value === undefined ? "" : String(value); }
+function params(mail) { return mail && mail.params && typeof mail.params === "object" ? mail.params : {}; }
+function isUnread() { return false; }
+function formatDate() { return "2026-12-01 10:00:00"; }
+var ACTION_LABELS = { "/credits": "View Credits" };
+eval(shared);
+eval(body);
+const cases = {
+  register: describeMail({ mailType: "CREDIT_GRANTED", actionPath: "/credits", params: { amount: 1000, balanceAfter: 1000, source: "REGISTER" } }),
+  recharge: describeMail({ mailType: "CREDIT_GRANTED", params: { amount: 500, balanceAfter: 1500, source: "RECHARGE", orderNo: "RCH123456" } }),
+  card: describeMail({ mailType: "CREDIT_GRANTED", params: { amount: 5000, balanceAfter: 6500, source: "CARD", maskedKey: "MB-ABCD-****-****-WXYZ" } }),
+  legacy: describeMail({ mailType: "CREDIT_GRANTED", params: { amount: 10, balanceAfter: 20 } }),
+  purchased: describeMail({ mailType: "CREDIT_CARD_PURCHASED", params: { credits: 1000, maskedKey: "MB-ABCD-****-****-WXYZ", expiresAt: 1793238000000 } }),
+  low: describeMail({ mailType: "CREDIT_BALANCE_LOW", params: { balanceAfter: 42, threshold: 100 } }),
+  zero: describeMail({ mailType: "CREDIT_BALANCE_ZERO", params: { balanceAfter: -3 } })
+};
+process.stdout.write(JSON.stringify(cases));
+"""
+    result = subprocess.run(
+        ["node", "-e", script, helper, helpers],
+        capture_output=True, check=True, text=True, timeout=20,
+    )
+    data = json.loads(result.stdout)
+    assert data["register"]["title"] == "Starter credits received"
+    assert "1000" in data["register"]["body"]
+    assert data["recharge"]["title"] == "Recharge received"
+    assert "RCH123456" in data["recharge"]["body"]
+    assert data["card"]["title"] == "Credit card redeemed"
+    assert "MB-ABCD-****-****-WXYZ" in data["card"]["body"]
+    assert data["legacy"]["title"] == "Credits received"
+    assert data["purchased"]["title"] == "Credit card ready"
+    assert "2026-12-01 10:00:00" in data["purchased"]["body"]
+    assert data["low"]["title"] == "Credits running low"
+    assert "42" in data["low"]["body"]
+    assert data["zero"]["title"] == "Credits used up"
+    assert "-3" in data["zero"]["body"]
+    # 跳转路径由服务端按类型派生并落库，前端只接受白名单值
+    assert data["register"]["actionPath"] == "/credits"
+    assert data["register"]["actionLabel"] == "View Credits"
+    assert data["low"]["actionPath"] == ""
