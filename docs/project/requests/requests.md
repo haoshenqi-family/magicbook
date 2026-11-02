@@ -310,6 +310,6 @@
 
 266. **学习入口待复习角标 hidden 失效：默认关闭时仍渲染空红胶囊（红横杠缺陷）**（占号 2026-11-02，待回填）
 
-267. **重写 GitHub README：核心功能与入门用法**（2026-11-02 完成已 push）：仓库根 README 上游原样内容整体重写为本仓产品 README（定位/三件套/六组核心功能/快速上手七步/架构图/本地开发/GPL 致谢），口径以 L1 为准；用户拍板连同本地 10 个待验收提交一起 push 上线（711f6065..4454e9f2 → origin/develop，R262/R264/R265 随本次部署），README 另 cherry-pick 至 master 落地页生效（a712694c..5b01c880）。闸门修复：R225 权限提示断言对齐 R257 现行文案（预存破损，31e87b6e），全量 1270 passed / 0 failed。README 本身 docs-only。
+267. **重写 GitHub README：核心功能与入门用法**（2026-11-02 完成已 push）：仓库根 README 上游原样内容整体重写为本仓产品 README（定位/三件套/六组核心功能/快速上手七步/架构图/本地开发/GPL 致谢），口径以 L1 为准；用户拍板连同本地 10 个待验收提交一起 push 上线（711f6065..4454e9f2 → origin/develop，R262/R264/R265 随本次部署），README 另 cherry-pick 至 master 落地页生效（a712694c..5b01c880）。闸门修复：R225 权限提示断言对齐 R257 现行文案（预存破损，31e87b6e），全量 1270 passed / 0 failed。README 本身 docs-only。同日追加：用户指令「都 push 到 master」，develop 全量正式合并至 master（61deacf7，worktree 发布合并，epub.js 冲突以 develop 现行实现为准、master 9 月旧章节标题补丁系被取代不复活），合并点全量 1273 passed。
 
 268. **播客阅读页生词不显示：波浪下划线样式未注入 EPUB iframe（analyze 正常返回但 span 不可见）**（占号 2026-11-02，待回填）

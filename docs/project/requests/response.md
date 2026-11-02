@@ -230,5 +230,7 @@
 - **上线**：`711f6065..4454e9f2` push `origin/develop`（含 R262 计费修正 / R264 BBC 原声近似高亮 / R265 积分站内信渲染 + README + 闸门修复），fnOS 链构建部署（含代码，不属 docs-only 跳过）；R263 此前已在线。**GitHub 落地页 README 显示的是 `master`**，README 提交 `4454e9f2` 经临时 worktree cherry-pick 至 master（`a712694c..5b01c880`，只带 docs 提交，未做 792 提交的正式发布 merge——master 上另有 2026-09-08 两个旧提交，正式合并留作单独发布决策）。
 - **台账顺手处置**：① 本次 merge origin/develop 时发现 requests.md 内嵌**上次 merge（6bd15ec7）提交时残留的冲突标记**（HEAD vs feat/r264 嵌套块），已在合并解决中清掉，264 完整条目去重为一次；② 发现 **258 编号重复**（占号条与完成条并存）为两边既有历史，按「不修改既有记录」纪律未动，留此存证。
 - **magiclens 同题**：用户同指令改 magiclens README，见 magiclens 仓 response.md R58（随 r57 一起 push develop，未触发 Release）。
+- **追加（同日用户指令「都 push 到 master」）**：执行正式发布合并——临时 worktree `../magicbook-r267-release-master` 内 `merge origin/develop` 成 `61deacf7` push `origin/master`（`5b01c880..61deacf7`），master 从落后 792 提交变为全量发布态。冲突裁决：`epub.js` 以 develop 为准（master 独有的 2026-09 `a712694c` 章节标题修复已被 develop `currentChapterTitle()` 取代，生产数月即跑此实现，复活旧补丁会双写且偏离已验证行为）；`docs/reading-vocabulary.md` 按 develop 删除（已迁 `docs/product/`）。README 两侧同内容自动归一。合并点全量单测 **1273 passed / 0 failed**（含并行 R268 新增 3 条）。同轮事实：magiclens 无 master 分支（landing=develop 已生效，遗留 main=init 骨架落后 94 提交未动）。
+
 - **总结**：requests.md 条目 267 已回填；R254 回应整节搬至 `response-archive/response-R254.md` 并登记行内索引，本条写入后窗口 10。冲突记录：requests.md 与 origin/develop 台账冲突已按并集解决（本地完成条 + 远端 266/267 占号行）。
 
