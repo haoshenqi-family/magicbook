@@ -359,9 +359,12 @@ body.blur #scnd-nav .mb-group-count {
   }
 }
 
-/* R261 学习入口待复习角标（学习设置开关，默认关）：顶栏与移动底栏的「学习」项旁 */
+/* R261 学习入口待复习角标（学习设置开关，默认关）：顶栏与移动底栏的「学习」项旁。
+   R266：display 规则会顶掉 HTML hidden 属性的 UA 隐藏（作者 display 的特异度高于
+   UA 样式表，R140 同款坑），默认关闭的角标因此渲染成空红胶囊，看着像「学习」入口
+   后的一条红横杠。基准态改为 display:none，仅在非 hidden 时按原样式显示。 */
 .ln-due-badge {
-  display: inline-block;
+  display: none;
   min-width: 17px;
   margin-left: 4px;
   padding: 1px 5px;
@@ -373,6 +376,9 @@ body.blur #scnd-nav .mb-group-count {
   line-height: 15px;
   text-align: center;
   vertical-align: text-top;
+}
+.ln-due-badge:not([hidden]) {
+  display: inline-block;
 }
 .mb-bottom-item .ln-due-badge {
   position: absolute;
