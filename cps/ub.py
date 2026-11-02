@@ -41,7 +41,7 @@ except ImportError as e:
         OAuthConsumerMixin = BaseException
         oauth_support = False
 from sqlalchemy import create_engine, exc, exists, event, text
-from sqlalchemy import Column, ForeignKey
+from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy import String, Integer, SmallInteger, Boolean, DateTime, Float, JSON
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql.expression import func
@@ -424,6 +424,47 @@ class ReadBook(Base):
     times_started_reading = Column(Integer, default=0, nullable=False)
 
 
+class ReadingProgress(Base):
+    """账号级阅读位置（R213 / MB-17）。
+
+    Why 独立成表，而不是给 ReadBook 加列：
+    1. `ReadBook.read_status` 只回答「读没读完」，被书库过滤、render_read_books、
+       Kobo 同步多处读写；加列会把「读没读完」和「读到哪」两件事绑死。
+    2. 位置在 Kobo 侧已有自己的结构（`KoboReadingState.current_bookmark`），那是
+       Kobo 协议的私有字段，网页端写进去会让设备端读到脏位置。
+    3. `ReadBook.last_time_started_reading` 只由 Kobo 通道写入（cps/kobo.py），网页
+       读者永远是空值，不能当「最近阅读」用。
+
+    因此网页阅读器的位置单独落本表：`(user_id, book_id, book_format)` 唯一，
+    只服务阅读器恢复位置与首页「继续阅读」，不参与「已读」判定。
+    """
+
+    __tablename__ = 'reading_progress'
+    __table_args__ = (
+        UniqueConstraint('user_id', 'book_id', 'book_format',
+                         name='uq_reading_progress_user_book_fmt'),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user.id'), nullable=False, index=True)
+    book_id = Column(Integer, nullable=False, index=True)
+    book_format = Column(String(16), nullable=False, default='EPUB')
+    # EPUB：CFI；其余格式留空或存页码/字符偏移（R213-B 首版只落 EPUB）
+    position = Column(String(512), nullable=True)
+    progress_percent = Column(Float, nullable=True)
+    page_current = Column(Integer, nullable=True)
+    page_total = Column(Integer, nullable=True)
+    # 排序键：首页「继续阅读」按它倒序；与 updated_at 分开是刻意的——
+    # 进度字段未变（同一页反复开合）时 last_read_at 也要推进，否则列表顺序会失真
+    last_read_at = Column(DateTime, nullable=False,
+                          default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc))
+
+    def __repr__(self):
+        return '<ReadingProgress u%d b%d %s>' % (self.user_id, self.book_id, self.book_format)
+
+
 class Bookmark(Base):
     __tablename__ = 'bookmark'
 
@@ -612,6 +653,43 @@ def migrate_Database(_session):
     migrate_registration_table(engine, _session)
     migrate_user_session_table(engine, _session)
     migrate_oidc_user_columns(engine)
+    migrate_home_landing_config(engine)
+    migrate_reading_progress_config(engine)
+
+
+def migrate_home_landing_config(engine):
+    """给既有库补 `settings.config_home_landing`（R213-C / MB-18）。
+
+    Why 必须单独 ALTER：`_Settings` 是「一行配置表」，新增列对**新建库**由
+    create_all 带出，而既有库不会因为模型多了一列就自动长出来；缺列时
+    `config.config_home_landing` 的读取会直接 OperationalError，**整站每个
+    请求都读配置**，等于全站 500——所以迁移必须在这里补，而不是靠默认值兜底。
+
+    How：与 `migrate_oidc_user_columns` 同款「查 inspector 再 ALTER」；
+    `DEFAULT 1` 让存量库保持既有观感以外的默认行为（落新首页），
+    管理员可在「管理 → 编辑配置」里取消勾选回退到 `/`。
+    """
+    inspector = __import__('sqlalchemy').inspect(engine)
+    columns = {column['name'] for column in inspector.get_columns('settings')}
+    if 'config_home_landing' not in columns:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE settings ADD COLUMN config_home_landing BOOLEAN DEFAULT 1"))
+
+
+def migrate_reading_progress_config(engine):
+    """给既有库补 `settings.config_reading_progress_enabled`（R213-B）。
+
+    Why：`_Settings` 新增列只对新建库生效，存量库缺列时每次配置加载都会抛
+    OperationalError，整站不可用。默认值必须为 1，保持既有账号级阅读位置行为。
+    How：与 `migrate_home_landing_config` 同款 inspector + ALTER，可重复执行。
+    """
+    inspector = __import__('sqlalchemy').inspect(engine)
+    columns = {column['name'] for column in inspector.get_columns('settings')}
+    if 'config_reading_progress_enabled' not in columns:
+        with engine.begin() as conn:
+            conn.execute(text(
+                "ALTER TABLE settings ADD COLUMN "
+                "config_reading_progress_enabled BOOLEAN DEFAULT 1"))
 
 
 def migrate_oidc_user_columns(engine):
@@ -710,6 +788,10 @@ def init_db(app_db_path):
     Session.configure(bind=engine)
     session = Session()
 
+    # NOTE: AI tables (ai_*) intentionally do NOT live on ub.Base. They use
+    # their own base + engine (cps.ai.database), so they must NOT be created
+    # here — this keeps the AI data out of the system app.db entirely.
+
     if os.path.exists(app_db_path):
         Base.metadata.create_all(engine)
         migrate_Database(session)
@@ -745,7 +827,12 @@ def password_change(user_credentials=None):
 
 
 def get_new_session_instance():
-    new_engine = create_engine('sqlite:///{0}'.format(app_DB_path), echo=False)
+    # R78: 后台发布线程每段一 commit，多线程并发写同一 SQLite 文件时
+    # 默认 5s busy_timeout 不够（生产 30 次 'database is locked' 崩溃），
+    # 提高到 60s 让写锁等待而非立刻炸；配合 reading_translation 侧的全局
+    # 发布信号量（并发收敛到 2）双保险。
+    new_engine = create_engine('sqlite:///{0}'.format(app_DB_path), echo=False,
+                               connect_args={'timeout': 60})
     new_session = scoped_session(sessionmaker())
     new_session.configure(bind=new_engine)
 

@@ -1,0 +1,919 @@
+"""Unit tests for the reading-vocabulary proxy endpoint.
+
+moon-well 互调使用配置的内网地址与服务端会话鉴权。
+出站请求一律携 Authorization: Bearer（R145 全 token 化；互信头 X-User-* 已下线），由
+moon-well 按 subject（回退 email）定位同一账户。
+
+Covers:
+  1. Unauthenticated access is rejected (login required).
+  2. moon-well not configured -> 503 "not configured" (reader stays quiet).
+  3. Configured + upstream success -> passthrough with identity headers and
+     WITHOUT any `authorization` token.
+  4. Configured + upstream failure -> 503 "service unavailable".
+  5. Configured + logged-in user without oidc_subject -> falls back to email only.
+"""
+import json
+
+import pytest
+
+
+@pytest.fixture
+def moonwell_configured(monkeypatch):
+    """Pretend the moon-well integration is configured."""
+    from cps import constants
+
+    monkeypatch.setattr(constants, "MOON_WELL_READING_URL",
+                        "https://moon-well.example.com/")
+    return constants
+
+
+@pytest.fixture
+def moonwell_unconfigured(monkeypatch):
+    """Make sure the moon-well integration looks unconfigured."""
+    from cps import constants
+
+    monkeypatch.setattr(constants, "MOON_WELL_READING_URL", "")
+    return constants
+
+
+def _post_vocab(client):
+    """POST a sample page-text payload to the proxy endpoint."""
+    return client.post("/ajax/reading-vocabulary", json={
+        "bookId": 7,
+        "bookName": "Sample Book",
+        "chapter": "Chapter 1",
+        "page": "3/120",
+        "cfi": "epubcfi(/6/4!/4/2)",
+        "pageText": "A lucky serendipity happened today.",
+    })
+
+
+def test_requires_login(app):
+    """Anonymous requests must be redirected to the login page."""
+    client = app.test_client()
+    rv = _post_vocab(client)
+    assert rv.status_code == 302
+
+
+def test_returns_503_when_not_configured(admin_client, moonwell_unconfigured):
+    """Without moon-well config the proxy answers 503 and stays quiet (no token
+    gate anymore — 互调已改内网纯信任)。"""
+    rv = _post_vocab(admin_client)
+    assert rv.status_code == 503
+    body = rv.get_json()
+    assert body["success"] is False
+    assert "moon-well is not configured" in body["message"]
+
+
+def test_proxies_successfully(admin_client, moonwell_configured, monkeypatch):
+    """Happy path: payload is forwarded over internal trust WITHOUT any token."""
+    import requests
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = json.dumps({"result": [{"word": "serendipity",
+                                       "translation": "好运", "unknown": True}]})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["url"] = url
+        captured["json"] = json
+        captured["headers"] = headers
+        captured["proxies"] = proxies
+        return FakeResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = _post_vocab(admin_client)
+    assert rv.status_code == 200
+    body = rv.get_json()
+    assert body["result"][0]["word"] == "serendipity"
+
+    assert captured["url"].endswith("/vocabulary/reading/analyze")
+    # R145 全 token 化：出站必须携带 Bearer 凭证（conftest 注入的会话 token），
+    # 互信身份头已下线
+    assert captured["headers"].get("authorization") == "Bearer test-access-token"
+    assert "X-User-Subject" not in captured["headers"]
+    # moon-well 是内网服务：必须显式绕过环境代理（http_proxy 会让内网请求 503）
+    assert captured["proxies"] == {"http": None, "https": None}
+
+
+def test_proxies_forwards_session_token(app, moonwell_configured, monkeypatch):
+    """R145：登录会话（含 token 桥）出站透传 Bearer，身份归属跟随 token。"""
+    import requests
+
+    from cps import ub
+    from cps import constants
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = json.dumps({"result": [{"word": "serendipity", "unknown": True}]})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["headers"] = headers
+        return FakeResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    # 构造一个带 oidc_subject 的本地账号并通过表单登录（走真实登录链路）
+    from werkzeug.security import generate_password_hash
+    user = ub.session.query(ub.User).filter(ub.User.oidc_subject == "oidc-1").first()
+    if user is None:
+        user = ub.User(name="oidc-tester", email="oidc-1@example.com",
+                       role=constants.ADMIN_USER_ROLES,
+                       password=generate_password_hash("oidc-pass"),
+                       oidc_issuer="https://auth.example", oidc_subject="oidc-1")
+        ub.session.add(user)
+        ub.session.commit()
+    else:
+        user.password = generate_password_hash("oidc-pass")
+        ub.session.commit()
+
+    client = app.test_client()
+    rv = client.post("/login", data={"username": "oidc-tester",
+                                     "password": "oidc-pass"})
+    assert rv.status_code == 302, f"OIDC user login failed: {rv.status_code}"
+
+    # R145：代理透传会话 token（该 client 未走 exchange 注入 token → 干净 401）
+    rv = _post_vocab(client)
+    assert rv.status_code == 401
+    body = rv.get_json()
+    assert "重新登录" in (body.get("message") or "")
+
+
+def test_returns_503_when_upstream_unavailable(admin_client, moonwell_configured,
+                                               monkeypatch):
+    """Network failure to moon-well surfaces as 503, not a crash."""
+    import requests
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        raise requests.RequestException("connection refused")
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = _post_vocab(admin_client)
+    assert rv.status_code == 503
+    body = rv.get_json()
+    assert body["success"] is False
+    assert "service unavailable" in body["message"]
+
+
+def test_rejects_missing_csrf_when_protection_enabled(app, moonwell_configured):
+    """生产环境 CSRF 全局启用：EPUB 阅读器不加载 main.js，划词请求必须自带
+    X-CSRFToken，否则被 400 拦截导致生词标注静默失效。本用例复现该场景。
+
+    conftest 默认关闭 CSRF（WTF_CSRF_ENABLED=False），这里临时开启以贴近真实部署。
+    """
+    import re
+
+    app.config.update(WTF_CSRF_ENABLED=True)
+    try:
+        client = app.test_client()
+
+        # 登录页渲染 csrf_token 隐藏域（与阅读器页面一致），先 GET 再提取
+        html = client.get("/login").get_data(as_text=True)
+        m = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html)
+        assert m, "login page should render a csrf token"
+        token = m.group(1)
+
+        rv = client.post("/login",
+                         data={"username": "admin", "password": "admin123",
+                               "csrf_token": token})
+        assert rv.status_code == 302, f"login with token failed: {rv.status_code}"
+
+        # 模拟 epub.js 修复前的请求（无 X-CSRFToken）→ 必须被 CSRF 拒绝
+        rv = _post_vocab(client)
+        assert rv.status_code == 400, "missing CSRF token must be rejected"
+
+        # 修复后的请求（带 X-CSRFToken）→ 通过 CSRF，进入业务逻辑
+        # （moon-well 已配置但 fake_post 未 mock 时不会走到网络层；
+        #  此处仅验证 CSRF 放行，具体返回由业务层决定）
+        rv = client.post("/ajax/reading-vocabulary",
+                         json={"bookId": 7, "bookName": "B", "chapter": "C",
+                               "page": "3/120", "cfi": "x",
+                               "pageText": "A lucky serendipity happened today."},
+                         headers={"X-CSRFToken": token})
+        assert rv.status_code != 400, "request with CSRF token must pass CSRF"
+    finally:
+        app.config.update(WTF_CSRF_ENABLED=False)
+
+
+def test_translate_rejects_missing_csrf_when_protection_enabled(app, moonwell_configured):
+    """划词翻译同样必须自带 X-CSRFToken：translateSelection 曾漏带头，
+    生产环境 400（epub.js 已修复，本用例固化该接口的 CSRF 契约）。"""
+    import re
+
+    app.config.update(WTF_CSRF_ENABLED=True)
+    try:
+        client = app.test_client()
+
+        html = client.get("/login").get_data(as_text=True)
+        m = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html)
+        assert m, "login page should render a csrf token"
+        token = m.group(1)
+
+        rv = client.post("/login",
+                         data={"username": "admin", "password": "admin123",
+                               "csrf_token": token})
+        assert rv.status_code == 302, f"login with token failed: {rv.status_code}"
+
+        # 无 X-CSRFToken → 必须被 CSRF 拒绝
+        rv = client.post("/ajax/reading-translate",
+                         json={"text": "serendipity", "context": "context"})
+        assert rv.status_code == 400, "missing CSRF token must be rejected"
+
+        # 带 X-CSRFToken → 通过 CSRF 校验
+        rv = client.post("/ajax/reading-translate",
+                         json={"text": "serendipity", "context": "context"},
+                         headers={"X-CSRFToken": token})
+        assert rv.status_code != 400, "request with CSRF token must pass CSRF"
+    finally:
+        app.config.update(WTF_CSRF_ENABLED=False)
+
+
+def test_translate_batch_forwards_book_context(admin_client, moonwell_configured,
+                                               monkeypatch):
+    """整页翻译（前端逐段并发）：代理必须透传书名/章节（moon-well 提示词
+    模板变量，供 LLM 保持全书译法一致），超长值截断到 200 字符。"""
+    import requests
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = json.dumps({"result": ["译文"]})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["json"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = admin_client.post("/ajax/reading-translate-batch", json={
+        "paragraphs": ["One paragraph."],
+        "bookName": "b" * 300,
+        "chapter": "  Chapter 3  ",
+    })
+    assert rv.status_code == 200
+
+    payload = captured["json"]
+    assert payload["paragraphs"] == ["One paragraph."]
+    assert len(payload["bookName"]) == 200
+    assert payload["chapter"] == "Chapter 3"
+
+
+def test_csrf_time_limit_disabled_for_reading_pages(app):
+    """阅读器页面长期保持打开时，模板渲染时嵌入的 CSRF token 不会随页刷新。
+
+    flask-wtf 默认 WTF_CSRF_TIME_LIMIT=3600 会让超过 1 小时后的阅读请求
+    （生词标注/划词翻译/沉浸式翻译/TTS/书签）全部 400。服务端已将其关闭
+    （跟随签名会话 cookie 生效），本用例锁定该配置，防止回归。
+    """
+    assert app.config.get("WTF_CSRF_TIME_LIMIT") is None, \
+        "WTF_CSRF_TIME_LIMIT must be None so long-open reader tokens don't expire"
+
+
+def _reader_js_source(name):
+    import os
+
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "cps", "static", "js",
+                        "libs" if name == "bar-ui.js" else "reading", name)
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def test_epub_js_reloads_on_csrf_failure():
+    """CSRF 失败自愈：token 过期/会话重建导致 reading 请求被 400 时，epub.js
+    应刷新页面拿新 token（借助 localStorage 恢复阅读位置），而不是各功能
+    静默失败。静态检查函数定义与其在翻译/TTS/沉浸式/生词标注/书签各条
+    失败路径的引用。"""
+    import re
+
+    # R183（B4 批次 1）：reloadIfCsrfBlocked 的实现下沉 reader-core.js，epub.js 只留
+    # 同名薄委托与全部调用点——本锁要同时看到两者，故读按载入顺序拼接的模块全集
+    from tests.reader_js_modules import reader_blob
+
+    source = reader_blob()
+    assert 'function reloadIfCsrfBlocked' in source, \
+        "epub.js must define reloadIfCsrfBlocked for CSRF-failure self-healing"
+    assert "/csrf/i.test" in source, "CSRF detection must match response body text"
+    # 定义 1 次 + 5 条 moon-well 相关失败路径（translate/tts/batch x2/vocabulary/bookmark）
+    uses = len(re.findall(r"reloadIfCsrfBlocked\(", source))
+    assert uses >= 6, f"expected reloadIfCsrfBlocked wired into all failure paths, got {uses}"
+    # 每处 POST 都仍显式携带 CSRF 头（新功能接口易遗漏）
+    assert source.count("X-CSRFToken") >= 6, \
+        "all reader POSTs must carry X-CSRFToken"
+
+
+def test_bar_ui_bookmark_requests_carry_csrf_token():
+    """同类 CSRF 防线：音频阅读器 listenmp3.html 同样不加载 main.js（无全局
+    $.ajaxSetup），bar-ui.js 里所有发往 set_bookmark 的 POST 必须携带
+    csrf_token 表单字段，否则服务端全局 CSRF 会以 400 拦截，暂停/停止/
+    结束时进度保存静默失效（曾遗漏 onpause/onstop/onfinish 三处）。"""
+    import re
+
+    source = _reader_js_source("bar-ui.js")
+    total = len(re.findall(r"bookmark:\s*this\.position", source))
+    with_token = len(re.findall(r"csrf_token.{0,80}?bookmark:\s*this\.position",
+                                source, re.S))
+    assert total == 4, f"expected 4 bookmark report points, got {total}"
+    assert with_token == total, \
+        f"{total - with_token} bookmark requests missing csrf_token (would 400)"
+
+
+# ################################### /ajax/reading-word-mark（划词气泡 ＋/－ 标记） ###
+
+def _post_mark(client, word="serendipity", unknown=True):
+    """POST a word-mark payload to the proxy endpoint."""
+    return client.post("/ajax/reading-word-mark",
+                       json={"word": word, "unknown": unknown})
+
+
+class _FakeMoonwellGet:
+    status_code = 200
+    text = json.dumps({"success": True, "code": 200, "result": None})
+    headers = {"Content-Type": "application/json"}
+
+
+def test_word_mark_requires_login(app):
+    """Anonymous marking requests must be redirected to the login page."""
+    rv = _post_mark(app.test_client())
+    assert rv.status_code == 302
+
+
+def test_word_mark_rejects_invalid_words(admin_client, moonwell_configured):
+    """词会拼进 moon-well 的请求 path，非法输入必须 400 拒绝（防注入/防脏数据）。
+
+    覆盖：空串、带空格短语、非 ASCII、path 遍历、query 注入、超长词、
+    word=null（str(None) 会变成 "none" 存成脏词）、word 非 JSON 布尔
+    （"false" 字符串经 bool() 恒为真，会误标为不认识）、首尾撇号/连字符
+    （与页面分词 \\b 边界不匹配，标记后永远显示不出波浪线）。
+    """
+    bad_payloads = [
+        {"word": "", "unknown": True},
+        {"word": "hello world", "unknown": True},
+        {"word": "你好", "unknown": True},
+        {"word": "../admin", "unknown": True},
+        {"word": "word?x=1", "unknown": True},
+        {"word": "a" * 65, "unknown": True},
+        {"word": "12abc", "unknown": True},
+        {"word": None, "unknown": True},
+        {"word": 123, "unknown": True},
+        {"word": "serendipity", "unknown": "false"},
+        {"word": "serendipity"},
+        {"word": "apple'", "unknown": True},
+        {"word": "apple-", "unknown": True},
+        {"word": "'apple", "unknown": True},
+    ]
+    for payload in bad_payloads:
+        rv = admin_client.post("/ajax/reading-word-mark", json=payload)
+        assert rv.status_code == 400, f"{payload!r} must be rejected with 400"
+        body = rv.get_json()
+        assert body["success"] is False
+
+
+def test_word_mark_normalizes_word_and_proxies_unknown(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    """＋标记不认识：词形归一化（弯撇号→直撇号、小写）后转发 moon-well
+    GET /vocabulary/unknown/{word}，与 ES 词 key / 前端 vocabularyRecords 一致。"""
+    import requests
+
+    captured = {}
+
+    def fake_get(url, headers=None, timeout=None, proxies=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["proxies"] = proxies
+        return _FakeMoonwellGet()
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    rv = _post_mark(admin_client, word="Apple\u2019s", unknown=True)
+    assert rv.status_code == 200
+    # 归一化：弯撇号 → 直撇号，大写 → 小写，再 URL 编码进 path
+    assert captured["url"].endswith("/vocabulary/unknown/apple%27s")
+    # 内网纯信任：不携带 authorization，改携身份头
+    assert captured["headers"].get("authorization") == "Bearer test-access-token"
+    # moon-well 是内网服务：必须显式绕过环境代理
+    assert captured["proxies"] == {"http": None, "https": None}
+
+
+def test_word_mark_proxies_known(admin_client, moonwell_configured, monkeypatch):
+    """－标记已认识：转发 moon-well GET /vocabulary/known/{word}。"""
+    import requests
+
+    captured = {}
+
+    def fake_get(url, headers=None, timeout=None, proxies=None):
+        captured["url"] = url
+        return _FakeMoonwellGet()
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    rv = _post_mark(admin_client, word="serendipity", unknown=False)
+    assert rv.status_code == 200
+    assert captured["url"].endswith("/vocabulary/known/serendipity")
+
+
+def test_word_mark_returns_503_when_upstream_unavailable(admin_client,
+                                                         moonwell_configured,
+                                                         monkeypatch):
+    """Network failure to moon-well surfaces as 503, not a crash."""
+    import requests
+
+    def fake_get(url, headers=None, timeout=None, proxies=None):
+        raise requests.RequestException("connection refused")
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    rv = _post_mark(admin_client)
+    assert rv.status_code == 503
+    body = rv.get_json()
+    assert body["success"] is False
+    assert "service unavailable" in body["message"]
+
+
+def test_word_mark_request_carries_csrf_token_contract(app, moonwell_configured):
+    """划词标记同样必须自带 X-CSRFToken：EPUB 阅读器不加载 main.js，生产
+    环境 CSRF 全局启用，缺 token 会被 400 拦截导致标记按钮静默失效。"""
+    import re
+
+    app.config.update(WTF_CSRF_ENABLED=True)
+    try:
+        client = app.test_client()
+
+        html = client.get("/login").get_data(as_text=True)
+        m = re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html)
+        assert m, "login page should render a csrf token"
+        token = m.group(1)
+
+        rv = client.post("/login",
+                         data={"username": "admin", "password": "admin123",
+                               "csrf_token": token})
+        assert rv.status_code == 302, f"login with token failed: {rv.status_code}"
+
+        # 无 X-CSRFToken → 必须被 CSRF 拒绝
+        rv = client.post("/ajax/reading-word-mark",
+                         json={"word": "serendipity", "unknown": True})
+        assert rv.status_code == 400, "missing CSRF token must be rejected"
+
+        # 带 X-CSRFToken → 通过 CSRF 校验
+        rv = client.post("/ajax/reading-word-mark",
+                         json={"word": "serendipity", "unknown": True},
+                         headers={"X-CSRFToken": token})
+        assert rv.status_code != 400, "request with CSRF token must pass CSRF"
+    finally:
+        app.config.update(WTF_CSRF_ENABLED=False)
+
+
+def test_epub_js_popover_auto_close_and_mark_buttons():
+    """划词气泡自动消失根因修复的静态锁定：
+
+    1. iframe 内的 mousedown/keydown 不冒泡到主文档，必须绑定在 iframe
+       document 上（bindSelectionTranslation 内），否则点击正文气泡常驻；
+    2. translateSelection 的所有「不弹气泡」路径必须关闭旧气泡；
+    3. 翻页（relocated）时旧气泡坐标失效，必须关闭；
+    4. ＋/－ 标记按钮存在且单词词形才显示。
+
+    注（R141/R146）：划词气泡在 MagicLens 接管本帧时让位（epub.js 运行时探测
+    data-magiclens-selection 标记），本用例锁的这些路径在该状态下不可达；
+    保留是为了开关置回 true 时这些历史缺陷不复发，开关状态由
+    tests/test_reader_lens_handoff.py 锁定。
+    """
+    import re
+
+    # R183（B4 批次 4）：气泡与标记按钮随划词簇迁至 reader-selection.js，改读模块全集
+    from tests.reader_js_modules import reader_blob
+
+    source = reader_blob()
+
+    # bindSelectionTranslation 内绑定了 iframe 的 mousedown 与 keydown
+    assert re.search(
+        r"bindSelectionTranslation\s*\(content\)\s*\{[\s\S]*?"
+        r"content\.document\.addEventListener\('mousedown'[\s\S]*?"
+        r"content\.document\.addEventListener\('keydown'",
+        source), "iframe document must handle mousedown+keydown to close popover"
+    # 不弹气泡路径都关闭旧气泡
+    assert source.count("closeTranslationPopover(); return;") >= 2
+    # 翻页关闭气泡
+    assert re.search(r"'relocated', function \(\) \{\s*// 翻页后旧气泡"
+                     r"[\s\S]*?RS\.closePopover\(\);", source)
+    # 标记按钮
+    assert "appendWordMarkButtons" in source
+    assert "readingWordMarkUrl" in source
+    assert "SINGLE_WORD_RE" in source
+    # 标记请求携带 CSRF 头（EPUB 阅读器无全局 $.ajaxSetup）
+    assert re.search(r"readingWordMarkUrl[\s\S]{0,200}X-CSRFToken", source)
+    # 供 ai_chat.js ESC 分层关闭的桥接对象
+    assert "window.ReaderTranslation" in source
+    # ESC 逐层退出：关闭气泡时必须阻断后注册的 ESC 监听（ai_chat.js 的
+    # jQuery 委托监听在本 handler 之后注册），否则同开场景一次 ESC 连关
+    # 气泡与抽屉两个面板（分层设计失效）
+    # R183（B4 批次 4）：气泡状态归 reader-selection.js，Esc 收气泡改经 RS.；锁的强度不变——
+    # 仍是「先判存在 → 关闭 → 阻断后续监听」三段连续（否则同开场景一次 Esc 连关气泡与抽屉）
+    assert re.search(r"if \(!RS\.isPopoverOpen\(\)\) return;\s*"
+                     r"RS\.closePopover\(\);\s*"
+                     r"event\.stopImmediatePropagation\(\);", source), \
+        "ESC handler must stopImmediatePropagation after closing the popover"
+
+
+def test_ai_chat_js_escape_closes_drawer():
+    """ESC 关闭 AI 抽屉的静态锁定：气泡优先（ReaderTranslation.isOpen）
+    时跳过，避免一次 ESC 连关气泡与抽屉两个面板。"""
+    import os
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "cps", "static", "js", "ai_chat.js")
+    with open(path, encoding="utf-8") as fh:
+        source = fh.read()
+    assert 'e.key !== "Escape"' in source
+    assert "ReaderTranslation" in source and "isOpen()" in source
+    assert 'closeDrawer()' in source
+
+# ---------------------------------------------------------------------------
+# Paragraph annotations (reading-annotation-* proxies)
+# ---------------------------------------------------------------------------
+
+def _post_annotation_create(client, paragraph="The moon is a friendless place.",
+                            content="这段写得很孤独", book_name="Sample Book",
+                            chapter="Chapter 3"):
+    return client.post("/ajax/reading-annotation-create", json={
+        "paragraph": paragraph, "content": content,
+        "bookName": book_name, "chapter": chapter,
+    })
+
+
+def _post_annotation_list_by_paragraph(client,
+                                       paragraph="The moon is a friendless place."):
+    return client.post("/ajax/reading-annotation-list-by-paragraph",
+                       json={"paragraph": paragraph})
+
+
+def _post_annotation_list_by_book(client, book_name="Sample Book", chapter=None):
+    return client.post("/ajax/reading-annotation-list-by-book", json={
+        "bookName": book_name, "chapter": chapter,
+    })
+
+
+def test_annotation_create_requires_login(app):
+    """Anonymous requests must be redirected to the login page."""
+    client = app.test_client()
+    rv = client.post("/ajax/reading-annotation-create",
+                     json={"paragraph": "p", "content": "c"})
+    assert rv.status_code == 302
+
+
+def test_annotation_create_validates_payload(admin_client, moonwell_configured):
+    """空段落/空内容/超长 → 400 即时拒绝，不打到 moon-well（批注是用户数据，
+    校验失败必须明确告知而非静默）。"""
+    rv = _post_annotation_create(admin_client, paragraph="   ", content="批注")
+    assert rv.status_code == 400
+    rv = _post_annotation_create(admin_client, paragraph="p", content="   ")
+    assert rv.status_code == 400
+    rv = _post_annotation_create(admin_client, paragraph="x" * 2001, content="批注")
+    assert rv.status_code == 400
+    rv = _post_annotation_create(admin_client, paragraph="p", content="批" * 2001)
+    assert rv.status_code == 400
+    # JSON null 不能被代理转换为字符串 "None" 后误接受
+    rv = _post_annotation_create(admin_client, paragraph=None, content="批注")
+    assert rv.status_code == 400
+    rv = _post_annotation_create(admin_client, paragraph="p", content=None)
+    assert rv.status_code == 400
+
+
+def test_annotation_create_proxies_to_moonwell(admin_client, moonwell_configured,
+                                               monkeypatch):
+    """创建批注：转发 /reading/annotation/create；段落/内容 trim（与翻译/朗读
+    链路同归一化，命中同一段落 ES 文档），书名/章节截断 200；署名与批注时间
+    由 moon-well 凭 OIDC 身份头取，代理不注入身份字段。"""
+    import requests
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = json.dumps({"result": {"nickName": "书虫", "content": "批注",
+                                      "annotatedAt": "2026-09-02T21:30:00"}})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["url"] = url
+        captured["json"] = json
+        captured["headers"] = headers
+        captured["proxies"] = proxies
+        return FakeResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = _post_annotation_create(admin_client,
+                                 paragraph="  The moon is a friendless place.  ",
+                                 content="  这段写得很孤独  ",
+                                 book_name="b" * 300, chapter="  Chapter 3  ")
+    assert rv.status_code == 200
+
+    assert captured["url"].endswith("/reading/annotation/create")
+    payload = captured["json"]
+    assert payload["paragraph"] == "The moon is a friendless place."
+    assert payload["content"] == "这段写得很孤独"
+    assert len(payload["bookName"]) == 200
+    assert payload["chapter"] == "Chapter 3"
+    # 内网纯信任：不携带 authorization，改携 OIDC 身份头
+    assert captured["headers"].get("authorization") == "Bearer test-access-token"
+    # 内网服务绕过环境代理（与其他阅读代理一致）
+    assert captured["proxies"] == {"http": None, "https": None}
+
+
+def test_annotation_create_503_when_upstream_unavailable(admin_client,
+                                                         moonwell_configured,
+                                                         monkeypatch):
+    """Network failure to moon-well surfaces as 503, not a crash."""
+    import requests
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        raise requests.RequestException("connection refused")
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = _post_annotation_create(admin_client)
+    assert rv.status_code == 503
+    body = rv.get_json()
+    assert body["success"] is False
+    assert "service unavailable" in body["message"]
+
+
+def test_annotation_list_by_paragraph_validates_and_proxies(
+        admin_client, moonwell_configured, monkeypatch):
+    """按段查批注：空段落 400；正常转发 /reading/annotation/list-by-paragraph。"""
+    import requests
+
+    rv = _post_annotation_list_by_paragraph(admin_client, paragraph="   ")
+    assert rv.status_code == 400
+    rv = _post_annotation_list_by_paragraph(admin_client, paragraph=None)
+    assert rv.status_code == 400
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = json.dumps({"result": [{"nickName": "书虫", "content": "批注",
+                                       "annotatedAt": "2026-09-02T21:30:00"}]})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["url"] = url
+        captured["json"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = _post_annotation_list_by_paragraph(
+        admin_client, paragraph="  The moon is a friendless place.  ")
+    assert rv.status_code == 200
+    assert captured["url"].endswith("/reading/annotation/list-by-paragraph")
+    assert captured["json"]["paragraph"] == "The moon is a friendless place."
+
+
+def test_annotation_list_by_book_validates_and_proxies(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    """按书查批注：书名必填 1..200；chapter 可选、缺省转发空串（moon-well
+    侧空串即不按章节过滤）。"""
+    import requests
+
+    rv = _post_annotation_list_by_book(admin_client, book_name="   ")
+    assert rv.status_code == 400
+
+    captured = {}
+
+    class FakeResponse:
+        status_code = 200
+        text = json.dumps({"result": [{"paragraph": "p", "chapter": "Chapter 3",
+                                       "annotations": []}]})
+        headers = {"Content-Type": "application/json"}
+
+    def fake_post(url, json=None, headers=None, timeout=None, proxies=None):
+        captured["url"] = url
+        captured["json"] = json
+        return FakeResponse()
+
+    monkeypatch.setattr(requests, "post", fake_post)
+
+    rv = _post_annotation_list_by_book(admin_client, chapter=None)
+    assert rv.status_code == 200
+    assert captured["url"].endswith("/reading/annotation/list-by-book")
+    assert captured["json"]["bookName"] == "Sample Book"
+    assert captured["json"]["chapter"] == ""
+
+    rv = _post_annotation_list_by_book(admin_client, chapter="  Chapter 3  ")
+    assert rv.status_code == 200
+    assert captured["json"]["chapter"] == "Chapter 3"
+
+
+def test_annotation_requests_must_carry_csrf_token(app, moonwell_configured):
+    """批注三个端点与阅读器其他 POST 一样必须携带 X-CSRFToken（阅读器不加载
+    main.js，无全局 $.ajaxSetup）。"""
+    app.config.update(WTF_CSRF_ENABLED=True)
+    try:
+        client = app.test_client()
+
+        html = client.get("/login").get_data(as_text=True)
+        import re as _re
+        m = _re.search(r'name="csrf_token"[^>]*value="([^"]+)"', html)
+        assert m, "login page should render a csrf token"
+        token = m.group(1)
+
+        rv = client.post("/login", data={"username": "admin",
+                                         "password": "admin123",
+                                         "csrf_token": token})
+        assert rv.status_code == 302
+
+        for url in ("/ajax/reading-annotation-create",
+                    "/ajax/reading-annotation-list-by-paragraph",
+                    "/ajax/reading-annotation-list-by-book"):
+            rv = client.post(url, json={"paragraph": "p", "content": "c",
+                                        "bookName": "b"})
+            assert rv.status_code == 400, f"missing CSRF must reject {url}"
+
+            rv = client.post(url, json={"paragraph": "p", "content": "c",
+                                        "bookName": "b"},
+                             headers={"X-CSRFToken": token})
+            assert rv.status_code != 400, f"CSRF token must pass {url}"
+    finally:
+        app.config.update(WTF_CSRF_ENABLED=False)
+
+
+def test_epub_js_annotation_wiring_contract():
+    """段落批注前端接线的静态锁定：
+
+    1. 批注段落文本必须用与翻译/朗读相同的 paragraphSpeechText 归一化
+       （moon-well 按 SHA-256(段落) 落到同一份 ES 文档，归一化不一致
+       批注会挂到另一个文档上）；
+    2. 批注请求携带 X-CSRFToken（阅读器无全局 $.ajaxSetup）；
+    3. ESC 分层退出覆盖书批注面板与段落批注弹层；
+    4. 翻页（relocated）时批注弹层随划词气泡一起关闭（坐标失效）；
+    5. iframe 内 mousedown 同样关闭批注弹层。
+    """
+    import re
+
+    # R183（B4 批次 3）：批注实现迁至 reader-annotations.js，装配层只以 AN.* 调用它，
+    # 接线契约跨文件成立，故读按 read.html 载入顺序拼接的 reader 模块全集
+    from tests.reader_js_modules import reader_blob
+
+    source = reader_blob()
+
+    # 段落归一化契约：弹层与创建均基于 paragraphSpeechText
+    assert re.search(r"function openAnnotationPopover\(el, btn\) \{[\s\S]{0,200}"
+                     r"paragraphSpeechText\(el\)", source), \
+        "annotation must key on the same normalized paragraph text"
+    # 批注请求带 CSRF 头
+    assert re.search(r"readingAnnotationCreateUrl[\s\S]{0,200}X-CSRFToken", source)
+    assert re.search(r"readingAnnotationListUrl[\s\S]{0,200}X-CSRFToken", source)
+    assert re.search(r"readingAnnotationBookUrl[\s\S]{0,200}X-CSRFToken", source)
+    # ESC 分层退出：面板 → 弹层 → 划词气泡，各层 stopImmediatePropagation
+    # R183：面板/弹层状态归模块持有，分层退出改走 AN.isPanelOpen()/AN.closePanel() 等价形态
+    assert re.search(r"if \(AN\.isPanelOpen\(\)\) \{\s*AN\.closePanel\(\);"
+                     r"[\s\S]{0,80}stopImmediatePropagation", source)
+    assert re.search(r"if \(AN\.isPopoverOpen\(\)\) \{\s*AN\.closePopover\(\);"
+                     r"[\s\S]{0,80}stopImmediatePropagation", source)
+    # 翻页关闭批注弹层
+    assert re.search(r"'relocated', function \(\) \{[\s\S]{0,200}"
+                     r"AN\.closePopover\(\);", source)
+    # iframe 内 mousedown 关闭批注弹层
+    assert re.search(r"content\.document\.addEventListener\('mousedown',"
+                     r"[\s\S]{0,120}AN\.closePopover\(\);", source)
+    # 段落按钮注入
+    assert "reading-annotation-btn" in source
+    assert "✎" in source
+
+
+# ################################# /ajax/reading-word-detail（划词气泡「详」详解） ###
+
+def _post_detail(client, word="serendipity"):
+    """POST a word-detail payload to the proxy endpoint."""
+    return client.post("/ajax/reading-word-detail", json={"word": word})
+
+
+def test_word_detail_requires_login(app):
+    """Anonymous detail requests must be redirected to the login page."""
+    rv = _post_detail(app.test_client())
+    assert rv.status_code == 302
+
+
+def test_word_detail_rejects_invalid_words(admin_client, moonwell_configured):
+    """词会拼进 moon-well 的请求 path，非法输入必须 400 拒绝（与 word_mark 同口径）。"""
+    bad_payloads = [
+        {"word": ""},
+        {"word": "hello world"},
+        {"word": "你好"},
+        {"word": "../admin"},
+        {"word": "word?x=1"},
+        {"word": "a" * 65},
+        {"word": "12abc"},
+        {"word": None},
+        {"word": 123},
+        {"word": "apple'"},
+        {"word": "apple-"},
+        {},
+    ]
+    for payload in bad_payloads:
+        rv = admin_client.post("/ajax/reading-word-detail", json=payload)
+        assert rv.status_code == 400, f"{payload!r} must be rejected with 400"
+        body = rv.get_json()
+        assert body["success"] is False
+
+
+def test_word_detail_normalizes_word_and_proxies_get(admin_client,
+                                                     moonwell_configured,
+                                                     monkeypatch):
+    """「详」：词形归一化（弯撇号→直撇号、小写）后转发 moon-well
+    GET /vocabulary/detail/{word}（六板块详解，变体还原在 moon-well 侧）。"""
+    import requests
+
+    captured = {}
+
+    def fake_get(url, headers=None, timeout=None, proxies=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["proxies"] = proxies
+        captured["timeout"] = timeout
+        return _FakeMoonwellGet()
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    rv = _post_detail(admin_client, word="Apple\u2019s")
+    assert rv.status_code == 200
+    # 归一化：弯撇号 → 直撇号，大写 → 小写，再 URL 编码进 path
+    assert captured["url"].endswith("/vocabulary/detail/apple%27s")
+    # 内网纯信任：不携带 authorization，改携身份头
+    assert captured["headers"].get("authorization") == "Bearer test-access-token"
+    # moon-well 是内网服务：必须显式绕过环境代理
+    assert captured["proxies"] == {"http": None, "https": None}
+    # 缓存 miss 时 moon-well 现场生成（LLM 一次调用），超时须宽于 mark 的 8s
+    assert captured["timeout"] == 30
+
+
+def test_word_detail_returns_503_when_upstream_unavailable(admin_client,
+                                                           moonwell_configured,
+                                                           monkeypatch):
+    """Network failure to moon-well surfaces as 503, not a crash."""
+    import requests
+
+    def fake_get(url, headers=None, timeout=None, proxies=None):
+        raise requests.RequestException("connection refused")
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+    rv = _post_detail(admin_client)
+    assert rv.status_code == 503
+    body = rv.get_json()
+    assert body["success"] is False
+
+
+def test_word_detail_reader_wiring_contract(moonwell_configured):
+    """阅读器接线契约：气泡挂「详」按钮 → POST /ajax/reading-word-detail
+    带 CSRF；详解内容必须 textContent 组装（LLM 内容禁入 innerHTML）。"""
+    import re
+
+    # R183（B4 批次 2）：面板实现迁至 reader-word-detail.js，接线契约跨文件成立，
+    # 故读按 read.html 载入顺序拼接的 reader 模块全集
+    from tests.reader_js_modules import reader_blob
+
+    source = reader_blob()
+    # 配置注入与按钮挂载（与生词标记同口径：仅单个英文单词）
+    assert re.search(r"readingWordDetailUrl && SINGLE_WORD_RE\.test\(text\)", source)
+    assert "appendWordDetailButton(popover, text)" in source
+    # 请求带 CSRF 头（生产环境 CSRF 全局启用，缺 token 会被 400 拦截）
+    assert re.search(r"readingWordDetailUrl[\s\S]{0,200}X-CSRFToken", source)
+    # 面板内容组装不得有非空 innerHTML 赋值（只允许清空容器）：
+    # 逐条取赋值右值断言（负向前瞻会被 \s* 回溯绕过，实测踩到）
+    render_body = re.search(r"function renderWordDetail[\s\S]*?positionWordDetailPanel", source)
+    assert render_body, "renderWordDetail must exist"
+    bad_inner = [m.group(1) for m in
+                 re.finditer(r"innerHTML\s*=\s*([^;]+);", render_body.group(0))
+                 if m.group(1).strip() not in ("''", '""')]
+    assert not bad_inner, "renderWordDetail 里出现了非空 innerHTML 赋值：%r" % bad_inner
+    # 响应守卫时序：openWordDetailPanel 里 seq 取号之后、发请求之前不得再自增
+    # 序号（否则响应被自己的守卫丢弃，面板永远停在 Loading——审查实测踩到）
+    open_body = re.search(r"function openWordDetailPanel[\s\S]*?\$\.ajax", source)
+    assert open_body, "openWordDetailPanel must exist"
+    assert "var seq = ++wordDetailRequest" in open_body.group(0)
+    assert "wordDetailRequest++" not in open_body.group(0), \
+        "seq 取号后又自增序号，会把本请求的响应一并作废"
+    # 面板存活期间挂起气泡自动隐藏（5s 倒计时否则必然收走 30s 级生成）
+    # R183：面板态改由模块持有，气泡侧的存活判定走 RD.isOpen()
+    assert re.search(r"if \(RD\.isOpen\(\)\) return;", source)
+    # R125 生命周期解耦：面板仅由 ✕/Esc 关闭——收气泡不得连带收面板，
+    # 点外监听必须不存在（生成等待期的滚动/翻选/点正文都不应误杀一趟生成）
+    close_body = re.search(r"function closeTranslationPopover\(\)[\s\S]*?\n    \}", source)
+    assert close_body, "closeTranslationPopover must exist"
+    assert "closeWordDetailPanel" not in close_body.group(0), \
+        "收气泡不得连带关闭详解面板"
+    assert "closeWordDetailPanelOnOutside" not in source, \
+        "点外关闭监听应已移除（R125 面板粘性）"

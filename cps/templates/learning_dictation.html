@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+{% block body %}
+<input type="hidden" id="lh-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Dictation')}}</h1>
+  <p class="text-muted lh-sub-hint">
+    <a href="{{ url_for('web.learning_page') }}"><span class="glyphicon glyphicon-arrow-left"></span> {{_('Daily Learning')}}</a>
+  </p>
+
+  <div class="panel panel-default">
+    <div class="panel-body">
+      <p class="text-muted sw-hint">{{_('Play a paragraph and type what you hear. The checker diffs your answer word by word; missed or wrong words can go straight into your review queue.')}}</p>
+      <div class="form-inline sw-gap">
+        <select id="sw-d-material" class="form-control" style="width:280px"></select>
+        <button type="button" id="sw-d-load" class="btn btn-default">{{_('Load paragraphs')}}</button>
+      </div>
+      <ul id="sw-d-paragraphs" class="sw-list"></ul>
+    </div>
+  </div>
+  <div class="panel panel-default" id="sw-d-panel" hidden>
+    <div class="panel-body">
+      <div class="sw-gap">
+        <button type="button" id="sw-d-play" class="btn btn-primary">{{_('Play audio')}}</button>
+        <span id="sw-d-audio-status" class="text-muted"></span>
+      </div>
+      <audio id="sw-d-audio" controls class="sw-gap" hidden></audio>
+      <textarea id="sw-d-answer" class="form-control" rows="5"
+                placeholder="{{_('Type what you hear, then check. Replay as many times as you need.')}}"></textarea>
+      <div class="sw-gap">
+        <label class="sw-tts-toggle"><input type="checkbox" id="sw-d-add-unknown" checked>
+          {{_('Add missed words to my review queue')}}</label>
+        <button type="button" id="sw-d-check" class="btn btn-primary">{{_('Check my dictation')}}</button>
+      </div>
+      <div id="sw-d-result" class="sw-gap" hidden>
+        <p id="sw-d-accuracy"></p>
+        <p id="sw-d-tokens" class="sw-diff"></p>
+        <p id="sw-d-missing"></p>
+        <p id="sw-d-extra"></p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block header %}
+{{ super() }}
+{% include "learning_sub_css.html" %}
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+  window.learningUrls = {
+    listeningMaterials: "{{ url_for('web.learning_listening_materials') }}",
+    listeningParagraphs: "{{ url_for('web.learning_listening_paragraphs') }}",
+    dictationCheck: "{{ url_for('web.learning_listening_dictation') }}",
+    readingTts: "{{ url_for('web.reading_tts') }}"
+  };
+})();
+</script>
+<script src="{{ url_for('static', filename='js/learning-common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-dictation.js') }}"></script>
+{% endblock %}

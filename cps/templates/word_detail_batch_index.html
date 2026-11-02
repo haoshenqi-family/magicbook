@@ -1,0 +1,20 @@
+{% extends "layout.html" %}
+{% block body %}
+<div class="discover">
+  <h1>{{_('Whole-book Word Details')}}</h1>
+  <div class="col-md-10 col-lg-8">
+    <p class="text-muted">
+      全文单词详解按书执行：先预览缺失词数，再确认是否入队。它是整本能力中成本最高的一项，
+      因此不从管理首页直接批量启动。
+    </p>
+    <h3>从书籍详情进入</h3>
+    <p>
+      打开任意书的详情页，在“整本能力”区域点击“全文单词详解”。
+      系统会带上书籍 ID，进入预览与执行页面。
+    </p>
+    <p>
+      <a class="btn btn-primary" href="{{ url_for('web.index') }}">去书库选书</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

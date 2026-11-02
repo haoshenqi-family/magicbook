@@ -21,11 +21,14 @@
 #  along with this program. If not, see <http://www.gnu.org/licenses/>.
 __package__ = "cps"
 
-import sys
+import json
 import os
+import sys
 import mimetypes
+import threading
+from datetime import timedelta
 
-from flask import Flask
+from flask import Flask, session
 from flask.sessions import SecureCookieSessionInterface
 from .MyLoginManager import MyLoginManager
 from flask_principal import Principal
@@ -87,11 +90,47 @@ app = Flask(__name__)
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
+    # R123: 会话 cookie 持久化——moon-well access/refresh token 存在 Flask 签名
+    # 会话 cookie 内，未配 permanent 时该 cookie 无 Expires/Max-Age（浏览器会话级），
+    # 浏览器关闭即登录态连同 token 全丢，体感「一天就要重新登录」（R123 前的
+    # 线上行为）。持久化默认 30 天（SESSION_PERMANENT_DAYS 可调），与 moon-well
+    # JWT access 30 天 / refresh 90 天（R101）对齐；每次响应滑动续发（下项），
+    # 只要 30 天内有访问就不再重登。
+    PERMANENT_SESSION_LIFETIME=timedelta(days=int(os.environ.get('SESSION_PERMANENT_DAYS', '30'))),
+    # Why 滑动续发: 固定过期会在「登录满 30 天」时强制重登活跃用户；
+    # 每次响应重发 cookie（Expires 刷新）后只有连续 30 天不用才掉登录。
+    SESSION_REFRESH_EACH_REQUEST=True,
     REMEMBER_COOKIE_SAMESITE='Strict',
     WTF_CSRF_SSL_STRICT=False,
+    # EPUB 阅读器页面长期保持打开（生词标注/划词翻译的 CSRF token 嵌入
+    # 页面隐藏域，无法随刷新更新），flask-wtf 默认 1 小时独立超时会让
+    # 超时后所有阅读请求 400。CSRF 防护本质已由 HttpOnly + SameSite=Lax
+    # 的签名会话 cookie 承载，取消此独立时间窗口可让 token 随会话寿命
+    # 生效（仅验签、不校年龄），旧 token 无需刷新页面即恢复有效。
+    WTF_CSRF_TIME_LIMIT=None,
     SESSION_COOKIE_NAME=os.environ.get('COOKIE_PREFIX', "") + "session",
     REMEMBER_COOKIE_NAME=os.environ.get('COOKIE_PREFIX', "") + "remember_token"
 )
+
+
+@app.before_request
+def _make_session_permanent():
+    # R123: 对已有内容且尚未标记的会话标记 permanent（见上方
+    # PERMANENT_SESSION_LIFETIME 注释）。
+    # Why 全局钩子而非逐登录点设置: OIDC 回调、remember_token 恢复、本地登录
+    # 等多条路径都会重建会话，逐点设置必漏。
+    # Why 仅非空会话: permanent 的 setter 会把 _permanent 写入会话（置
+    # modified），对空会话也会让 save_session 下发 Set-Cookie（空+modified 走
+    # delete_cookie 删除头），破坏内部 M2M 端点「响应不携带会话 cookie」的
+    # 安全契约（test_book_import 评审项）。
+    # Why 跳过已标记: 滑动续期由 SESSION_REFRESH_EACH_REQUEST 走正规语义
+    # （permanent + refresh 即重发），无需每请求改写 modified。
+    # 时序说明: cw_login 的 _load_user 是首次访问 current_user 时懒触发而非
+    # before_request，故 remember_token 恢复路径当次请求不标记（会话在钩子
+    # 之后才重建），下一请求起钩子见非空会话即补标——一次请求自愈。
+    if session and not session.permanent:
+        session.permanent = True
+
 
 lm = MyLoginManager()
 
@@ -193,6 +232,50 @@ def create_app():
         app.register_blueprint(oidc)
 
     web_server.init_app(app, config)
+
+    # 整书翻译启动恢复：daemon 发布线程可能被容器重启杀死，遗留 PENDING 项的
+    # 活动批次在此重新拉起（断点续作，设计文档 §9）。内部调用用系统身份：
+    # 无请求上下文，直接以「内部信任头」形式向 moon-well 发布，不依赖用户会话。
+    def _recover_whole_book_translation():
+        # R78: _moonwell_proxy 原定义在 cps.web 模块级；闭包里直接引用会
+        # NameError（09-27 生产实锤：31 批次 × ~900 段全部 FAILED）。
+        # R178（架构评审 B1）：防腐层迁 cps/moonwell/client.py——该包不依赖
+        # cps.web，循环 import 风险不复存在，此处直接引客户端单例。
+        from cps.moonwell.client import client as _moonwell_client
+        from .reading_translation.service import WholeBookTranslationService
+
+        _moonwell_proxy = _moonwell_client.proxy
+
+        service = WholeBookTranslationService()
+
+        def _system_publish(task_payload):
+            response = _moonwell_proxy("/llm/task/publish", task_payload, 20,
+                                       "whole-book translation recovery",
+                                       system_identity=True)
+            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
+                raise ValueError("moon-well task publish failed")
+            return json.loads(response[0])
+
+        def _system_lookup(paragraphs):
+            response = _moonwell_proxy("/reading/paragraph-cache/find-translations",
+                                       {"paragraphs": paragraphs}, 20,
+                                       "translation cache recovery", system_identity=True)
+            if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
+                return {}
+            data = json.loads(response[0])
+            return data.get("result", {}) if isinstance(data, dict) else {}
+
+        threading.Thread(
+            target=service.recover_active_jobs,
+            args=(_system_publish, _system_lookup),
+            name="whole-book-recovery", daemon=True).start()
+
+    if os.environ.get("WHOLE_BOOK_RECOVERY", "1") != "0":
+        try:
+            _recover_whole_book_translation()
+        except Exception:
+            log.exception("whole-book translation recovery failed to start")
+
     from .cw_babel import babel, get_locale
     if hasattr(babel, "localeselector"):
         babel.init_app(app)

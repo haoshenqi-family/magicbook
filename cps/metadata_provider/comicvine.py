@@ -22,6 +22,7 @@ from urllib.parse import quote
 
 import requests
 from cps import logger
+from cps.metadata_provider import outbound
 from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
 
 log = logger.create()
@@ -50,9 +51,13 @@ class ComicVine(Metadata):
                 tokens = [quote(t.encode("utf-8")) for t in title_tokens]
                 query = "%20".join(tokens)
             try:
+                # ComicVine 非谷歌站点：强制超时（R87 教训）+ 显式直连，
+                # 避免泄漏的 http_proxy 环境变量把它改道代理（R88）。
                 result = requests.get(
                     f"{ComicVine.BASE_URL}{query}{ComicVine.QUERY_PARAMS}",
                     headers=ComicVine.HEADERS,
+                    timeout=outbound.DEFAULT_TIMEOUT,
+                    proxies=outbound.DIRECT_PROXIES,
                 )
                 result.raise_for_status()
             except Exception as e:

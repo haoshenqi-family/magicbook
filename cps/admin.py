@@ -27,6 +27,7 @@ import operator
 import time
 import sys
 import string
+import uuid
 from datetime import datetime, timedelta
 from datetime import time as datetime_time
 from functools import wraps
@@ -127,6 +128,9 @@ def before_request():
                                  'web.login_post',
                                  'web.logout',
                                  'admin.load_dialogtexts',
+                                 # 内部书籍导入 API（R107）：库未配置时也不应被
+                                 # 302 劫持到配置页，保持 JSON 错误契约
+                                 'book_import.import_book',
                                  'admin.ajax_pathchooser')):
         return redirect(url_for('admin.db_configuration'))
 
@@ -203,35 +207,13 @@ def update_thumbnails():
 @user_login_required
 @admin_required
 def admin():
-    version = updater_thread.get_current_version_info()
-    if version is False:
-        commit = _('Unknown')
-    else:
-        if 'datetime' in version:
-            commit = version['datetime']
+    """Legacy admin landing URL now routes to M1.
 
-            tz = timedelta(seconds=time.timezone if (time.localtime().tm_isdst == 0) else time.altzone)
-            form_date = datetime.strptime(commit[:19], "%Y-%m-%dT%H:%M:%S")
-            if len(commit) > 19:  # check if string has timezone
-                if commit[19] == '+':
-                    form_date -= timedelta(hours=int(commit[20:22]), minutes=int(commit[23:]))
-                elif commit[19] == '-':
-                    form_date += timedelta(hours=int(commit[20:22]), minutes=int(commit[23:]))
-            commit = format_datetime(form_date - tz, format='short')
-        else:
-            commit = version['version'].replace("b", " Beta")
-
-    all_user = ub.session.query(ub.User).all()
-    # email_settings = mail_config.get_mail_settings()
-    schedule_time = format_time(datetime_time(hour=config.schedule_start_time), format="short")
-    t = timedelta(hours=config.schedule_duration // 60, minutes=config.schedule_duration % 60)
-    schedule_duration = format_timedelta(t, threshold=.99)
-
-    return render_title_template("admin.html", allUser=all_user, config=config, commit=commit,
-                                 feature_support=feature_support, schedule_time=schedule_time,
-                                 schedule_duration=schedule_duration,
-                                 title=_("Admin page"), page="admin")
-
+    Calibre templates still compute ``url_for('admin.admin')`` for Back/Cancel.
+    Keeping the endpoint avoids touching vendored navigation while guaranteeing
+    that no page ever renders the old all-in-one admin dashboard again.
+    """
+    return redirect(url_for('admin.edit_user_table'))
 
 @admi.route("/admin/dbconfig", methods=["GET", "POST"])
 @user_login_required
@@ -601,7 +583,7 @@ def update_view_configuration():
         config.config_default_show |= constants.DETAIL_RANDOM
 
     config.save()
-    flash(_("Calibre-Web configuration updated"), category="success")
+    flash(_("magicbook configuration updated"), category="success")
     log.debug("Calibre-Web configuration updated")
     before_request()
 
@@ -642,10 +624,10 @@ def load_dialogtexts(element_id):
     elif element_id == "db_submit":
         texts["main"] = _('Are you sure you want to change Calibre library location?')
     elif element_id == "admin_refresh_cover_cache":
-        texts["main"] = _('Calibre-Web will search for updated Covers '
+        texts["main"] = _('magicbook will search for updated Covers '
                           'and update Cover Thumbnails, this may take a while?')
     elif element_id == "btnfullsync":
-        texts["main"] = _("Are you sure you want delete Calibre-Web's sync database "
+        texts["main"] = _("Are you sure you want delete magicbook's sync database "
                           "to force a full sync with your Kobo Reader?")
     return json.dumps(texts)
 
@@ -1799,6 +1781,10 @@ def _configuration_update_helper():
                             and config.config_login_type == constants.LOGIN_LDAP)
         _config_checkbox_int(to_save, "config_public_reg")
         _config_checkbox_int(to_save, "config_register_email")
+        # R213-C：登录/回站落点开关（取消勾选即回退到原 / 发现页，不需要发版）
+        _config_checkbox(to_save, "config_home_landing")
+        # R213-B：账号级阅读位置总开关；关闭即退回阅读器本地恢复
+        _config_checkbox(to_save, "config_reading_progress_enabled")
         reboot_required |= _config_checkbox_int(to_save, "config_kobo_sync")
         _config_int(to_save, "config_external_port")
         _config_checkbox_int(to_save, "config_kobo_proxy")
@@ -1900,7 +1886,7 @@ def _configuration_result(error_flash=None, reboot=False):
         config.load()
         resp['result'] = [{'type': "danger", 'message': error_flash}]
     else:
-        resp['result'] = [{'type': "success", 'message': _("Calibre-Web configuration updated")}]
+        resp['result'] = [{'type': "success", 'message': _("magicbook configuration updated")}]
     resp['reboot'] = reboot
     resp['config_upload'] = config.config_upload_formats
     return make_response(jsonify(resp))

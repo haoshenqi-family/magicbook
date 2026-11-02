@@ -1,0 +1,315 @@
+# requests.md — 对话需求记录
+
+> 仅记录每一次对话用户的需求，除此之外不做任何事情。
+> 2026-10-08 起引入归档：已确认完成且过时的条目按编号区间原样搬移至 `requests-archive/`；未完成与有经验教训价值的条目保留于此。编号永不回改、归档不释放编号，新任务按全史最大编号 +1 递增（当前最大 R173，2026-10-14 R173 轮更新）。
+
+## 归档索引
+
+- R01–R129（141 条）→ `requests-archive/requests-R01-R129.md`
+- R131–R132（2 条）→ `requests-archive/requests-R131-R132.md`
+
+## 2026-10-08
+
+130. LLM 队列监控面板（管理员可见）：队列总览、失败原因分类查询、任务查询与详情、一键生成恢复预案并重发失败任务。跨项目：对端 moon-well R118，扩展本仓 R126 的 /llm-tasks 面板。先写设计。
+
+> 归档整理注（2026-10-08）：截至整理时无任何 response 回应；与 moon-well R118 同源（LLM 队列监控面板，先写设计），未闭环保留。
+
+133. 排查单词详情 bug：划词查「creation」，详情面板标题显示「created」。magicbook 侧定位代理与前端展示链路（前端标题取 d.lemma，需要查 ES 缓存文档实际 lemma）。
+
+> 归档整理注（2026-10-08）：排查完成（magicbook 侧代理与前端无缺陷），修复在 moon-well 侧且未实施（见 moon-well R123 注记）。
+
+134. 整理 requests.md：已确认完成且过时的条目按编号区间原样归档到 `requests-archive/`（只搬移原文，不改写、不改编号）；未完成的与有经验教训价值的条目保留在 requests.md；编号永不回改、归档不释放编号，新任务继续按全史最大编号 +1 递增。同步修订 AGENTS.md 对话记录条款（原「requests.md 永不归档」废止为「按区间归档」）。（跨四仓同源任务：moon-well R125 / magicbook R134 / app-manager R37 / magiclens R33）
+
+135. 面板显示「待处理任务: 0 · 可重放失败: 8308 · 服务端上限: 4 / 5000」，问管理页面如何做「重放失败」：操作步骤、重放语义（哪些失败可重放、是否重复计费）、单批上限与 8308 条的批次规划、注意事项。
+
+136. 对照家族调研文档 docs/english-graded-reading-path-2026-10-08.md 的六阶书单检查 magicbook 书库：已有书目跳过，缺失的免费公版书从 Project Gutenberg 下载 EPUB 并导入 Calibre 书库（容器自带 calibredb）；最后整理出仍需购买的书单。
+
+137. 做 learning 学习页前端：magicbook 新增学习页（SRS 复习队列卡片——CHOOSE 辨析/RECALL 回忆/SPELL 拼写三种题型 + 答题评分 + 今日计划概览 + 复习统计），配套 moon-well 队列接口补 meaning 释义字段（题干渲染前置依赖）；导航入口接入。（跨仓同源：moon-well R127 补 meaning 字段 / magicbook R137 学习页）
+
+138. 阅读器朗读请求补 bookName/chapter：`/ajax/reading-tts` 目前只发 text，导致 moon-well R128 的缓存分级把书籍段落判成「临时语音」（7 天清理），与 L1「书籍段落永久缓存、重听零等待」不符。
+
+139. 复习队列出现四个空白选项按钮，修复。根因：show() 用 hidden 属性藏元素，被作者样式表覆盖失效（.ln-choices/.ln-spell 的 display:flex、.btn 的 inline-block 都会压过 UA 的 [hidden] 规则）——R137 SELF 降级后每张卡都走「隐藏选项」分支，容器藏不掉且不填词，四个空按钮常驻。
+
+140. 上传 /Users/haoshenqi/Downloads/books 的 7 本书（Roald Dahl 5 本+夏洛的网+动物农场）到 magicbook 书库，按分级建书架（阶1–阶6），把对应分级的书加入书架。
+
+140. 每日学习页统计/计划/复习卡全部消失，复习队列只剩提示语（用户截图）。根因：R139 的 show() 只设内联 display，「显示」时未移除模板挂着的 hidden 属性——无作者 display 规则的元素（.panel 统计/计划、#ln-card、#ln-empty）仍被 UA [hidden] 规则隐藏。修正为属性+内联双管齐下。
+
+## 2026-10-09
+
+141. 划词翻译功能从 magicbook 隐藏，暂时仅通过 magiclens 实现，避免冲突。
+
+142. https://magicbook.haoyuhang.top/read/145/epub 。整本提交 TTS 生成，加入 TTS 任务队列，然后后台慢慢处理（预生成整本书的朗读音频，后续阅读时重听零等待）。
+
+143. 修正 R141 的隐藏边界：只隐藏 magiclens 已经做了的部分（不重复、不打架），段落翻译 magiclens 尚未实现（README 里「段落整页翻译」仍是规划 P1），阅读器段落「译」按钮要恢复。
+144. 每日学习页改版（同源 moon-well R143，后端已配套）：「今日到期 1949」压垮用户——①统计头改「今日复习 x/20」进度式（数据来自 moon-well stats 新字段 todayReviewed/todayTarget；dueNow 留接口不展示）；②队列打空且仍有逾期积压时显示「今日复习完成 + 继续复习」按钮，可一直复习下去（替换现在失实的「Nothing due right now」文案）。
+145. moon-well 全 token 化（同源 moon-well R145，后端同步改造）：废除 X-User-* 内网互信，_moonwell_proxy 一律持凭证调用——用户会话透传 moonwell_access_token（无 token 干净 401 提示重登），系统身份后台任务改用 magicbook-system 的 mk- API key（fnOS .env MOONWELL_SYSTEM_TOKEN）；tts-warm 脚本同步改凭证。
+
+146. MagicLens 接管检测：不要写死隐藏，改成运行时探测——发现扩展确实接管了这条能力才让位，否则保留内置实现（分能力：本帧划词中继 / 顶层生词高亮各一个标记）。跨仓同源：magiclens R37 负责写标记（v0.8.6）。
+
+147. 为四个项目添加 worktree 使用说明（同源 moon-well R146）：接到开发任务时开一个 worktree 完成开发，完成后 merge 回 develop 再删除 worktree；或改为固定 worktree 池占用模式（每任务找未使用的 worktree，先 merge develop，完成后合回不删）。比较两种方式优劣并落地选定模式的规范。
+
+## 2026-10-10
+
+148. 下载 Magic Tree House（神奇树屋）系列的书（版权系列，非公版）：确定书源后下载 EPUB 并导入 magicbook 书库（去重、打分级标签、挂书架）。
+
+149. 把 book 149 的 azw3 转成 epub 后是个合集（Magic Tree House Library 1-28），要求拆成 28 本独立 EPUB。先只读探测分册边界，再按确认口径（规范化书名 + 删每册尾部试读页/广告/丛书书目 + 丢合集前置页）批量生成到容器 /tmp 验收；写入 metadata.db 入库需单独确认。（与 R148 同系列，书源路径不同：R148 走下载，本条走已有合集拆分）
+151. 四股时间预算实装统计（跨仓同源：moon-well R150 后端台账 / magicbook R151 前端）：①学习页「Today's Plan 四股行」改 actual/budget（例：阅读输入 10/5）；②阅读器新增活跃心跳，每满 5 分钟批量上报阅读时长；③web.py 增加对应 moon-well 代理路由。（随 moon-well R150 方案执行，P1 范围）
+
+152. 「说与写」独立页面（P2，随 moon-well R150 四股台账）：写 tab（任务生成→写作→AI 批改→修订对比）+ 说 tab（AI 口语对话：场景/教练风格/会话报告；复述 4-3-2 训练）。后端 26 接口已在（B1/B2），本任务纯 magicbook 前端 + web.py 代理 + 导航入口。worktree 驻留不关（用户指令：完成后由用户确认关闭）。
+
+153. P3 输出训练扩展：①Speaking & Writing 页新增 计时重读（RRR）与 听写 两个 tab（共用听力素材/段落接口；RRR 朗读计时入账 wpm 趋势，听写词级 diff + 一键入生词本）；②每日学习页新增四股周视图面板（strands/summary 7 天堆叠条）；③口语 coach 回复 TTS 自动朗读（复用 /ajax/reading-tts）；随 moon-well R152 查词补报端点。worktree 驻留不关（用户指令）。
+
+154. 导航层级修正：①「每日学习」「说与写」从 Settings 下拉提为顶部一级导航（与高级搜索平级，首页直达）；②每日学习页计划面板加「说与写 →」跳转入口。（用户反馈：学习入口藏设置里太奇怪）
+
+155. 微调 worktree 规范（家族根 + 四仓 AGENTS.md 同源修订）：不要 merge 后立即删除 worktree，改为 merge 后保留 worktree 等用户验收，验收通过后再删除。（跨四仓同源任务：moon-well R153 / magiclens R41 / app-manager R39。编号说明：本条与并行会话的 P3 输出训练曾同占 153，其已先行推送；按「只追加、不回改」原则双方记录并存，本条按纪律续编 155）
+156. 词汇量测试增加「细筛」入口（同源 moon-well R155）：测试结果页与卡片提供「细筛测试」按钮，对初步测试置信区间按词频细分（250/500/1000 秩宽自适应）重测一轮；结果页展示前后对比与细档掌握度图；i18n 词条同步。（编号说明：本任务原占 154 且已随 worktree 分支入库，但占号条目在工作区被并行提交操作清除；154/155 已被并行会话的导航修正/worktree 规范占用，按「不改既存、续编空号」纪律落为 156，既有 commit 中的 R154 文案不改）
+
+
+## 2026-10-11
+
+157. 为书籍增加一个整本阅读功能：按照顺序一段一段持续朗读，随时可以暂停。（R155 评估结论落地：moon-well 零改动，播放队列全部在阅读器前端。范围=epub 阅读器连播队列/跨章自动推进/暂停继续停止/当前段高亮跟随/下一块预取/长段切块连读/手动翻章跟随。编号说明：R155 评估轮占号 155 已被并行提交操作清除，155/156 已被并行会话的 worktree 规范/词汇细筛占用，按「不改既存、续编空号」纪律落为 157）
+
+155. 语音输入模块（随 moon-well R155 转写端点）：口语陪练与复述训练加麦克风——WebAudio 采集端编码 16k 单声道 wav（规避 MediaRecorder webm 兼容性），POST /ajax/learning/asr/transcribe 转写后回填输入框供确认发送；新增 _moonwell_multipart 转发器。
+
+156. 麦克风按钮可用性修正（用户反馈：只有一个空白按钮不会用）：按钮加文字标签与状态自更新（语音输入→录音中 0:12·再点停止→转写中…，红色录音态），口语面板加一行用法提示；图标字体缺失时也不再是空按钮。
+
+158. 麦克风转写卡死修复（用户实测：停止后永远停在「转写中…」且无提示）：根因 = els 注册表漏注册 'sw-s-audio-status'，停止分支对 undefined 赋值抛同步 TypeError（fetch 之前，服务端零日志）；修复 = 注册补齐 + 停止分支 try/catch 防御（任何异常必复原按钮并提示）+ 元素引用完整性静态测试（双锁：引用必已注册、注册必在模板）。
+
+159. 语音输入静音检测（承接 R158 后用户复测仍 50517 的排查结论）：实测引擎侧 SiliconFlow 200+空文本（两次）——录音里没有可识别语音；修复 = ①上传前 PCM 峰值检测（<0.005 即 -46dB 视为设备静音，直接提示「麦克风没有采集到声音…」不上传），峰值写 console 便于远程诊断；②AudioContext 挂起兜底 resume；配合 moon-well R161（空转写 50518 与引擎故障分离）。
+
+160. 语音输入加麦克风设备选择器（用户场景：合盖外接显示器，iPhone 连续互通麦克风为输入）：口语/复述面板各加设备下拉（enumerateDevices，选中值存 localStorage 跨面板同步），getUserMedia 按选择设备采集；解除浏览器 per-site 设备记忆与系统默认不一致的坑。
+
+（R160 占号已在 worktree 创建时登记——麦克风设备选择器）
+
+161. 排查 https://magicbook.haoyuhang.top/ 打不开的问题（2026-10-12：公网入口 TLS 正常但请求超时，需定位 Traefik→NAS 后端链路）。
+
+## 2026-10-12
+
+162. 对比书库两本《傲慢与偏见》（book 128 与 book 337，/read/128/epub、/read/337/epub）：两本有什么区别？书虫版是简化改写版还是内容与原著一样？
+
+163. 整本朗读（TTS 预生成）功能调研与设计（同源 moon-well R165）：llm 已重构（R162）、整本翻译已有，需要一个类似的「整本用 TTS 生成朗读」功能。先检查是否已有（结论：无——R157 连播是在线边播边合成、R142 预热是 fnOS 手工脚本、moon-well llm_task 的 TTS 任务型无 worker），无则参照整本翻译做设计：书详情页入口、TTS 批次表、后台逐段合成写 moon-well 永久缓存、进度/重试/幂等（已缓存段跳过且不重复计费）。本轮仅设计不编码。（占号说明：追加在工作区，与并行会话 R162 轮未提交内容同文件，本轮仅提交设计文档新文件，本条随下轮提交）
+
+164. 设计二轮拍板（承接 R163，同源 moon-well R166）：①听=消费——调用者朗读每次请求一段扣 1 积分，缓存命中也扣；②积分体系整体×10：注册送 1 万积分（原 1000）、充值套餐积分×10 价格不变（原 99 元=2万/10 元=1千 → 20万/1万，R56 先例第二次）、文本链 1k token 折 10 积分（原折 1）；听一本书约 1393 积分≈1 块钱（充值×10 后 1 积分≈0.001 元）；家人积分用 admin adjust 送（端点已有），外部用户走充值。设计文档同步更新。
+
+165. bug 修复：阅读器「单词详解」面板内容一长就需要滚动，滚动时头部（词目 + ✕）跟着移出可视区，看到最后没法方便地关闭面板。要求滚动时把一部分内容固定住。（同源 magiclens R42，两仓详解面板保持同构）
+
+## 2026-10-13
+
+166. 优化每日学习模块，把「说与写」也包括进去：以 banner 的形式把 写作工坊 / AI 口语陪练 / 复述训练（4-3-2）/ 计时重读 / 听写 / 复习队列 / 选书难度匹配 做成循环的小功能，练习在各子页面进行。为每个小的学习功能生成标题、图片和详细描述，做成卡片。（占号说明：本轮先出草案，四个岔路口经 AskUserQuestion 拍板后开工；条目按「接任务即占号」锁定 R166。主检出工作区曾手工追加过同一条未提交文本，merge 时以本分支版本为准）
+
+167. 复习队列选择题的干扰项重做（承接 moon-well R171，同源后端已交付）：后端把干扰项改成「反义项 + 用户生词 + 同难度词」三源随机抽，并新增 DISCRIMINATE 同义辨析题（正确项是该词的同义词、不等于目标词）。前端须接：①判分改按 `answer` 字段而不是 `word`（否则辨析题选对被判错）；②辨析题题干出词面而非释义；③答后展示 `answerNote` 辨析说明；④作答回传 `questionType`；⑤未知题型兜底不出死卡。另修命名冲突：L1 里现有四选一被叫作「辨析题」，新题型中文须另起名。
+
+## 2026-10-13
+
+168. 写作工坊支持「继续上一次未完成的写作」（承接 moon-well R172 后端契约；占号说明：原计划记 R167，merge 新基线时发现 R167 已被并行会话的复习干扰项前端占用，按「不改既存、续编空号」纪律落为 168）：历史列表只能看不能续写。四项拍板＝历史行可点 + 顶部一键续写 / 走新增任务详情端点取草稿 / tips 后端已加列落库（旧任务补不回）/ 已交初稿的连上次批改一起恢复。
+
+169. 按方案 C 修复整本朗读批次：①_book_meta 取 book.language 抛 AttributeError（本仓 Books 无该标量列，语言在 languages 关系上）；②元数据/选角整段不得阻断批次（事故形态＝job+307 条 item 已 commit、daemon 从未 spawn，台账永久 RUNNING 0/N）；③补自愈——retry 与 reuse 遇「停滞且有 PENDING」要重新 spawn，不能只在有 FAILED 时动线程。（生产现场：Animal Farm book=143 批次 0/307 停摆 21h）
+
+170. 承接 moon-well R175 的前端接线：伴读 agent 新增 `synthesize_tts` 工具与 SSE `audio` 事件后，magicbook 必须接上播放，否则用户只看到工具芯片打勾而不出声（正是家族纪律禁止的静默降级）。新增不计费回读代理 `/ajax/reading-tts-cached` → moon-well `POST /tts/cached-audio`；`ai_chat.js` 接 `audio` 事件播放，取不到/被浏览器拦下都要在对话里可见。关键约束：`/tts/speak` 是「听=消费」（每次含缓存命中都扣 1 积分），工具内已扣过，前端复用就会同一次朗读扣两遍——必须走回读端点。
+
+## 2026-10-14
+
+172. TED/博客类书的「原声伴听 + 全文同步高亮」（承接 moon-well R178 后的 TED 交付链）。用户指出：博客/TED 本质是「**一段连续原声**」，与小说类「**多段 TTS 拼接**」不同——若不区分，TED 走整本朗读会用机器音念文本而非播原声（语义错 + 白烧算力/积分）。方案：阅读器按 `calibre.bookFormat === 'TED'` 分流——TED 播整段原声 `ted-audio/<slug>.aac`（moon-well `POST /book/ted-audio` 取 `audioUrl`），用注册表段落 `tedAudioStart/End` 做当前段高亮（复用 `.reading-tts-speaking` + `bookPlayerFollowPage`）与段落级切播（点段落 seek 到 `startMs`）；无原声的普通书维持 R157 整本 TTS 连播，两模式互斥。magicbook 侧加两个薄代理 `/ajax/ted-audio`、`/ajax/ted-audio-paragraphs` → moon-well `/book/ted-audio`、`/book/paragraph/list`（**moon-well 零改动**）。本轮先出 L3 设计文档待审（`docs/feat/ted-audio-companion/design/ted-audio-companion-lld.md`）。（占号说明：本 worktree 基线为 `origin/develop`（`requests.md` 止于 R169），但主检出 develop 已有 R170、仓内已存在 R171 分支，按「续编下一个空号」锁 **R172**，避免与并行会话撞号）
+
+173. 修复 R172「TED 原声伴听」上线后仍是 AI 合成音（用户实测反馈：线上 `epub.js` 已含 `tedAudioToggle`，但 TED 书播的还是机器音）。根因＝R172 首版分流判据 `calibre.bookFormat === 'TED'` **恒为 false**——magicbook 的 `bookFormat` 是 Calibre **文件格式**（`epub/pdf/txt`，`read.html` 里来自 URL 的 `book_format` 段，同文件 L327 还拿它当 `book_format` 提交给 Calibre），与 moon-well `BookFormatEnum.TED`（内容形态）**同名不同义**，而 TED 书在 Calibre 里同样是 `epub` ⇒ 分流从未生效，一直走 R157 逐段 TTS。修法＝判据改**运行时探测** `/ajax/ted-audio` 的 `result.audioUrl` 是否为空（有整段原声即原声伴听，否则回落 R157 整本 TTS）；`#tts-book` 点击统一走 `bookListenToggle()`（先确保探测完成再定分流）。同步取消「原声未缓存 → 隐藏按钮 + 提示」——探测区分不了「普通小说书」与「TED 但未缓存原声」，该提示会误伤普通书；改为无原声即回落 TTS、也没有 `readingTtsUrl` 才隐藏。配套：静态双锁（正向锁探测置位 + 负向锁禁止再用 `bookFormat`）+ 三条反向变异实测报红；LLD §4.1 与新增 §9 变更记录同步。
+
+## 2026-10-15
+
+174. 家族根架构评审任务拆分建档（跨四仓同源：moon-well R180 / magicbook R174 / magiclens R45 / app-manager R42）：阅读家族根 `docs/architecture-review-2026-10-14.md`，把评审结论拆分为各仓待办并落入各仓文档，**仅写文档不做开发**。magicbook 侧落位 `docs/feat/arch-review-2026-10/design/`（overview 总表 / refactor-items B1–B8 + X2 本仓部分 / doc-fixes DF1–DF8，含 S1/S2 状态滞留、N2 端口旧值、K1 旧域、悬空 feat 与计数失实等登记项），跨仓协同项 X1–X6 与家族根修正任务登记在家族根 `docs/arch-review-2026-10-tasks-crossrepo.md`。
+
+176. 发布固化（同源 moon-well R182）：从 develop 检出 release/2026-10-15 分支并推送远端；给 docker 镜像打固定 release tag（不再只有 latest）方便回滚。用户拍板：仅 registry 补 tag（ssh fnOS 把 ACR 现有 latest 补打成 `release-2026-10-15`，部署引用不动）；范围仅 moon-well + magicbook；release 分支从 origin/develop 最新点切并 push。回滚姿势写入 ops/apps/app-magicbook.md。（编号说明：本地最大 R174（架构评审拆分）；并行提交已在 origin/develop 占用 R175（阅读页 CSP 放行 MinIO 外网源）；按全史最大编号 +1 取 176）
+
+177. 架构评审波 1 开工——B5 / X1 本仓部分：统一 API 公共层。前端三套请求层（learning-common.js / ai_chat.js / vocab-test.js）+ CSRF 获取三份（#lh-csrf / #credit-csrf / input[name=csrf_token]）+ 解包语义漂移（ai_chat 容错 vs credits 严格）收编为 `static/js/common/api.js`（window.MBApi）；解包容错（非信封不误判）+ 失败必须可见；同窗口对接 moon-well M4 包装兑底（magiclens L1 后补即 X1 三端合围）。范围（用户拍板）：本轮只做 moon-well + magicbook。（编号说明：接 R176）
+
+178. 架构评审波 2 继续——B1：抽 `cps/moonwell/` 防腐层包（web.py:1483-1977 的 _moonwell_proxy/refresh/base_url/trace_id/system_token/multipart/settings_fetch 迁出为 MoonWellClient），统一三元组返回形态（消灭失败二元组/成功三元组隐式契约），收编 oidc.py exchange 直连，7 处反向 import web 清零（ai/proxy、__init__ 恢复闭包、book_import），bridge（业务编排 107 行）按计划留守 B2。push 待用户指令。（编号说明：接 R177）
+
+179. 架构评审波 3——B2：web.py 蓝图分域拆分（routes/reading|learning|credit|vocab，94 条定制路由迁移，endpoint 名不变，web.py 回归原版形状）。**本轮尝试未完成，已撤销回基线（549 passed）**——踩到四类坑（详见 response），方案与完整迁移清单已留存供小步重做。另：迁移中发现游离 ''' 死字符串块在 web.py 行删除后会扩大吞呑范围（get_sort_function 及大段原版路由被吞），getcomic 死块的处置需先行确认。（编号说明：接 R178）
+
+180. B2 前置小修两项（用户指令「先做 2 和 3」）：① getcomic 死字符串块清除激活（删除 1828/1874 两个游离 ''' 行，getcomic 路由从死代码变为注册可用，真机验证点：/ajax/getcomic/<id>/<fmt>/<page> 漫画页）；② gdriveutils.py 守卫化（cli_param.gd_path 为 None 时 engine 用内存库兑底、create_all 跳过——消除 sqlite:///None 错误文件与 os.path.exists(None) TypeError，配置就绪时行为逐字不变）。完成后再启动 B2 小步重做。（编号说明：接 R179）
+
+181. 架构评审波 3 继续——B2 小步重做完成：web.py 3304→2299 行，94 条定制路由分四批迁出（每批跑一次全量：reading 28 段→credit 19→vocab 9→learning 38），cps/routes/ 四域文件（reading 470/credit 227/vocab 146/learning 432 行，全部 <1000）；装饰注册沿用原 web blueprint（endpoint 名不变，前后比对 133 无丢失）；getcomic 死字符串块同步清除（路由激活）。push 待用户指令。（编号说明：接 R180）
+
+182. 架构评审波 4——B7：i18n 种子与 JS 清单生成化（scripts/generate_i18n_seed.py：扫描 static/js 的 mbT() 字面量，种子字典自动追加新词条（幂等不删旧）+ tests/i18n_js_files.json 生成物入库替代手维护清单——手维护漏 3 个用 mbT 的 js 文件的实证修复；五步链两处人肉环节消除）。push 待用户指令。（编号说明：接 R181）
+
+## 2026-10-15
+
+175. 修复 TED 音频仍无法播放（承接 moon-well R181：MinIO 外网直链与 Nacos 配置已就绪，用户复测仍失败）。根因＝**阅读页 CSP 的 media-src 白名单拦住了 MinIO 外网源**：控制台报 `Loading media from 'https://home.haoshenqi.top:9001/magicbook/ted-audio/…' violates the following Content Security Policy directive: "media-src 'self' blob: https://dict.youdao.com"`。R172 起 TED 原声由浏览器**直连** moon-well 返回的 MinIO 公共 HTTPS 直链播放（不经 magicbook 代理），而阅读页 CSP 只放行了 `'self'`/`blob:`/有道词库源，跨源 media 被拦而静默无声。修法＝在 `cps/web.py` 的 `add_security_headers` **仅对阅读页**（`request.endpoint == "web.read_book"`）的 `media-src` 追加 `https://home.haoshenqi.top:9001`（沿用有道源同款硬编码先例；非阅读页不动，不扩大攻击面）。配套：`tests/test_csp_media.py` 新增「阅读页放行 MinIO 源」正向守卫 + 反向变异实测报红，保留「非阅读页不 emit media-src」负向锁。附：用户同时贴出的 `Blocked script execution in 'about:srcdoc'…` 系 epub.js 内容沙箱既有告警（默认 `allowScriptedContent: false` → iframe `sandbox="allow-same-origin"`，拦的是书内脚本，非父页 audio），与本次阻塞无关，判定无害不改。（占号说明：主检出 develop 工作区已有并行会话未提交的 R174 文档任务，本 worktree 基线 `origin/develop` 止于 R173，按「续编下一个空号」锁 **R175** 避免撞号）
+
+176. 「全文单词详解」功能（跨项目 moon-well R185）：给定一本书，抽正文词表→比对详解缓存→按批把缺失词入队生成，与整本翻译、整本朗读并列为详情页第三个整本按钮。含 job/item 台账与进度页。
+
+183. 架构评审波 3 继续——B4：`cps/static/js/reading/epub.js`（3,279 行单 IIFE、12+ 功能域混居、全仓最热文件）按文件内注释分域拆模块，epub.js 收缩为装配层（评审报告 §2.2 B4 / §3.2 🟠）。复用台账登记的该任务驻留 worktree `magicbook-arch-b5`（不新建树），基线拉到 develop（含 r176 全文详解、r181 web.py 分域、r182 i18n 生成化）。（编号说明：接本文件全史最大 182；主检出另有并行会话未提交的 R174/R175/R176 条目，本条不与既有记录重排）
+
+184. 家族迁入 PingCode（跨仓同源：magicbook R184 / magiclens R49 / ops R131；用户指令：学习使用 PingCode，把项目搬上去）：①知识管理——本仓 `docs/` 与根 README 全量镜像至 PingCode DEV 空间（目录结构同源；顶级页与空间主页平级，主页是空间系统页、API 不能挂子页；仓库 docs/ 仍是权威源，wiki 只读镜像）；②产品管理——本仓全史 requests 197 条（R01–R183 含归档）建为 MAGICBOOK 产品需求池条目，标题 R 编号开头、描述带原文与来源脚注，状态按已完成/未完成分类（Completed/Pending/In progress/Closed）；③工作流——此后新需求先记本台账占号，再 `../ops/tools/pingcode.py idea-create magicbook "R<编号> 标题" --desc "详情"` 发布，agent 按看板领取建 worktree 开发并流转状态，产品进度以看板为准（手册 `../ops/pingcode.md` §10，家族根 AGENTS.md「需求管理」节同源）。
+
+185. 架构评审文档修正批（magicbook DF1–DF5）：修「修正声明无闭环」的实证项——whole-book-translation 与 sso-user-unification 两份 L3 状态行按 git 里程碑回填（`04c591a3` 2026-09-05 / `817f4381` 2026-09-17；`457067c5` 2026-09-07，不凭评审报告改写）；oidc-login.md 本仓端口旧值 8085 → 生产 8083 并交代 8085 来历；REQUIREMENTS.md 旧域 hyh.haoshenqi.top 加取代注记；L1 索引 feat 计数由失实的 12 改为实测 18 并补齐 5 个悬空 feat 的入口。（编号说明：并行会话 R184 条目随本批一并入库，不重排他人记录）
+
+186. 架构评审 magicbook 续批（DF6 + B6）：①DF6 L2 覆盖口径明示——L1 分级表把「首批」改为逐模块实测状态（reading/vocabulary 已建 hld，admin/companion/credit/learning/library 未建且契约落 L3），并给这四条链路的 L3 设计补「待升 L2」标注，使 AGENTS.md 声称的标记纪律名实相符；②B6 整本批次三胞胎抽公共骨架——`reading_translation`/`reading_tts`/`reading_word_detail` 三个 service 的正文文件解析、指纹、建表、幂等复用查询、僵尸判定与关闭、待跑项计数与 R169 自愈的花名册+原子 spawn 归一到 `cps/reading_job/service_base.py::JobServiceBase`，三个服务只留各自差异（进度口径、item 状态机、worker 循环），行为与报错文案逐字不变。（B6 判据③「整本翻译/整本朗读各跑一轮真机批次回归」需线上验收）
+
+187. 架构评审收尾批（第四类文档失实 + DF7 + DF8 + 三仓上线）：① 四仓 overview 头部那句「全部待启动」按 `git log origin/<dev>..<dev>` 实测回填（moon-well M1–M7 已合、magicbook B1/B2/B4/B5/B6/B7 + DF1–DF6 已合、app-manager A1 未开工但 LLD 与 D1–D3 决策已入库；magiclens 的 overview.md 正被并行会话持有未提交改动，本轮不碰）；② DF7 按用户选定范围执行「只删空壳目录」——删除 `docs/kb/project-describe/`（仅 .gitkeep），AGENTS.md 的两处指向因该文件有并行会话在途改动而挂起，登记为后续项；③ DF8 删除 `test/` 三个 Calibre-Web 原版 QUnit 残留与根目录空文件 `None`（实测 pytest `testpaths` 只认 `tests/`、全仓零引用），并补 `.gitignore` 的 `/test/` 规则防再次误入；DF8 原描述「`docs/temp/` epub/mp3 入库」实测失实（该路径从未入库、`.gitignore:51` 已忽略）；④ 按用户指令 push magicbook / moon-well / magiclens 三仓 develop——上线前每仓在新基线重跑全量闸门。
+
+188. 家族文档架构 v2 试点迁移（用户指令「开始 magicbook 试点」；蓝本 `ops/docs-architecture.md` §7）：本仓 `docs/` 由 v1 三级体系（L1 `docs/readme/` / L2 `docs/<module>/hld/` / L3 `docs/feat/`）改为 **v2 静态 product / 动态 project 二分**——`docs/product/`（L1 `readme/` 8 份、L2 `<module>/interface.md` 首批 reading/vocabulary、L3 `<module>/features/` 待新建、产品级 `REQUIREMENTS.md`、跨模块 `reading-vocabulary.md`）+ `docs/project/`（`requests/` 台账、`tasks/`、`_legacy/feat/` 冻结归档、`iterations/`）。用户拍板口径：**L1–L3 仅指产品侧静态文档**；HLD / LLD 从 L2/L3 拆出、**LLD 归 project 迭代**（`iterations/<ITER>/<工作项>/lld.md`）；`tasks/` 并入 `project/`；`his/` 取消（历史=已结束迭代）；老 `feat/`（18 个）**整体冻结归档、不回溯迭代归属、不逐功能拆分**；`requests.md`/`response.md`（含两个归档目录）由仓库根迁入 `docs/project/requests/`；magiclens / app-manager 本轮不动（单模块产品，允许退化形态）。同步改写本仓 AGENTS.md 文档规范节为 v2，并**顺手闭合 R187 遗留项**——`docs/kb/project-describe/` 已由 DF7 删除，AGENTS.md 前置阅读与路径表两处指向一并清掉；家族根 `Agents.md` 四仓落位映射的 magicbook 行改 v2。路径口径变更同步代码/文档注释 2 处（`cps/reading_job/service_base.py`、`docs/kb/instructions/workflows/oidc-login.md`）；`ops/tools/pingcode_migrate.py` 补台账过滤（`response*` 与归档目录不入 Wiki 镜像）与台账路径自动定位。（占号说明：主检出台账在并行会话推进下已达 R187，本 worktree 基线 `origin/develop` 止于 R175，按「续编下一个空号」锁 **R188**，避免与并行会话撞号）
+
+189. X1 契约治理两端联合彩排（本机真链路，用户选定路线 B）：用 release-checklist §4.0 那套配方在本机起一台**真的 moon-well develop HEAD**（scratch MySQL 3397 + Redis 6382，`SPRING_CONFIG_IMPORT=` 空值不碰 Nacos，含 M4 ResultResponseBodyAdvice 与 M5 UserContext），magicbook 经真 HTTP + 真 `mk-` API-key 打过去、**不桩 `_moonwell_proxy`**，采五类真实响应形制（正常 Result / 上游业务失败 500 / 401 凭证无效 / 非 Result 网关 HTML / 上游不可达 503），再喂给真 `common/api.js` 跑解包矩阵。实测逮到三条：① `unwrapResult` 对「解析失败的 null」原样返回，配合 ai_chat 的 `catch (e) { convs = []; }` 会把网关故障伪装成「没有会话」（正是家族点名的静默降级反模式，且违背 ai_chat 自己注释里的契约）；② `api.js` 对 `window.mbT` 是硬依赖，`reading_settings.html` 只引 api.js 不引 i18n 种子，非信封响应的 strict 解包会抛 `TypeError: window.mbT is not a function` 而不是可读文案；③ 那两个吞错的调用点没有任何 fail 分支，jQuery 侧解析失败时面板永远停在「加载中」。处置：api.js 加 `t()` 兜底与「null 即失败」判定，ai_chat 两处改为呈现错误行（与同文件 loadMemories/loadBookProfile 的既有正确姿势对齐），并加静态形制守卫测试。
+
+## 2026-10-21
+
+190. 修复写作练习「恢复历史任务后改完文稿没有提交 AI 按钮」：现象＝恢复已完成任务后按钮置灰、文案「两稿已完成」。根因非渲染缺陷，而是 R168 设计规则——moon-well 每任务硬性封顶初稿+修订稿两稿（第三稿 50513），前端按 `lastDraftNo>=2` 置灰。用户拍板**放开两稿上限**：同一任务可无限次「修改后再提交批改」，每稿都对比上一稿给进步确认。magicbook 侧改按钮状态机与历史/续写状态文案；moon-well 侧改 `LearningWritingService` 的稿号分配（R192）。跨仓同源：moon-well R192。
+
+191. 写作批改仍报 503（承接 R190 / moon-well R193）：用户复测「近期没有部署，revise 还是 503」。moon-well 日志证据：revise 实际 200、耗时 104494ms，而 magicbook 代理 `timeout=90` 先超时 → 统一返回 `service unavailable`；另两次在 magpie 150s 预算处超时。修复：把 writing submit/revise 代理超时提到 210s（显式常量 + 注释说明后端 150s 预算），并在 moon-well 侧对相同正文的修订稿做幂等复用（跨仓 R193），避免超时重试再生成一稿。跨仓同源：moon-well R193。
+
+192. 部署链加「纯文档提交不触发部署」判据（跨仓同源：app-manager R51 / moon-well R194 / magiclens R51；用户指令「修改一下部署脚本，如果只有文档更新，则不触发部署」，四仓同源 + 「触发但跳过构建/部署」两口径拍板）：`.github/workflows/build-and-push.yml` 增 `changes` 判定 job——compare API 取本次 push 改动文件，全部是文档（`docs/`、`*.md`、`LICENSE`、`.gitignore`/`.gitattributes`）时 `docs_only=true`，构建与 app-manager 更新通知整体跳过；混合改动 / 手动触发 / 判定失败走完整构建。**注意本仓 GitHub Actions 主链已手动停用、现役为 fnOS webhook-builder 链**，本次改动属预案（恢复 GHA 或切回主链即生效），fnOS 链的同一判据待单独处置。worktree 开发，push 闸门留用户。
+
+193. 部署链收敛 fnOS 单链 + 部署前按代码指纹判等（承 R192；跨仓同源 app-manager R52 / moon-well R195；用户拍板「只留 fnOS 链，部署之前检查 docker 镜像，如果当前镜像并没有真的改变则不触发重新部署」）：①**单链**——GHA workflow 只留 `workflow_dispatch`，`push` 不再触发，删掉 `changes` job（GitHub 侧已 `disabled_manually`）；②**指纹**——构建时打 `house.code-digest`（非文档文件树摘要）+ `house.build-sha` label；③**判等**——新增 `deploy/fnos/deploy.sh`（`/app/magicbook/deploy.sh` 的版本化副本，此前只存在于 fnOS 项目目录、未入库），`pull` 后比新镜像与在跑容器的指纹，一致则打印「镜像代码指纹未变 -> 跳过重启」并退出，不停容器、不 `up -d`。worktree 开发，push 闸门留用户。
+
+194. 写作批改改为 SSE 进度流（承接 R190/R191 / moon-well R196）：批改实测 70–150s，前端全程只转圈；任何中间层或部署超过预算仍可能掐断连接，用户只看到 503。改为：moon-well 新增 `submit/stream`、`revise/stream`，事件 `status/ping/result/error`；magicbook 新增 SSE 代理与 `fetch + ReadableStream` 解析，状态行显示已等待秒数；保留 JSON 端点回退，断线不取消批改，结果继续落库；同 `taskId + 正文 + submit/revise` 的并发请求共享一次批改。非目标：模型 token 级流式、异步 job、blue-green drain。跨仓同源：moon-well R196。
+
+195. 博客导入链（Halo→magicbook）不足盘点与修复 ①（PingCode MAGICBOOK-206）：连接器 `state.json` 跨书并发读写竞态。用户指令「检查 magicbook 的博客导入和 ted 导入的功能还有哪些不足」→「这些问题拆分记录进 pingcode，然后开始修复」。根因：`tools/connector/server.py` 的 `_load_state()/_save_state()` 是整份读-改-写，只有 per-slug 锁（`_slug_lock`），而 `Dockerfile` 用 `gunicorn --threads 4` ⇒ 两本书同时发布时互相覆盖，丢掉对方的 `last_sha`；下次该书发布时该 sha 被当作「新版本」重新导入并重建整本翻译（文件 mtime 变 ⇒ fingerprint 变），白烧积分。修法：新增模块级 `_state_lock`，把「读 → 改 → 写」整体包进临界区（per-slug 锁保留，防同书重入）。worktree 开发，push 闸门留用户。
+
+196. 博客导入链不足修复 ②（MAGICBOOK-207）：Halo 事件只认 `NEW_POST`，文章修订/重新发布可能不触发重导。现状 `server.py` 对 `payload.eventType != "NEW_POST"` 直接返回 ignored；而本链路的事实源语义是「Halo 最新发布版为准」，修订版同样需要进书。修法：事件白名单配置化（`CONNECTOR_EVENTS`，默认 `NEW_POST,UPDATE_POST`），命中即处理；未配置也不放宽到 DELETE 类事件。Halo 2.26.1 实际事件枚举待真机抓一次 webhook 日志核实。worktree 开发，push 闸门留用户。
+
+197. 博客导入链不足修复 ③（MAGICBOOK-208）：无手动补账/对账入口，webhook 丢失后书静默过期。现状连接器只有 `/hooks/halo` 与 `/healthz`，连接器停机期间 Halo 的发布事件丢掉就只能去 Halo 手动重发布。修法：新增 `POST /resync`（沿用 `X-Hook-Token` 鉴权，body 可带 `{slugs:[...]}`，缺省=映射表全量），逐条走 `_process_slug`（sha 不变自动 no-op），返回每条结果；单条失败不中断整批，末尾汇总。worktree 开发，push 闸门留用户。
+
+198. 博客导入链不足修复 ④（MAGICBOOK-209）：封面先于 EPUB 落盘，EPUB 失败时封面已被替换（内容/封面版本不一致）。`cps/book_import.py` 的 `_do_import` 先 `helper.save_cover` + 刷缩略图，再写 EPUB；EPUB 校验失败或超限时封面已生效。修法：调整顺序为「EPUB 临时文件 → 校验 → 原子换入 → 再换封面」，封面失败降级为告警（EPUB 已生效，不回滚），响应体新增 `coverError` 字段（仅降级时出现，正常路径与旧契约一致）。worktree 开发，push 闸门留用户。
+
+199. 博客导入 EPUB 构建的体验缺口（MAGICBOOK-210，本轮仅记录、不修）：① H2 不进 TOC（LLD §3.2 写「H2 进 TOC」，`builder.py` 的 nav/ncx 只列 H1 章节）；② H1 只识别单空格 ATX（`_H1_RE`），setext 标题与 `#标题`（无空格）不进章节；③ 图片只重写双引号 `src`（`_IMG_SRC_RE`），`srcset`/单引号/无引号 src 漏下载，正文仍指向外站（离线不可读）。待真机验收后按需排期。
+
+200. TED 原声伴听链路不足修复 ①（MAGICBOOK-211，关键）：bookId 跨服务语义错位。magicbook 前端 `reader-ted-audio.js` 传 `calibre.bookId`（Calibre 书号），`cps/web.py` `_ted_audio_book_id` 亦明示「Calibre 书号」；而 moon-well `/book/ted-audio` → `TedAudioService.findByBookId` 用 `bookRepository.findById` 查 **moon-well 自有 book 表**（其 ted LLD 注释 `bookId: 20 // moon-well book id`）。两套 ID 序列只有巧合对齐才命中，错位时 `findMeta` 拿错书名 → 注册表查不到 → `audioUrl=null` → 前端静默回落 TTS 机器音（与 R172/R173 事故同症状）。learning 模块 R139/R149 已踩过同款坑。修法：magicbook 两个代理改传 **bookName + author**（从 Calibre 库取），moon-well `/book/ted-audio` 增加 `bookName+author` 入参（`findMeta` 本就按 title/author 查 ES），`bookId` 保留兼容。跨仓同源：moon-well R197。worktree 开发，push 闸门留用户。
+
+201. TED 导入链路不足修复 ②（MAGICBOOK-212）：音频缓存/Calibre 同步失败无自愈。`TedImportService.importTalkBySlug` 在 `(userId, canonicalUrl)` 去重命中时直接 return，不再触发 `cacheTalkAudioAsync`，与 `TedAudioService` 注释「重导自愈（幂等覆盖）」矛盾——首次导入时音频下载/HLS 缺失/切分失败留下的空洞，没有任何补拉入口。修法：timings 提取提前、去重命中路径也触发一次幂等缓存；并给 `CalibreService` 的 metadata.db 连接补 `PRAGMA busy_timeout=5000`（app.db 连接早已有，书库连接缺失，与 magicbook 容器并发写会 SQLITE_BUSY）。跨仓同源：moon-well R198。worktree 开发，push 闸门留用户。
+
+202. TED 导入的体验缺口（MAGICBOOK-213，本轮仅记录、不修）：① TED 书在 magicbook 书库**无封面**——moon-well `EpubBuilder` 不写封面、`CalibreService.insertBook` 固定 `has_cover=0`、不落 `cover.jpg`（moon-well 侧有 `coverUrl` 但没同步）；② 「未缓存原声」的 TED 书与普通小说书在探测上不可区分，会静默回落 TTS 机器音（R172 想避免的语义错误仍存在于这一小类）；③ 原声伴听无播放进度持久化、无倍速。待排期。
+
+203. 阅读器段落按钮全线失效：B4 批次 7 拆分漏带跨模块别名（MAGICBOOK-214；用户验收 R200 时报障）：现象 `reader-tts.js:657 Uncaught ReferenceError: RT is not defined at bookPlayerStart`（TED 书点「整本播放」→ `reader-ted-audio.js` 探测无原声 → 回调整本连播 → 崩）。根因：R183（B4 批次 7，`d2a00fff` 2026-10-16）把段落朗读与整本连播整块迁出 epub.js 时，`RT.` / `RI.` / `AN.` 三处跨模块调用连前缀一起搬走，但这三个别名原本是 epub.js 的**函数作用域**变量（`var RT = window.ReaderTedAudio`），迁入 `reader-tts.js` 后没有重新声明；每个 reader 模块是独立 IIFE，拿不到别人的闭包 ⇒ 运行时 ReferenceError，界面表现全部是「点了没反应」：① 段落「朗读」对所有书（`speakParagraph`）；② 整本连播在 TED 无原声回落时（`bookPlayerStart`，用户报障点）；③ 段落「译」按钮（`RI.translateParagraph`）；④ 批注 / AI 批注按钮（`AN.openPopover`）。两把静态锁均漏：拼接 blob 上 epub.js 的 `var RT` 能让 `RT.` 对上号；「不得引用 epub.js 闭包符号」那把只扫小写开头且长度 ≥5 的标识符，`RT` 从正则就被排除并落在 `_GLOBALS` 白名单里。修法：`reader-tts.js` 补 `var RI/AN/RT = window.Reader*`——RT 用空实现兜底（让位类调用空转优于连累朗读）、RI/AN 不兜底（用户动作空转就是本类事故本身），并删掉重复的 `var TTS_ENGINE_KEY`。守卫：`tests/test_reader_module_surface.py` 新增 `test_跨模块别名必须在所属文件内声明`（按单文件粒度、先剥离注释与字符串），反向变异（删掉 RT 声明）实测报红。worktree 开发，push 闸门留用户。
+
+204. 写作批改 SSE 真机仍无进度、2.5min 超时（R194 的缺陷环；PingCode MAGICBOOK-9）：用户复测「还是有问题。2.5分钟后 超时，response 一直没有数据」。上一轮定性为「后端 magpie 150s 预算耗尽、代理已生效」，实测证伪——代理确实在逐 chunk `yield`，但一帧都没离开进程。根因：本仓用 tornado `HTTPServer(MyWSGIContainer(app))` 起 WSGI（容器内无 gevent），而 tornado ≥6.3 的 `WSGIContainer.handle_request` 会把 WSGI iterable 全部 chunk 收进列表后 `b"".join` 一次性写出并补 `Content-Length`，`text/event-stream` 因此被整体缓冲，`status`/`ping` 押到批改结束才发。第二个坑：同一实现默认 `dummy_executor`，WSGI 应用跑在事件循环线程上，SSE 的阻塞读会把整站请求一起卡住。修法：`cps/tornado_wsgi.py` 覆写 `handle_request` 按 `Content-Type` 分流——SSE 走流式分支（丢弃 `Content-Length`、逐 chunk `write` 并 await、阻塞读放独立 `ThreadPoolExecutor`），其余响应保持上游整段缓冲语义不变。证据：容器内最小复现 4 帧 ×1s，修复前响应头 4.00s 才到且 `Content-Length: 108`，修复后 0s 到达、chunked、四帧分别落在 0/1/2/3s。测试 `tests/test_tornado_wsgi_stream.py` 4 条（真实 socket，按首帧到达时刻判定），反向变异换回旧实现即报红。LLM 侧 magpie 150s 零 token 挂起仍未解决（`ms=150013,status=499`），属 moon-well 预算/路由问题，本仓不越界改。worktree 开发。
+
+## 2026-10-22
+
+205. 每日学习新增功能「单词编故事」：用户原话——「每日学习新增一个功能，单词编故事，根据我最近需要复习的单词或者我指定的一批单词，让 AI 编一个小故事来帮助我记忆理解。」定稿口径：Hub 第八张卡 + 子页面 `/learning/story`；双入口（今天到期的词一键 / 粘贴词表）、默认 6 词上限 8、全英文 80–120 词微故事 + 词表卡、历史回看、整篇朗读、词汇学习股入账（moon-well `storySeconds=120`）、SSE 进度流 + JSON 回退。跨仓同源：moon-well R200。worktree 开发。
+
+206. AI 伴读图标改「伙伴」+ 伙伴系统前端（承接 moon-well R201，前端主责）：用户原话——「magicbook 的 AI 伴读悬浮按钮图标改成宠物图片，增加宠物系统，新注册可以领取一只，宠物会做一些动作，但是主要功能就只是 AI 伴读的图标替换……不要叫 pet 叫伙伴。默认一个机器人 AI 助手。引导页到伙伴模块，可以领取雪鸮」。定稿口径：默认伙伴=机器人；新增独立 `/buddy` 页（花名册 + 领取/切换）经薄代理调 moon-well `/buddy`（复用 `credit.py` `_moonwell_proxy` 范式）；`ai-companion-fab` 图标由文字「AI」换成当前装备伙伴 head 头像（MinIO 匿名直读直链）；FAB 动效 4 态（idle/hover/thinking/sleep，thinking 窗口取 `ai_chat.js` send 禁用→恢复）；引导页新增一步 handoff 到 `/buddy` 领取雪鸮。美术 ImageGen 生成、不入 git、走 MinIO。积分/成就兑换 = 第二期。worktree 开发，push 闸门留用户。
+
+207. 验收三连：「1 验证，2 推 3 上传」——① 核验两次 push 的 fnOS 构建/部署实况（含 `13e44003` 站内错是否上线）；② 推本轮纯文档台账 commit；③ 把 18 个伙伴资产上传 MinIO。执行中自查发现 R206 的第二处缺陷：CSP `img-src 'self' … data:` 未放行 MinIO 直读源，伙伴图片会被浏览器拦（且 FAB 探测失败静默保留「AI」文字，故障不可见），随本条修复——按 media-src 先例只在 `web.read_book` 与 `web.buddy_page` 两个端点放行该源，不放宽全站。
+208. 每日学习 banner 小功能管理：用户原话——「每日学习的小功能增加一个管理页面，自由选择出现在每日学习页面的小功能。不勾选则不会出现在banner中。减少用户的选择成本。先讨论一下这个需求」。已拍板（2026-10-22 三项决策）：①存储 moon-well 账号级（扩展 learning plan settings）；②banner 角落齿轮 → 抽屉管理；③允许全不勾 + 引导卡兜底。边界：默认全显、只管八张功能卡、不做自定义排序、隐藏≠关闭。（编号说明：2026-10-22 曾按 R206 占号、条目未及提交即被并行会话的 R206（伙伴前端）占用且工作树条目遗失，按纪律续编空号 208；冲突记录详见 response.md）状态：**开发中（本轮交付，push 闸门留用户）**。跨仓同源：moon-well R203。
+
+## 2026-10-23
+
+209. 积分内测活动 + 充值倍率机制（承接 moon-well R205，跨仓同源充值页）：用户原话——「增加一个内测活动，当前积分获取率*10。正常积分获取改为 10 元 1000 积分。叠加当前活动就是 10 元 1 万积分。内测活动持续到 2026 年 12 月 31 日。仅管理员可以发布活动。活动目前只有一个持续时间和积分倍率的选项。」本仓范围：① 新增两条代理路由 `/ajax/credit/admin-promotion-create`（转发 moon-well `/credit/admin/promotion/create`）与 `/ajax/credit/admin-promotion-list`，均 `@user_login_required` + `current_user.role_admin()`（与既有 `/ajax/credit/admin-adjust` 同形态；moon-well 侧再按 `credit.admin-user-ids` 白名单二次校验）；② 积分页档位卡片加「内测 ×N」角标、划线原到账（`baseTitle`）、倒计时（按服务端 `promotionEndTimeEpochMs` 与 `Date.now()` 差计算，60 秒刷新，**禁止解析时间字符串**——浏览器按本地时区解析会让非东八区用户看到「活动已结束」）；③ 管理员面板加发布表单（起止 `datetime-local` + 倍率 number 1–100，默认起=今天零时、止=2026-12-31 23:59:59，值原样提交不做时区换算）与活动列表表格（起止/倍率/状态），提交前 `confirm` 二次确认「发布后不可修改或撤销」；④ 充值详情弹窗补「倍率」字段。状态：**已开发，待验收**（worktree `../magicbook-credit-promotion`，分支 `feat/r209-credit-promotion`；push 闸门留用户）。
+
+210. MinIO 公共入口切换的 CSP 侧（承接 moon-well R206；首占 209 与并行会话 12:51 的充值活动撞号，按已入仓一侧让号）：用户原话——「伙伴的图片似乎没有起作用」「我知道了，我的网络会拦截 https://home.haoshenqi.top:9001。minio地址改为 https://minio.haoshenqi.top，只是入口不同，后端一样。」本仓落点：`cps/web.py` 的 `media-src`（R181 TED 原声）与 `img-src`（R207 伙伴头像）两处硬编码源；过渡期两源并列（先松 CSP 再翻 moon-well 的 `minio.public-url`，避免翻转窗口内 TED 原声与伙伴图同时断），确认无任何出口再产出 `:9001` 后单独一笔收窄。实测背书：同一对象经两入口 `Content-Length`/`ETag` 全同，小 PNG 另比 sha256 亦同。
+
+211. **[缺陷] OIDC 自助注册默认授予管理员权限（公开邀请链接即可拿到全站管理员）**（MAGICBOOK-218，2026-10-23 占号）：来源＝首访体验报告 §二（`docs/project/qa/2026-10-23/2026-10-23-qa-report.md`，截图 `e7-admin.png`）。根因已定位到代码行——`cps/oidc.py:138` 新建账号写死 `role=constants.ADMIN_USER_ROLES`，而 `cps/constants.py:122` 的 `ADMIN_USER_ROLES = sum(ALL_ROLES) & ~ROLE_ANONYMOUS` 含 `ROLE_ADMIN`，故任何首次 OIDC 登录都是超管；同一处建号也不写 `locale`，`cps/ub.py:252` 默认 `en`（归 212 修）。范围：① 改 `config.config_default_role`；② 管理员邮箱白名单 env（`OIDC_ADMIN_EMAILS`）保站长不掉权；③ 存量账号排查/降级 CLI（默认 dry-run 先出清单）。关联需求：MAGICBOOK-113（R103 邀请制注册链接）/ FR-3 接入 Authentik 登录。**P0，用户拍板单独先上线**。　PJM 工作项：MAGICBOOK-10（迭代 1.0）。　状态：**已开发，待验收**（2026-10-23，worktree `../magicbook-r211-oidc-admin-role`，分支 `fix/r211-oidc-admin-role`；push 闸门留用户）。　**口径修订（2026-10-23 16:1x 用户拍板）**：「默认都是普通用户，管理员用户由我手动赋予」——原范围②的邮箱白名单方案**撤除**（不留任何自动提权开关），新账号固定为站点默认角色且强制剔除管理员位，管理员只在管理后台人工赋予。
+
+212. **首访体验优化①入口层：登录页价值主张与品牌叙事、新账号语言跟随浏览器、语言入口前置**（MAGICBOOK-219，2026-10-23 占号）：来源＝报告 §一/§三.1/§七。拍板口径：**换皮 + 保留 authentik 独立域**——不改 issuer、不做同域反代（同域改造成本与认证链风险不成比例，观感问题用 brand + 文案解决）。范围：登录页价值主张 + 书墙；站内 Calibre-Web 字样收敛为 magicbook；新账号 `locale` 按 authentik claim / `Accept-Language` 初始化；语言入口从 `/me` 底部提到顶栏；authentik 侧 brand 与 flow 中文（外部配置，不进代码）。　PJM 工作项：MAGICBOOK-11（迭代 1.0）。　**2026-10-23 第二轮拍板（用户三问三答）**：① 素材托管＝**MinIO `brand/` 前缀**（不新建静态服务、不从本站直链）；② 主标识＝**圆章版**「雪鸮立旧书 + 魔杖一点光」，延续站内既有语言，不用霍格沃茨校徽/闪电字标/电影原图；③ 本轮范围＝**改名 + 挂徽章 + favicon**，登录页换皮与整站 HP 化不做。**实测修正两处**：交付项 2 的「6 处 Calibre-Web」是只扫模板的结果，用户可见面实为 **13 处**（模板 6 + Python 7，含管理面板 flash 与注册欢迎邮件）；顶栏徽章**不能**直链 MinIO——本仓 CSP 为 `img-src 'self' data:`，且 `tests/test_csp_media.py` 有「其余页面不放行 MinIO」的显式守卫，故站内走同源静态文件、认证域走 MinIO，两份产物由同一生成脚本产出。跨仓：moon-well R209 开 `brand/` 匿名只读。设计：`docs/project/iterations/1.0/r212-entry-layer/lld.md`（本轮新建，R212 此前无 LLD）。　**2026-10-24 晚第三轮拍板**：用户否决猫头鹰圆章并**自供 master**＝`magicbook/brand/magicbook.png`（黑底书+杖 lockup）；派生改不透明方章（源图环为椭圆、杖尖穿环外、封面暗部与黑底同直方图区间 → 裁圆与黑转透明均不可行，实测见 LLD §7 第 6 条）；对象 key 未变 → authentik 零改库零重启；站内方章 + `.brand-mark` 20% 圆角已提交 `af07d7fa`，push 留用户。
+
+213. **首访体验优化②首页信息架构：继续阅读/今日计划/分级推荐、侧边栏分组与卡片标识、移动端底部导航**（MAGICBOOK-220，2026-10-23 占号）：来源＝报告 §三.2–3.6、§八。首页把「随机发现」降为模块之一，新增继续阅读（`ub.ReadBook` 最近阅读）/ 今日计划（moon-well 学习聚合）/ 分级推荐（规则化，不做算法）；侧边栏按书架·分级·媒体分组；11 个图标 chips 补文字；卡片加格式/时长/原声徽标；搜索与高级搜索去重；移动端底部导航。跨仓：今日计划聚合若需 moon-well 新接口则同源占号。**本条量级 L，是三张改版单里最重的一张。**　PJM 工作项：MAGICBOOK-12（迭代 1.0）。　**2026-10-23 拆单（用户拍板四问）**：拆为三个 PJM 任务——**MB-16**（A 导航与外壳）/ **MB-17**（B 继续阅读，**新开 `reading_progress` 表**）/ **MB-18**（C 今日计划 + 分级推荐，**新开 `/home` 路由**）；今日计划口径暂定「待复习词数 + 写作待办」；开工顺序 A→B→C。需求基线 `docs/product/library/requirements.md`（新建），设计 `docs/project/iterations/1.0/r213-home-ia/`（HLD/LLD/AC）。**2026-10-23 第二轮拍板**：① 难度阶**按书架名解析 `阶N`**（同阶合并、按数字升序）；② `/home` **直接作为登录后默认落点**（保留 `config_home_landing` 开关回退）；③ 写作待办走 `/ajax/learning/writing/history` 数「今日未完成」`lastDraftNo==null`，不新建 moon-well 接口；④ 侧边栏四组判定仍待拍板（`shelf` 表无分类字段，建议新增 `shelf.kind` 列，见 HLD §7.1）。状态：**R213-B 已开发待验收**（worktree `../magicbook-r213-home-ia`，分支 `feat/r213-home-ia`）；A/C 未开工（A 被 ④ 阻塞）。
+
+214. **首访体验优化③书籍详情：简介/目录/难度/试读 + 整本任务代价面板 + 元数据字段修正**（MAGICBOOK-221，2026-10-23 占号）：来源＝报告 §四。拍板口径：三个整本按钮**不做「加个 confirm」**——它们背后是三个耗时/计费 job（R163 / R191 系列），缺的是代价模型，故合并为统一「整本任务」入口 + 预估面板（章数/词数、预估耗时、积分、是否覆盖原文件、缓存命中）。另修 pubdate 把导入时间当出版时间、双语读物单标英语、加入书架面板默认展开。　PJM 工作项：MAGICBOOK-13（迭代 1.0）。
+
+215. **首访体验优化④阅读器与AI伴读面板：控件可见性、面板可停靠、状态反馈、翻译重排**（MAGICBOOK-222，2026-10-23 占号）：来源＝报告 §五、§八。报告定性「产品最亮的地方，也是图标最暗的地方」：顶栏 11–13px 浅灰图标、段尾 ~10px 按钮、AI 入口白圆圈像 spinner、面板固定 300px 遮正文、6 个无标签图标、「思考中」缺失、placeholder 与回答范围口径不一致、逐段翻译整页抖动、幽灵「?」。验收按移动端 ≥44px 触达盒与「开面板后正文仍留 ≥50% 宽」两条硬指标。基线须在 214 / R203 merge 之后。　PJM 工作项：MAGICBOOK-14（迭代 1.0）。　2026-11-01 验收修订：用户原话「这里太挤了，把功能描述去掉，只留功能的图标」——AI 抽屉头部的新会话 / 重命名 / 删除会话 / 记忆四个操作在所有尺寸改为纯图标，保留 `title` + `aria-label`。状态：**已上线待验收**（实现 `76625eb2` 已推 `origin/develop`；fnOS `build END OK`、`deploy SUCCESS`，容器 `healthy`、`house.code-digest=b5bbeb8acf27d751`；验收修订在 R260 worktree 复用实施；worktree `../magicbook-r260-ai-user-profile`，分支 `feat/r260-ai-user-profile`）。
+
+216. **首访体验优化⑤引导收敛与个人中心：账号级只弹一次、/me改偏好页、难度入口前置、成就占位与伙伴IP风险登记**（MAGICBOOK-223，2026-10-23 占号）：来源＝报告 §六、§七。引导三处弹窗（登录页中文/阅读器英文/伙伴页）统一并改账号级只弹一次（落 moon-well 账号偏好，与 R208 同源）；`/me` 改偏好页并修 `div#user_submit` 键盘不可达；难度设置入口前置；成就灰占位修复；伙伴页文案重写。另按用户拍板登记一条 **伙伴 IP 风险**（内测保留 HP 角色、不改代码，正式对外发布前须换原创）——只进 L3/kb 文档，不在本条实现。　PJM 工作项：MAGICBOOK-15（迭代 1.0）。
+
+217. **注册后自动回 magicbook：邀请注册走 OIDC 上下文，enrollment 完成后静默授权回站并已登录**（占号 2026-10-23）。背景：R103 起登录页「注册账号」按钮直接指向 Authentik 邀请链接且 `target="_blank"`，用户注册完停在 Authentik 侧，必须自己切回 magicbook 再点一次「Log in」——注册与登录是断开的两步。范围：① `cps/oidc.py` 新增 `GET /oidc/signup`，用 authlib 生成 OIDC 授权 URL（state/nonce/PKCE 存 Flask session），从既有 `AUTHENTIK_ENROLLMENT_INVITE_URL` 解析 itoken，把授权 URL 的 path+query 编码成 `next` 拼成邀请 flow URL；② 登录页按钮改指向 `/oidc/signup`，去掉 `target="_blank"`（同窗口连续体验）；③ 守卫测试 `tests/test_oidc_signup.py` 16 条。关键约束（现网实证）：Authentik flow 结束时的 `next` **必须是相对路径**（`_flow_done()` 里 `is_url_absolute` 判 netloc 非空即拒为 "Invalid next URL"），故 `next` 指向**同域** authorize 端点 `/application/o/authorize/?...` 而非 magicbook callback——Authentik 负责「已登录→签发 code→回调」，magicbook 侧 `callback()` 零改动，建号/绑号/角色判定不分叉；itoken 从既有 env 解析，不新增变量以免双份配置漂移。状态：**已开发，待验收**（2026-10-23，worktree `../magicbook-r217-oidc-signup-return`，分支 `feat/r217-oidc-signup-return`；16 条新增 + 相关回归 49 条全绿；现网端到端实测：flow 结束精确还原 `next` → authorize → Authentik 签发 code → 302 回 `https://magicbook.haoshenqi.top/oidc/callback?code=..`；测试账号已清理）。
+
+218. **R214 子项 A 验收缺陷：在书架里的书详情页 500，读不了书**（占号 2026-10-23，待回填）
+
+219. **注册入口失效：authentik 邀请链接形式变更（老式 ?itoken= 被判 Invalid invite），生产 .env 已改嵌套 ?query=itoken%3D 并配可复用邀请**（占号 2026-10-23）：状态 **已开发待验收**（2026-10-24）。`cps/oidc.py` 优先解析嵌套 `?query=itoken%3D...`，兼容旧顶层 `itoken`/`token`；`/oidc/signup` 只生成外层 `query`（内部 `itoken` + `next`）。守卫 `tests/test_oidc_signup.py` 已覆盖嵌套解析、旧格式兼容、冲突优先级、token alias 与生成形制；生产 `.env` 与真机注册需验收时复核。
+
+220. **Buddy 从 AI 伴读升级为全站助手**：用户原话——「让伙伴也出现在其他所有页面，每个页面都把当前页面的知识附着到AI的上下文当中。让buddy 成为真正的网站助手。」范围：`layout.html` 全站挂载现有 Buddy 抽屉；非阅读页走 moon-well 既有 `bookId=null` web 场景提示词；发送时采集当前页面可见文本（剔除导航/脚本/面板自身）；站点会话与书籍会话分离；CSP 对 HTML 响应放行 MinIO 头像源，非 HTML 保持窄面。状态：开发中。
+
+221. **AI 口语陪练语音优先：教练默认语音、用户录音转写后确认发送**（占号 2026-10-24，待回填）
+
+222. **R214 验收缺陷：生成书籍简介 400（上游 Magpie 403 被误报为 400）**（占号 2026-10-24，待回填）
+
+223. **Buddy 悬浮球化：透明头像 + hover 径向快捷气泡（/buddy 可配置）**（占号 2026-10-24）：用户原话——「把伙伴的AI伴读文字去掉，文字仅悬浮展示即可，蓝边框也去掉」「伙伴的背景也搞成透明的，文字悬浮也去掉，改为悬浮的时候弹出几个（4-5个，在伙伴页面可以设置，默认右上角的 翻译，朗读，书签等功能）功能气泡。类似Iphone 悬浮球。」范围：FAB 头像态透明化（去背景/边框/阴影/文字标签）、hover 弹出 4–5 个径向快捷气泡（chat 固定 + `/buddy` 页 chip 可配置，默认 翻译/朗读/书签 + 对话）、`GET/POST /ajax/buddy/quick-actions`（`view_settings['buddy']['quickActions']`）、气泡展开方向按 FAB 吸附位置自适应（iPhone 悬浮球同款）。　设计：`docs/project/iterations/1.0/r223-buddy-fab-bubbles/lld.md`。　状态：**已开发待验收**（2026-10-24，worktree `../magicbook-buddy`，分支 `feat/r206-buddy`；发布态全量 906 passed；push 闸门留用户）。
+
+224. **本轮测试修复未完成项收口：R212 入口层、R219 邀请注册、R213-B 进度开关、R214-C 估算 500**（占号 2026-10-24）：状态 **已完成代码收口，待真机验收**。本轮在 worktree `../magicbook-r224-close-out`（分支 `feat/r224-close-out`）补齐 R219 嵌套邀请链接、R212 交付项 1/3/4、R213-B/B6 进度总开关及三格式下线路径；R214-C 核实 `cps/reading_insight/service.py` 与 `origin/develop` 一致，估算 500 的修复已在 develop（`42ddfb19`/`b28d9240`），但生产异常类型因 ES 401 未取得证据。R213-A 侧边栏分组仍按拍板留到下一迭代。**未 push**。
+
+225. **修复邀请注册 URL、普通账号阅读 403 与统一品牌封面占位**（占号 2026-10-25）：状态 **已上线待验收**。用户报告 `/login` 注册被 Authentik 判 `Invalid invite`（干净浏览器均复现）、普通账号所有 `/read/<id>/<format>` 与 `/download` 403、首页多本 TED/BBC Learning English 书显示白字 `Cover not available`。已确认根因并修复：① `/oidc/signup` 与轮换脚本改回 Authentik 2025.10.2 接受的顶层 `?itoken=...&next=...`，历史嵌套 env 仅兼容读取；② OIDC 新账号固定补 `ROLE_VIEWER`、仍强制剔除 `ROLE_ADMIN`，下载位保持独立；存量缺阅读位账号由 `scripts/reader_role_audit.py` 默认 dry-run、点名补位、写前备份，`oidc_admin_audit.py --demote` 也保留阅读位；详情页分别说明 View / Download 权限如何开通；③ `generic_cover.jpg` 换为 564×800 深墨绿品牌封面。修复已 merge 并在生产 `890bc607` 上线，注册跳转与品牌封面已实测；生产存量账号未自动改；worktree `../magicbook-r225-auth-reader-covers`（分支 `fix/r225-auth-reader-covers`）原样驻留待验收。
+
+226. **核验并修复阅读器顶栏/伴读面板/段落工具提示/翻译抖动/幽灵问号**（占号 2026-10-25）：用户要求在 R225 修复后继续复验上一轮被 403 阻断的阅读器问题——顶栏图标是否放大、AI 伴读入口是否仍为白圆圈、AI 面板是否遮正文、段落 `✓＋✎🗑🧠` 是否有 tooltip、翻译是否重排抖动、幽灵「?」是否存在。核验结论：顶栏 24px 图标 + 12px 标签正常；段落工具与 AI 头部按钮均有 `title`/`aria-label`；AI 420px 覆盖式抽屉是 2026-10-23 明确拍板，不视为缺陷；确认伙伴头像白色圆底、阅读器无文案「?」、批量翻译逐段插入导致连续重排三项真实缺陷并修复。状态：**开发中待验收**（worktree `../magicbook-r226-reader-verify`，分支 `fix/r226-reader-verify`）。
+
+227. **Buddy 对话复用口语陪练语音能力：全站语音输入转写 + 每条回复手动朗读**（占号 2026-10-25）：用户原话「我想要 AI 伴读 Buddy 对话也可以复用 AI 口语陪练 陪练的语音能力。」四问拍板：① 范围＝输入+朗读**双向**；② 回复朗读＝**每条手动点**（不自动播）；③ 用户语音＝**只转文字**，不留可回放语音条；④ 生效面＝**全站**。复用 `learning-voice.js` 录音链路与 `/ajax/learning/asr/transcribe`、`/ajax/reading-tts`（1 积分/次、≤2000 字），**moon-well 零改动**。技术要点：录音模块依赖降级（不再硬依赖 `MBLearning`）；朗读改走 **Web Audio**（不动 CSP 的 `media-src` 窄面，顺带修掉 `synthesize_tts` 在非阅读页被 CSP 拦的既有静默故障）；长回复按 1800 字分段顺序播放并显示「朗读中 n/m」；朗读不带 `bookName` → 落 AI 临时语音档。设计：`docs/project/iterations/1.0/r227-buddy-voice/lld.md`；需求基线 `docs/product/companion/requirements.md`（新建）。状态：**已上线、已收尾**（2026-10-25 21:27 merge 并 push `cb198e00`，21:34 计费拒绝文案补丁 `5497538a`；8 条守卫 + 全量 972 passed；2026-10-26 用户确认收尾，worktree `../magicbook-r227-buddy-voice` 与分支 `feat/r227-buddy-voice` 均已删除；用户明确不做 ASR 计量对齐改造）。**计费口径（2026-10-25 晚，跨仓 moon-well R213）**：缓存命中 1 积分/段、首次生成按字符（50 字符=1 积分）、ASR 22 秒=1 积分且最少 1 积分；本仓代码零改动（费率走 `/credit/billing` 下发），仅同步 L1/L3/LLD 描述。
+
+228. **记录 moon-well R214 伴读 Agent Skills 的 magicbook 消费侧能力**（占号 2026-10-25）：用户原话「把magic book 所有的功能 总结一下，做成一个skill 给 AI伴读的agent使用。先判断AI伴读的agent 是否支持skill」。后端主责 moon-well R214；本仓 R214 已被书籍详情占用，故本条顺延占 **R228**，只做消费侧文档与验收说明、**不改代码**。交付：companion L1 增按需加载伴读指南及不扩权说明；companion 需求基线记录 moon-well R214；本仓迭代 `1.0/r214-agent-skill/lld.md` 写明真实页面/不可执行动作与失败退化；计划表增跨仓行。moon-well `05ed7fd` 已上线，生产健康 `UP`。状态：**已上线，验收证据已补齐，待用户最终确认**；magicbook 无代码、无接口变更，部署顺序无要求。新注册普通账号已补测权限、Skill 加载、查词、记忆、批注、TTS 与积分；会话/记忆用户隔离成立，批注为段落级共享，生产写确认门为 `false`。
+
+229. **缺陷修复：/home 随机发现把 linked Row 直接传 book_card，生产登录落点 500（挂 R213）**（占号 2026-10-25）：状态 **已上线待验收**。缺陷发现于 2026-10-25 晚博客截图会话：生产 `/home` 对开启「随机发现」的用户渲染 500（`jinja2 UndefinedError: Row object has no attribute 'id'`）。根因：R213-C 的 `random_discover_books` 复用 `generate_linked_query`（返回 `(Books, is_archived, read_status)` 三元组），旧 index.html 侧取 `entry.Books`，home.html 却把 Row 原样传给 `book_card` 宏；既有测试全部打桩该函数，真实返回形状从未被测。修复：`cps/routes/home.py` 取 `row.Books`；新增 2 条回归测试钉住「必须返回 Books 实体」与「上游抖动返回空列表」。定向回归 `tests/test_home_route.py` **29 passed / 0 failed**；实现提交经 `fix/r229-home-random-row` push 至 `develop`（`c0a7311c`），fnOS 自动构建部署，生产 `/home` 已实测四块完整渲染（继续阅读/今日计划/阶推荐/随机发现）。worktree `../magicbook-r229-home-random-row`（分支 `fix/r229-home-random-row`）原样驻留待验收。
+
+230. **个人学习数据导出——入口与任务下载 UI（Anki 卡片与回顾报告，数据主体在 moon-well R220）**（占号 2026-10-26）：状态 **已上线待验收**。`cps/routes/user_export.py` 三代理端点（create 本地校验密码 6-128 仅透传 / tasks GET / download binary+attachment，上游错误原样透传）；`me.html` 新增「Export My Learning Data」面板 + `me.js` 追加导出交互（密码两遍、5s 轮询、过期置灰）；i18n 种子 +14 词条、zh po +19 条、mo 重编译（契约 5 项全绿）。测试：`tests/test_user_export_proxy.py` 8 例（鉴权/参数域/透传/attachment/错误透传），全量 **981 passed**。需求基线 `product/learning/requirements.md` §R230；L2 `product/learning/interface.md` 导出节；LLD `iterations/2026-10-user-data-export/r230-export-ui/lld.md`。worktree `../magicbook-r230-user-data-export`（分支 `feat/r230-user-data-export`）驻留待验收；部署顺序：moon-well R220 先、本仓后。**同日修订（用户拍板「密码可选」）**：空密码=不加密导出（moon-well `encrypted` 列配套）；表单去必填+任务行「未加密」标志+i18n +2 词条；`test_user_export_proxy.py` 9 例，全量 **1000 passed**（commit 924c12bd）。**worktree 更正（2026-10-26 晚）**：原驻留 `../magicbook-r230-user-data-export` 与分支 `feat/r230-user-data-export` 已被外部删除（非本会话操作，删者不明——R230 尚未验收，按纪律本应验收通过后删）；代码已全部 push 在 origin/develop（03fc4617 + 924c12bd），无损失，真机验收照常进行。
+
+231. **删 Dockerfile 的 pip trusted-host（关闭 PyPI 镜像 TLS 校验＝构建链 MITM 投毒面，安全扫描高危6）**（占号 2026-10-26）：原占 R229，随后发现主线已有 R229 `/home` 随机发现缺陷；并行会话又把 R229 重占为 pip TLS、把 R230 给学习导出。按“不修改既有记录、续编下一个空号”处置：本条最终定为 **R231**，既有 R229（`/home`）与 R230（学习导出）原样保留。
+
+232. **AI 伴读面板不再显示 token 用量（仅保留后台记录，用量只在设置·积分查看）**（占号 2026-10-26）：用户原话「AI 伴读不要显示token 使用量（可以记录，但是不要显示）。积分token用量仅在【设置】【积分】那里查看即可。」做法：`ai_chat.js` final 分支删掉 `.ai-chat-usage` 渲染（`obj.usage` 不再进 DOM，会话 id 回传保留）；`ai_chat.css` 同步删样式；`speechTextOf` 的清洗选择器去掉该项。**记录侧零改动**：moon-well `CreditServiceImpl.consumeForLlmTask` 仍按 token 扣费并落 `total_tokens`，流水 remark「AI任务消耗 N token、每千 token 折 10 积分」，即积分页「原因」列。守卫 `tests/test_buddy_no_token_usage.py` 5 条（面板脚本与全站 JS 都不许读 usage 字段、final 仍回传会话 id、CSS 无残留样式、积分页保留原因列）。状态：**已上线待验收**（worktree `../magicbook-r232-hide-token-usage`，分支 `feat/r232-hide-token-usage`；2026-10-26 用户令「merge and push」→ 分支并 origin/develop 后直推 develop＝`d1d6c84c`，合并基全量 999 passed / 0 failed）。
+
+233. **AI 回复中的本站链接可点击并在新窗口打开**（占号 2026-10-26）：状态 **已上线待验收**。`ai_chat.js::renderMarkdown()` 增加安全站内链接渲染：支持 Markdown 链接、裸 `/me`、`/credits`、`/book/<id>`、当前 origin 绝对 URL 与路径型行内代码，统一 `target="_blank" rel="noopener noreferrer"`；外部域名、协议相对 URL、`javascript:`、含凭据 URL、围栏代码块与 HTML 注入保持纯文本；查询参数/fragment 保留，中英文尾随标点与括号留在链接外。实现按「先转义→受控占位→origin 归一化→href 二次属性转义」执行，未改接口、SSE、工具白名单或 CSP。新增 `tests/test_ai_message_links_r233.py` 13 条（Node 真执行生产函数），定向联合回归 36 passed、扩展安全/契约回归 58 passed、`node --check` 与 `git diff --check` 通过。文档：L1 `readme/companion.md`、需求基线 `companion/requirements.md`、L3 `companion/features/ai-message-links.md`、LLD `iterations/1.0/r233-ai-links/lld.md`、迭代 `plan.md`。实现已推送 `origin/develop`（`f68e39b3`），生产静态资源已确认包含 `normalizeSiteHref`、`target="_blank"` 与 `noopener noreferrer`；`/book/252` 真实 AI 回复中的裸 `/credits` 与 `[我的页面](/me)` 已渲染为链接，点击分别打开 `/credits`、`/me` 两个新标签，且新标签无法取得源页面 opener。worktree `../magicbook-r233-ai-links`（分支 `feat/r233-ai-links`）驻留待验收。
+
+234. **伙伴悬浮球快捷动作：AI 对话恒在第一位且不可删除（R223 口径收紧，服务端不变量）**（占号 2026-10-26）：用户原话「伙伴悬浮球快捷动作，AI 对话始终在第一位切不可删除」。定性：R223 前端本已是该行为（chat chip 固定不可取消、`renderBubbles` 恒 chat 首位），缺口在服务端——POST 不校验 chat，直连 API 可存成缺失（气泡变 6 个破 4–5 口径）或末位，存量旧值读回也不归一。实现：`cps/routes/buddy.py` 新增 `_pin_chat_first()`，POST 归一后落库（缺 chat 补首位、错位前移、数量连 chat 一起算 4–5，5 个非 chat＝6 个 400 拒绝不静默截断），`current_user_view_settings()` 读回对存量旧值同样归一截上限、坏数据回落默认四项；前端行为不变，仅更正 `buddy.js` 注释（2-5→4-5）。测试：`tests/test_buddy_page.py` +3（写入归一 / 超上限拒绝不落库 / 存量读回归一），定向回归 26 passed + buddy 全家 50 passed。文档：L1 `readme/companion.md`、需求基线 `companion/requirements.md` §R234、L3 `companion/features/buddy-quick-actions.md`（新建）、LLD `iterations/1.0/r234-buddy-qa-chat-first/lld.md`、R223 LLD 边界标注取代、迭代 `plan.md`。状态：**已上线待验收**（实现 `bbd482ae`；worktree `../magicbook-r234-buddy-qa-chat-first`，分支 `feat/r234-buddy-qa-chat-first` 驻留待验收；挂 R223 修改意见不建独立 idea）。
+
+235. **伙伴快捷动作配置切 moon-well 单源——/ajax/buddy/quick-actions 改薄代理+存量懒迁移（与扩展共用配置）**（占号 2026-10-27，待回填）
+
+236. **弹层恢复「整本任务」入口：XHR 片段内改为跳完整详情页的普通链接（R214 可达性回退修复）**（2026-10-28）：用户原话「弹层里恢复『整本任务』按钮。不要做其他的」。定性：R214 子项 C 修复（42ddfb19）给开面板按钮加 `not is_xhr` 门禁引入的可达性回退——完整详情页在 UI 里无普通左键路径（书卡链接全被 data-toggle 弹层截走），管理员入口事实不可达。实现（严格限定范围，未动其他）：`detail.html` 弹层分支新增同门禁普通链接 `id=whole-book-panel-link` → `/book/<id>`（同 URL 无 XHR 头即渲染完整页，面板在完整页内打开；不挂 data-api）；开面板按钮行原样不动。守卫 +1（`test_xhr_modal_entry_is_full_page_link`），既有四条守卫原样通过，detail 相关 4 文件 108 passed。文档：LLD §15 + 状态行。状态：**已上线待验收**（实现 `6180c6bc`；worktree `../magicbook-r236-wholebook-modal-entry`，分支 `fix/r236-wholebook-modal-entry` 驻留待验收；挂 R214 修复不建独立 idea）。
+
+237. **整本朗读批次全灭修复：moonwell proxy 三元组被 tts 选角与合成 worker 二元组解包**（2026-10-28）：R236 验收时用户报「点击开始整本朗读后白屏」。诊断：服务端无 500、面板 JS 三变体（成功/400/504）真浏览器 harness 验证无白屏路径；真缺陷在服务端——`MoonWellClient.proxy` 恒返回三元组 `(body, status, headers)`，`cps/reading_tts/service.py` 选角与合成 worker 两处二元组解包，每段两次合成后全数 FAILED（生产 book 50 批次 3007 段 done=0，已止血置 CANCELLED，此时 208 段全 FAILED；两次合成音频均已入 moon-well 缓存，重启批次缓存命中不重复计费）。白屏最可能是批次空转双倍合成+每段两次写库把页面加载拖死的表现。修法：两处改三元组解包；测试桩全部改三元组（桩即契约镜像——单测漏网正因桩也回二元组）；新增契约守卫 `test_moonwell_proxy_contract_is_three_tuple`，反向变异 3 failed 报红。tts 全家 5 文件 50 passed。**验收追加（同日）**：部署重启杀掉进程内 worker 后，`RUNNING 1239/3007` 批次失去前端恢复入口；状态接口增发 `canResume`，进度条在「无活 worker 且仍有 PENDING」时显示「继续」，调用既有 `/retry` 原地续跑。文档：LLD §16–§17。状态：**已上线待验收**（实现 `b48a29ed`，合并/部署 `a2a1e88f`；worktree `../magicbook-r237-tts-proxy-unpack`，分支 `fix/r237-tts-proxy-unpack` 驻留待验收；挂 R214 整本任务验收链）。
+
+238. **全文单词详解预览加载缺陷修复与后台预计算**（2026-10-28）：用户原话「magicbook 全文单词详解 卡在预览加载中。booi_id=145 这是为什么？所有的书是否都会这样？能否加一个异步任务，后天提前把这个算出来」（“后天”按“后台”理解）。根因不是 book 145：页面内联脚本放在 `block body`，早于 layout 底部 jQuery 执行，浏览器以 `$ is not defined` 中断，`/ajax/word-detail-preview` 从未发出，所以所有书共用该缺陷；同时原同步链路会在请求线程解析整本 EPUB、串行分批扫 moon-well 缓存，慢时也没有进度或快照。修法：脚本移入 `block js`；新增 `reading_word_detail_preview` 快照表与后台 worker，首请求立即返回 RUNNING，页面轮询 EXTRACTING/CHECKING 进度，READY 后自动显示数字，READY 10 分钟复用、FAILED 60 秒退避，`force` 可重算；`start` 复用新鲜 READY 的 missing 词表，避免二次整本解析+缓存扫描。预览仍只调 cached-check，不自动生成详解、不产生生成费用。状态：**开发完成待验收**（worktree `../magicbook-r238-word-detail-preview`，分支 `fix/r238-word-detail-preview`；挂 R176 缺陷修复）。
+
+239. **全文单词详解预览屈折词覆盖漏算**（2026-10-28）：用户反馈预览「这个计算不对，完全没有考虑曲折变形」（按“屈折”理解）。根因不在 magicbook R238 的后台 worker，而在 moon-well `cachedLookupKeys` 的 ES `_source` 只取 `forms.form`、漏掉判定用的 `forms.type`，导致 `books / children / going / beasts / witches / revolting` 等词目覆盖形全被列为缺失；扫描是全局视图，所有书都受影响。修复主责 moon-well R226；本仓零代码，补 L2 覆盖率权威、L3 快照边界、需求 R239 与 LLD，并规定上游部署后用 `force=true` 刷新 book 145 验收。状态：**已合并待上线验收**（worktree `../magicbook-r239-word-detail-inflection`，分支 `fix/r239-word-detail-inflection`；R238 worktree 保留另待验收）。
+
+240. **核心异步任务体系设计与强制规范**（占号 2026-10-28，待回填）
+
+241. **整本能力缓存齐备标识：整本翻译/整本朗读/全文单词详解都有缓存时给书目标识，提示可低成本学习**（占号 2026-10-28）：状态 **开发完成待验收**。书籍详情页给出三枚分项小标（整本翻译/整本朗读/全文单词详解，悬停带 n/m 与计费口径），三项齐备追加「低成本学习」总标；整本任务面板页签同步「已缓存」。判定取三条整本链路台账（COMPLETED + 跑满 + 正文指纹/格式一致），零上游调用、moon-well 零改动；标识面向普通读者，三个整本入口仍仅管理员。已知边界：翻译/详解的 COMPLETED 依赖进度轮询收敛（R78 不做常驻轮询）。实现 `7d837dc8`、合并 `f10d543d` 已推 develop；worktree `../magicbook-r241-cache-ready-badge`（分支 `feat/r241-cache-ready-badge`）驻留待验收；新增 18 条守卫，定向 157 passed。
+
+242. **积分卡：购买、兑换与管理员发卡入口**（占号 2026-10-28）：用户原话「我想增加一个积分兑换卡服务。我可以发1000 5000 10000积分的积分卡。任何人知道卡的密钥即可兑换。也可以在积分页面买积分卡送人。」确认口径：①卡密可转让给任何人，任何已登录用户知道有效卡密即可兑换；②购卡默认 30 天，管理员可设 1–3650 天或长期有效；③购卡不享受充值倍率，买家积分不增加；④只做文本卡密 + 复制，不做二维码/图片；⑤价格固定 1000/¥10、5000/¥50、10000/¥100。2026-10-29 增补：卡密复制拆为「复制卡密」「复制并分享」，分享链接打开后展示使用方法；链接仍为纯文本，卡密只放 URL fragment。本仓交付：`cps/routes/credit.py` 九条代理 + 分享落地页；`credits.html` 兑换/购卡/已购卡密/管理员发卡区；`credits.js` 购卡支付复用、按订单号定位新卡、复制/分享 fallback、管理员批次/作废/导出；`credit-card-share.js` 分享说明与兑换引导；i18n 与测试。设计：`docs/project/iterations/2026-10-credit-card/`。状态：**已上线待验收**（2026-10-29，分享链接提交 `79261d2b` 已发布，生产验证通过；worktree `../magicbook-r242-credit-card` 保留待用户验收）。
+
+243. **站内信邮件系统前端：伙伴信封、抽屉 Mail、独立邮件页**（占号 2026-10-28；2026-10-29 已上线待用户真机验收）：新增 `/ajax/mail/*` 四条薄代理与登录门禁，前端统一 `MBMail` 状态层驱动 Buddy FAB 信封、设置菜单角标、AI 抽屉 Chat/Mail 双页签与独立 `/mail` 收件箱；FAB 无未读保持 Chat、有未读进 Mail，“对话”气泡仍显式进 Chat，打开 Mail 页签不自动已读、展开单封才已读，列表失败不清空最近一次成功未读，已解决邮件保留历史但不计未读。管理员积分表单新增“同时发送到账通知”与可选纯文本正文，负数自动禁用并清空。`layout` / `read` / `readtxt` / `readpdf` 已接入；`readcbr` 当前未挂 Buddy 面板，本轮明确不扩展。与 R244 隐藏/唤回语义合并：可见 FAB 只显示 R243 信封，伙伴隐藏后同一未读映射到唤回药丸，不重复生成红点。合并最新基线后正式发布态全量 **1109 passed / 0 failed**；R244 合并后定向 **137 passed**，另 R233 链接/阅读器结构 **19 passed**，`node --check` 与 `git diff --check` 通过。状态：**已上线待用户真机验收**（merge/push `af9987bb`；生产容器 `running/healthy`；`/home` 200，匿名 `/mail` 正确 302 到登录页，匿名 `/ajax/mail/unread-count` 正确 302）。worktree `../magicbook-r243-mail-inbox`，分支 `feat/r243-mail-inbox`，实现 `82688cd2`、列表失败隔离修复 `78581165`、前次基线合并 `bf4b6e1a`、R244 合并 `a241f287`、最新基线合并 `79e66e40`。
+
+244. **伙伴动效：隐藏消失动画（金光消散）+ 收信动画（站内信预留钩子，纯CSS）**（2026-10-28）：用户「伙伴增加一个消失的动画和一个收到信件的动画」。拍板 1B（点悬浮球隐藏 ✕→金光消散收起→右缘唤回药丸，可逆、跨页记忆）；2 收信为后续站内信（R243）预留，本轮只交展示层 + `window.AICompanion.showLetter()`/`mb:buddy-letter` 钩子，不接数据源；3 纯 CSS + 一点金光、零新素材。复用 `_('Close')`/`_('AI Companion')` 不新增 msgid。见 response.md R244 与 iterations/1.0/r244-buddy-animations/lld.md。
+
+245. **积分页按功能分区重构与充值活动发布 400 修复（前端）**（占号 2026-10-29）：用户原话「积分充值活动，点击发布报错，400 请求体格式错误。积分页功能太多，堆砌太杂乱了。按照具体的小功能且分优化一下。」后续补充「积分消耗明细项颜色和背景色几乎一样，根本看不出来」。本仓交付：积分页改为余额 Hero + 充值/积分卡/明细/管理四个任务页签；管理内再分积分调整/充值活动/批量发卡，卡密内分兑换/购卡赠送/已购卡密；分享卡密自动切到积分卡；活动发布前把 `datetime-local` 的 ISO 值规范为 `yyyy-MM-dd HH:mm:ss`，结果改行内反馈；明细获取/消耗徽标与金额改用高对比语义类，去掉浅色内联样式。跨仓 moon-well R229 在 DTO 字段级兼容 ISO/空格格式，不改全局 Jackson。PingCode：需求 MB-235（`Nal8mNRY`）、缺陷 MB-21（`xn-uxsjb`）。状态：**已上线待验收**（merge/push `5e5979f9`；实现 `39135634`、可读性 `0cc8a0dc`、文档 `244634b4`、最新基线合并 `83765414`。fnOS `build END OK`、app-manager `deploy SUCCESS`、容器 `running/healthy`，匿名 `/credits` 正确 302 到登录页；worktree `../magicbook-r245-credit-page-redesign`，分支 `fix/r245-credit-page-redesign`，保留待验收）。
+
+246. **R214 验收缺陷：整本任务进度条补充任务类型标识**（占号 2026-10-29）：用户原话「进度条什么都不显示，不知道是哪个任务的进度条」。定性：R214 子项 C 的进度标题复用按钮文案 `t('start-' + kind)`，而详解 kind 为 camelCase `wordDetail`、HTML 属性名解析后为小写 `worddetail`，导致标题取空；即使补齐小写，按钮动作「打开详解页面」也不是任务名。修复：模板新增 `data-t-progress-kind-{translate,tts,worddetail}` 与四种状态句式，`renderProgress()` 先小写化 kind，再渲染「全文单词详解 · 进行中」等标题，并为缺键保留回退，避免再次空白；不改三条整本 job 的接口、轮询、缓存或计费。守卫 `test_progress_title_names_task_and_status` 钉住任务名、状态句式、小写化与回退。状态：**开发完成待验收**（worktree `../magicbook-r246-wholebook-progress-label`，分支 `fix/r246-wholebook-progress-label`；挂 R214 修复不建独立 idea）。
+
+247. **修复归档书籍内容速览误报 book is unavailable**（占号 2026-10-29）：用户反馈归档书 `/book/145` 显示「内容速览解析失败：book is unavailable」。定性：详情页允许查看归档书，但内容速览复用整本任务的默认取书过滤，影响所有归档 EPUB。修复：`JobServiceBase._book_file()` 新增可选 `allow_show_archived`（默认 false），仅内容速览入口显式允许归档；三条整本任务边界不变。新增归档速览成功与整本任务默认过滤两条回归，相关 174 passed。文档：L1/L3、R214 需求基线、LLD §19、AC B9、迭代 plan。状态：**开发完成待验收**（worktree `../magicbook-r247-archived-insight`，分支 `fix/r247-archived-insight`；挂 R214 修复不建独立 idea）。
+
+248. **整本任务进度条只在书籍详情页显示**（占号 2026-10-29）：用户反馈书架页/书卡弹层顶部出现了全文单词详解进度条，要求进度条只显示在书籍详情页的整本任务区域。定性：R214 子项 C 的 partial 在 XHR 片段中也被下发，JS 又把进度条移到全局导航下方。修复：详情页新增专用 `#whole-book-progress-slot`，partial/JS 加 `not is_xhr` 门禁，进度条只挂到完整详情页的整本任务区域，并从全局导航下方撤除；三条整本 job 端点、轮询、缓存、计费和归档语义不变。状态：**开发完成待部署验收**（worktree `../magicbook-r248-progress-detail-only`，分支 `fix/r248-progress-detail-only`；挂 R214 修复不建独立 idea）。
+
+249. **整本朗读后台线程共享会话崩溃导致任务停在进行中**（占号 2026-10-29）：用户反馈 book 145 的整本朗读「不是已经完成了吗」，页面却显示未完成且仍可点「继续」。定性：批次实际停在 `RUNNING 207/1348`，后台 worker 与 HTTP 请求线程共用 `ub.session`；请求线程提交/关闭事务后，worker 下一次 autoflush 抛 `ResourceClosedError: This transaction is closed`，线程被花名册注销但 job 状态仍为 `RUNNING`，前端据 1141 个 PENDING 段显示「继续」。ES 核验确认 `magicbook-read-paragraph` 已有 1347/1348 段音频引用，1347 个 MinIO 对象均存在且非空，仅第 1117 段缺失；本次已发出的 207 次 `/tts/speak` 全部命中旧缓存且无 ERROR，故用户感知为「已经完成」，但批次台账确实尚未收口。修复：`_synth_worker()` 改用 `_thread_db_session()` 的独立 engine + 线程作用域会话，逐段 `_commit_with_retry()`；每轮 `expire_all()` 读取取消状态，`_refresh_counts()` 显式接收 worker session；请求侧 `progress()` 提交后刷新 job，确保返回 worker 写入的终态。状态：**已上线待验收**（实现 `39759318`；生产 book 145 从 207 段续跑至 `1348/1348 COMPLETED`，ES/MinIO 均补齐 1348/1348，页面显示 100% 已完成并出现「整本朗读已缓存」；worktree `../magicbook-r249-tts-worker-session`，分支 `fix/r249-tts-worker-session`；挂 R214/R166 修复不建独立 idea）。
+
+250. **管理员运营站内信：自由撰写、单发/群发、发送历史与整批撤回**（占号 2026-10-29）：状态 **已上线待验收**。新增独立 `/admin/mail` 后台与五个 `/ajax/admin-mail/*` 代理（`users`、`audience-count`、`send`、`campaigns`、`recall`），页面与代理先验 `role_admin()`，moon-well 再验 `credit.admin-user-ids`。支持指定一人/多人或全体（全体含管理员本人），去重后 1–5000 人；标题 1–80 字、正文纯文本 1–500 字；跳转仅 `/credits`、`/buddy`、`/achievements`、`/learning`、`/mail`。全体人数由独立接口读取并显示精确值，未知或 5001 人时阻止预览/发送；发送确认说明可整批撤回但收件人可能已看到。历史倒序分页，整批撤回后刷新历史与统一未读数；运营邮件复用 `/mail`、抽屉 Mail、设置入口与伙伴信封，标题/正文均用文本节点渲染。文档四问已落 L1/L2/L3、需求基线、HLD/LLD/AC 与迭代计划。定向测试 `160 passed`，正式发布态全量 `1182 passed / 0 failed`。合并提交 `77eacb85` 已推 `origin/develop`（`25d4af9f..77eacb85`），fnOS `build END OK`、app-manager `deploy SUCCESS`、容器 `running/healthy`、`house.build-sha=77eacb85...`。worktree `../magicbook-r250-admin-mail`，分支 `feat/r250-admin-mail`，保留待验收。
+
+251. **MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页**（占号 2026-10-29）：用户原话「目前的UI系统有一点乱，帮我设计一个更好看更合理的分组，显示。并总结经验教训，设计原则。以后按照这个来。magicbook 的UI系统，尽量少修改 calibre 的UI系统。先按照你的设计做一版」；补充「先找到 magicbook（非 calibre 的部分）所有功能，分类分级列成树状结构；A 账号的各个 L2 不要堆在一个页面，改成类似 S 学习的纯文字 L2，不用卡片，也不要把多个 L2 放一起；M 管理同样改造」。验收后补充：账号/管理标题后不再显示 L2，A1 用户名和邮箱改为 14px 左对齐，删除 `/me` 底部的迁移提示，并在账号说明下方增加 `account.haoshenqi.top` 新窗口入口；最后要求「把完善好的功能地图写入文档，在 readme 里引用」；文档收尾要求「检查 readme 文件夹，更新里边的文档。然后 merge develop push」。最新侧栏要求：「能否只在书籍的选项下，左侧暂时原来 calibre 的书籍选项，其他的修改左侧侧边栏，如果不好做就自动隐藏。」定稿口径：第一轮五域导航、侧栏 Browse/书架/分级/媒体/系统分层、唯一 active、安全兜底、四列移动底栏继续有效；第二轮账号拆为 A1 资料身份 `/me`、A2 伙伴与 AI 伴读 `/buddy`、A3 站内信 `/mail`、A4 阅读与词汇 `/reading/settings`、A5 积分 `/credits`、A6 成就 `/achievements`、A7 学习数据 `/me/export`；管理拆为 M1 用户权限、M2 站点注册、M3 整本翻译、M4 全文单词详解、M5 LLM 任务、M6 积分治理、M7 运营站内信、M8 UI 配置、M9 数据库、M10 邮件服务器、M11 计划任务、M12 日志、M13 调试。账号/管理页头只渲染分组纯文字 L2 导航，每页一个任务；伙伴是 AI 伴读入口并复用共享抽屉；用户积分与 `/admin/credits` 治理页物理分离；顶栏管理直达 M1，旧 `/admin/view` 302 兼容。Calibre 原生书目侧栏只在“书库”域显示，首页/学习/账号/管理/未知页自动隐藏，内容扩展到满宽；移动端沿用原折叠菜单。MagicBook 非 Calibre 功能完整树、A/M 路由表、经验教训与长期原则落到 L1/L2/L3/LLD/AC/KB；完整功能地图最终独立为 L1 `docs/product/readme/feature-map.md` 并在产品 README 提供主入口，L3 只引用该单一来源。README 全册巡检新增账号手册，修正 L2 覆盖现状、MagicLens 接管与阅读器兜底关系、过期扩展版本和失效后端指针。状态：**已上线待验收**（worktree `../magicbook-r251-ui-ia`，分支 `feat/r251-ui-ia`；正式发布态全量 1206 passed / 0 failed / 4 warnings；第二轮初始实现 `af551307`、验收修正 `3a75a695`、侧栏范围补充 `8abb1c09` 已推 `origin/develop`，fnOS `build END OK`、app-manager `deploy SUCCESS`、容器 `running/healthy`、`house.code-digest=3bc155512e571d32`；统一账号中心入口 `2de2a538` 已上线；功能地图与 README 巡检均为纯文档收口，推送后按 docs-only 跳过构建）。
+
+252. **书籍详情页展示整本朗读与翻译费用及缓存费用**（占号 2026-10-29）：用户原话「书籍详情页写一下完整听完大概需要多少token，完整翻译完大概需要积分，如果已经缓存了就写缓存需要的积分加原始需要的积分，比如 【完整朗读预计花费1（100）积分】1是缓存 100是全文朗读预计。详情也写一下。」口径：翻译按 `chars/4` 粗估 token，积分按 moon-well R222 的 `ceil(tokens × creditsPer1kToken / 1000)`；TTS 不按 token，全文生成按字符 `floor(chars / charsPerCredit)`，已缓存收听按 R213 的 `1 积分/段`。详情页在缓存齐备标识后固定展示两行摘要；已缓存时按「缓存值（全文原价）」并列，翻译缓存阅读 0 积分、朗读缓存收听 `段数×1` 积分；未缓存只显示全文生成原价，费率不可得时明确写暂不可得，不把未知显示成 0。实现：速览快照新增去重后的 `billableParagraphCount/billableCharCount`，新增 `cps/reading_insight/cost.py` 纯函数，`show_book()` 复用速览与 readiness 台账并读取 moon-well `/credit/billing`（5 分钟缓存、详情页 2 秒超时），不实时探测整本缓存；同时把 `/ajax/whole-book-estimate` 的翻译公式回正为 R222 比例计费。状态：**已上线待验收**（实现 `004c6a1f`，fnOS 构建 END OK、容器 healthy；定向 118 passed、全量 1133 passed；worktree `../magicbook-r252-book-cost-summary`，分支 `feat/r252-book-cost-summary`）。**翻译缓存 0 积分口径已被 R253 取代。**
+
+253. **缓存翻译按1积分每段计费**（占号 2026-10-29）：用户原话「缓存翻译不是也要1个积分吗」，随后拍板「按 **1 积分/缓存段** 修改」。本仓口径：详情页成本摘要的翻译缓存值改为 `cache_readiness.translate.total × 1`，文案由「缓存阅读」改为「缓存翻译」；朗读缓存收听仍为 `tts.total × 1`，两条链路段数分别取各自台账，不混用。同步更新整本缓存标识悬浮说明、L1/L3、R252 历史注记与需求基线 R253；不改详情页零缓存探针、整本任务接口或后台 token 计费。跨仓同源：moon-well R231。状态：**已上线待验收**（实现 `1e525b18`；定向 57 passed；fnOS 构建 `END OK`、容器 healthy；worktree `../magicbook-r253-cached-translation-billing`，分支 `feat/r253-cached-translation-billing`）。
+
+254. **伙伴邮件弹层与 AI 对话抽屉分离**（占号 2026-10-29）：用户原话「邮件不要出现在AI伴读对话框中。当新邮件到达的时候，点击伙伴弹框显示邮件而不是跟AI伴读公用一个弹框」。口径：AI 抽屉只保留 Chat、会话工具与记忆面板，删除 R243 的 Chat/Mail 双页签与 Mail pane；登录态新增独立 `#buddy-mail-popover`。无伙伴浮层时点击 FAB，有最近成功未读打开邮件弹层、无未读打开 AI 对话；邮件弹层或 AI 抽屉已打开时再点 FAB 关闭当前浮层。邮件弹层与 AI 抽屉互斥，快捷气泡“对话”始终直接打开 Chat。弹层展示最近 5 封、未读数、全部已读和查看全部；打开弹层不标已读，展开单封才标已读。设置菜单【邮件】、完整 `/mail`、FAB 信封、伙伴隐藏后的唤回提示与统一 `MBMail` 状态不变；不改 moon-well 接口。状态：**已上线待验收**（实现 `96a75611` 已推 `origin/develop`；定向 138 passed、正式发布态全量 1203 passed / 0 failed；fnOS `build END OK`、app-manager `deploy SUCCESS`、容器 `running/healthy`、`house.build-sha=96a75611...`；worktree `../magicbook-r254-buddy-mail-popover`，分支 `fix/r254-buddy-mail-popover`，保留待验收）。
+
+255. **[缺陷] 注销后 remember_token 未清除，下一次请求自动把用户登回来（R123 回归）**（占号 2026-10-29）：用户 sunny 原话「接口 401 注销功能失效，无法正确注销」，补充「资料与身份可以正常显示用户名和邮箱，authentik 正常登录」。根因：`logout_user()` 通过 session 的 `_remember="clear"` 通知 after_request 删除 `remember_token`，但 R123 新增的 `flask_session.clear()` 紧随其后把它一并清掉；OIDC 登录固定 `remember=True`，下一次请求（注销 302 → /login）从 remember cookie 自动恢复登录并 `confirm_login()`，`/login` 随即 302 回首页。修法：`cps/web.py::logout()` 改为先 `flask_session.clear()` 再 `logout_user()`，R123 的 token 清空语义不变。边界：本站注销不结束 `account.haoshenqi.top` 的 SSO 会话；若要求「注销同时退出统一账号中心」，另立需求接 RP-initiated logout。状态：**已上线待验收**（merge/push `81356579`；定向 52 passed；fnOS 镜像 `house.build-sha=81356579...`、容器 `running/healthy`@2026-10-29T23:25:23+08:00；worktree `../magicbook-r255-logout-remember`，分支 `fix/r255-logout-remember`，保留待验收）。
+
+256. **修复黑盒体验报告缺陷：OIDC建号漏设sidebar_view致九浏览入口404/空标题书架可创建/详情页Read标签译为已读致歧义/听写材料标题实体未解码**（占号 2026-10-30）：新用户黑盒体验报告（临时账号 mbtester1030）四项缺陷。B1 根因=OIDC 建号漏设 sidebar_view 落列默认值 1，浏览路由 check_visibility 位缺失 abort(404)，生产实验闭环（恢复 262143 后 /author 立即 200）；B2=create_edit_shelf 无空标题校验；B4=详情页阅读状态开关 label 复用 msgid "Read"（po 译「已读」）；B5=素材下拉直接展示元数据未解码 HTML 实体。B3（删除书架按钮）/B6（听写载入卡顿）自动化环境无法证伪，存疑待真机复核不修。状态：**已 merge 待验收**（develop c3badf9e；新增守卫 10 用例+契约演进 2 用例，相关回归全绿；worktree `../magicbook-r256-newuser-sidebar404`，分支 `fix/r256-newuser-sidebar404`）。存量数据修复 SQL 见 LLD §2.1（sidebar_view=1 特征值回填 config_default_show）。
+
+257. **按产品设计方案修复：普通用户隐藏downloadlist入口/下载权限用户视角文案/删除书架确认流程/空书架兜底/难度横幅降权/切语言原地刷新/复习队列空态解释/测试结果交叉引用/i18n核心残留/语言菜单收敛**（占号 2026-10-31，待回填）：设计方案十个方案按 ⚡/🏗 裁剪，本轮实施一/三/四/六/七/八/九（普通用户隐藏 downloadlist 入口、复习队列空态解释+测试结果交叉引用、下载/阅读权限文案用户视角、积分页/稀有度 8 词条+语言菜单收敛 3+折叠、书库首页移除难度横幅、切语言原地停留 next 白名单、删除书架真按钮+空名兜底「未命名书架」）；二/五/十（跨 moon-well 生词判定/充值卡重排/已读数据诊断）按设计文档「不做什么」待单独拍板。状态：**已 merge 待验收**（develop 5e03f189；新增守卫 20 用例+契约演进 4 处，全量 1228 passed；worktree `../magicbook-r257-design-plan-fixes`，分支 `feat/r257-design-plan-fixes`）。
+
+258. **方案五充值卡五段式重排+方案十已读状态口径诊断与修正**（占号 2026-10-31，待回填）
+
+259. **设置页生词提示语对齐 R232 新口径（该等级及以上）**（占号 2026-10-31）：承接 moon-well R232（生词判定兜底改「词档 ≥ 用户档位」、档位=学习目标线、存量档位 +1 迁移）。本仓零判定逻辑改动，只同步用户可见表述：`cps/templates/reading_settings.html` 提示语 msgid 改「Words at or above this level are marked as unknown while reading. Default: CET4.」，zh_Hans_CN messages.po/msgstr 同步「阅读时该等级及以上的词会被标记为生词。默认：CET4。」并 pybabel 重编译 .mo；L1 `readme/vocabulary.md` 档位句补「正在学的目标水平」口径，需求基线变更记录加 R259 行。其余 27 locale 无此条翻译走英文源文回退。定向 `test_nav_settings_dropdown + test_i18n_seed_contract + test_me_preferences + test_common_api_contract` 共 28 passed。跨仓主线 moon-well R232；PingCode MB-236。状态：**已上线待验收**（worktree `../magicbook-r259-judge-tooltip`，分支 `feat/r259-judge-tooltip`，保留待验收）。
+258. **方案五充值卡五段式重排+方案十已读状态口径诊断与修正**（占号 2026-10-31，待回填）：方案五=renderPackages 五段式（价格大字/所得构成「内测 N 倍=基础额度」/活动倒计时/单一中文主按钮/单价辅助行，credits 字段已结构化纯前端重排）；方案十=生产数据诊断确认 book_read_link 无脏数据（新用户零记录，B4 系 R256 已修 label 歧义，无需数据修复），修正真缺口 show_book 三态布尔化丢「在读」→详情页三态+「在读」标签；方案二专名判定四层过滤设计答复存档 LLD §3。状态：**已 merge 待验收**（develop d34c6968；守卫 9 用例+R242 契约演进，全量 1237 passed；worktree `../magicbook-r258-plan5-plan10`，分支 `feat/r258-plan5-plan10`）。
+
+260. **AI 伴读用户自我介绍与系统提示词注入**（占号 2026-10-31）：用户原话「AI应该了解用户才能更好的跟他聊天，帮助他。AI伴读那里增加一个用户填写自我介绍的部分，并把这部分内容放到系统提示词里。」本仓作为消费侧在 AI 伴读记忆面板顶部新增「AI 了解我」：2000 字编辑、实时计数、保存、二次确认清空、加载/保存/清空失败可见与敏感信息提示；新增 `GET /ai/agent/profile`、`POST /ai/agent/profile/save` 两条薄代理接 moon-well R234，用户文本只用 `.val()` 渲染。新文案进入 i18n seed、zh `.po` 与 `.mo`。本轮不实施结构化档案与 AI 摘要优化。PingCode 需求 `MB-237`、PJM 用户故事 `MB-22`。状态：**已上线待验收**（实现 `7b96323e2f5ce04d7d06bbffb41b42e829b61862` 已推 `origin/develop`；定向 14 passed、正式发布态全量 1251 passed / 0 failed / 4 warnings；fnOS `build END OK`、`deploy SUCCESS`，容器 `running/healthy`，镜像 `house.build-sha=7b96323e...`、`house.code-digest=92f502a325ca3318`；Nacos 两套模板 `1.3.0` 已发布并回读 PASS；MinIO 保持 `.10`；worktree `../magicbook-r260-ai-user-profile`，分支 `feat/r260-ai-user-profile`，保留待验收）。
+
+261. **Jinshu 借鉴三件套：行内生词释义/Book Fit 话术/复习小件**（占号 2026-11-01）：竞品 Jinshu（built4.fun）调研后用户拍板三项——①阅读器行内小字释义（Word Wise 式，可选默认关：设置弹窗开关 localStorage 记忆，markVocabulary 双守卫挂 data-gloss，READER_TOOLS_STYLE 注入 iframe 的 ::after attr 渲染，切换经 ReaderVocabGloss.remark 用缓存即时重标；数据接 moon-well R236 analyze gloss 字段）②选书页每本书新增「~N 个重复出现的超纲词」行（null 容错隐藏），样例词放宽 正合适/挑战读；③复习小件（学习抽屉「复习小件」组两开关，null 不落库同 R208 口径）：复习卡来源书 chip（只亮书名）+ 学习入口待复习角标（镜像判关零请求、stats 5 分钟缓存、MBDueBadge.refresh）。已评估不做：标注纠错反馈回路（AI 伴读覆盖）、墨水屏模式。i18n 五步链 6 词条；新增 8 条静态锁 tests/test_r261_jinshu_borrow.py。PingCode `MB-238`；后端 moon-well R236。状态：**开发完成待验收**（worktree `../magicbook-r261-jinshu-borrow`，分支 `feat/r261-jinshu-borrow`，保留待验收）。
+
+262. **整本成本摘要修正：翻译积分=token 换算+段落数，朗读去括号说明**（2026-11-01 完成待验收，挂 R252/R253 成本摘要缺陷）：①**问题**——用户实测 book（约 47 段）显示「完整翻译 约 1,865 tokens · 原价约 19 积分」：翻译按段逐次调用 LLM、每段不足 1 积分按 1 积分，只按 token 总量换算会把多段短文报价过低（一句话也要至少 1 积分）；「完整朗读」括号说明冗余。②**修**——`reading_insight/cost.py`：translate.fullCredits = token 换算积分 + 段落数（base 不可得时仍 None），translate 增 `segments` 字段；`detail.html` 删「（TTS 不按 token，约 X 段）」可见括号（tooltip 悬浮说明保留）。③**测试**——test_book_cost_summary 17/17 绿：期望 11→112（=11+101），新增 segments 断言、括号删除断言（tooltip 串不在断言范围）。④**效果**——示例书完整翻译原价 19 → 66 积分（19+47）；朗读「约 7,460 字符 · 原价约 149 积分」。worktree `magicbook-r262-cost-estimate-fix` 驻留待验收；develop 本地 merge（0a56f183）**未 push 未部署**。
+
+263. **阅读器朗读速度选项：TED/博客类原声与整本连播支持 0.75x/0.5x（初学者降速）**（占号 2026-11-01）：用户原话「增加一个 0.75 0.5 朗读速度的选项。博客类的对于初学者可能太快了」。口径：客户端 `playbackRate` 三档 1.0x/0.75x/0.5x 循环（顶栏「语速」按钮，localStorage `calibre.reader.ttsSpeed` 记忆，preservesPitch 变速不变调），不改音频缓存键（SHA-256(原文)）、不加服务端参数——变速落服务端会击穿永久缓存设计；TED/博客类整段原声（tedAudioStart）、整本 TTS 连播（startAudio 每块新建 Audio）、单段朗读（activeTts）三条链路统一套速，浏览器兜底 utterance.rate 乘档位；书既无原声也无 TTS 端点时语速按钮随 #tts-book 一并隐藏；窄屏折叠清单不动（语速留主栏）。新增 msgid `Reading speed`=「语速」（zh po+mo，其余 locale 英文回退）、reader-core 档位存取（白名单校验脏值回落 1）、`tests/test_r263_tts_speed.py` 静态锁 5 条；定向回归 reader/i18n/UI 结构 5 批共 177 passed。文档：L1 reading.md、LLD `iterations/2026-11-tts-speed/`、需求基线变更记录 R263 行。状态：**已上线待验收**（实现 `6cf91a65` 已推 `origin/develop`；worktree `../magicbook-r263-tts-speed`，分支 `feat/r263-tts-speed`，保留待验收）。
+264. **BBC 原声伴听近似逐段高亮：无时间轴原声按字符占比合成虚拟时间轴**（2026-11-01 完成待验收）：①**排查**——用户报「改造后朗读全文没有逐段高亮」：非 R177 回归。BBC 书 `#tts-book` 经探测走**原声伴听**（`/book/ted-audio` 返回 `audioUrl`、`segmentStatus=UNSUPPORTED`、`segmentCount=0`，R211 已知限制），整段真人原声没有逐段时间轴 ⇒ 无高亮依据；改造前后同模式（注册表 10-24 后未动），EPUB 章节结构与改造前逐字节同构亦排除。②**方案 C（用户拍板）**——注册表段落清单恰为「有原声的内容」（导入即按剧集解析，28 段实测），按**字符占比**在整段音频时长上合成**虚拟时间轴**（`tedAudioSynthTimeline`，seg.approx 标记），既有「时间轴高亮/翻章跟随/点段切播」机器零改动生效；音频外段落（概要/问答不在注册表）天然不参与高亮——本就不在音频里。③**配套**——`tedAudioAlignChapter` 文本兜底桶扩到全书注册表段落（R177 合并章书 241/292/303：注册表「X · 第 2 段」已并入 DOM「X」，章内数量失配需跨章文本匹配；概要/问答无同文段自然降级）。④**验证**——node --check；reading/ted/tts/static 定向 293 passed。近似误差声明：片头语速不均会漂移，点段切播按近似位置。worktree `magicbook-r264-ted-approx-highlight` 驻留待验收；develop 本地 merge（6bd15ec7，台账与并行 R263 已推送条目并集）**未 push 未部署**——push 即自动部署生效。
+
+265. **站内信渲染 R235 同源：积分到账来源文案、购卡成功、余额不足/归零提醒**（占号 2026-11-01；**开发完成待验收**）：moon-well R235 新增/扩展了站内信类型，本仓同步消费侧渲染：①`CREDIT_GRANTED` 按 `params.source` 分流（REGISTER 新人赠送 / RECHARGE 充值到账带订单号 / CARD 卡兑换带卡密掩码），历史无 `source` 回退原通用文案；②新增 `CREDIT_CARD_PURCHASED`（卡面额 + 掩码 + 有效期，缺省视为长期有效）、`CREDIT_BALANCE_LOW`、`CREDIT_BALANCE_ZERO` 三个分支，跳转仍是 `/credits`；③15 条新词条落 `i18n_seed.html` + `zh_Hans_CN` PO 并重新编译 MO（`pybabel compile`）；④`tests/test_mail_ui_r243.py` 新增 `test_credit_mail_variants_render_by_source_and_type`，用 Node 直接执行生产 `describeMail` 断言 7 种输入（含历史回退与跳转白名单）。守卫：`test_mail_ui_r243.py`(25) + `test_mail_proxy_r243.py` + `test_admin_mail_r250.py` 共 101 例全绿；`test_i18n_seed_contract.py` + 积分页/积分卡/明细 34 例全绿。未改：管理员「同时发送到账通知」默认勾选（会命中 R243 守卫用例，待用户确认）。worktree `../magicbook-r265-credit-mail-render`（分支 `feat/r265-credit-mail-render`）驻留待验收。
+
+266. **学习入口待复习角标 hidden 失效：默认关闭时仍渲染空红胶囊（红横杠缺陷）**（占号 2026-11-02，待回填）
+
+267. **重写 GitHub README：核心功能与入门用法**（2026-11-02 完成已 push）：仓库根 README 上游原样内容整体重写为本仓产品 README（定位/三件套/六组核心功能/快速上手七步/架构图/本地开发/GPL 致谢），口径以 L1 为准；用户拍板连同本地 10 个待验收提交一起 push 上线（711f6065..4454e9f2 → origin/develop，R262/R264/R265 随本次部署），README 另 cherry-pick 至 master 落地页生效（a712694c..5b01c880）。闸门修复：R225 权限提示断言对齐 R257 现行文案（预存破损，31e87b6e），全量 1270 passed / 0 failed。README 本身 docs-only。
+
+268. **播客阅读页生词不显示：波浪下划线样式未注入 EPUB iframe（analyze 正常返回但 span 不可见）**（占号 2026-11-02，待回填）

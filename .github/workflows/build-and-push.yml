@@ -1,0 +1,121 @@
+name: Build and Push to Aliyun
+
+on:
+  # 2026-10-21 R191：收敛到 fnOS 单链，push 不再触发 GHA 构建。
+  # Why: 同一次 push 会被 GHA 与 fnOS 监听器同时接住，各构建一次、各推一次 :latest、
+  #      各调一次 project-update（moon-well 已有同秒双建的实证，见 ops R153/R155）。
+  # 保留 workflow_dispatch 仅作 fnOS 失联时的应急手动通道。
+  workflow_dispatch:
+
+env:
+  ALIYUN_REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  ALIYUN_NAMESPACE: magichouse
+  IMAGE_NAME: magicbook
+
+jobs:
+  build:
+    name: 构建并部署
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Read snapshot version
+        id: version
+        run: |
+          if [ -f deploy/.snapshot-version ]; then
+            VERSION=$(cat deploy/.snapshot-version | tr -d '[:space:]')
+          else
+            VERSION="unknown-$(date '+%Y%m%d.%H%M%S')"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "==> 构建版本: $VERSION"
+
+      - name: Debug credentials
+        run: |
+          echo "==> Debugging credentials..."
+          echo "Username: ${{ secrets.ALIYUN_USERNAME }}"
+          if [ -z "${{ secrets.ALIYUN_USERNAME }}" ]; then
+            echo "::error::ALIYUN_USERNAME secret is empty or not set"
+            exit 1
+          fi
+          if [ -z "${{ secrets.ALIYUN_PASSWORD }}" ]; then
+            echo "::error::ALIYUN_PASSWORD secret is empty or not set"
+            exit 1
+          fi
+          echo "Password is set (length > 0)"
+
+      - name: Login to Aliyun Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.ALIYUN_REGISTRY }}
+          username: ${{ secrets.ALIYUN_USERNAME }}
+          password: ${{ secrets.ALIYUN_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and Push Image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.ALIYUN_REGISTRY }}/${{ env.ALIYUN_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+          # GHA 缓存：层缓存与 cache-mount 存 GitHub Actions 缓存，跨 run 复用；
+          # 不再依赖 registry inline cache（它要求每次把基础层重新上传到 ACR 来回写缓存标记，
+          # 会被 ACR 个人版流控，偶发 pushing layers 700-800s）
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+          sbom: false
+
+      - name: Trigger app-manager update
+        run: |
+          curl --fail-with-body -sS -m 600 -X POST https://ctl.haoshenqi.top/api/webhooks/project-update \
+            -H 'Content-Type: application/json' \
+            -H "X-Webhook-Token: ${{ secrets.APP_MANAGER_WEBHOOK_TOKEN }}" \
+            -d '{"projectName": "magicbook"}'
+
+      # SSH 直连部署已停用（部署已由 app-manager webhook 统一接管）
+      # - name: Deploy via SSH
+      #   if: success() && github.ref == 'refs/heads/develop'
+      #   uses: appleboy/ssh-action@v1
+      #   with:
+      #     host: ${{ secrets.DEPLOY_SSH_HOST }}
+      #     username: ${{ secrets.DEPLOY_SSH_USER }}
+      #     key: ${{ secrets.DEPLOY_SSH_KEY }}
+      #     script: |
+      #       cd ${{ secrets.DEPLOY_PATH }}
+      #       echo "==> Pulling new image..."
+      #       docker compose pull
+      #       echo "==> Recreating container..."
+      #       docker compose up -d
+      #       echo "==> Waiting for service to be healthy..."
+      #       sleep 20
+      #       echo "==> Cleaning up old images..."
+      #       docker image prune -f
+      #       echo "==> Deployment completed"
+      #       docker compose ps
+
+      - name: Send Bark Notification on Success
+        if: success()
+        env:
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          PROJECT_NAME: ${{ github.event.repository.name }}
+        run: |
+          COMMITS=$(git log -3 --pretty=format:'%h %s' | python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))')
+          if [ -z "$COMMITS" ]; then COMMITS="%E6%97%A0%E6%8F%90%E4%BA%A4%E8%AE%B0%E5%BD%95"; fi
+          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20%E6%9E%84%E5%BB%BA%E6%88%90%E5%8A%9F/${COMMITS}"
+
+      - name: Send Bark Notification on Failure
+        if: failure()
+        env:
+          BARK_KEY: ${{ secrets.BARK_KEY }}
+          PROJECT_NAME: ${{ github.event.repository.name }}
+        run: |
+          COMMITS=$(git log -3 --pretty=format:'%h %s' | python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))' || true)
+          if [ -z "$COMMITS" ]; then COMMITS="%E6%97%A0%E6%8F%90%E4%BA%A4%E8%AE%B0%E5%BD%95"; fi
+          curl -s --max-time 10 "https://api.day.app/${BARK_KEY}/${PROJECT_NAME}%20%E6%9E%84%E5%BB%BA%E5%A4%B1%E8%B4%A5/${COMMITS}"

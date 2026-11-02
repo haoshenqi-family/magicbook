@@ -24,6 +24,7 @@ from html2text import HTML2Text
 from lxml import etree
 
 from cps import logger
+from cps.metadata_provider import outbound
 from cps.services.Metadata import Metadata, MetaRecord, MetaSourceInfo
 
 log = logger.create()
@@ -106,7 +107,9 @@ class Douban(Metadata):
                                  params={
                                      "cat": 1001,
                                      "q": query
-                                 })
+                                 },
+                                 timeout=outbound.DEFAULT_TIMEOUT,
+                                 proxies=outbound.DIRECT_PROXIES)
             r.raise_for_status()
 
         except Exception as e:
@@ -128,7 +131,9 @@ class Douban(Metadata):
                                  params={
                                      "cat": 1001,
                                      "q": query
-                                 })
+                                 },
+                                 timeout=outbound.DEFAULT_TIMEOUT,
+                                 proxies=outbound.DIRECT_PROXIES)
             r.raise_for_status()
 
         except Exception as e:
@@ -151,7 +156,9 @@ class Douban(Metadata):
         log.debug(f"start parsing {url}")
 
         try:
-            r = self.session.get(url)
+            r = self.session.get(url,
+                                 timeout=outbound.DEFAULT_TIMEOUT,
+                                 proxies=outbound.DIRECT_PROXIES)
             r.raise_for_status()
         except Exception as e:
             log.warning(e)

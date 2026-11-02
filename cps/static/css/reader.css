@@ -87,7 +87,179 @@
   color: #777;
   font-size: 11px;
 }
+.reading-translation-popover .translation-speak {
+  float: right;
+  margin-left: 10px;
+  color: #4a90d9;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.reading-translation-popover .translation-speak:hover {
+  opacity: .75;
+}
+.reading-translation-popover .translation-mark {
+  float: right;
+  margin-left: 8px;
+  color: #4a90d9;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.reading-translation-popover .translation-mark:hover {
+  opacity: .75;
+}
+.reading-translation-popover .translation-mark.is-marked {
+  color: #2e7d32;
+}
+.reading-translation-popover .translation-mark.is-loading {
+  opacity: .5;
+  cursor: wait;
+}
 .reading-translation-popover.is-loading { opacity: .8; }
+
+/* 单词详解（R123，与 magiclens v0.4.0 同构）：气泡上的「详」按钮 + 六板块面板 */
+.reading-translation-popover .translation-detail {
+  float: right;
+  margin-left: 8px;
+  color: #4a90d9;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.reading-translation-popover .translation-detail:hover {
+  opacity: .75;
+}
+.reading-word-detail {
+  position: fixed;
+  z-index: 10001;
+  width: min(420px, calc(100vw - 24px));
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+  /* 上内边距交给 .wd-head 承担（见下）：滚动容器自带的 padding-top 会成为头部上方一条
+     漏字的缝——sticky 的吸顶边界是「padding 内缩后的区域」，负 margin 顶不开它。 */
+  padding: 0 14px 12px;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+  font: 13px/1.6 sans-serif;
+}
+/* Why：面板自身是滚动容器（max-height + overflow-y），详解内容一长，滚到底时词目与 ✕
+   一起移出可视区，用户没法就地关闭面板——头部必须吸顶常驻（与 magiclens R42 同源）。
+   How：头部 sticky 吸顶并自带 12px 上内边距（面板的 padding-top 已挪到这里），白底铺满
+   整行内宽（负 margin 抵消左右 padding，改面板 padding-x 必须同步改这里），滚动内容不会
+   从头部上下透出来。8px 下内边距是滚动时的呼吸缝隙，**不可**再用负 margin-bottom 收回：
+   头部有 z-index，白底板会压在下一行（变体说明只有 2px 上边距）上盖掉它的字顶。 */
+.reading-word-detail .wd-head {
+  position: sticky; top: 0; z-index: 1;
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 0 -14px; padding: 12px 14px 8px;
+  background: #fff;
+}
+.reading-word-detail .wd-word { font-size: 19px; font-weight: 700; color: #111; }
+.reading-word-detail .wd-tag {
+  font-size: 11px; color: #92400e; background: #fef3c7;
+  border-radius: 6px; padding: 1px 6px;
+}
+.reading-word-detail .wd-close { margin-left: auto; color: #999; cursor: pointer; font-size: 14px; line-height: 1; }
+.reading-word-detail .wd-close:hover { color: #333; }
+.reading-word-detail .wd-variant { margin: 2px 0 0; color: #b45309; font-size: 12px; }
+.reading-word-detail .wd-msg { color: #777; padding: 8px 0 2px; }
+.reading-word-detail .wd-msg.is-err { color: #c0392b; }
+.reading-word-detail .wd-sec { margin-top: 10px; }
+.reading-word-detail .wd-sec h4 { margin: 0 0 4px; font-size: 12px; color: #4a90d9; }
+.reading-word-detail .wd-sec ul { margin: 0; padding: 0; list-style: none; }
+.reading-word-detail .wd-sec li {
+  padding: 3px 0;
+  border-bottom: 1px dashed rgba(127, 127, 127, .18);
+  word-break: break-word;
+}
+.reading-word-detail .wd-sec li:last-child { border-bottom: none; }
+.reading-word-detail .wd-pos { color: #777; font-size: 12px; margin-right: 4px; }
+.reading-word-detail .wd-en { color: #222; }
+.reading-word-detail .wd-note { color: #777; }
+.reading-word-detail .wd-chip {
+  display: inline-block;
+  margin: 2px 6px 2px 0;
+  padding: 1px 8px;
+  background: #f2f6fb;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.reading-word-detail .wd-chip.is-irregular { background: #fef3c7; color: #92400e; }
+
+/* 划词右键快捷菜单（主文档挂载，与划词气泡同层，层级更高避免被气泡遮挡） */
+.reading-selection-menu {
+  position: fixed;
+  z-index: 10001;
+  min-width: 148px;
+  padding: 4px 0;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .22);
+  font: 14px/1 sans-serif;
+}
+.reading-selection-menu .selection-menu-item {
+  padding: 8px 14px;
+  color: #222;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.reading-selection-menu .selection-menu-item:hover {
+  background: rgba(74, 144, 217, .12);
+}
+
+#titlebar a#immersive-translate {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
+#titlebar a#immersive-translate.active {
+  opacity: 1;
+  color: #f5a623;
+  border: 1px solid rgba(245, 166, 35, .6);
+  padding: 3px;
+}
+
+#settings-modal #ttsEngine {
+  color: #fff;
+  background: transparent;
+  border: 1px solid #666;
+  padding: 4px 8px;
+  max-width: 220px;
+}
+
+#reader-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 48px;
+  transform: translateX(-50%);
+  z-index: 10001;
+  max-width: calc(100vw - 48px);
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: rgba(30, 30, 30, .92);
+  color: #fff;
+  font: 13px/1.4 sans-serif;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+#reader-toast.is-visible { opacity: 1; }
+
 .read-footer #pages-count {
   font-size: 12px;
 
@@ -108,3 +280,410 @@
   width: fit-content;
   position: absolute;
 }
+
+/* ===== 段落批注（与划词气泡同层级；书批注面板更高一层） ===== */
+.reading-annotation-popover {
+  position: fixed;
+  z-index: 10000;
+  width: min(420px, calc(100vw - 24px));
+  padding: 10px 12px;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .18);
+  font: 13px/1.5 sans-serif;
+}
+.annotation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.annotation-title { font-weight: 700; font-size: 13px; }
+.annotation-close {
+  cursor: pointer;
+  color: #888;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  user-select: none;
+}
+.annotation-close:hover { color: #333; }
+.annotation-excerpt {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 8px;
+  max-height: 3.2em;
+  overflow: hidden;
+}
+.annotation-list {
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+.annotation-item {
+  padding: 7px 2px 6px;
+  border-bottom: 1px dashed rgba(127, 127, 127, .25);
+}
+.annotation-item:last-child { border-bottom: none; }
+.annotation-meta { color: #999; font-size: 11px; margin-bottom: 2px; }
+.annotation-content {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.annotation-empty {
+  color: #aaa;
+  font-size: 12px;
+  text-align: center;
+  padding: 14px 0;
+}
+/* --- AI 伴读区（批注弹层内，位于用户批注之上） --- */
+.ai-annotation-section {
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(127, 127, 127, .25);
+}
+.ai-annotation-title { font-weight: 600; font-size: 12px; color: #666; margin-bottom: 6px; }
+.ai-annotation-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-annotation-chip {
+  padding: 1px 10px;
+  border: 1px solid rgba(127, 127, 127, .45);
+  border-radius: 12px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.ai-annotation-chip:hover { border-color: #4a7dbe; color: #4a7dbe; }
+.ai-annotation-chip.is-loading { opacity: .5; cursor: wait; }
+.ai-annotation-chip.is-done { border-color: #4a7dbe; color: #4a7dbe; }
+.ai-annotation-list { margin-top: 6px; max-height: 200px; overflow-y: auto; }
+.ai-annotation-list .annotation-empty { padding: 8px 0; }
+.ai-annotation-item .annotation-meta { color: #4a7dbe; }
+.ai-annotation-regen {
+  float: right;
+  cursor: pointer;
+  font-size: 11px;
+  opacity: .7;
+  text-decoration: underline;
+  user-select: none;
+}
+.ai-annotation-regen:hover { opacity: 1; }
+.ai-annotation-regen.is-loading { opacity: .5; cursor: wait; }
+.annotation-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 64px;
+  padding: 6px 8px;
+  font: 13px/1.5 sans-serif;
+  border: 1px solid rgba(127, 127, 127, .4);
+  border-radius: 4px;
+  resize: vertical;
+  background: #fafafa;
+  color: #222;
+}
+.annotation-input:focus {
+  outline: none;
+  border-color: #4a90d9;
+  background: #fff;
+}
+.annotation-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.annotation-submit {
+  color: #fff;
+  background: #4a90d9;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.annotation-submit:hover { background: #3a7ec0; }
+.annotation-submit.is-loading { opacity: .6; cursor: wait; }
+.annotation-hint { color: #aaa; font-size: 11px; }
+
+#titlebar a#reading-annotations {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+}
+#titlebar a#reading-annotations.active {
+  opacity: 1;
+  color: #f5a623;
+  border: 1px solid rgba(245, 166, 35, .6);
+  padding: 3px;
+}
+
+/* 本书批注面板 */
+.reading-annotation-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10001;
+  background: rgba(0, 0, 0, .35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.annotation-panel-card {
+  width: min(680px, 100%);
+  max-height: min(70vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #222;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, .3);
+  padding: 14px 16px;
+  font: 13px/1.5 sans-serif;
+}
+.annotation-panel-card .annotation-header { margin-bottom: 8px; }
+.annotation-panel-list { overflow-y: auto; }
+.annotation-card {
+  padding: 10px 2px;
+  border-bottom: 1px solid rgba(127, 127, 127, .2);
+}
+.annotation-card:last-child { border-bottom: none; }
+.annotation-card-meta {
+  color: #4a90d9;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.annotation-card-excerpt {
+  font-size: 12px;
+  color: #777;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+.annotation-card-list .annotation-item { padding: 5px 0 4px; }
+
+/* ===== R215 顶栏：可见性 / 触达 / 窄屏「更多」 ===== */
+.reader-main #titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: auto;
+  min-height: 56px;
+  padding: 6px 12px;
+  opacity: .92;
+  text-align: left;
+}
+.reader-main #titlebar:hover { opacity: 1; }
+.reader-main #opener { float: none; flex: 0 0 auto; }
+.reader-main #opener a {
+  width: auto;
+  height: auto;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  /* 原节点带可见文本 "Menu"，只用 ::before 图标，文本在视觉上归零 */
+  font-size: 0;
+  overflow: hidden;
+}
+.reader-main #opener a::before { font-size: 24px; line-height: 1; }
+.reader-main #metainfo {
+  float: none;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.reader-main #metainfo #book-title,
+.reader-main #metainfo #chapter-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reader-main #metainfo #chapter-title { font-size: .9em; opacity: .8; }
+.reader-main #title-controls {
+  float: none;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+.reader-main #titlebar a.tb-tool {
+  width: auto;
+  height: auto;
+  line-height: 1;
+  overflow: visible;
+  opacity: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 500;
+}
+.reader-main #titlebar a.tb-tool:hover {
+  opacity: 1;
+  background: rgba(127, 127, 127, .16);
+  border: none;
+  padding: 0 8px;
+}
+.reader-main #titlebar a.tb-tool:active {
+  box-shadow: none;
+  color: inherit;
+}
+.reader-main #titlebar a.tb-tool .tb-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+}
+.reader-main #titlebar a.tb-tool .tb-label { font-size: 12px; white-space: nowrap; }
+.reader-main #titlebar a.tb-tool[class*="icon-"]::before {
+  font-size: 24px;
+  line-height: 1;
+  margin-right: 0;
+}
+.reader-main #titlebar a#immersive-translate .tb-icon { font-size: 22px; font-weight: 700; }
+.reader-main #titlebar a#immersive-translate.active {
+  opacity: 1;
+  color: #f5a623;
+  background: rgba(245, 166, 35, .14);
+  border: none;
+  padding: 0 8px;
+}
+.reader-main #titlebar a#immersive-translate.is-loading .tb-icon {
+  animation: tb-translate-pulse .9s ease-in-out infinite;
+}
+@keyframes tb-translate-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader-main #titlebar a#immersive-translate.is-loading .tb-icon { animation: none; }
+}
+.reader-main #titlebar a#whole-book-translate .tb-icon { font-size: 18px; font-weight: 700; }
+.reader-main #titlebar a#tts-book .tb-icon,
+.reader-main #titlebar a#tts-book-stop .tb-icon { font-size: 20px; }
+.reader-main #titlebar a#tts-speed .tb-icon { font-size: 15px; font-weight: 700; }
+/* R263 修订：朗读/停止/语速三钮分组（分段控件观感）。分隔线用相邻兄弟选择器：
+   停止隐藏时语速的左邻仍是停止节点（display:none 不改变 DOM 邻接），分隔线照常落在
+   可见的语速左缘；整组共享一个浅底胶囊，未播放时只有朗读一颗，观感即普通按钮。 */
+.reader-main #titlebar .tb-group {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  background: rgba(127, 127, 127, .10);
+  overflow: hidden;
+}
+.reader-main #titlebar .tb-group a.tb-tool { border-radius: 0; }
+.reader-main #titlebar .tb-group a.tb-tool:hover { background: rgba(127, 127, 127, .14); }
+.reader-main #titlebar .tb-group a.tb-tool + a.tb-tool { border-left: 1px solid rgba(127, 127, 127, .22); }
+/* R263 修订：「更多」从窄屏专属改为常显——书签/整本翻译已常驻菜单，宽屏也要有入口 */
+.reader-main #titlebar a.tb-more { display: inline-flex; min-width: 44px; }
+
+.title-more-menu {
+  position: fixed;
+  top: 64px;
+  right: 12px;
+  z-index: 2147483645;
+  min-width: 180px;
+  max-width: 240px;
+  padding: 6px;
+  border: 1px solid rgba(127, 127, 127, .25);
+  border-radius: 10px;
+  background: #fff;
+  color: #333;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .25);
+  display: flex;
+  flex-direction: column;
+}
+.title-more-menu[hidden] { display: none; }
+.title-more-menu a.tb-tool {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #333;
+  font-size: 13px;
+  text-decoration: none;
+}
+.title-more-menu a.tb-tool:hover { background: rgba(74, 144, 217, .12); }
+.title-more-menu a.tb-tool .tb-label { display: inline; font-size: 13px; }
+.title-more-menu a.tb-tool .tb-icon { font-size: 18px; }
+.title-more-menu a.tb-tool[class*="icon-"]::before { font-size: 20px; }
+
+@media only screen and (max-width: 767px) {
+  .reader-main #titlebar { min-height: 52px; padding: 4px 8px; gap: 4px; }
+  .reader-main #opener a { min-width: 44px; min-height: 44px; }
+  .reader-main #titlebar a.tb-tool {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 6px;
+    gap: 0;
+  }
+  .reader-main #titlebar a.tb-tool .tb-label { display: none; }
+  /* 翻译开关保留文字态：开/关必须一眼可辨（其余工具仍只留图标） */
+  .reader-main #titlebar a#immersive-translate .tb-label {
+    display: inline;
+    font-size: 11px;
+  }
+  .reader-main #titlebar a#immersive-translate { min-width: 64px; }
+  .reader-main #metainfo { font-size: 13px; }
+  .title-more-menu { top: 60px; right: 8px; }
+}
+
+/* ===== R215 触屏段尾「⋯」菜单（挂外层 body，脱离 iframe 分页裁切） ===== */
+.reading-para-menu {
+  position: fixed;
+  z-index: 2147483645;
+  min-width: 190px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 6px;
+  border: 1px solid rgba(127, 127, 127, .25);
+  border-radius: 10px;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .25);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reading-para-menu button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.reading-para-menu button:hover { background: rgba(74, 144, 217, .12); }

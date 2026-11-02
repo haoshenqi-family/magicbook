@@ -38,14 +38,31 @@
         </div>
       </div>
     </div>
+    {# R213-A：旧版这里是 Calibre-Web 的布尔三态直译（任何/空/确认/没有），
+       「确认」=已读、「没有」=未读完、「空」与「没有」实际同义，没人能看懂。
+       改成互斥且穷尽的三态，并给一行说明兜住「打开过但没读完」的边界。 #}
     <div class="form-group">
-      <label for="read_status">{{_('Read Status')}}</label>
+      <label for="read_status">{{_('Reading Status')}}</label>
+      {% if read_column_configured %}
+      {# 自定义阅读列只有是/否两个值，三态模型不成立，保留布尔语义但换成能懂的措辞 #}
       <select name="read_status" id="read_status" class="form-control">
         <option value="Any" selected>{{_('Any')}}</option>
-        <option value="">{{_('Empty')}}</option>
-        <option value="True" >{{_('Yes')}}</option>
-        <option value="False" >{{_('No')}}</option>
+        <option value="">{{_('Not set')}}</option>
+        <option value="True">{{_('Set to yes')}}</option>
+        <option value="False">{{_('Set to no')}}</option>
       </select>
+      <span class="help-block">{{_('Filtering on the custom read column (yes/no only).')}}</span>
+      {% else %}
+      <select name="read_status" id="read_status" class="form-control">
+        <option value="Any" selected>{{_('Any')}}</option>
+        <option value="unread">{{_('Unread')}}</option>
+        <option value="in_progress">{{_('In progress')}}</option>
+        <option value="finished">{{_('Read')}}</option>
+      </select>
+      <span class="help-block">
+        {{_('Unread: never opened, or marked as unread. In progress: opened but not finished. Read: finished.')}}
+      </span>
+      {% endif %}
     </div>
     <div class="row">
       <div class="form-group col-sm-6" id="tag">
@@ -161,11 +178,12 @@
       <!--input type="number" step="1" class="form-control" name="{{ 'custom_column_' ~ c.id }}" id="{{ 'custom_column_' ~ c.id }}" value=""-->
       <label for="{{ 'custom_column_' ~ c.id }}">{{ c.name }}</label>
       {% if c.datatype == 'bool' %}
+      {# 与「阅读状态」同一套措辞：Any/Empty/Yes/No 的直译在中文里是「任何/空/确认/没有」，看不懂 #}
       <select name="{{ 'custom_column_' ~ c.id }}" id="{{ 'custom_column_' ~ c.id }}" class="form-control">
         <option value="Any" selected>{{_('Any')}}</option>
-        <option value="">{{_('Empty')}}</option>
-        <option value="True" >{{_('Yes')}}</option>
-        <option value="False" >{{_('No')}}</option>
+        <option value="">{{_('Not set')}}</option>
+        <option value="True">{{_('Set to yes')}}</option>
+        <option value="False">{{_('Set to no')}}</option>
       </select>
       {% endif %}
 

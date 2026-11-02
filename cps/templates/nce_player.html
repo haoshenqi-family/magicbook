@@ -1,0 +1,132 @@
+{% extends "layout.html" %}
+{% block body %}
+<div class="discover nce-player-page">
+  <h2>{{ book.title }}</h2>
+  <p class="text-muted">{{ lessons|length }} {{ _('lessons') }}</p>
+
+  <div id="nce-error" class="alert alert-danger" role="alert" style="display:none"></div>
+
+  <ul class="list-group" id="nce-list" style="max-height:56vh;overflow-y:auto;margin-bottom:74px">
+    {% for lesson in lessons %}
+    <li class="list-group-item nce-lesson" data-num="{{ lesson.num }}"
+        data-title="{{ lesson.title }}" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+      <span><span class="text-muted">{{ lesson.num }}</span>&nbsp;&nbsp;{{ lesson.title }}</span>
+      <span class="text-muted nce-duration">{% if lesson.duration_sec %}{{ '%d:%02d'|format(lesson.duration_sec // 60, lesson.duration_sec % 60) }}{% endif %}</span>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <div class="navbar navbar-default navbar-fixed-bottom" style="background:#fff;border-top:1px solid #eee;box-shadow:0 -2px 8px rgba(0,0,0,.06)">
+    <div class="container" style="display:flex;align-items:center;gap:12px;padding:8px 15px">
+      <button id="nce-prev" class="btn btn-default btn-sm" title="{{ _('Previous') }}">&#9664;&#9664;</button>
+      <button id="nce-play" class="btn btn-primary btn-sm" style="min-width:64px">{{ _('Play') }}</button>
+      <button id="nce-next" class="btn btn-default btn-sm" title="{{ _('Next') }}">&#9654;&#9654;</button>
+      <span id="nce-current" class="text-muted" style="flex:0 0 auto;max-width:30%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span>
+      <input id="nce-seek" type="range" min="0" max="1000" value="0" step="1" style="flex:1">
+      <span id="nce-time" class="text-muted" style="flex:0 0 auto">0:00 / 0:00</span>
+    </div>
+  </div>
+
+  <audio id="nce-audio" preload="metadata"></audio>
+</div>
+{% endblock %}
+{% block js %}
+<script>
+(function () {
+  var LESSONS = {{ lessons|tojson }};
+  var BASE = "/nce/{{ book.id }}";
+  var audio = document.getElementById("nce-audio");
+  var playBtn = document.getElementById("nce-play");
+  var seek = document.getElementById("nce-seek");
+  var timeLabel = document.getElementById("nce-time");
+  var currentLabel = document.getElementById("nce-current");
+  var errorBox = document.getElementById("nce-error");
+  var listEl = document.getElementById("nce-list");
+  var LAST_KEY = "nce-last-{{ book_no }}";
+  var index = -1;
+  var seeking = false;
+
+  function fmt(sec) {
+    if (!isFinite(sec) || sec < 0) sec = 0;
+    var m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function rowOf(i) {
+    return listEl.querySelector('.nce-lesson[data-num="' + CSS.escape(LESSONS[i].num) + '"]');
+  }
+
+  function highlight(i) {
+    var items = listEl.querySelectorAll(".nce-lesson");
+    for (var k = 0; k < items.length; k++) items[k].style.background = "";
+    var row = rowOf(i);
+    if (row) {
+      row.style.background = "#f4f8fb";
+      row.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function select(i, autoplay) {
+    if (i < 0 || i >= LESSONS.length) return;
+    index = i;
+    var lesson = LESSONS[i];
+    errorBox.style.display = "none";
+    currentLabel.textContent = lesson.num + " " + lesson.title;
+    audio.src = BASE + "/audio/" + encodeURIComponent(lesson.num);
+    highlight(i);
+    try { localStorage.setItem(LAST_KEY, lesson.num); } catch (e) {}
+    if (autoplay) audio.play().catch(function () {});
+  }
+
+  function toggle() {
+    if (index < 0) { select(0, true); return; }
+    if (audio.paused) audio.play(); else audio.pause();
+  }
+
+  playBtn.addEventListener("click", toggle);
+  document.getElementById("nce-prev").addEventListener("click", function () {
+    if (index > 0) select(index - 1, !audio.paused);
+  });
+  document.getElementById("nce-next").addEventListener("click", function () {
+    if (index < LESSONS.length - 1) select(index + 1, !audio.paused);
+  });
+  audio.addEventListener("ended", function () {
+    if (index < LESSONS.length - 1) select(index + 1, true);
+  });
+  audio.addEventListener("play", function () { playBtn.textContent = "{{ _('Pause') }}"; });
+  audio.addEventListener("pause", function () { playBtn.textContent = "{{ _('Play') }}"; });
+  audio.addEventListener("error", function () {
+    if (index >= 0) showError("{{ _('Audio unavailable') }} (" + LESSONS[index].num + ")");
+  });
+  audio.addEventListener("timeupdate", function () {
+    if (!seeking && audio.duration) seek.value = String(Math.round(audio.currentTime / audio.duration * 1000));
+    timeLabel.textContent = fmt(audio.currentTime) + " / " + fmt(audio.duration);
+  });
+  seek.addEventListener("input", function () { seeking = true; });
+  seek.addEventListener("change", function () {
+    if (audio.duration) audio.currentTime = Number(seek.value) / 1000 * audio.duration;
+    seeking = false;
+  });
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.style.display = "block";
+  }
+
+  listEl.addEventListener("click", function (ev) {
+    var row = ev.target.closest(".nce-lesson");
+    if (!row) return;
+    for (var i = 0; i < LESSONS.length; i++) {
+      if (LESSONS[i].num === row.getAttribute("data-num")) { select(i, true); break; }
+    }
+  });
+
+  // 恢复上次收听位置（仅高亮定位，不自动播放）
+  var saved = null;
+  try { saved = localStorage.getItem(LAST_KEY); } catch (e) {}
+  for (var i = 0; i < LESSONS.length; i++) {
+    if (LESSONS[i].num === saved) { index = i; currentLabel.textContent = LESSONS[i].num + " " + LESSONS[i].title; highlight(i); break; }
+  }
+})();
+</script>
+{% endblock %}

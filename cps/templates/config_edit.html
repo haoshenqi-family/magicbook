@@ -121,6 +121,16 @@
         <input type="checkbox" id="config_anonbrowse" name="config_anonbrowse" {% if config.config_anonbrowse %}checked{% endif %}>
         <label for="config_anonbrowse">{{_('Enable Anonymous Browsing')}}</label>
     </div>
+    {# R213-C：登录/回站落点。默认勾选（落新首页 /home）；取消即回退到原 `/` 发现页 #}
+    <div class="form-group">
+        <input type="checkbox" id="config_home_landing" name="config_home_landing" {% if config.config_home_landing %}checked{% endif %}>
+        <label for="config_home_landing">{{_('Use the new Home page as login landing page')}}</label>
+    </div>
+    {# R213-B：账号级阅读位置总开关。关闭后不回写位置/在读状态，阅读器退回本地位置。 #}
+    <div class="form-group">
+        <input type="checkbox" id="config_reading_progress_enabled" name="config_reading_progress_enabled" {% if config.config_reading_progress_enabled %}checked{% endif %}>
+        <label for="config_reading_progress_enabled">{{_('Remember reading position across devices')}}</label>
+    </div>
     <div class="form-group">
         <input type="checkbox" id="config_public_reg" data-control="register_settings" name="config_public_reg" {% if config.config_public_reg %}checked{% endif %}>
         <label for="config_public_reg">{{_('Enable Public Registration')}}</label>

@@ -18,6 +18,12 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/popup.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/reader.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/onboarding.css') }}">
+    {% if current_user.is_authenticated %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mail.css') }}">
+    {% endif %}
+    {# R216 账号主题同步：head 早载，异步拉取；不阻塞阅读器启动 #}
+    <script src="{{ url_for('static', filename='js/ui-prefs.js') }}"></script>
 </head>
 
 <body>
@@ -49,7 +55,7 @@
           <ol id="notes"></ol>
         </div-->
     </div>
-    <div id="main">
+    <div id="main" class="reader-main">
         <div id="titlebar">
             <div id="opener">
                 <a id="slider" class="icon-menu">Menu</a>
@@ -60,9 +66,17 @@
 	            <span id="chapter-title"></span>
 	        </div>
 	        <div id="title-controls">
-	            <a id="bookmark" class="icon-bookmark-empty">Bookmark</a>
-	            <a id="setting" class="icon-cog">Settings</a>
-	            <a id="fullscreen" class="icon-resize-full">Fullscreen</a>            
+	            <a id="immersive-translate" class="tb-tool" title="{{_('Translate this page (click again to hide)')}}" aria-pressed="false"><span class="tb-icon">译</span><span class="tb-label">{{_('Translation')}}</span></a>
+	        {% if current_user.role_admin() %}<a id="whole-book-translate" class="tb-tool tb-secondary" title="{{_('Translate this book')}}"><span class="tb-icon">整</span><span class="tb-label">{{_('Translate this book')}}</span></a>{% endif %}
+	        <span id="tts-group" class="tb-group">
+	        <a id="tts-book" class="tb-tool" title="{{_('Read aloud')}}"><span class="tb-icon">▶</span><span class="tb-label">{{_('Read aloud')}}</span></a>
+	        <a id="tts-book-stop" class="tb-tool" style="display:none" title="{{_('Stop')}}"><span class="tb-icon">■</span><span class="tb-label">{{_('Stop')}}</span></a>
+	        <a id="tts-speed" class="tb-tool" style="display:none" title="{{_('Reading speed')}}"><span class="tb-icon">1.0x</span><span class="tb-label">{{_('Reading speed')}}</span></a>
+	        </span>
+	        <a id="bookmark" class="tb-tool icon-bookmark-empty" title="{{_('Bookmark')}}"><span class="tb-label">{{_('Bookmark')}}</span></a>
+	            <a id="setting" class="tb-tool icon-cog" title="{{_('Settings')}}"><span class="tb-label">{{_('Settings')}}</span></a>
+	            <a id="fullscreen" class="tb-tool icon-resize-full" title="{{_('Fullscreen')}}"><span class="tb-label">{{_('Fullscreen')}}</span></a>
+	            <a id="title-more" class="tb-tool tb-more" title="{{_('More')}}" aria-expanded="false"><span class="tb-icon">…</span><span class="tb-label">{{_('More')}}</span></a>
 	        </div>
 	    </div>
 
@@ -78,6 +92,9 @@
             <img src="{{ url_for('static', filename='img/loader.gif') }}">
         </div>
     </div>
+    {# 顶栏「更多」菜单必须挂在 #main 之外：移动端 #main 带 transform + overflow:hidden，
+       会为 position:fixed 造出包含块并裁切菜单 #}
+    <div id="title-more-menu" class="title-more-menu" hidden></div>
     <div class="modal md-effect-1" id="settings-modal">
         <div class="md-content">
             <h3>{{_('Settings')}}</h3>
@@ -85,15 +102,15 @@
                 {{_('Choose a theme below:')}}<br />
 
           <!-- Hardcoded a tick in the light theme button because it is the "default" theme. Need to find a way to do this dynamically on startup-->
-                <button type="button" id="lightTheme" class="lightTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="lightTheme" class="lightTheme" onclick="selectTheme(this.id, true)"><span
                         id="lightSelected">✓</span>{{_('Light')}}</button>
-                <button type="button" id="darkTheme" class="darkTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="darkTheme" class="darkTheme" onclick="selectTheme(this.id, true)"><span
                         id="darkSelected"> </span>{{_('Dark')}}</button>
-                <button type="button" id="sepiaTheme" class="sepiaTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="sepiaTheme" class="sepiaTheme" onclick="selectTheme(this.id, true)"><span
                         id="sepiaSelected"> </span>{{_('Sepia')}}</button>
-                <button type="button" id="amberTheme" class="amberTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="amberTheme" class="amberTheme" onclick="selectTheme(this.id, true)"><span
                         id="amberSelected"> </span>{{_('Amber')}}</button>
-                <button type="button" id="blackTheme" class="blackTheme" onclick="selectTheme(this.id)"><span
+                <button type="button" id="blackTheme" class="blackTheme" onclick="selectTheme(this.id, true)"><span
                         id="blackSelected"> </span>{{_('Black')}}</button>
 
           <!-- Custom theme: color input + pickr -->
@@ -112,6 +129,11 @@
         <div class="form-group">
           <p>
             <input type="checkbox" id="showPagesCount" name="showPagesCount"/>{{_('Show pages count')}}
+          </p>
+        </div>
+        <div class="form-group">
+          <p>
+            <input type="checkbox" id="vocabGloss" name="vocabGloss"/>{{_('Show short gloss above vocabulary words')}}
           </p>
         </div>
         <div class="form-group fontSizeWrapper">
@@ -134,7 +156,21 @@
                 <label class="item">{{ _('Spread') }}:</label>
                 <button type="button" id="spread" onclick="spread(this.id)"><span>✓</span>{{_('Two columns')}}</button>
                 <button type="button" id="nonespread" onclick="spread(this.id)"><span></span>{{_('One column')}}</button>
-              </div>            
+              </div>
+              <div class="form-group" id="ttsEngineWrapper">
+                <label class="item">{{_('Read-aloud engine')}}:</label>
+                <select id="ttsEngine" style="margin-top: 5px;">
+                  <option value="ai">{{_('AI speech (via moon-well)')}}</option>
+                  <option value="browser">{{_('Browser built-in voice')}}</option>
+                </select>
+              </div>
+              <div class="form-group" id="translationDisplayWrapper">
+                <label class="item">{{_('Translation display time per 100 words')}}:</label>
+                <input type="number" id="translationDisplaySecondsPer100" min="0" max="3600" step="1" value="5"
+                       title="{{_('Longer paragraphs stay longer, but never shorter than this; 0 = keep translations displayed')}}"
+                       style="width: 90px; margin-top: 5px;">
+                <span>{{_('seconds / 100 words (minimum display time; 0 = keep displayed)')}}</span>
+              </div>
             <div class="closer icon-cancel-circled"></div>
         </div>
     </div>
@@ -152,8 +188,29 @@
             useBookmarks: "{{ current_user.is_authenticated | tojson }}",
             readingVocabularyUrl: "{{ url_for('web.reading_vocabulary') }}",
             readingTranslationUrl: "{{ url_for('web.reading_translate') }}",
+            readingWordMarkUrl: "{{ url_for('web.reading_word_mark') }}",
+            readingWordDetailUrl: "{{ url_for('web.reading_word_detail') }}",
+            readingTranslateBatchUrl: "{{ url_for('web.reading_translate_batch') }}",
+            readingTtsUrl: "{{ url_for('web.reading_tts') }}",
+            tedAudioUrl: "{{ url_for('web.reading_ted_audio') }}",
+            tedAudioParagraphsUrl: "{{ url_for('web.reading_ted_audio_paragraphs') }}",
+            readingAnnotationCreateUrl: "{{ url_for('web.reading_annotation_create') }}",
+            readingAnnotationListUrl: "{{ url_for('web.reading_annotation_list_by_paragraph') }}",
+            readingAnnotationBookUrl: "{{ url_for('web.reading_annotation_list_by_book') }}",
+            readingCompanionRolesUrl: "{{ url_for('web.reading_companion_roles') }}",
+            readingCompanionAnnotateUrl: "{{ url_for('web.reading_companion_annotate') }}",
+            readingCompanionListUrl: "{{ url_for('web.reading_companion_list_by_paragraph') }}",
+            {% if current_user.role_admin() %}
+            wholeBookTranslationUrl: "{{ url_for('web.reading_translate_book') }}",
+            wholeBookTranslationStatusUrl: "{{ url_for('web.reading_translate_book_status') }}",
+            wholeBookTranslationRetryUrl: "{{ url_for('web.reading_translate_book_retry') }}",
+            {% endif %}
+            bookFormat: "{{ book_format }}",
+            ttsConfigured: {{ current_user.is_authenticated | tojson }},
             bookId: {{ bookid }},
             bookName: {{ title|tojson }},
+            {# R213-B：开关关闭时不注入服务端位置，epub.js 只走 localStorage #}
+            readerPosition: {{ (reading_position or {})|tojson if reading_progress_enabled else '{}' }},
             readingVocabularyEnabled: {{ current_user.is_authenticated|tojson }}
         };
 
@@ -193,7 +250,39 @@
             },
         };
 
-        function selectTheme (id) {
+        var BUILTIN_THEMES = ["lightTheme", "darkTheme", "sepiaTheme", "amberTheme", "blackTheme"];
+
+        // R216：用户主动点内置主题时同步到账号；失败不回滚本机主题，只 toast 提示。
+        function syncThemeToAccount(id) {
+            var tokenInput = document.querySelector("input[name='csrf_token']");
+            fetch((window.__mbBasePath || "") + "/ajax/ui-settings/reader-theme", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": tokenInput ? tokenInput.value : ""
+                },
+                body: JSON.stringify({theme: id})
+            }).then(function (response) {
+                return response.text().then(function (text) {
+                    var data = null;
+                    try { data = text ? JSON.parse(text) : null; } catch (e) { /* 非 JSON */ }
+                    if (!response.ok || !data || data.success !== true) {
+                        throw new Error((data && data.message) || ("HTTP " + response.status));
+                    }
+                });
+            }).catch(function () {
+                var message = window.mbT ? window.mbT("Theme could not be synced to your account")
+                                          : "Theme could not be synced to your account";
+                if (window.ReaderCore && window.ReaderCore.toast) {
+                    window.ReaderCore.toast(message);
+                } else if (window.console && console.warn) {
+                    console.warn(message);
+                }
+            });
+        }
+
+        function selectTheme (id, sync) {
             let tickSpans = document.getElementById("themes").querySelectorAll("span");
             tickSpans.forEach(function (tickSpan) {
                try {
@@ -213,6 +302,11 @@
 
             // Saving theme to local storage
             localStorage.setItem("calibre.reader.theme", id);
+
+            if (sync === true && BUILTIN_THEMES.indexOf(id) >= 0) {
+                window.__mbReaderThemePicked = true;
+                syncThemeToAccount(id);
+            }
 
             // If selecting custom theme, ensure epubjs theme is registered with chosen bg color
             if (id === "customTheme") {
@@ -329,6 +423,21 @@
                 });
             }
         })();
+
+        // R261 行内小字释义开关（Word Wise 式 gloss，可选功能默认关）：
+        // 本机偏好存 localStorage（与页码计数同款范式）；切换即对当前页重标，
+        // 生词数据已在 epub.js 缓存，无需重新请求 moon-well
+        (function () {
+            var checkbox = document.getElementById("vocabGloss");
+            var key = "calibre.reader.vocabGloss";
+            if (checkbox) {
+                checkbox.checked = localStorage.getItem(key) === "true";
+                checkbox.addEventListener("change", function () {
+                    localStorage.setItem(key, String(checkbox.checked));
+                    if (window.ReaderVocabGloss) window.ReaderVocabGloss.remark();
+                });
+            }
+        })();
     </script>
     <script type="text/javascript">
       // Initialize custom theme UI and Pickr once Pickr is available
@@ -401,6 +510,8 @@
           try {
             localStorage.setItem("calibre.reader.theme", "customTheme");
           } catch (e) {}
+          // R216：自定义主题只留本机；标记用户已手选，晚到的账号主题不得覆盖
+          window.__mbReaderThemePicked = true;
           // Clear ticks and set custom tick
           var tickSpans = document
             .getElementById("themes")
@@ -495,6 +606,36 @@
       </script>
       <script src="{{ url_for('static', filename='js/libs/screenfull.min.js') }}"></script>
       <script src="{{ url_for('static', filename='js/libs/reader.min.js') }}"></script>
+      {# R112：i18n 种子必须在 epub.js 之前——epub.js 顶层就读取 mbT（如 CSS 角标词条） #}
+      {% include 'i18n_seed.html' %}
+      {# R177（架构评审 B5）：read.html 为独立骨架不继承 layout，api.js 单独引入（先于 ai_chat.js）#}
+      <script src="{{ url_for('static', filename='js/common/api.js') }}"></script>
+      {% if current_user.is_authenticated %}
+      {# R243：共享 Buddy 面板依赖同一 MBMail 未读状态层；匿名阅读不加载邮件入口。 #}
+      <script src="{{ url_for('static', filename='js/mail.js') }}"></script>
+      {% endif %}
+      {# R183（架构评审 B4 批次 1）：横切原语（toast/CSRF 自愈/段落口径）必须先于 epub.js——
+         epub.js 顶层就取 window.ReaderCore 与 PARAGRAPH_SELECTOR 常量 #}
+      <script src="{{ url_for('static', filename='js/reading/reader-core.js') }}"></script>
+      {# R215：顶栏窄屏折叠/「更多」菜单。无跨模块别名、无 init，载入即绑定 #}
+      <script src="{{ url_for('static', filename='js/reading/reader-toolbar.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/reader-word-detail.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/reader-annotations.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/reader-selection.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/reader-immersive.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/reader-ted-audio.js') }}"></script>
+      <script src="{{ url_for('static', filename='js/reading/reader-tts.js') }}"></script>
+      {# R213-B：账号级阅读位置上报（须在 epub.js 之前，装配层 relocated 时调用）。
+         总开关关闭时不加载本模块，ReaderProgress 不存在，epub.js 自然只保留本地位置。 #}
+      {% if reading_progress_enabled %}
+      <script src="{{ url_for('static', filename='js/reading/reader-progress.js') }}"></script>
+      {% endif %}
       <script src="{{ url_for('static', filename='js/reading/epub.js') }}"></script>
+      {# R151 阅读活跃心跳：四股台账 INPUT 股信号源（可见 + 近 3 分钟有交互才计） #}
+      <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>
+    {% include 'ai_chat_panel.html' %}
+    {# R109 阅读器导览段：jQuery 已在上方 :158 载入；readpdf/readtxt/readcbr 无 jQuery
+       且控件锚点不同（#previous 而非 #show-Toc/#setting），本段只覆盖 EPUB 阅读器 #}
+    {% include 'onboarding_mount.html' %}
     </body>
 </html>

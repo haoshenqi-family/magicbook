@@ -1,0 +1,98 @@
+{% extends "layout.html" %}
+{% block body %}
+<input type="hidden" id="lh-csrf" value="{{ csrf_token() }}">
+<div class="discover">
+  <h1>{{_('Writing Workshop')}}</h1>
+  <p class="text-muted lh-sub-hint">
+    <a href="{{ url_for('web.learning_page') }}"><span class="glyphicon glyphicon-arrow-left"></span> {{_('Daily Learning')}}</a>
+  </p>
+
+  {# R168 一键续写：R190 起指向最近一次写作（不再判「写没写完」），没有历史就不显示 #}
+  <div class="sw-gap" id="sw-w-resume-bar" hidden>
+    <button type="button" id="sw-w-resume" class="btn btn-success">{{_('Continue your last writing')}}</button>
+    <span id="sw-w-resume-label" class="text-muted"></span>
+  </div>
+
+  <div class="panel panel-default">
+    <div class="panel-body">
+      <div class="form-inline sw-gap">
+        <select id="sw-w-mode" class="form-control">
+          <option value="free">{{_('Free writing')}}</option>
+          <option value="task">{{_('Task-based writing')}}</option>
+        </select>
+        <select id="sw-w-cefr" class="form-control">
+          <option value="">{{_('CEFR level (auto)')}}</option>
+          <option value="A2">A2</option><option value="B1">B1</option>
+          <option value="B2">B2</option><option value="C1">C1</option>
+        </select>
+        <input id="sw-w-topic" class="form-control" style="width:260px"
+               placeholder="{{_('Topic or notes for the AI (optional)')}}">
+        <input id="sw-w-book" class="form-control" style="width:180px"
+               placeholder="{{_('Book title (optional)')}}">
+        <button type="button" id="sw-w-generate" class="btn btn-primary">{{_('Generate task')}}</button>
+      </div>
+      <div id="sw-w-task" hidden>
+        <p id="sw-w-prompt" class="sw-prompt"></p>
+        <ul id="sw-w-requirements" class="sw-list"></ul>
+        <ul id="sw-w-tips" class="sw-list text-muted"></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-default" id="sw-w-draft-panel">
+    <div class="panel-heading"><h3 class="panel-title">{{_('Write your draft')}}</h3></div>
+    <div class="panel-body">
+      <textarea id="sw-w-text" class="form-control" rows="8"
+                placeholder="{{_('Write in English. 50-150 words is a good start.')}}"></textarea>
+      <div class="sw-gap">
+        <button type="button" id="sw-w-submit" class="btn btn-primary">{{_('Submit for review')}}</button>
+        <span id="sw-w-status" class="text-muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel panel-default" id="sw-w-review" hidden>
+    <div class="panel-body">
+      <p id="sw-w-progress" class="sw-progress" hidden></p>
+      <p id="sw-w-overall" class="sw-prompt"></p>
+      <div id="sw-w-scores" class="sw-scores"></div>
+      <h4>{{_('Sentence comments')}}</h4>
+      <ul id="sw-w-sentences" class="sw-list"></ul>
+      <h4>{{_('Upgraded phrasings')}}</h4>
+      <ul id="sw-w-upgrades" class="sw-list"></ul>
+      <p class="text-muted sw-hint">{{_('Fix the flagged points in the editor above, then press the submit button again — it becomes “Submit revision” and returns a progress check against your last draft. There is no limit on revisions.')}}</p>
+    </div>
+  </div>
+
+  <div class="panel panel-default" id="sw-w-history-panel" hidden>
+    <div class="panel-heading"><h3 class="panel-title">{{_('Writing history')}}</h3></div>
+    <div class="panel-body">
+      <p class="text-muted sw-hint">{{_('Click a row to load that task back — its draft goes into the editor and the previous review opens below it.')}}</p>
+      <ul id="sw-w-history" class="sw-list"></ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block header %}
+{{ super() }}
+{% include "learning_sub_css.html" %}
+{% endblock %}
+
+{% block js %}
+<script>
+(function () {
+  window.learningUrls = {
+    writingGenerate: "{{ url_for('web.learning_writing_generate') }}",
+    writingSubmit: "{{ url_for('web.learning_writing_submit') }}",
+    writingRevise: "{{ url_for('web.learning_writing_revise') }}",
+    writingSubmitStream: "{{ url_for('web.learning_writing_submit_stream') }}",
+    writingReviseStream: "{{ url_for('web.learning_writing_revise_stream') }}",
+    writingHistory: "{{ url_for('web.learning_writing_history') }}",
+    writingTask: "{{ url_for('web.learning_writing_task') }}"
+  };
+})();
+</script>
+<script src="{{ url_for('static', filename='js/learning-common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/learning-writing.js') }}"></script>
+{% endblock %}

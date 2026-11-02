@@ -20,11 +20,17 @@
 
 import os
 import json
+import re
+import threading
+import time
+import uuid
 import mimetypes
 import chardet  # dependency of requests
 import copy
+import zipfile
 import requests
 from importlib.metadata import metadata
+from urllib.parse import quote
 
 from flask import Blueprint, jsonify, request, redirect, send_from_directory, make_response, flash, abort, url_for, current_app
 from flask import session as flask_session
@@ -40,8 +46,9 @@ from werkzeug.datastructures import Headers
 from werkzeug.security import generate_password_hash, check_password_hash
 
 from . import constants, logger, isoLanguages, services, limiter
-from . import db, ub, config, app
+from . import db, ub, config, app, csrf
 from . import calibre_db, kobo_sync_status
+from .nce.series import resolve_nce_book_no
 from .search import render_search_results, render_adv_search_results
 from .gdriveutils import getFileFromEbooksFolder, do_gdrive_download
 from .helper import check_valid_domain, check_email, check_username, \
@@ -50,7 +57,8 @@ from .helper import check_valid_domain, check_email, check_username, \
     edit_book_read_status, valid_password
 from .pagination import Pagination
 from .redirect import get_redirect_location
-from .cw_babel import get_available_locale
+from .landing import landing_endpoint
+from .cw_babel import get_available_locale, get_available_translations
 from .usermanagement import login_required_if_no_ano
 from .kobo_sync_status import remove_synced_book
 from .render_template import render_title_template
@@ -59,6 +67,10 @@ from .services.worker import WorkerThread
 from .tasks_status import render_task_status
 from .usermanagement import user_login_required
 from .string_helper import strip_whitespaces
+from .reading_translation.service import WholeBookTranslationService
+from .reading_tts.service import WholeBookTtsService
+from .reading_word_detail.service import WordDetailBatchService
+from .admin import admin_required
 
 
 feature_support = {
@@ -88,8 +100,24 @@ sql_version = metadata("sqlalchemy")["Version"]
 sqlalchemy_version2 = ([int(x) if x.isnumeric() else 0 for x in sql_version.split('.')[:3]] >= [2, 0, 0])
 
 
+@app.before_request
+def _begin_trace():
+    """请求入口设置 trace-id（contextvar）。沿用上游 X-Trace-Id 保证全链路同一 ID。"""
+    logger.trace_id_var.set(_moonwell_trace_id())
+
+
+# MinIO 对外直链源清单（CSP 用；直链本身由 moon-well 按 minio.public-url 现拼，本站不代理二进制）。
+# R210 过渡态：`minio.haoshenqi.top`（443 经 VPS 反代，新入口）与 `home.haoshenqi.top:9001`
+# （旧入口）并列——先松 CSP、再翻 moon-well 的配置，否则翻转窗口内 TED 原声与伙伴头像会同时被拦。
+# 待线上再无任何响应产出旧源（BuddyService/TedAudioService/LearningParagraphResolver 全部走新值），
+# 删掉旧条目收窄，这必须是单独一笔，别夹在功能改动里。
+MINIO_PUBLIC_ORIGINS = ("https://minio.haoshenqi.top", "https://home.haoshenqi.top:9001")
+
+
 @app.after_request
 def add_security_headers(resp):
+    # trace-id 回写：报障时用户可直接提供此 ID，ES 中按 message 检索即可定位全链路日志
+    resp.headers.setdefault("X-Trace-Id", _moonwell_trace_id())
     default_src = ([host.strip() for host in config.config_trustedhosts.split(',') if host] +
                    ["'self'", "'unsafe-inline'", "'unsafe-eval'"])
     csp = "default-src " + ' '.join(default_src)
@@ -98,10 +126,31 @@ def add_security_headers(resp):
     csp += "; font-src 'self' data:"
     if request.endpoint == "web.read_book":
         csp += " blob: "
+        # 段落朗读经 URL.createObjectURL(blob) 生成 blob: 音频，Audio 播放走
+        # media-src；CSP 未显式声明时回退 default-src（不含 blob:）导致播放被
+        # 拦（控制台 "Loading media from 'blob:...' violates CSP"），必须显式放行。
+        # 划词单词发音直连有道 dictvoice 词库 mp3（免费免 key），同样属 media
+        # 加载，需一并放行该源（仅阅读页，其余页面不受影响）。
+        # TED 类书的整段原声（R172「原声伴听」）由 moon-well 返回 MinIO 外网直链，
+        # 由浏览器直连该源播放，同属 media 加载；未放行时阅读页报
+        # "Loading media from '…/magicbook/ted-audio/….aac' violates … CSP directive:
+        # media-src" 且静默无声（R181 复测现场），故一并放行。仅阅读页。
+        # 源清单见 MINIO_PUBLIC_ORIGINS（R210：入口由 home:9001 迁到 minio.haoshenqi.top，
+        # 后端同一份，过渡期两源并列）。
+        csp += ("; media-src 'self' blob: https://dict.youdao.com"
+                " " + " ".join(MINIO_PUBLIC_ORIGINS))
+    elif request.endpoint == "web.learning_speaking_page":
+        # 口语陪练把 TTS 与用户录音经 fetch 转成 Blob URL 后交给 Audio 播放。
+        # media-src 未显式声明时会回退到不含 blob: 的 default-src，浏览器将
+        # 拦截播放；这里只放行同源与 blob，不携带阅读页的有道 / MinIO 外源。
+        csp += "; media-src 'self' blob:"
     csp += "; img-src 'self'"
     if request.path.startswith("/author/") and config.config_use_goodreads:
         csp += " images.gr-assets.com i.gr-assets.com s.gr-assets.com"
     csp += " data:"
+    # 伙伴头像（R206）原走 moon-well 下发的 MinIO 直链，img-src 曾按 HTML 页放行；
+    # R220 验收发现个别浏览器扩展会拦跨站图片子资源（ERR_BLOCKED_BY_CLIENT），
+    # 前端已全部改走同源代理 /ajax/buddy/image，img-src 收窄回 'self' + data:。
     if request.endpoint == "edit-book.show_edit_book" or config.config_use_google_drive:
         csp += " *"
     if request.endpoint == "web.read_book":
@@ -116,6 +165,8 @@ def add_security_headers(resp):
 
 
 web = Blueprint('web', __name__)
+
+whole_book_translation_service = WholeBookTranslationService()
 
 log = logger.create()
 
@@ -180,6 +231,17 @@ def toggle_read(book_id):
     if message:
         return message, 400
     else:
+        # 桥接 moon-well：置已读时触发 BOOKS_FINISHED 事件供成就判定（异步，失败不影响主链路）。
+        # Why: 成就只消费 moon-well 自家 book 域事件，不桥接则读完 Calibre 书永远不解锁成就（R64）。
+        try:
+            read_now = ub.session.query(ub.ReadBook).filter(
+                ub.ReadBook.user_id == int(current_user.id),
+                ub.ReadBook.book_id == book_id).first()
+            is_finished = bool(read_now and read_now.read_status == ub.ReadBook.STATUS_FINISHED)
+        except Exception:
+            is_finished = False
+        if is_finished:
+            _moonwell_book_finished_bridge(book_id, True)
         return message
 
 
@@ -206,60 +268,799 @@ def update_view():
     return "1", 200
 
 
-@web.route("/ajax/reading-vocabulary", methods=["POST"])
+
+
+
+
+
+
+
+
+
+
+# ---------- R172 TED 原声伴听代理（TED/博客类书：整段原声，非逐段 TTS） ----------
+
+def _ted_book_identity():
+    """把前端传来的 Calibre 书号解析成 moon-well 认的「书名 + 作者」身份。
+
+    Why（R200）：moon-well `/book/ted-audio` 的 bookId 是它自己 book 表的 id，
+    与 Calibre 书号是两套自增序列（learning R139/R149 同款坑）——只有巧合对齐
+    才命中；错位时上游返回 null，前端静默回落 TTS 机器音，用户只听到合成音。
+    段落注册表本身按 title+author 索引，按书名查可彻底绕开 ID 空间不一致。
+
+    How: 返回 (bookName, author, error)，error 为 None 表示成功；非数字 bookId
+    仍在代理层挡成 400（脏串不往上游送），书不存在给 404。
+    """
+    payload = request.get_json(silent=True) or {}
+    raw = str(payload.get("bookId", "")).strip()
+    if not raw.isdigit():
+        return None, None, ("bad_request", "bookId must be a number")
+    book = calibre_db.get_book(int(raw))
+    if not book:
+        return None, None, ("not_found", "book not found")
+    author = " & ".join(a.name for a in book.authors) if book.authors else ""
+    return book.title or "", author, None
+
+
+
+
+
+
+
+
+@web.route("/achievements", methods=["GET"])
 @user_login_required
-def reading_vocabulary():
-    """Proxy the reader's word context using the caller's moon-well JWT."""
-    authorization = request.headers.get("authorization") or _moonwell_session_authorization()
-    if not constants.MOON_WELL_READING_URL or not authorization:
-        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
+def achievements_page():
+    """成就中心页：等级/XP/徽章墙，数据经 /ajax/achievements-* 异步加载。"""
+    return render_title_template("achievements.html", title=_("Achievements"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ---------- 积分充值（moon-well credit 模块代理） ----------
+# Why: 订阅套餐暂时隐藏（R61），页面仅提供积分充值；subscription 代理保留以便随时恢复
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ---------- 词汇量测试代理（R116/US4）----------
+#
+# Why 薄透传、不在代理层翻译错误码：出题状态机、会话归属、超时判定全在 moon-well，
+# 50301/50302/50303/50304 的语义只有它知道；代理复制一份判定等于把状态机搬错地方，
+# 还会与后端演进脱节。代理只做参数域校验（挡住明显非法请求，省一次内网往返），
+# 业务错误按原状态码与 Result 信封透传，前端按 Result.code 分支。
+
+
+def _vt_positive_int(value):
+    """取 JSON 里的正整数 id，非法返回 None。
+
+    Why 显式排除 bool：Python 里 bool 是 int 的子类，客户端传 {"sessionId": true}
+    会被 isinstance(x, int) 接受成 1，进而打到别人的会话上（归属校验会拒绝，但
+    错误形态不该靠后端兜）。
+    """
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return value
+
+
+
+
+
+
+
+
+
+
+# ---------- 每日学习代理（R132 / B3）----------
+#
+# Why 薄透传（同词汇量测试）：SRS 调度、四股配比、难度匹配全在 moon-well learning 模块，
+# 50501-50506 的语义只有它知道；代理只做登录与参数域校验，业务错误按原状态码与
+# Result 信封透传，前端按 Result.code 分支。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ---------- B1 输出训练代理（R152）。 ----------
+# Why 薄透传（同 srs/answer）：写作/口语/复述的业务校验与 LLM 编排在 moon-well
+# learning 模块，代理只挡「明显非法」——非 JSON 对象、字段类型/长度越界；业务
+# 语义（场景枚举、评分、会话归属）归上游。LLM 密集端点超时给长（批改/出题/报告
+# 实测 10-40s），纯指标端点给短。
+
+_PROXY_LIMITS = {
+    "taskId": 64, "sessionId": 64, "submissionId": 64, "retellId": 64,
+    "scenario": 16, "scenarioLabel": 60, "coachStyle": 16, "mode": 16,
+    "cefrLevel": 8, "bookId": 64, "bookTitle": 200, "chapter": 100,
+    "prompt": 500, "text": 20000, "paragraphText": 20000, "transcript": 20000,
+    "storyWords": 2000, "storyId": 64,
+}
+
+
+def _b1_payload(allowed, required=()):
+    """校验并裁剪 B1 代理的 JSON 请求体：只留白名单字段，字符串限长、整数限幅。
+
+    Why 白名单裁剪而非逐路由手写：B1 十二个端点的 payload 全是字符串/少量
+    整数字段，语义校验在上游 @Valid + Service；代理统一的职责是防客户端把
+    垃圾字段（超长文本/未知键/离谱数值）透传进 LLM 链路。返回 None 表示本地 400。
+    """
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return None
+    cleaned = {}
+    for key in allowed:
+        if key not in payload or payload[key] is None:
+            continue
+        value = payload[key]
+        if key in ("durationMs", "round", "order"):
+            # 整数字段：保类型透传（Jackson 语义一致），限幅防溢出
+            if isinstance(value, bool) or not isinstance(value, int) \
+                    or not 0 <= value <= 10 ** 9:
+                return None
+            cleaned[key] = value
+            continue
+        if key == "minutesPerRound":
+            if not isinstance(value, list) or not value or len(value) > 5 or \
+                    any(isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= 30
+                        for v in value):
+                return None
+            cleaned[key] = value
+            continue
+        if key in ("addUnknown", "voice"):
+            if not isinstance(value, bool):
+                return None
+            cleaned[key] = value
+            continue
+        if isinstance(value, bool) or not isinstance(value, str):
+            return None
+        if not value or len(value) > _PROXY_LIMITS.get(key, 200):
+            return None
+        cleaned[key] = value
+    for key in required:
+        if key not in cleaned:
+            return None
+    return cleaned
+
+
+def _b1_proxy(path, allowed, required=(), timeout=30):
+    body = _b1_payload(allowed, required)
+    if body is None:
+        return jsonify({"success": False, "message": "invalid request body"}), 400
+    return _moonwell_proxy(path, body, timeout, "learning b1: " + path)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ---------- B2/B3 输出扩展代理（R153：计时重读 + 听写；素材接口共用） ----------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def _whole_book_closures():
+    """构造整本翻译的 publish/lookup 闭包（start/retry/status 共用）。
+
+    Why: 发布/重发布在 daemon 后台线程执行，线程内没有 Flask 请求上下文，
+    闭包若在此时才解析身份（current_user / flask_session）会 RuntimeError，
+    全部段落被标 FAILED。令牌必须在请求线程内先定格为纯数据快照，
+    经 _moonwell_proxy 的 bearer_token 传入。
+    status 接口的 lookup 虽在请求线程同步执行，复用同一闭包保持行为一致。
+    """
+    token = flask_session.get("moonwell_access_token")
+
+    def publish(task_payload):
+        if not token:
+            raise ValueError("moon-well authorization is required")
+        response = _moonwell_proxy("/llm/task/publish", task_payload, 20,
+                                   "whole-book translation",
+                                   bearer_token=token)
+        if not isinstance(response, tuple) or len(response) < 2:
+            raise ValueError("moon-well authorization is required")
+        body, status = response[0], response[1]
+        if status < 200 or status >= 300:
+            raise ValueError("moon-well task publish failed")
+        return json.loads(body)
+
+    def lookup(paragraphs):
+        if not token:
+            return {}
+        response = _moonwell_proxy("/reading/paragraph-cache/find-translations",
+                                   {"paragraphs": paragraphs}, 20, "translation cache",
+                                   bearer_token=token)
+        if not isinstance(response, tuple) or response[1] < 200 or response[1] >= 300:
+            return {}
+        data = json.loads(response[0])
+        return data.get("result", {}) if isinstance(data, dict) else {}
+
+    return publish, lookup
+
+
+
+
+
+
+
+
+
+
+# --------------------------------------------------------------------
+# 批量整本翻译（R77）：一键翻译全部英文书——每本直接建批次立即执行
+# （缓存回收 + 只发缺失段，与单本按钮同语义）；正在跑的书自动跳过。
+# --------------------------------------------------------------------
+
+
+
+
+
+
+# --------------------------------------------------------------------
+# 整本朗读（TTS 预生成，magicbook R166）：批次受理/进度/重试/取消。
+# Why admin 门禁与整本翻译一致：整本合成消耗大（发起者按字符计费）。
+# 身份经 _whole_book_tts_closures 在请求线程定格（daemon 线程无 Flask 上下文）。
+# --------------------------------------------------------------------
+
+whole_book_tts_service = WholeBookTtsService(None)  # proxy 由 start/retry 注入（路由层闭包定格身份）
+
+
+def _whole_book_tts_proxy_factory(token):
+    """构造整本朗读专用的 moon-well 代理闭包（令牌在请求线程定格为快照）。"""
+
+    def _proxy(path, payload, timeout, label, binary=False, method="POST", **kwargs):
+        return _moonwell_proxy(path, payload, timeout, label, binary=binary,
+                               method=method, bearer_token=token)
+    return _proxy
+
+
+def _whole_book_tts_closures():
+    token = flask_session.get("moonwell_access_token")
+    if not token:
+        raise ValueError("moon-well authorization is required")
+    return _whole_book_tts_proxy_factory(token)
+
+
+
+
+
+
+
+
+
+
+@web.route("/translate-all", methods=["GET"])
+@user_login_required
+@admin_required
+def translate_all_page():
+    return render_title_template("translate_all.html", title=(_("Translate All English Books")),
+                                 page="translate_all")
+
+
+# --------------------------------------------------------------------
+# 全文单词详解（R176，对端 moon-well R188）：给一本书把「查不到详解的词」
+# 补进详解缓存。与整本翻译/整本朗读并列的第三个整本能力，但刻意是**两步式**
+# （预览→入队）：详解是全仓最贵的调用且按发起者计费（R106 实测单次 21.6s），
+# 而「这本书到底缺多少个词」在真书上没有实测样本（小说去重词 5k~15k），
+# 必须先让管理员看到数字再点第二次（同 R118 US4「先预案后执行」）。
+# 门禁沿用 _llm_task_admin_gate：真正的白名单在 moon-well 侧二检
+# （ai.llm.task-manual-run.admin-user-ids），这里只挡 UI 入口，纵深防御同 R126。
+# --------------------------------------------------------------------
+
+word_detail_batch_service = WordDetailBatchService()
+
+_WORD_DETAIL_PATHS = {
+    "cachedCheck": "/vocabulary/detail/cached-check",
+    "warmByWords": "/vocabulary/detail/warm-publish-by-words",
+}
+
+
+def _word_detail_unwrap(response, label):
+    """解 moon-well 的 Result 包装并取出 result；任何失败都抛带原文案的 ValueError。
+
+    Why 不静默返回空：接口故障若被降级成「缓存里没有」，页面就把故障显示成
+    「这本书还缺 N 个词」，用户报回来的永远是错误结论（家族纪律：失败必须在界面上可见）。
+    Why 透传 message：灌队闸门（在途上限、单次词数上限）都以 GlobalException 报业务文案，
+    吞掉它用户只剩一个 500，无从判断是该分批还是该等资源。
+    """
+    if not isinstance(response, tuple) or len(response) < 2:
+        raise ValueError("%s service unavailable" % label)
+    body, status = response[0], response[1]
+    try:
+        data = json.loads(body)
+    except (TypeError, ValueError):
+        raise ValueError("%s returned unreadable response" % label)
+    message = data.get("message") if isinstance(data, dict) else None
+    if status >= 400 or (isinstance(data, dict) and data.get("success") is False):
+        raise ValueError(message or "%s failed (HTTP %s)" % (label, status))
+    result = data.get("result") if isinstance(data, dict) else None
+    return result or {}
+
+
+def _word_detail_closures():
+    """check/publish 两个闭包：令牌在请求线程定格成快照。
+
+    Why 快照而不是线程内读 session：发布在 daemon 线程分批跑，线程里没有 Flask
+    请求上下文，那时再解析 current_user/flask_session 会 RuntimeError，
+    整批被标 FAILED（整本翻译 R78 生产事故同款）。
+    """
+    token = flask_session.get("moonwell_access_token")
+
+    def check(words):
+        if not token:
+            raise ValueError("moon-well authorization is required")
+        return _word_detail_unwrap(_moonwell_proxy(_WORD_DETAIL_PATHS["cachedCheck"],
+                                                   {"words": list(words)}, 30,
+                                                   "word detail cached check",
+                                                   bearer_token=token), "cached-check")
+
+    def publish(payload):
+        if not token:
+            raise ValueError("moon-well authorization is required")
+        return _word_detail_unwrap(_moonwell_proxy(_WORD_DETAIL_PATHS["warmByWords"],
+                                                   payload, 60,
+                                                   "word detail warm publish",
+                                                   bearer_token=token), "warm-publish-by-words")
+
+    return check, publish
+
+
+@web.route("/ajax/word-detail-preview", methods=["POST"])
+@user_login_required
+def reading_word_detail_preview():
+    """只读预览：缓存命中直接返回；未命中立即建后台预计算并返回 RUNNING。
+
+    Why 只拿 check 闭包：预览路径**没有** publish 能力，把「不产生副作用」做成
+    结构约束而不是靠约定（单测据此断言 warm-publish-by-words 一次都没被调）。
+    Why 允许 force：快照有 10 分钟命中窗口；用户主动刷新时不应等过期才重算。
+    """
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
     payload = request.get_json(silent=True) or {}
     try:
-        response = requests.post(
-            constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/analyze",
-            json=payload,
-            headers={"authorization": authorization},
-            timeout=8,
-        )
-        return (response.text, response.status_code,
-                {"Content-Type": response.headers.get("Content-Type", "application/json")})
-    except requests.RequestException as error:
-        log.warning("moon-well reading vocabulary request failed: %s", error)
-        return jsonify({"success": False, "message": "reading vocabulary service unavailable"}), 503
+        book_id = int(payload.get("book_id"))
+        book_format = str(payload.get("book_format") or "epub").lower()
+        force = bool(payload.get("force", False))
+        check, _ = _word_detail_closures()
+        return jsonify(word_detail_batch_service.preview(
+            book_id, book_format, check, force=force))
+    except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
+        return jsonify({"success": False, "message": str(error)}), 400
 
 
-@web.route("/ajax/reading-translate", methods=["POST"])
+@web.route("/ajax/word-detail-start", methods=["POST"])
 @user_login_required
-def reading_translate():
-    """Proxy selected reader text using the caller's moon-well JWT."""
-    authorization = request.headers.get("authorization") or _moonwell_session_authorization()
-    if not constants.MOON_WELL_READING_URL or not authorization:
-        return jsonify({"success": False, "message": "moon-well authorization is required"}), 401
+def reading_word_detail_start():
+    """建台账并后台分批入队；HTTP 立即返回批次快照。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
     payload = request.get_json(silent=True) or {}
-    text = str(payload.get("text", "")).strip()
-    if not text or len(text) > 2000:
-        return jsonify({"success": False, "message": "selected text must be between 1 and 2000 characters"}), 400
-    payload["text"] = text
     try:
-        response = requests.post(
-            constants.MOON_WELL_READING_URL.rstrip("/") + "/reading-vocabulary/translate",
-            json=payload,
-            headers={"authorization": authorization},
-            timeout=20,
+        book_id = int(payload.get("book_id"))
+        book_format = str(payload.get("book_format") or "epub").lower()
+        force = bool(payload.get("force", False))
+        check, publish = _word_detail_closures()
+        return jsonify(word_detail_batch_service.start(book_id, book_format, force, publish, check))
+    except (TypeError, ValueError, OSError, zipfile.BadZipFile) as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/word-detail-progress", methods=["POST"])
+@user_login_required
+def reading_word_detail_progress():
+    """覆盖率进度（轮询）：顺带做一轮缓存懒回收。
+
+    Why 进度口径是覆盖率而不是任务状态：详解的执行方是队列消费者，magicbook 既不是
+    发起者也不是唯一消费者；把 COMPLETED 当完成还会踩 R188 记下的坑——
+    872 条 COMPLETED 里约 202 条产出不合契约、缓存里根本没有。
+    """
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    try:
+        job_id = payload.get("job_id")
+        if not job_id:
+            book_id = int(payload.get("book_id"))
+            job = word_detail_batch_service.latest_job(book_id)
+            if not job:
+                return jsonify({"status": "NONE"})
+            job_id = job.id
+        check, _ = _word_detail_closures()
+        return jsonify(word_detail_batch_service.get_progress(str(job_id), check))
+    except (TypeError, ValueError) as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/ajax/word-detail-cancel", methods=["POST"])
+@user_login_required
+def reading_word_detail_cancel():
+    """停止本批次继续入队（已入队的任务仍由队列消费者生成，不归本接口管）。"""
+    denied = _llm_task_admin_gate()
+    if denied is not None:
+        return denied
+    payload = request.get_json(silent=True) or {}
+    try:
+        return jsonify(word_detail_batch_service.cancel(str(payload.get("job_id"))))
+    except ValueError as error:
+        return jsonify({"success": False, "message": str(error)}), 400
+
+
+@web.route("/word-detail-batch", methods=["GET"])
+@user_login_required
+@admin_required
+def word_detail_batch_page():
+    """按书补缺单词详解面板：打开即预览（只读），第二次点击才入队。"""
+    book_id = request.args.get("book_id", "")
+    if not book_id:
+        return render_title_template(
+            "word_detail_batch_index.html",
+            title=(_("Whole-book Word Details")),
+            page="word_detail_batch",
         )
-        return (response.text, response.status_code,
-                {"Content-Type": response.headers.get("Content-Type", "application/json")})
-    except requests.RequestException as error:
-        log.warning("moon-well reading translation request failed: %s", error)
-        return jsonify({"success": False, "message": "reading translation service unavailable"}), 503
+    # 与 learning_match_book 同款入参校验：非数字必须挡住，不能让 int() 在模板里炸成 500
+    if not re.match(r"^\d+$", str(book_id)):
+        abort(400)
+    book_format = str(request.args.get("book_format") or "epub").lower()
+    return render_title_template("word_detail_batch.html", title=(_("Whole-book Word Details")),
+                                 page="word_detail_batch", book_id=int(book_id),
+                                 book_format=book_format)
 
 
-def _moonwell_session_authorization():
-    access_token = flask_session.get("moonwell_access_token")
-    return "Bearer " + access_token if access_token else None
+# --------------------------------------------------------------------
+# LLM 任务手动执行面板（R126，对齐 moon-well R110 US3）：管理员选
+# provider / model / 并发 / 本批上限，手动消费 moon-well 的 llm task 队列，
+# 可查进度与停止。这里是薄代理——真正的门禁在 moon-well
+# （ai.llm.task-manual-run.admin-user-ids 白名单二次校验），magicbook 的
+# admin_required 只挡 UI 入口；与 /ajax/credit/admin-adjust 同一纵深防御形态。
+# Why 不把 /llm/task/run* 加进 moon-well 的内网互信白名单：手跑会真实消耗
+# 模型配额并把上万行改成 RUNNING，必须带着管理员本人的 token 才能归因。
+# --------------------------------------------------------------------
+
+_LLM_TASK_PATHS = {
+    "options": "/llm/task/run/options",
+    "run": "/llm/task/run",
+    "status": "/llm/task/run/status",
+    "stop": "/llm/task/run/stop",
+    # R130（队列监控，对齐 moon-well R118）：读路径为主；republish 是唯一写路径，
+    # 两步走（plan 不带 confirm 零写库 → 用户二次确认后才带 confirm）由前端驱动、
+    # 服务端兜底——代理层不做字段改写，保持与 run 同款的「两侧 DTO 直接对齐」决策。
+    "overview": "/llm/task/admin/overview",
+    "failures": "/llm/task/admin/failures",
+    "admin_page": "/llm/task/admin/page",
+    "task_detail": "/llm/task/detail",
+    "recovery_plan": "/llm/task/admin/recovery-plan",
+    "republish": "/llm/task/admin/republish-failed",
+}
 
 
-'''
+
+
+def _llm_task_admin_gate():
+    """JSON 入口的管理员门禁。
+
+    Why 不用 @admin_required：它走 abort(403) 返回 HTML，前端 fetch 只能显示
+    「HTTP 403」；面板需要可读文案，故与 /ajax/credit/admin-adjust 同一形态
+    （handler 内判 role_admin 返回 JSON 403）。页面路由 /llm-tasks 仍用装饰器。
+    """
+    if not current_user.role_admin():
+        return jsonify({"success": False, "message": _("admin only")}), 403
+    return None
+
+
+
+
+
+
+
+
+
+
+# ---- R178（架构评审 B1）：moon-well 防腐层本体已迁 cps/moonwell/client.py ----
+# 以下薄委托保留原函数名：web.py 内 ~70 处调用点零改动，上游 merge 冲突面最小。
+# 返回形态契约统一为三元组 (body, status, headers)，失败分支同样是三元组（手拼
+# JSON，daemon 线程安全）——「失败二元组/成功三元组」的隐式契约（解包即
+# ValueError→500）就此消灭。_moonwell_book_finished_bridge（业务编排 107 行）
+# 属 B2 蓝图分域范围，暂留本文件。
+from cps.moonwell.client import NO_PROXY, client as _moonwell_client
+
+_MOONWELL_NO_PROXY = NO_PROXY
+
+
+def _moonwell_base_url():
+    return _moonwell_client.base_url()
+
+
+def _moonwell_trace_id():
+    return _moonwell_client.trace_id()
+
+
+def _moonwell_system_token():
+    return _moonwell_client.system_token()
+
+
+def _moonwell_proxy(path, payload, timeout, label, binary=False, method="POST",
+                    system_identity=False, bearer_token=None):
+    return _moonwell_client.proxy(path, payload, timeout, label, binary=binary,
+                                  method=method, system_identity=system_identity,
+                                  bearer_token=bearer_token)
+
+
+# R214 C：整本任务代价面板的费率缓存（LLD §5.3）。
+# Why 5 分钟：面板切三个 tab 会连拉三次估算，费率是 Nacos 热调常量却要跨公网一次；
+# 单一真源留在 moon-well（R207），本仓不镜像常量——镜像必然漂移。
+_CREDIT_BILLING_TTL_SECONDS = 300
+_credit_billing_cache = {"fetched_at": 0.0, "rates": None}
+
+
+def _credit_billing_rates(timeout=10):
+    """取 moon-well /credit/billing 的费率；不可用回 None（面板据此显「费率暂不可得」）。"""
+    now = time.time()
+    if (_credit_billing_cache["rates"] is not None
+            and now - _credit_billing_cache["fetched_at"] < _CREDIT_BILLING_TTL_SECONDS):
+        return _credit_billing_cache["rates"]
+    response = _moonwell_proxy("/credit/billing", None, timeout, "credit billing", method="GET")
+    if not isinstance(response, tuple) or len(response) < 2:
+        return None
+    body, status = response[0], response[1]
+    if status < 200 or status >= 300:
+        log.warning("credit billing unavailable: HTTP %s", status)
+        return None
+    try:
+        data = json.loads(body)
+    except (TypeError, ValueError):
+        log.warning("credit billing returned unreadable response")
+        return None
+    rates = data.get("result") if isinstance(data, dict) else None
+    if not isinstance(rates, dict):
+        return None
+    _credit_billing_cache["rates"] = rates
+    _credit_billing_cache["fetched_at"] = now
+    return rates
+
+
+def _moonwell_refresh_session_token():
+    return _moonwell_client.refresh_session_token()
+
+
+def _moonwell_multipart(path, file_bytes, filename, timeout, label, fields=None):
+    if fields:
+        return _moonwell_client.multipart(path, file_bytes, filename, timeout, label,
+                                          fields=fields)
+    return _moonwell_client.multipart(path, file_bytes, filename, timeout, label)
+
+
+
+def _moonwell_settings_fetch():
+    return _moonwell_client.settings_fetch()
+
+
+
+
+
+
+
+
+
+
+
+
+# 划词标记的词形白名单：字母开头/结尾，中间仅字母/撇号/连字符。首尾
+# 必须是字母——与 markVocabulary 分词正则的 \b 边界语义对齐（尾部带
+# 撇号/连字符的 key 在页面标注中永远匹配不上，会存成脏数据）。词会
+# 拼进 moon-well 的请求 path，必须严格防御注入。
+_READING_WORD_RE = re.compile(r"^[A-Za-z](?:[A-Za-z'\u2019-]*[A-Za-z])?$")
+
+
+
+
+
+
+def _moonwell_book_finished_bridge(book_id, read_status, title=None, authors=None):
+    """已读状态变更后，向 moon-well 桥接同步（成就系统只认 moon-well 自家 book 域事件）。
+
+    Why: Calibre 书库（本站）与 moon-well book 域是两套独立数据，成就是否解锁完全看
+    moon-well 侧 BOOKS_FINISHED 事件（/book/update 置 FINISHED 或进度 100%）。不在
+    toggleread 后桥接，用户读完 Calibre 里的任何书都不会触发成就（R64 根因）。
+
+    策略：
+    - 仅在置为已读（read_status=True）时同步：取消已读不回退成就（成就计数以 FINISHED
+      状态收敛去重，反向操作无对应语义）；
+    - 优先在用户 moon-well 书架按书名精确检索，命中则复用已有书籍 id；
+    - 未命中则登记新书（附带 Calibre 书名/作者，书架页可识别来源）；
+    - 重复置已读不重复解锁（moon-well 侧 justFinished 幂等，双保险）；
+    - 全程失败只记日志，绝不影响本站已读状态变更主链路。
+    """
+    if not read_status:
+        return
+
+    # Why: worker 运行在后台线程，没有 Flask request 上下文——令牌必须在启动线程
+    # （即 toggleread 请求处理线程，持有 flask_session）内取好快照再传入（R65 测试发现）。
+    # R145 全 token 化：书架归属跟用户走，快照只带用户 token；无请求上下文或无 token
+    # 一律跳过桥接（flask_session 在裸 app_context 下 get 会 RuntimeError）。
+    try:
+        token = flask_session.get("moonwell_access_token")
+    except RuntimeError:
+        token = None
+    if not token:
+        log.warning("moonwell book bridge: no moon-well token for book %s, skip", book_id)
+        return
+
+    def _worker(book_id=book_id, title=title, authors=authors, token=token):
+        try:
+            with app.app_context():
+
+                # 书名/作者缺省时查本站书库补全
+                if not title or not authors:
+                    try:
+                        entries = calibre_db.get_filtered_book(book_id)
+                        if entries:
+                            title = entries.title or title
+                            authors = " & ".join(a.name for a in entries.authors) if entries.authors else authors
+                    except Exception:
+                        pass
+                if not title:
+                    log.warning("moonwell book bridge: book %s has no title, skip", book_id)
+                    return
+
+                # 1) 先按书名查用户 moon-well 书架，命中则复用已有书籍 id
+                book_id_mw = None
+                body, status, _h = _moonwell_proxy(
+                    "/book/page", {"page": 1, "size": 100, "keyword": title}, 15,
+                    "moonwell book bridge page", bearer_token=token)
+                if 200 <= status < 300:
+                    try:
+                        data = json.loads(body)
+                        if data.get("success") and data.get("result"):
+                            records = data["result"].get("records") or data["result"].get("list") or []
+                            for rec in records:
+                                if (rec.get("title") or "").strip() == title.strip():
+                                    book_id_mw = str(rec.get("id"))
+                                    break
+                    except (ValueError, TypeError):
+                        pass
+
+                # 2) 未命中则登记新书（readingStatus 默认 UNREAD）
+                if not book_id_mw:
+                    create_payload = {
+                        "title": title[:255],
+                        "author": (authors or "Unknown")[:255],
+                    }
+                    body, status, _h = _moonwell_proxy(
+                        "/book/create", create_payload, 15, "moonwell book bridge create",
+                        bearer_token=token)
+                    if 200 <= status < 300:
+                        try:
+                            data = json.loads(body)
+                            if data.get("success") and data.get("result"):
+                                book_id_mw = str(data["result"].get("id"))
+                        except (ValueError, TypeError):
+                            pass
+                    if not book_id_mw:
+                        log.warning("moonwell book bridge: create failed for book %s (%s): HTTP %s %s",
+                                    book_id, title, status, (body or "")[:200])
+                        return
+
+                # 3) 置 FINISHED 触发 BOOKS_FINISHED 事件（重复置已读由 justFinished 幂等兜底）
+                update_payload = {
+                    "id": book_id_mw,
+                    "title": title[:255],
+                    "author": (authors or "Unknown")[:255],
+                    "readingStatus": "FINISHED",
+                }
+                body, status, _h = _moonwell_proxy(
+                    "/book/update", update_payload, 15, "moonwell book bridge update",
+                    bearer_token=token)
+                if 200 <= status < 300:
+                    log.info("moonwell book bridge: book %s -> moonwell book %s FINISHED ok",
+                             book_id, book_id_mw)
+                else:
+                    log.warning("moonwell book bridge: update failed for book %s (%s): HTTP %s %s",
+                                book_id, title, status, (body or "")[:200])
+        except Exception:
+            log.error_or_exception("moonwell book bridge unexpected error for book %s" % book_id)
+
+    threading.Thread(target=_worker, name="moonwell-book-bridge", daemon=True).start()
+
+
 @web.route("/ajax/getcomic/<int:book_id>/<book_format>/<int:page>")
 @user_login_required
 def get_comic_book(book_id, book_format, page):
@@ -305,7 +1106,6 @@ def get_comic_book(book_id, book_format, page):
                 fileData={"name": names[page], "page":page, "last":len(names)-1, "content": extractedfile}
                 return make_response(json.dumps(fileData))
         return "", 204
-'''
 
 
 # ################################### Typeahead ##################################################################
@@ -1391,7 +2191,7 @@ def register():
     if not config.config_public_reg:
         abort(404)
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if not config.get_mail_server_configured():
         flash(_("Oops! Email server is not configured, please contact your administrator."), category="error")
         return render_title_template('register.html', title=_("Register"), page="register")
@@ -1404,28 +2204,53 @@ def handle_login_user(user, remember, message, category):
     login_user(user, remember=remember)
     flash(message, category=category)
     [limiter.limiter.clear(limit.limit, *limit.request_args) for limit in limiter.current_limits]
-    return redirect(get_redirect_location(request.form.get('next', None), "web.index"))
+    # R213-C：表单没带 next 时落到站点配置的默认落点（/home 或原 / 发现页）
+    return redirect(get_redirect_location(request.form.get('next', None), landing_endpoint()))
 
 
 def render_login(username="", password=""):
-    next_url = request.args.get('next', default=url_for("web.index"), type=str)
+    next_url = request.args.get('next', default=url_for(landing_endpoint()), type=str)
     if url_for("web.logout") == next_url:
-        next_url = url_for("web.index")
+        next_url = url_for(landing_endpoint())
+    oidc_enabled = current_app.config.get("AUTHENTIK_OIDC_ENABLED", False)
+    # 邀请制注册入口：链接由 .env 的 AUTHENTIK_ENROLLMENT_INVITE_URL 注入（Authentik
+    # 邀请默认 30 天过期，轮换时只改环境变量并重启，不动代码）；未配置则不渲染
+    invite_url = (os.getenv("AUTHENTIK_ENROLLMENT_INVITE_URL") or "").strip()
+    # R217：注册按钮改为指向 magicbook 侧的 /oidc/signup —— 它把「邀请注册」与
+    # 「OIDC 授权」串成一条链，用户注册完自动回站且已是登录态（不再需要二次点击）。
+    # 仍以 invite_url 是否配置为开关：未配置 → 不渲染注册入口（沿用 R103 语义）。
+    signup_url = url_for("oidc.signup", next=next_url) if invite_url else ""
+    # R212：游客先看到「这里有什么」，再看登录表单。复用首页随机发现的
+    # common_filters（归档/受限书不会漏出）；书库未配置或查询失败时安静隐藏书墙，
+    # 不用一张灰图占住登录入口。关闭匿名浏览时不取书：封面端点会重定向登录，
+    # 提前取数既会产生破图，也会在未授权页面泄露书名。
+    login_books = []
+    if config.config_anonbrowse:
+        try:
+            from .routes.home import random_discover_books
+
+            login_books = random_discover_books(limit=4)
+        except Exception as exc:
+            log.warning("login: book wall unavailable: %s", exc)
     return render_title_template('login.html',
                                  title=_("Login"),
                                  next_url=next_url,
-                                 config=config,
                                  username=username,
                                  password=password,
+                                 login_books=login_books,
                                  oauth_check=oauth_check,
-                                 authentik_oidc_enabled=current_app.config.get("AUTHENTIK_OIDC_ENABLED", False),
+                                 authentik_oidc_enabled=oidc_enabled,
+                                 authentik_invite_url=invite_url,
+                                 authentik_signup_url=signup_url,
+                                 # 统一账户体系：Authentik 启用时隐藏本地密码表单，仅保留 OIDC 登录
+                                 hide_local_login=oidc_enabled,
                                  mail=config.get_mail_server_configured(), page="login")
 
 
 @web.route('/login', methods=['GET'])
 def login():
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
         log.error(u"Cannot activate LDAP authentication")
         flash(_(u"Cannot activate LDAP authentication"), category="error")
@@ -1439,10 +2264,16 @@ def login_post():
     form = request.form.to_dict()
     username = strip_whitespaces(form.get('username', "")).lower().replace("\n","").replace("\r","")
     if current_user is not None and current_user.is_authenticated:
-        return redirect(url_for('web.index'))
+        return redirect(url_for(landing_endpoint()))
     if config.config_login_type == constants.LOGIN_LDAP and not services.ldap:
         log.error(u"Cannot activate LDAP authentication")
         flash(_(u"Cannot activate LDAP authentication"), category="error")
+    # 统一账户体系：Authentik 启用后本地密码登录被禁用（含 forgot 找回），仅走 OIDC。
+    # 关闭 OIDC 配置（AUTHENTIK_* 环境变量）即降级回本地登录，保留管理员恢复通道。
+    if current_app.config.get("AUTHENTIK_OIDC_ENABLED", False):
+        log.info('Local login disabled (Authentik OIDC enabled), redirecting user "%s" to OIDC', username)
+        flash(_(u"Local password login is disabled; please log in with Authentik"), category="info")
+        return redirect(url_for("oidc.login", next=request.form.get("next", "")))
     user = ub.session.query(ub.User).filter(func.lower(ub.User.name) == username).first()
     remember_me = bool(form.get('remember_me'))
     if config.config_login_type == constants.LOGIN_LDAP and services.ldap and user and form['password'] != "":
@@ -1501,6 +2332,16 @@ def login_post():
 def logout():
     if current_user is not None and current_user.is_authenticated:
         ub.delete_user_session(current_user.id, flask_session.get('_id', ""))
+        # R123: 会话已持久化（cookie 带 30 天滑动 Expires），登出必须整体清空——
+        # 否则 moonwell_access_token / moonwell_refresh_token 滞留在被继续续期的
+        # 永久 cookie 里，登出后仍可被重放。clear 置 modified，save_session 会对
+        # 空会话下发 Set-Cookie 删除头，浏览器端 cookie 一并移除。
+        #
+        # R255: 必须先 clear 再 logout_user()。cw_login.logout_user() 不会直接删
+        # remember_token，而是在 session 里写 _remember="clear" 交给 after_request
+        # 处理；顺序反了，clear() 会把这个标记一起清掉，remember cookie 留在浏览器，
+        # 下一次请求立刻从 remember cookie 恢复登录态——用户看到的就是「注销无效」。
+        flask_session.clear()
         logout_user()
         if feature_support['oauth'] and (config.config_login_type == 2 or config.config_login_type == 3):
             logout_oauth_user()
@@ -1516,100 +2357,148 @@ def logout():
 
 
 # ################################### Users own configuration #########################################################
-def change_profile(kobo_support, local_oauth_check, oauth_status, translations, languages):
-    to_save = request.form.to_dict()
-    current_user.random_books = 0
-    try:
-        if current_user.role_passwd() or current_user.role_admin():
-            if to_save.get("password", "") != "":
-                current_user.password = generate_password_hash(valid_password(to_save.get("password")))
-        if to_save.get("kindle_mail", current_user.kindle_mail) != current_user.kindle_mail:
-            current_user.kindle_mail = valid_email(to_save.get("kindle_mail"))
-        new_email = valid_email(to_save.get("email", current_user.email))
-        if not new_email:
-            raise Exception(_("Email can't be empty and has to be a valid Email"))
-        if new_email != current_user.email:
-            current_user.email = check_email(new_email)
-        if current_user.role_admin():
-            if to_save.get("name", current_user.name) != current_user.name:
-                # Query username, if not existing, change
-                current_user.name = check_username(to_save.get("name"))
-        current_user.random_books = 1 if to_save.get("show_random") == "on" else 0
-        current_user.default_language = to_save.get("default_language", "all")
-        current_user.locale = to_save.get("locale", "en")
-        old_state = current_user.kobo_only_shelves_sync
-        # 1 -> 0: nothing has to be done
-        # 0 -> 1: all synced books have to be added to archived books, + currently synced shelfs which
-        # don't have to be synced have to be removed (added to Shelf archive)
-        current_user.kobo_only_shelves_sync = int(to_save.get("kobo_only_shelves_sync") == "on") or 0
-        if old_state == 0 and current_user.kobo_only_shelves_sync == 1:
-            kobo_sync_status.update_on_sync_shelfs(current_user.id)
-
-    except Exception as ex:
-        flash(str(ex), category="error")
-        return render_title_template("user_edit.html",
-                                     content=current_user,
-                                     config=config,
-                                     translations=translations,
-                                     profile=1,
-                                     languages=languages,
-                                     title=_("%(name)s's Profile", name=current_user.name),
-                                     page="me",
-                                     kobo_support=kobo_support,
-                                     registered_oauth=local_oauth_check,
-                                     oauth_status=oauth_status)
-
-    val = 0
-    for key, __ in to_save.items():
-        if key.startswith('show'):
-            val += int(key[5:])
-    current_user.sidebar_view = val
-    if to_save.get("Show_detail_random"):
-        current_user.sidebar_view += constants.DETAIL_RANDOM
-
-    try:
-        ub.session.commit()
-        flash(_("Success! Profile Updated"), category="success")
-        log.debug("Profile updated")
-    except IntegrityError:
-        ub.session.rollback()
-        flash(_("Oops! An account already exists for this Email."), category="error")
-        log.debug("Found an existing account for this Email")
-    except OperationalError as e:
-        ub.session.rollback()
-        log.error("Database error: %s", e)
-        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
-
-
-@web.route("/me", methods=["GET", "POST"])
+@web.route("/me", methods=["GET"])
 @user_login_required
 def profile():
+    """A1 account identity page: identity and interface/book language only.
+
+    Why no longer the preference dumping ground: R251 splits every user task into
+    its own L2 page so /me no longer loads reading settings, buddy state or the
+    learning-data export.  Keeping those fetches here made every profile visit
+    depend on unrelated upstream services.
+    """
     languages = calibre_db.speaking_language()
     translations = get_available_locale()
-    kobo_support = feature_support['kobo'] and config.config_kobo_sync
     if feature_support['oauth'] and config.config_login_type == 2:
         oauth_status = get_oauth_status()
         local_oauth_check = oauth_check
     else:
         oauth_status = None
         local_oauth_check = {}
-
-    if request.method == "POST":
-        change_profile(kobo_support, local_oauth_check, oauth_status, translations, languages)
-    return render_title_template("user_edit.html",
+    return render_title_template("me.html",
                                  translations=translations,
                                  profile=1,
                                  languages=languages,
                                  content=current_user,
-                                 config=config,
-                                 kobo_support=kobo_support,
                                  title=_("%(name)s's Profile", name=current_user.name),
                                  page="me",
                                  registered_oauth=local_oauth_check,
                                  oauth_status=oauth_status)
 
 
+@web.route("/me/export", methods=["GET"])
+@user_login_required
+def profile_export():
+    """A7: learning-data export has its own L2 page and reuses the R230 proxies."""
+    return render_title_template("me_export.html", title="我的学习数据",
+                                 page="me_export")
+
+
+@web.route("/me/preferences", methods=["POST"])
+@user_login_required
+def update_preferences():
+    """只更新界面语言与书籍语言，不触碰其他用户字段（R216）。"""
+    locale = request.form.get("locale", current_user.locale or "en")
+
+    if locale not in get_available_translations():
+        flash(_("Invalid language"), category="error")
+        return redirect(url_for("web.profile"))
+
+    # R212 顶栏语言菜单只提交 locale。`default_language` 是 /me 表单的书籍
+    # 过滤条件，不能因为顶栏没有提交它就被重置；只有字段显式出现时才校验并
+    # 更新。这样即使账号里保留的语言已从书库消失，切换界面语言仍可成功。
+    update_book_language = "default_language" in request.form
+    book_language = None
+    if update_book_language:
+        book_language = request.form.get("default_language")
+        valid_book_languages = {lang.lang_code for lang in calibre_db.speaking_language()}
+        if book_language != "all" and book_language not in valid_book_languages:
+            flash(_("Invalid language"), category="error")
+            return redirect(url_for("web.profile"))
+
+    try:
+        current_user.locale = locale
+        if update_book_language:
+            current_user.default_language = book_language
+        ub.session.commit()
+        if update_book_language:
+            flash(_("Success! Profile Updated"), category="success")
+        else:
+            # R257 方案八：顶栏只切了界面语言，用户没有「保存资料」的动作预期，
+            # 反馈必须说清楚发生了什么；同时停留在当前页（next 只收站内相对路径），
+            # 不再把用户甩到 /me。
+            flash(_("Interface language updated"), category="success")
+        log.debug("Preferences updated")
+    except OperationalError as e:
+        ub.session.rollback()
+        log.error("Database error: %s", e)
+        flash(_("Oops! Database Error: %(error)s.", error=e), category="error")
+    next_target = request.form.get("next", "")
+    if next_target.startswith("/") and not next_target.startswith("//"):
+        return redirect(next_target)
+    return redirect(url_for("web.profile"))
+
+
 # ###################################Show single book ##################################################################
+
+
+def recent_reading(user_id, limit=6):
+    """首页「继续阅读」取数（R213-B / MB-17）。
+
+    Why 不直接 order_by 后 limit：`reading_progress` 里可能残留已读完的书与被
+    删除的书，先截断再过滤会让列表出现空位。这里按 limit 的 3 倍取候选再过滤，
+    过滤后不足 limit 就少显示几张卡，不补位。
+
+    Why 返回 dict 而不是 ORM 行：模板要的是「书名 + 封面 + 37/125」，
+    拼装放在这里，避免模板里再 join 书库。
+    """
+    if not user_id:
+        return []
+    try:
+        rows = ub.session.query(ub.ReadingProgress).filter(
+            ub.ReadingProgress.user_id == int(user_id)).order_by(
+            ub.ReadingProgress.last_read_at.desc()).limit(max(limit, 1) * 3).all()
+    except Exception as e:
+        log.warning("recent_reading query failed: %s", e)
+        return []
+    if not rows:
+        return []
+
+    book_ids = [r.book_id for r in rows]
+    # 一次查出已读完集合，避免逐本查 ReadBook
+    finished = set()
+    try:
+        for read_book in ub.session.query(ub.ReadBook).filter(
+                ub.ReadBook.user_id == int(user_id),
+                ub.ReadBook.book_id.in_(book_ids),
+                ub.ReadBook.read_status == ub.ReadBook.STATUS_FINISHED).all():
+            finished.add(read_book.book_id)
+    except Exception as e:
+        log.warning("recent_reading read-status lookup failed: %s", e)
+
+    entries = []
+    for row in rows:
+        if len(entries) >= limit:
+            break
+        if row.book_id in finished:
+            continue
+        try:
+            book = calibre_db.get_filtered_book(row.book_id)
+        except Exception:
+            book = None
+        # 书被删或当前用户无权看：静默跳过，不进列表也不报错
+        if not book:
+            continue
+        entries.append({
+            "book": book,
+            "format": row.book_format,
+            "position": row.position,
+            "percent": row.progress_percent,
+            "page_current": row.page_current,
+            "page_total": row.page_total,
+            "last_read_at": row.last_read_at,
+        })
+    return entries
 
 
 @web.route("/read/<int:book_id>/<book_format>")
@@ -1632,16 +2521,36 @@ def read_book(book_id, book_format):
         bookmark = ub.session.query(ub.Bookmark).filter(and_(ub.Bookmark.user_id == int(current_user.id),
                                                              ub.Bookmark.book_id == book_id,
                                                              ub.Bookmark.format == book_format.upper())).first()
+    # 账号级阅读位置（R213-B）：EPUB 恢复位置用；服务端优先于浏览器 localStorage
+    reading_position = None
+    if current_user.is_authenticated and config.config_reading_progress_enabled:
+        progress = ub.session.query(ub.ReadingProgress).filter(
+            ub.ReadingProgress.user_id == int(current_user.id),
+            ub.ReadingProgress.book_id == book_id,
+            ub.ReadingProgress.book_format == book_format.upper()).first()
+        if progress:
+            reading_position = {
+                "position": progress.position,
+                "percent": progress.progress_percent,
+                "page_current": progress.page_current,
+                "page_total": progress.page_total,
+            }
+    progress_enabled = bool(config.config_reading_progress_enabled)
     if book_format.lower() == "epub" or book_format.lower() == "kepub":
         log.debug("Start [k]epub reader for %d", book_id)
         return render_title_template('read.html', bookid=book_id, title=book.title, bookmark=bookmark,
-                                     book_format=book_format)
+                                     book_format=book_format, reading_position=reading_position,
+                                     reading_progress_enabled=progress_enabled)
     elif book_format.lower() == "pdf":
         log.debug("Start pdf reader for %d", book_id)
-        return render_title_template('readpdf.html', pdffile=book_id, title=book.title)
+        return render_title_template('readpdf.html', pdffile=book_id, title=book.title,
+                                     reading_position=reading_position,
+                                     reading_progress_enabled=progress_enabled)
     elif book_format.lower() == "txt":
         log.debug("Start txt reader for %d", book_id)
-        return render_title_template('readtxt.html', txtfile=book_id, title=book.title)
+        return render_title_template('readtxt.html', txtfile=book_id, title=book.title,
+                                     reading_position=reading_position,
+                                     reading_progress_enabled=progress_enabled)
     elif book_format.lower() in ["djvu", "djv"]:
         log.debug("Start djvu reader for %d", book_id)
         return render_title_template('readdjvu.html', djvufile=book_id, title=book.title,
@@ -1670,6 +2579,40 @@ def read_book(book_id, book_format):
         return redirect(url_for("web.index"))
 
 
+# ---- R214 子项 A：书籍详情元数据呈现判定（判定不进模板，便于单测）----
+from cps.reading_insight.difficulty import resolve_difficulty
+
+
+def _pubdate_is_import_date(pubdate, timestamp):
+    """判定「伪出版日」：pubdate 与入藏 timestamp 相差 ≤1 天视为导入时间。
+
+    Why: Calibre 在 OPF 没有 dc:date 时会把导入时间填进 books.pubdate，详情页
+         因此把「入库日」当「出版日」展示（QA §四）。这类日期不是出版信息，
+         页面改显示「导入于 …」，不伪造出版日（R214 元数据不伪造原则）。
+    """
+    if not pubdate or not timestamp:
+        return False
+    try:
+        delta = (pubdate.replace(tzinfo=None) - timestamp.replace(tzinfo=None)).total_seconds()
+    except (AttributeError, TypeError, ValueError):
+        return False
+    return abs(delta) <= 86400
+
+
+def _shelf_names_for_book(shelf_ids):
+    """把书架 id 列表换成书架名列表（难度阶②级兜底要吃名称）。
+
+    Why: `ub.BookShelf.shelf` 是 `Column(Integer, ForeignKey('shelf.id'))`——外键整数列，
+         不是 Shelf 关系对象。详情页把书所属书架直接攒成 id 列表（模板按 id 判
+         「已加入书架」，形制不能改），拿它 `.name` 必然 AttributeError→整页 500。
+         名称单独查一次，也避免按书架数逐行 lazy load 出 N+1。
+    """
+    if not shelf_ids:
+        return []
+    return [name for (name,) in ub.session.query(ub.Shelf.name)
+            .filter(ub.Shelf.id.in_(shelf_ids)).all()]
+
+
 @web.route("/book/<int:book_id>")
 @login_required_if_no_ano
 def show_book(book_id):
@@ -1678,7 +2621,12 @@ def show_book(book_id):
         read_book = entries[1]
         archived_book = entries[2]
         entry = entries[0]
-        entry.read_status = read_book == ub.ReadBook.STATUS_FINISHED
+        # R258 方案十：详情页保留三态原值（0 未读 / 1 已读 / 2 在读）。
+        # 旧实现压成布尔，把「在读」渲染成未读——阅读器明明写了
+        # IN_PROGRESS（reading.py:601），界面上却与没读过无差别。
+        entry.read_status = (read_book if read_book is not None else ub.ReadBook.STATUS_UNREAD)
+        entry.read_status_finished = read_book == ub.ReadBook.STATUS_FINISHED
+        entry.read_status_in_progress = read_book == ub.ReadBook.STATUS_IN_PROGRESS
         entry.is_archived = archived_book
         for lang_index in range(0, len(entry.languages)):
             entry.languages[lang_index].language_name = isoLanguages.get_language_name(get_locale(), entry.languages[
@@ -1706,15 +2654,97 @@ def show_book(book_id):
             if media_format.format.lower() in constants.EXTENSIONS_AUDIO:
                 entry.audio_entries.append(media_format.format.lower())
 
+        # R214 子项 A：伪出版日判定 + 难度阶标签（四级兜底，与 R213 共用解析器）
+        entry.pubdate_is_import_date = _pubdate_is_import_date(entry.pubdate, entry.timestamp)
+        entry.difficulty = resolve_difficulty(
+            tag_names=[t.name for t in entry.tags],
+            shelf_names=_shelf_names_for_book(book_in_shelves),
+            series_name=entry.series[0].name if entry.series else "")
+
+        # R214 B：内容速览——一次解析缓存（book_insight），供简介/目录/试读三区块
+        # 与后续代价面板共用同一份量。解析失败不拖垮详情页，区块内显示错误原文
+        # （LLD §8 禁止静默降级），故兜 Exception 而非只兜 ValueError。
+        entry.insight = None
+        entry.insight_error = None
+        entry.insight_format = ("epub" if "epub" in entry.reader_list
+                                else "kepub" if "kepub" in entry.reader_list else "")
+        if entry.insight_format:
+            try:
+                # 延迟导入：reading_insight.service 的 generate_summary 反向引用 web，
+                # 模块级互引会成环（routes/book_detail.py 同因）。
+                from cps.reading_insight.service import get_or_build
+                entry.insight = get_or_build(book_id, entry.insight_format)
+                ai_summary = (entry.insight or {}).get("aiSummary")
+                if ai_summary and ai_summary.get("generatedAt"):
+                    from datetime import datetime
+                    ai_summary["generatedAtText"] = datetime.fromtimestamp(
+                        ai_summary["generatedAt"]).strftime("%Y-%m-%d")
+            except Exception as error:
+                entry.insight_error = str(error)
+
+        # R214 C：三种整本链路的活跃批次快照（LLD §7.5）——页面直接进进度态，
+        # 不再显示「开始」按一个已经在跑的批次。查询失败只让快照为空，不拦详情页。
+        # 仅管理员查：整本能力本就是 admin 专属，非管理员多查三张表没有收益。
+        entry.whole_book_active = {}
+        if current_user.role_admin() and entry.insight_format:
+            try:
+                from cps.reading_insight.service import active_jobs
+                entry.whole_book_active = active_jobs(book_id, entry.insight_format)
+            except Exception as error:
+                log.warning("whole-book active job lookup failed for book %s: %s", book_id, error)
+
+        # R241：整本能力缓存齐备标识——整本翻译/整本朗读/全文单词详解三项都跑满过
+        # 就点亮「低成本学习」，让读者在书页上直接看到这本书学起来便宜。
+        # Why 不受 admin 门禁限制：三个整本入口是管理员操作，标识是**成本提示**
+        # （普通读者读这本书同样吃这三层缓存）；把提示也锁进 admin 等于目标读者看不到。
+        entry.cache_readiness = None
+        # Why 先判匿名：AnonymousUserMixin 没有 role_viewer 属性，直接调用会 AttributeError
+        # （模板里写 current_user.role_viewer() 没事，那是 Jinja 的 Undefined；Python 侧不行）。
+        if entry.insight_format and not current_user.is_anonymous and current_user.role_viewer():
+            try:
+                # 延迟导入：readiness 依赖 reading_insight.service，模块级互引会成环。
+                from cps.reading_insight.readiness import book_readiness
+                # 复用速览 payload 里已算好的指纹：同一请求不再取一次书、stat 一次文件。
+                entry.cache_readiness = book_readiness(
+                    book_id, entry.insight_format,
+                    fingerprint=(entry.insight or {}).get("fingerprint"))
+            except Exception as error:
+                # 标识是锦上添花：查不到就不显示，绝不拦详情页（同 active_jobs 纪律）。
+                log.warning("cache readiness lookup failed for book %s: %s", book_id, error)
+
+        # R252：整本成本摘要。只消费已解析的速览快照 + readiness 台账 + 已缓存费率，
+        # 不重新解析 EPUB、不做整本缓存探针。费率请求限 2 秒，moon-well 故障时
+        # 页面仍应快速渲染，宁可暂时不显示积分数字。
+        entry.book_cost_summary = None
+        if entry.insight and not current_user.is_anonymous and current_user.role_viewer():
+            try:
+                from cps.reading_insight.cost import build_book_cost_summary
+                entry.book_cost_summary = build_book_cost_summary(
+                    entry.insight,
+                    readiness=entry.cache_readiness,
+                    rates=_credit_billing_rates(timeout=2),
+                )
+            except Exception as error:
+                log.warning("book cost summary failed for book %s: %s", book_id, error)
+
         return render_title_template('detail.html',
                                      entry=entry,
                                      cc=cc,
                                      is_xhr=request.headers.get('X-Requested-With') == 'XMLHttpRequest',
                                      title=entry.title,
                                      books_shelfs=book_in_shelves,
+                                     nce_book_no=resolve_nce_book_no(entry),
                                      page="book")
     else:
         log.debug("Selected book is unavailable. File does not exist or is not accessible")
         flash(_("Oops! Selected book is unavailable. File does not exist or is not accessible"),
               category="error")
         return redirect(url_for("web.index"))
+
+
+
+# ---- R181（架构评审 B2）：定制路由按域分文件（cps/routes/）----
+# 装饰注册沿用原 web blueprint（endpoint 名不变，url_for/模板/前端零改动）；
+# 原版路由留在本文件（上游同款）。本 import 必须在全部辅助符号定义之后。
+from cps.routes import register_domain_routes
+register_domain_routes(web)

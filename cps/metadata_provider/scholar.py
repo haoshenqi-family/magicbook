@@ -29,6 +29,7 @@ except FakeUserAgentError:
     raise ImportError("No module named 'scholarly'")
 
 from cps import logger
+from cps.metadata_provider import outbound
 from cps.services.Metadata import MetaRecord, MetaSourceInfo, Metadata
 
 log = logger.create()
@@ -49,6 +50,14 @@ class scholar(Metadata):
                 tokens = [quote(t.encode("utf-8")) for t in title_tokens]
                 query = " ".join(tokens)
             try:
+                # 仅谷歌流量走代理：scholarly 支持时注入 METADATA_GOOGLE_PROXY；
+                # 未配置代理 / scholarly 未安装该能力时保持默认行为。
+                _google_proxy = outbound.google_proxy()
+                if _google_proxy:
+                    try:
+                        scholarly.use_proxy(http=_google_proxy, https=_google_proxy)
+                    except (AttributeError, TypeError):
+                        log.debug("scholarly.use_proxy unavailable, keep direct")
                 scholarly.set_timeout(20)
                 scholarly.set_retries(2)
                 scholar_gen = itertools.islice(scholarly.search_pubs(query), 10)

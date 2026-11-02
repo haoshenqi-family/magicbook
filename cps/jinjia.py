@@ -24,6 +24,7 @@
 
 from markupsafe import escape
 import datetime
+import json
 import mimetypes
 from uuid import uuid4
 
@@ -31,12 +32,12 @@ from flask import Blueprint, request, url_for, g
 from flask_babel import format_date
 from .cw_login import current_user
 from .clean_html import clean_string as html_clean_string
+from .ui_ia import l2_nav_groups, nav_domain, shelf_level_sort, shelf_nav_group
 
 from . import constants, logger
 
 jinjia = Blueprint('jinjia', __name__)
 log = logger.create()
-
 
 # pagination links in jinja
 @jinjia.app_template_filter('url_for_other_page')
@@ -69,6 +70,26 @@ def shortentitle_filter(s, nchar=20):
             res += line + ' '
             suml += len(line) + 1
     return res.strip()
+
+
+@jinjia.app_template_filter('shelf_nav_group')
+def shelf_nav_group_filter(name):
+    return shelf_nav_group(name)
+
+
+@jinjia.app_template_filter('shelf_level_sort')
+def shelf_level_sort_filter(shelves):
+    return shelf_level_sort(shelves)
+
+
+@jinjia.app_template_filter('nav_domain')
+def nav_domain_filter(path, page):
+    return nav_domain(path, page)
+
+
+@jinjia.app_template_filter('l2_nav_groups')
+def l2_nav_groups_filter(domain, path):
+    return l2_nav_groups(domain, path)
 
 
 @jinjia.app_template_filter('mimetype')
@@ -132,6 +153,18 @@ def uuidfilter(var):
     return uuid4()
 
 
+@jinjia.app_template_filter('from_json')
+def from_json(value):
+    """Parse a JSON string into a Python object (used by the AI admin template
+    to render AiProvider.models_json). Returns [] on empty/invalid input."""
+    if not value:
+        return []
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return []
+
+
 @jinjia.app_template_filter('cache_timestamp')
 def cache_timestamp(rolling_period='month'):
     if rolling_period == 'day':
@@ -182,6 +215,20 @@ def contains_music(book_formats):
         if format.format.lower() in g.constants.EXTENSIONS_AUDIO:
             result = True
     return result
+
+@jinjia.app_template_filter('main_format')
+def main_format(book_formats):
+    """R213-A：卡片格式徽标用的「主文本格式」。
+
+    Why 单独成过滤器：Books.data 是「格式集合」（同一本书可有 EPUB+PDF+MP3），
+    徽标只展示一个主格式——取第一个非音频格式；纯音频书返回 None（由音频徽标
+    单独表达）。判定口径与 contains_music 共用 g.constants.EXTENSIONS_AUDIO，
+    两处不会漂移。
+    """
+    for format in book_formats:
+        if format.format.lower() not in g.constants.EXTENSIONS_AUDIO:
+            return format.format.upper()
+    return None
 
 @jinjia.app_template_filter('clean_string')
 def clean_string(unsafe_text):

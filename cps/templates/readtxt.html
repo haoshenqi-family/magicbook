@@ -16,19 +16,42 @@
 
         <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" type="text/css"/>
         <link rel="stylesheet" href="{{ url_for('static', filename='css/text.css') }}" type="text/css"/>
+        {% if current_user.is_authenticated %}
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/mail.css') }}" type="text/css"/>
+        {% endif %}
 
         <script src="{{ url_for('static', filename='js/libs/jquery.min.js') }}"></script>
         <script src="{{ url_for('static', filename='js/libs/plugins.js') }}"></script>
         <script>
             "use strict";
         </script>
+        {# R213-B：账号级阅读位置——总开关关闭时回到改造前，不加载采集器、不注入位置 #}
+        {% if current_user.is_authenticated and reading_progress_enabled %}
+        <script type="text/javascript">
+            window.calibre = {
+                bookId: {{ txtfile }},
+                bookFormat: "TXT",
+                readerPosition: {{ (reading_position or {})|tojson }},
+            };
+        </script>
+        <script src="{{ url_for('static', filename='js/reading/reader-progress.js') }}"></script>
+        {% endif %}
         <script src="{{ url_for('static', filename='js/reading/txt_reader.js') }}"></script>
     </head>
     <body>
+      {# R151 阅读心跳上报需要 CSRF 头（全局 CSRFProtect，POST /ajax/* 强制） #}
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div id="readmain" data-load="{{ url_for('web.serve_book', book_id=txtfile, book_format='txt') }}">
         <div id="left" class="arrow" >‹</div>
         <div id="area"><pre id="content" class="content"></pre></div>
         <div id="right" class="arrow">›</div>
       </div>
+    {% include 'i18n_seed.html' %}
+    <script src="{{ url_for('static', filename='js/common/api.js') }}"></script>
+    {% if current_user.is_authenticated %}
+    <script src="{{ url_for('static', filename='js/mail.js') }}"></script>
+    {% endif %}
+    {% include 'ai_chat_panel.html' %}
+    <script src="{{ url_for('static', filename='js/reading/reading_time_tracker.js') }}"></script>
     </body>
 </html>

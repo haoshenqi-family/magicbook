@@ -1,0 +1,136 @@
+{# Buddy assistant chat panel — included by the site layout and reader templates.
+   Adds a floating button (bottom-right) that opens a right-side chat drawer.
+   Depends on jQuery (already loaded by all reader templates). #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai_chat.css') }}">
+<div id="ai-companion-root">
+  {# R206 伙伴图标：默认显示「AI」文字兜底（MinIO 未就绪/未装备伙伴时），
+     拉到当前装备伙伴头像后切图为图片。img 载入成功才加 has-buddy，避免裂图。
+     R223：文字标签取消，hover 弹出径向快捷气泡（类 iPhone 悬浮球），动作集
+     在 /buddy 配置（4-5 个）；「对话」气泡由 JS 动态插入并保持在最内圈。 #}
+  <div id="ai-companion-fab-wrap">
+    <div id="ai-companion-bubbles" aria-hidden="true"></div>
+    <button id="ai-companion-fab" title="{{_('AI Companion')}}" aria-label="{{_('AI Companion')}}">
+      <span id="ai-companion-fab-text">AI</span>
+      <img id="ai-companion-fab-img" alt="" draggable="false">
+    </button>
+    {% if current_user.is_authenticated %}
+    {# R243：信封只表达“最近一次成功计数 > 0”；pointer-events:none 保证拖拽与点击仍归 FAB。 #}
+    <span id="ai-companion-mail-badge" class="ai-mail-badge" hidden aria-hidden="true">✉</span>
+    {% endif %}
+    {# R223 快捷气泡占位；R244 隐藏入口与收信信封层。hide 按钮 hover/focus 才显形，
+       平时不抢视线；letter 是纯装饰动画层，恒 aria-hidden。 #}
+    <button id="ai-companion-hide" type="button" title="{{_('Close')}}" aria-label="{{_('Close')}}">&times;</button>
+    <div id="ai-companion-letter" aria-hidden="true"><span class="ai-letter-seal"></span></div>
+  </div>
+  {# R244：伙伴被隐藏后的唤回小标签（贴右缘、低存在感），点开即复原悬浮球。 #}
+  <button id="ai-companion-restore" type="button" hidden>
+    <span class="ai-restore-spark" aria-hidden="true">✦</span>
+    <span class="ai-restore-label">{{_('AI Companion')}}</span>
+    <span class="ai-letter-badge" hidden aria-hidden="true"></span>
+  </button>
+  <div id="ai-companion-drawer">
+    <header>
+      <h3>{{_('AI Reading Companion')}}</h3>
+      <div class="ai-chat-conv-bar">
+        <select id="ai-chat-conversations" title="{{_('Switch conversation')}}"></select>
+        <button id="ai-chat-new" type="button" title="{{_('New conversation')}}" aria-label="{{_('New conversation')}}"><span class="ai-ctl-icon">＋</span></button>
+        <button id="ai-chat-rename" type="button" title="{{_('Rename conversation')}}" aria-label="{{_('Rename conversation')}}"><span class="ai-ctl-icon">✎</span></button>
+        <button id="ai-chat-delete" type="button" title="{{_('Delete conversation')}}" aria-label="{{_('Delete conversation')}}"><span class="ai-ctl-icon">🗑</span></button>
+        <button id="ai-chat-memory" type="button" title="{{_('Memory & profile')}}" aria-label="{{_('Memory & profile')}}"><span class="ai-ctl-icon">🧠</span></button>
+      </div>
+      <button id="ai-companion-close" aria-label="{{_('Close')}}">&times;</button>
+    </header>
+    <section id="ai-chat-pane" class="ai-companion-pane">
+      <div id="ai-chat-messages"></div>
+      <div id="ai-chat-input-area">
+        <textarea id="ai-chat-input" placeholder="{{_('Ask about this chapter...')}}"></textarea>
+        {# R227 语音输入：复用口语陪练的录音+ASR 链路（learning-voice.js）。转写结果
+           只填进输入框由用户确认，录音本身不落库——Buddy 的消息仍是纯文本。 #}
+        <div class="ai-chat-input-actions">
+          <button id="ai-chat-mic" type="button" class="ai-chat-mic" title="{{_('Tap to speak')}}" aria-label="{{_('Tap to speak')}}"><span class="ai-mic-icon" aria-hidden="true">🎤</span><span class="sw-mic-label">{{_('Tap to speak')}}</span></button>
+          <button id="ai-chat-send">{{_('Send')}}</button>
+        </div>
+        <div id="ai-chat-voice-status" class="ai-chat-voice-status" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+    <div id="ai-memory-panel">
+      <div class="ai-memory-header">
+        <span>{{_('Memory & Book Profile')}}</span>
+        <button id="ai-memory-close" type="button">&times;</button>
+      </div>
+      <section class="ai-user-profile" aria-labelledby="ai-user-profile-title">
+        <div class="ai-user-profile-heading">
+          <div>
+            <span id="ai-user-profile-title" class="ai-memory-section-title">{{_('What AI knows about me')}}</span>
+            <p class="ai-user-profile-subtitle">{{_('Your background, goals, interests, and explanation preferences')}}</p>
+          </div>
+          <span id="ai-user-profile-count" class="ai-user-profile-count">0 / 2000</span>
+        </div>
+        <textarea id="ai-user-profile-input" maxlength="2000" rows="6"
+                  aria-describedby="ai-user-profile-hint ai-user-profile-status"
+                  placeholder="{{_('For example: I am preparing for CET-4, enjoy science fiction, and prefer a short conclusion before a Chinese explanation.')}}"></textarea>
+        <p id="ai-user-profile-hint" class="ai-user-profile-hint">{{_('This profile is sent to AI with every question. Do not include passwords, keys, ID numbers, or other sensitive information.')}}</p>
+        <div class="ai-user-profile-actions">
+          <button id="ai-user-profile-save" type="button">{{_('Save profile')}}</button>
+          <button id="ai-user-profile-clear" type="button" class="secondary">{{_('Clear')}}</button>
+          <span id="ai-user-profile-status" class="ai-user-profile-status" role="status" aria-live="polite"></span>
+        </div>
+      </section>
+      <div class="ai-memory-section-title">{{_('This book')}}</div>
+      <div id="ai-memory-profile" class="ai-memory-profile"></div>
+      <div class="ai-memory-section-title">{{_('Long-term memory')}}</div>
+      <div id="ai-memory-list" class="ai-memory-list"></div>
+      <div class="ai-memory-add">
+        <textarea id="ai-memory-input" placeholder="{{_('Add a memory...')}}"></textarea>
+        <button id="ai-memory-add" type="button">{{_('Save')}}</button>
+      </div>
+    </div>
+  </div>
+  {% if current_user.is_authenticated %}
+  {# R254：站内信是伙伴的独立邮件弹层，不再放进 AI 对话抽屉。 #}
+  <aside id="buddy-mail-popover" class="buddy-mail-popover" role="dialog"
+         aria-labelledby="buddy-mail-title" aria-hidden="true" hidden>
+    <header>
+      <div class="buddy-mail-title-wrap">
+        <span class="buddy-mail-kicker">{{_('Companion panels')}}</span>
+        <h3 id="buddy-mail-title">{{_('Mail')}}</h3>
+      </div>
+      <button id="buddy-mail-close" type="button" title="{{_('Close')}}"
+              aria-label="{{_('Close')}}">&times;</button>
+    </header>
+    <div class="buddy-mail-tools">
+      <span id="buddy-mail-unread-count" aria-live="polite">{{_('Checking mail...')}}</span>
+      <button id="buddy-mail-mark-all" class="buddy-mail-mark-all"
+              type="button" disabled>{{_('Mark all as read')}}</button>
+    </div>
+    <div id="buddy-mail-loading" class="buddy-mail-state" role="status">{{_('Loading mail...')}}</div>
+    <div id="buddy-mail-empty" class="buddy-mail-state buddy-mail-empty" hidden>{{_('No mail yet')}}</div>
+    <div id="buddy-mail-error" class="buddy-mail-state buddy-mail-error" role="alert" hidden>
+      <span class="buddy-mail-error-text"></span>
+      <button id="buddy-mail-retry" type="button">{{_('Retry')}}</button>
+    </div>
+    <div id="buddy-mail-list" hidden></div>
+    <footer id="buddy-mail-footer" hidden>
+      <a id="buddy-mail-view-all" href="{{ url_for('web.mail_inbox_page') }}">{{_('View all')}}</a>
+    </footer>
+  </aside>
+  {% endif %}
+</div>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<script>
+  // Pass book metadata to JS so it can be included in chat requests
+  window.AICompanionBookMeta = {
+    title: {{ ai_context_title|tojson }},
+    authors: [],
+    description: "",
+    tags: [],
+    scope: window.location.pathname.match(/^\/read\/\d+\//) ? "book" : "site"
+  };
+</script>
+<script src="{{ url_for('static', filename='js/ai_page_extract.js') }}"></script>
+{# R114 输入法守卫：read 系模板不继承 layout.html，随面板引入，挡住聊天输入框的组合回车 #}
+<script src="{{ url_for('static', filename='js/ime_guard.js') }}"></script>
+{# R227 语音输入：麦克风链路与口语陪练同源（WebAudio 采集 → 16k wav → ASR），
+   必须先于 ai_chat.js 载入，后者只负责把按钮挂上去并把转写结果填进输入框。 #}
+<script src="{{ url_for('static', filename='js/learning-voice.js') }}"></script>
+<script src="{{ url_for('static', filename='js/ai_chat.js') }}"></script>

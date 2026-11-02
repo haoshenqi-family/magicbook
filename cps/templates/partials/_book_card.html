@@ -1,0 +1,84 @@
+{# R213-C：书卡宏——首页（/home）与书库列表（index.html）共用，避免两处样式漂移。
+
+   Why 抽宏：`home.html` 的分级推荐/随机发现与 `index.html` 的随机区/列表区是同一张
+        卡片的四个落点；复制四份以后改一处忘三处。R213-A 加的格式徽标当初只进了
+        随机区，列表区到现在还没有——正是复制粘贴的直接后果。
+   How 差异项全部参数化（不靠 if 猜上下文）：
+        read_flag     已读角标（列表区为 `entry[2] == True`）
+        show_badges   格式/音频徽标（随机区有、列表区无，保持改造前观感）
+        card_id       外层 div 的 id（`books` / `books_rand`，保持既存 DOM 不变）
+        modal         是否走详情弹窗（`simple == false` 时才挂，首页不走）
+        music_icon    作者行尾的音乐图标（列表区有、随机区无）
+        series_plain  系列名是否为纯文本（series 页用纯文本，避免自己链自己）
+        href          卡片链接目标（默认详情页；首页「继续阅读」传阅读器地址）
+        caller        卡片底部追加区（首页「继续阅读」用它放进度条） #}
+{% import 'image.html' as image %}
+{% macro book_card(book, read_flag=False, show_badges=False, card_id='books', modal=True, music_icon=False, series_plain=False, href=None) -%}
+{%- set link = href or url_for('web.show_book', book_id=book.id) -%}
+<div class="col-sm-3 col-lg-2 col-xs-6 book session"{% if card_id %} id="{{ card_id }}"{% endif %}>
+  <div class="cover">
+      <a href="{{ link }}"{% if modal %} data-toggle="modal" data-target="#bookDetailsModal" data-remote="false"{% endif %}>
+          <span class="img" title="{{ book.title }}">
+            {{ image.book_cover(book) }}
+            {% if read_flag %}<span class="badge read glyphicon glyphicon-ok"></span>{% endif %}
+            {% if show_badges %}
+            <span class="cover-badges">
+              {% set _fmt = book.data|main_format %}
+              {% if _fmt %}<span class="cover-badge cover-badge-format">{{ _fmt }}</span>{% endif %}
+              {% if book.data|music %}<span class="cover-badge cover-badge-audio"><span class="glyphicon glyphicon-music"></span> {{_('Audio')}}</span>{% endif %}
+            </span>
+            {% endif %}
+          </span>
+      </a>
+  </div>
+  <div class="meta">
+    <a href="{{ link }}"{% if modal %} data-toggle="modal" data-target="#bookDetailsModal" data-remote="false"{% endif %}>
+      <p title="{{ book.title }}" class="title">{{ book.title|shortentitle }}</p>
+    </a>
+    <p class="author">
+      {% for author in book.authors %}
+        {% if loop.index > g.config_authors_max and g.config_authors_max != 0 %}
+          {% if not loop.first %}
+            <span class="author-hidden-divider">&amp;</span>
+          {% endif %}
+          <a class="author-name author-hidden" href="{{ url_for('web.books_list', data='author', sort_param='stored', book_id=author.id) }}">{{ author.name.replace('|', ',')|shortentitle(30) }}</a>
+          {% if loop.last %}
+            <a href="#" class="author-expand" data-authors-max="{{ g.config_authors_max }}" data-collapse-caption="({{_('reduce')}})">(...)</a>
+          {% endif %}
+        {% else %}
+          {% if not loop.first %}
+            <span>&amp;</span>
+          {% endif %}
+          <a class="author-name" href="{{ url_for('web.books_list', data='author', sort_param='stored', book_id=author.id) }}">{{ author.name.replace('|', ',')|shortentitle(30) }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if music_icon and book.data|music %}
+        <span class="glyphicon glyphicon-music"></span>
+      {% endif %}
+    </p>
+    {% if book.series.__len__() > 0 %}
+    <p class="series">
+      {% if series_plain %}
+        <span>{{ book.series[0].name }}</span>
+      {% else %}
+        <a href="{{ url_for('web.books_list', data='series', sort_param='stored', book_id=book.series[0].id) }}">{{ book.series[0].name }}</a>
+      {% endif %}
+      ({{ book.series_index|formatfloat(2) }})
+    </p>
+    {% endif %}
+    {% if book.ratings.__len__() > 0 %}
+    <div class="rating">
+      {% for number in range((book.ratings[0].rating / 2)|int(2)) %}
+        <span class="glyphicon glyphicon-star good"></span>
+        {% if loop.last and loop.index < 5 %}
+          {% for numer in range(5 - loop.index) %}
+            <span class="glyphicon glyphicon-star-empty"></span>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if caller is defined %}{{ caller() }}{% endif %}
+  </div>
+</div>
+{%- endmacro %}

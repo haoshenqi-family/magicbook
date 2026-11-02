@@ -1,5 +1,6 @@
 {% extends is_xhr|yesno("fragment.html", "layout.html") %}
 {% block header %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/book-detail.css') }}" />
     <meta property="og:type" content="book" />
     <meta property="og:title" content="{{ entry.title|truncate(35) }}" />
     {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
@@ -76,8 +77,51 @@
                                 </div>
                             {% endif %}
                         {% endif %}
+                    {% elif entry.data|length and not current_user.is_anonymous %}
+                        {# R225：Downloads are a separate permission from reading.
+                           Explain the gate instead of letting users discover it via 403. #}
+                        <div class="btn-group" role="group">
+                            {# R257 方案四：界面只说用户能做的事——后台路径与角色名
+                               不出现在用户界面，引导统一走联系管理员。 #}
+                            <button type="button" class="btn btn-default disabled"
+                                    id="download-permission-hint" aria-disabled="true"
+                                    title="{{ _('Download is not available; online reading is unaffected.') }}">
+                                <span class="glyphicon glyphicon-lock"></span>
+                                {{ _('Download is not available; online reading is unaffected.') }}
+                            </button>
+                        </div>
+                        <p class="text-muted" id="download-permission-help">
+                            {{ _('If you need download access, please contact the site administrator.') }}
+                        </p>
                     {% endif %}
+                    {# R214 §3.5 阅读入口解禁（QA §四 核出的缺陷，子项 A 第一笔）：
+                       「在线阅读」原先与三个整本入口共处同一个 role_admin() 条件内，R211 修复后
+                       新账号不再是指定管理员 ⇒ 普通读者详情页连阅读入口都看不到。阅读入口放宽到
+                       role_viewer()；三个整本入口保持管理员专属（R214 拍板①）。 #}
                     {% if entry.reader_list and current_user.role_viewer() %}
+                        {% if 'epub' in entry.reader_list or 'kepub' in entry.reader_list %}
+                            {# R214 子项 C：三个整本入口合并为一个「整本任务」入口（LLD §6）。
+                               原来并列时「整本翻译」是 primary、另外两个是 default——最便宜的
+                               链路被包装成主操作。面板先给量/覆盖率/耗时/积分，再由管理员决定。
+                               门禁不变：整本能力全部管理员专属（R214 拍板①）。
+
+                               Why `not is_xhr`：书目列表里点书卡走的是 XHR 片段（detail.html
+                               改 extends fragment.html），片段的 block js 整个不下发 ⇒ 面板骨架
+                               与 JS 都不在，按钮点了只会落到 Bootstrap 的 data-api 空转（验收实测：
+                               在「书籍详情」弹层里点它，页面被套进另一个弹层）。开面板的按钮只在
+                               完整详情页渲染；弹层内的入口见下方 R236 链接。 #}
+                            {% if current_user.role_admin() and not is_xhr %}<button type="button"
+                                    class="btn btn-default" id="whole-book-panel-open">整本任务</button>{% endif %}
+                            {# R236：弹层里恢复整本任务入口。`not is_xhr` 门禁把入口收走后，
+                               完整详情页在 UI 里没有普通左键可达的路径（书卡全被 data-toggle
+                               弹层截走），管理员入口事实上不可达。弹层（XHR 片段）内改为同门禁的
+                               普通链接跳转完整详情页——同 URL 无 X-Requested-With 头即渲染完整页，
+                               面板在完整页内打开；不挂 data-toggle/data-target，避免与
+                               #bookDetailsModal 抢点击（42ddfb19 同款教训）。 #}
+                            {% if current_user.role_admin() and is_xhr %}<a
+                                    class="btn btn-default" id="whole-book-panel-link"
+                                    href="{{ url_for('web.show_book', book_id=entry.id) }}">整本任务</a>{% endif %}
+                        {% endif %}
                         <div class="btn-group" role="group">
                             {% if entry.reader_list|length > 1 %}
                                 <button id="read-in-browser" type="button" class="btn btn-primary dropdown-toggle"
@@ -100,6 +144,19 @@
                                     - {{ entry.reader_list[0] }}</a>
                             {% endif %}
                         </div>
+                    {% elif entry.reader_list and not current_user.is_anonymous %}
+                        {# R225：不把权限门禁伪装成「没有入口」。阅读是账号级权限，
+                           用户需要知道该找谁开通，而不是点到 403 后自行猜测。 #}
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-default disabled"
+                                    id="read-permission-hint" aria-disabled="true">
+                                <span class="glyphicon glyphicon-lock"></span>
+                                {{ _('Reading access is not enabled for this account') }}
+                            </button>
+                        </div>
+                        <p class="text-muted" id="read-permission-help">
+                            {{ _('If you need reading access, please contact the site administrator.') }}
+                        </p>
                     {% endif %}
                     {% if entry.audio_entries|length > 0 and current_user.role_viewer() %}
                         <div class="btn-group" role="group">
@@ -129,8 +186,20 @@
                             {% endif %}
                         </div>
                     {% endif %}
+                    {% if nce_book_no %}
+                        {# 课级音频入口（R116③）：字面路径——nce 蓝图 fail-closed 注册，
+                           url_for 在未配置 MINIO_* 的部署会 BuildError #}
+                        <div class="btn-group" role="group">
+                            <a href="/nce/{{ entry.id }}" id="nce-listenbtn" class="btn btn-primary" role="button"><span class="glyphicon glyphicon-headphones"></span> {{ _('Lesson Audio') }}</a>
+                        </div>
+                    {% endif %}
                 </div>
             </div>
+            {# R248：进度条只属于完整书籍详情页的「整本任务」区域。书卡弹层是
+               XHR 片段，不渲染 slot/partial/JS；弹层里的入口仍跳完整详情页。 #}
+            {% if current_user.role_admin() and not is_xhr %}
+            <div id="whole-book-progress-slot" class="wb-progress-slot"></div>
+            {% endif %}
             <h2 id="title">{{ entry.title }}</h2>
             <p class="author">
                 {% for author in entry.ordered_authors %}
@@ -163,8 +232,95 @@
                 <div class="languages">
                     <p>
                         <span class="label label-default">{{_('Language')}}: {% for language in entry.languages %}{{language.language_name}}{% if not loop.last %}, {% endif %}{% endfor %}</span>
+                        {# R214 子项 A：声明 ≥2 种语言时标「双语」——只按书目自身声明，不猜（拍板⑤） #}
+                        {% if entry.languages|length > 1 %}<span class="label label-info">双语</span>{% endif %}
                     </p>
                 </div>
+            {% endif %}
+
+            {# R214 子项 A：难度阶标签（四级兜底：标签 > 书架 > 系列映射 > 未分级，
+               与 R213 分级推荐共用 cps/reading_insight/difficulty.py）。 #}
+            <div class="book-difficulty">
+                <p>
+                    {% if entry.difficulty and entry.difficulty[0] %}
+                        <span class="label label-warning"
+                              title="{% if entry.difficulty[1] == 'series' %}按系列粗映射（R162），可加「阶N」标签或书架名覆盖{% elif entry.difficulty[1] == 'tag' %}按书目标签「阶N」{% else %}按书架名「阶N」{% endif %}">难度: 阶{{ entry.difficulty[0] }}</span>
+                    {% else %}
+                        <span class="label label-default">难度: 未分级</span>
+                    {% endif %}
+                </p>
+            </div>
+
+            {# R241：整本能力缓存齐备标识。三项（整本翻译 / 整本朗读 / 全文单词详解）
+               都跑满过时给读者一个「低成本学习」总标，并逐项列出各自已缓存的证据。
+               Why 放在难度标签之后：读者决定读不读这本书时，难度与成本是同一层决策信息。
+               Why 数字写进 title 而不是正文：正文要保持一行不换行，明细按 hover 看。 #}
+            {% set _cache = entry.cache_readiness %}
+            {% if _cache and (_cache.translate.ready or _cache.tts.ready or _cache.wordDetail.ready) %}
+            <div class="book-cache-ready">
+                <p>
+                    {% if _cache.all %}
+                    <span class="label label-success" id="cache-ready-all"
+                          title="整本翻译、整本朗读、全文单词详解三层缓存都已备齐，学习这本书更省积分">低成本学习</span>
+                    {% endif %}
+                    {% if _cache.translate.ready %}
+                    <span class="label label-default cache-ready-chip" data-kind="translate"
+                          title="整本翻译缓存已备齐（{{ _cache.translate.done }}/{{ _cache.translate.total }} 段），命中缓存按 1 积分/段计">整本翻译已缓存</span>
+                    {% endif %}
+                    {% if _cache.tts.ready %}
+                    <span class="label label-default cache-ready-chip" data-kind="tts"
+                          title="整本朗读音频已备齐（{{ _cache.tts.done }}/{{ _cache.tts.total }} 段），播放命中缓存按 1 积分/段计">整本朗读已缓存</span>
+                    {% endif %}
+                    {% if _cache.wordDetail.ready %}
+                    <span class="label label-default cache-ready-chip" data-kind="wordDetail"
+                          title="全文单词详解已备齐（全书 {{ _cache.wordDetail.wholeWords or _cache.wordDetail.total }} 词均已覆盖），查词命中缓存不再生成">全文详解已缓存</span>
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+
+            {# R252：整本成本摘要。翻译按 token，朗读按字符；已缓存时用
+               「缓存值（全文原价）」并列，避免把“听已缓存音频”误写成“重新生成”。
+               数字只来自速览快照、readiness 台账与 moon-well 费率，不探测缓存。 #}
+            {% set _cost = entry.book_cost_summary %}
+            {% if _cost %}
+            <div class="book-cost-summary" id="book-cost-summary">
+                <p data-kind="translate"
+                   title="缓存翻译按 {{ _cost.translate.cachedPerSegment }} 积分/段；全文生成按 token">
+                    <strong>完整翻译：</strong>
+                    约 {{ "{:,}".format(_cost.translate.tokens) }} tokens
+                    {% if _cost.translate.cached %}
+                        · 缓存翻译 {{ "{:,}".format(_cost.translate.cachedCredits) }} 积分
+                        {% if _cost.translate.fullCredits is not none %}
+                            （全文生成原价约 {{ "{:,}".format(_cost.translate.fullCredits) }} 积分）
+                        {% else %}
+                            （全文生成费率暂不可得）
+                        {% endif %}
+                    {% elif _cost.translate.fullCredits is not none %}
+                        · 全文生成原价约 {{ "{:,}".format(_cost.translate.fullCredits) }} 积分
+                    {% else %}
+                        · 全文生成费率暂不可得
+                    {% endif %}
+                </p>
+                <p data-kind="tts"
+                   title="TTS 不按 token 计费；全文生成按字符，已缓存收听按 {{ _cost.tts.cachedPerSegment }} 积分/段">
+                    <strong>完整朗读：</strong>
+                    约 {{ "{:,}".format(_cost.tts.chars) }} 字符
+                    {% if _cost.tts.cached %}
+                        · 缓存收听 {{ "{:,}".format(_cost.tts.cachedCredits) }} 积分
+                        {% if _cost.tts.fullCredits is not none %}
+                            （全文生成原价约 {{ "{:,}".format(_cost.tts.fullCredits) }} 积分）
+                        {% else %}
+                            （全文生成费率暂不可得）
+                        {% endif %}
+                    {% elif _cost.tts.fullCredits is not none %}
+                        · 全文生成原价约 {{ "{:,}".format(_cost.tts.fullCredits) }} 积分
+                    {% else %}
+                        · 全文生成费率暂不可得
+                    {% endif %}
+                </p>
+                <p class="book-cost-note text-muted"><small>按当前费率粗算，不是账单。</small></p>
+            </div>
             {% endif %}
 
             {% if entry.identifiers|length > 0 %}
@@ -206,7 +362,13 @@
 
             {% if (entry.pubdate|string)[:10] != '0101-01-01' %}
                 <div class="publishing-date">
-                    <p>{{ _('Published') }}: {{ entry.pubdate|formatdate }} </p>
+                    {# R214 子项 A：OPF 无 dc:date 时 Calibre 用导入时间填 pubdate，
+                       这种「伪出版日」改显示为「导入于」，不冒充出版信息。 #}
+                    {% if entry.pubdate_is_import_date %}
+                        <p title="本书元数据未标注出版日期，此处显示的是入库时间">导入于: {{ entry.timestamp|formatdate }}</p>
+                    {% else %}
+                        <p>{{ _('Published') }}: {{ entry.pubdate|formatdate }} </p>
+                    {% endif %}
                 </div>
             {% endif %}
             {% if cc|length > 0 %}
@@ -256,10 +418,17 @@
                           method="POST">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <label class="block-label">
+                            {# R258 方案十：三态区分——已读勾选，在读半选态加
+                               「在读」标签，未读留空；三态数据由阅读器写入
+                               book_read_link（reading.py），此前被布尔化丢掉。 #}
                             <input id="have_read_cb" data-checked="{{ _('Mark As Unread') }}"
                                    data-unchecked="{{ _('Mark As Read') }}" type="checkbox"
-                                   {% if entry.read_status %}checked{% endif %}>
-                            <span data-toggle="tooltip" title="{{_('Mark Book as Read or Unread')}}">{{ _('Read') }}</span>
+                                   {% if entry.read_status_finished %}checked{% endif %}>
+                            {# R256：label 不能复用 msgid "Read"（po 译「已读」）——
+                               它是阅读状态开关的固定标签，不是状态徽章；所有书都会
+                               渲染这行字，译成「已读」让未读书籍看起来已读。 #}
+                            <span data-toggle="tooltip" title="{{_('Mark Book as Read or Unread')}}">{{ _('Reading status') }}</span>
+                            {% if entry.read_status_in_progress %}<span class="label label-info" id="read-in-progress-badge">{{_('Reading now')}}</span>{% endif %}
                         </label>
                     </form>
                     </p>
@@ -272,7 +441,7 @@
                                 <input id="archived_cb" data-checked="{{ _('Restore from archive') }}"
                                        data-unchecked="{{ _('Add to archive') }}" type="checkbox"
                                        {% if entry.is_archived %}checked{% endif %}>
-                                <span data-toggle="tooltip" title="{{_('Mark Book as archived or not, to hide it in Calibre-Web and delete it from Kobo Reader')}}">{{ _('Archive') }}</span>
+                                <span data-toggle="tooltip" title="{{_('Mark Book as archived or not, to hide it in magicbook and delete it from Kobo Reader')}}">{{ _('Archive') }}</span>
                             </label>
                         </form>
                         </p>
@@ -281,10 +450,69 @@
             {% endif %}
 
 
-            {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
-                <div class="comments">
-                    <h3 id="decription">{{ _('Description:') }}</h3>
+            {# R214 B：内容速览——简介三级回退（书目简介 > AI 生成 > 暂无简介指向目录/试读）
+               + 目录 + 首章试读。AI 简介带「由 AI 生成」标注（拍板④）；已生成即定稿、
+               无「重新生成」按钮（拍板⑦）；生成按钮仅管理员（拍板①同源）。 #}
+            {% if entry.insight_error %}
+                <div class="alert alert-warning book-insight-error">内容速览解析失败：{{ entry.insight_error }}</div>
+            {% endif %}
+
+            <div class="comments">
+                <h3 id="decription">{{ _('Description:') }}</h3>
+                {% if entry.comments|length > 0 and entry.comments[0].text|length > 0 %}
                     {{ entry.comments[0].text|clean_string|safe }}
+                {% elif entry.insight and entry.insight.get('aiSummary') %}
+                    <div class="ai-summary">
+                        <div class="ai-summary-text">{{ entry.insight.aiSummary.text|safe }}</div>
+                        <p class="ai-summary-note text-muted"><small>由 AI 生成{% if entry.insight.aiSummary.model %} · {{ entry.insight.aiSummary.model }}{% endif %}{% if entry.insight.aiSummary.generatedAtText %} · {{ entry.insight.aiSummary.generatedAtText }}{% endif %}</small></p>
+                    </div>
+                {% else %}
+                    <p class="no-description text-muted">暂无简介。可先看下方「目录」与「首章试读」判断是否合口味。</p>
+                    {% if current_user.role_admin() and entry.insight_format %}
+                        <button type="button" class="btn btn-sm btn-default" id="generate-book-summary"
+                                data-book-id="{{ entry.id }}" data-book-format="{{ entry.insight_format }}"
+                                data-csrf-token="{{ csrf_token() }}"
+                                data-idle-label="生成简介" data-busy-label="生成中…">生成简介</button>
+                        <div id="book-summary-error" class="text-danger"></div>
+                    {% endif %}
+                {% endif %}
+            </div>
+
+            {% if entry.insight and entry.insight.chapters %}
+                <div class="book-toc">
+                    <h3>目录 <small class="text-muted">共 {{ entry.insight.chapters|length }} 章 · {{ entry.insight.paragraphCount }} 段</small></h3>
+                    <ol class="toc-list">
+                        {% for ch in entry.insight.chapters %}
+                            <li class="toc-item{% if loop.index > 8 %} toc-extra{% endif %}"
+                                {% if loop.index > 8 %}hidden{% endif %}
+                                style="padding-left: {{ (ch.level - 1) * 16 }}px">
+                                <a href="javascript:void(0)" class="toc-toggle" data-target="toc-p{{ loop.index }}">{{ ch.title }}</a>
+                                <span class="text-muted small">（{{ ch.paragraphCount }} 段）</span>
+                                {% if ch.firstParagraph %}
+                                    <p class="toc-first-paragraph text-muted" id="toc-p{{ loop.index }}" hidden>{{ ch.firstParagraph }}</p>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ol>
+                    {% if entry.insight.chapters|length > 8 %}
+                        <button type="button" class="btn btn-sm btn-default" id="toc-expand"
+                                data-expanded="0"
+                                data-label-collapsed="展开全部（{{ entry.insight.chapters|length }} 章）"
+                                data-label-expanded="收起">展开全部（{{ entry.insight.chapters|length }} 章）</button>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if entry.insight and entry.insight.excerpt %}
+                <div class="book-preview">
+                    <h3>首章试读</h3>
+                    <div class="preview-body">
+                        {% for ex in entry.insight.excerpt %}
+                            <p class="preview-chapter-title"><strong>{{ ex.chapter }}</strong></p>
+                            <p class="preview-text">{{ ex.text }}</p>
+                        {% endfor %}
+                    </div>
+                    <a class="btn btn-primary" href="{{ url_for('web.read_book', book_id=entry.id, book_format=entry.insight_format or 'epub') }}">继续阅读</a>
                 </div>
             {% endif %}
 
@@ -324,7 +552,7 @@
                                         {% if shelf.id in books_shelfs %}
                                             <a data-href="{{ url_for('shelf.remove_from_shelf', book_id=entry.id, shelf_id=shelf.id) }}"
                                                data-add-href="{{ url_for('shelf.add_to_shelf', book_id=entry.id, shelf_id=shelf.id) }}"
-                                               class="btn btn-sm btn-default" role="button"
+                                               class="label label-default shelf-chip" role="button"
                                                data-shelf-action="remove"
                                             >
 								              <span {% if not shelf.is_public or current_user.role_edit_shelfs() %}
@@ -341,7 +569,11 @@
 
                 {% endif %}
                 {% if current_user.role_edit() %}
-                    <div class="col-sm-12">
+                    {# R214 子项 A：管理动作收进「管理员工具」分组，与读者操作分视觉层级
+                       （QA §四：「已加入书架」芯片与「加入书架」按钮不可分辨的同款问题）。
+                       权限门禁 role_edit() 不变。 #}
+                    <div class="col-sm-12 admin-tools">
+                        <p class="text-muted"><small>管理员工具</small></p>
                         <div class="btn-group" role="group" aria-label="Edit/Delete book">
                             <a href="{{ url_for('edit-book.show_edit_book', book_id=entry.id) }}"
                                class="btn btn-sm btn-primary" id="edit_book" role="button"><span
@@ -364,14 +596,20 @@
     </li>
 </script>
 <script type="text/template" id="template-shelf-remove">
-    <a data-href="<%= remove %>" data-add-href="<%= add %>" class="btn btn-sm btn-default"
+    <a data-href="<%= remove %>" data-add-href="<%= add %>" class="label label-default shelf-chip"
        data-shelf-action="remove">
         <span class="glyphicon glyphicon-remove"></span> <%= content %>
     </a>
 </script>
 <script src="{{ url_for('static', filename='js/details.js') }}"></script>
+<script src="{{ url_for('static', filename='js/book-insight.js') }}"></script>
 <script src="{{ url_for('static', filename='js/fullscreen.js') }}"></script>
-<script type="text/javascript">
-</script>
+{# R214 C：整本任务代价面板 + 进度条（partial 自带文案与端点 data-*）。
+   整段只在管理员可见：三个整本入口本就是 admin 专属（拍板①），
+   非管理员连模态骨架和 JS 都没必要下发。 #}
+{% if current_user.role_admin() and not is_xhr %}
+{% include 'partials/whole_book_panel.html' %}
+<script src="{{ url_for('static', filename='js/whole-book-panel.js') }}"></script>
+{% endif %}
 
 {% endblock %}

@@ -34,7 +34,11 @@ class MyWSGIHandler(WSGIHandler):
             delta = '%.6f' % (self.time_finish - self.time_start)
         else:
             delta = '-'
-        forwarded = self.environ.get('HTTP_X_FORWARDED_FOR', None)
+        # 请求头解析失败（如端口探测直接发送 TLS 握手字节）时，
+        # WSGIHandler 在 get_environ() 之前即进入 log_request 路径，
+        # 此时 self.environ 仍为 None，直接 .get() 会抛 AttributeError 导致
+        # 处理该连接的 greenlet 整体崩溃。这里兜底为空字典，仅影响日志格式。
+        forwarded = (self.environ or {}).get('HTTP_X_FORWARDED_FOR', None)
         if forwarded:
             client_address = forwarded
         else:

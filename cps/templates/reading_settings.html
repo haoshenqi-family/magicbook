@@ -1,0 +1,300 @@
+{% extends "layout.html" %}
+{% block header %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reading-preferences.css') }}">
+<style>
+  /* 词汇量测试：只补布局，颜色一律来自 bootstrap/主题已有类（UI 纪律：轻蒙层、无实色描边） */
+  /* Why 这条兜底：block header 排在 bootstrap.min.css 之后，而 bootstrap 给 .help-block 写了
+     display:block——同一 author 层、同特异度时后出现者胜，会把 normalize 的
+     [hidden]{display:none} 盖掉，导致「隐藏态」的节点一加载就显示。
+     规则：本页靠 hidden 切换显隐的节点一律带 .vt-el，由这条显式兜住。 */
+  .vt-el[hidden] { display: none; }
+  /* Why: caliBlur 把 .modal-dialog 上外边距改成 0（caliBlur.css:5491），弹层顶到视口上沿、
+     被 60px 固定导航栏压住（无头截图实测）。用 id 提高特异度，两个主题统一留出导航栏高度。 */
+  #vt-overlay > .modal-dialog { margin-top: 70px; }
+  .vt-exit { float: right; margin: -6px -8px 0 0; opacity: .6; }
+  .vt-progress { height: 4px; margin: 18px 0 6px; }
+  .vt-count { font-size: 12px; margin: 0; }
+  .vt-word { font-size: 34px; margin: 18px 0 6px; word-break: break-word; }
+  .vt-sentence { min-height: 2em; margin-bottom: 22px; }
+  .vt-error { cursor: pointer; }
+  .vt-chart-title { font-size: 12px; margin: 22px 0 6px; }
+  .vt-bar-row { display: flex; align-items: center; margin-bottom: 6px; }
+  .vt-bar-label { flex: 0 0 108px; font-size: 12px; }
+  .vt-bar-track { flex: 1 1 auto; height: 6px; margin: 0; }
+  .vt-bar-count { flex: 0 0 52px; text-align: right; font-size: 12px; }
+  .vt-history li { font-size: 13px; margin-bottom: 4px; }
+</style>
+{% endblock %}
+{% block body %}
+<div class="discover">
+  <h1>{{_('Reading Settings')}}</h1>
+  <div class="col-md-10 col-lg-8">
+
+    {% if load_error %}
+    <div class="alert alert-danger" role="alert">
+      {{_('Failed to load reading settings')}}: {{load_error}}
+      <button id="rs-retry" class="btn btn-default btn-xs" style="margin-left:10px">{{_('Retry')}}</button>
+    </div>
+    {% endif %}
+
+    <div class="panel panel-default" id="difficulty">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Vocabulary Difficulty Level')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted">
+          {{_('Words at or above this level are marked as unknown while reading. Default: CET4.')}}
+        </p>
+
+        <form id="reading-settings-form" role="form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group">
+            <label for="hard-level-select">{{_('Hard level')}}</label>
+            <select class="form-control" id="hard-level-select" name="hardLevel"
+                    {% if not settings %}disabled{% endif %}>
+              {% if settings %}
+                {% for opt in settings.options %}
+                <option value="{{ opt.code }}" {% if settings.hardLevel == opt.code %}selected{% endif %}>
+                  {{ opt.code }} - {{ opt.name }}{% if settings.usingDefault and settings.hardLevel == opt.code %} ({{_('default')}}){% endif %}
+                </option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+          <div class="form-group">
+            <button type="submit" id="rs-save" class="btn btn-primary"
+                    {% if not settings %}disabled{% endif %}>{{_('Save')}}</button>
+            <span id="rs-status" class="text-muted" style="margin-left:10px"></span>
+          </div>
+        </form>
+
+        {% if settings %}
+        <p class="help-block" id="rs-current-line">
+          {{_('Current level')}}: <strong id="rs-current-level">{{ settings.hardLevel }} - {{ settings.hardLevelName }}</strong>
+          {% if settings.usingDefault %}<span class="label label-info" id="rs-default-label">{{_('default (not saved)')}}</span>{% endif %}
+        </p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ---------- 词汇量测试卡片（R116/US4）---------- #}
+    {# 历史由 vocab-test.js 异步取（data-history-url），拉不到就是无历史态，不影响档位设置与首屏耗时 #}
+    <div class="panel panel-default" id="vt-root"
+         data-start-url="{{ url_for('web.vocab_test_start') }}"
+         data-answer-url="{{ url_for('web.vocab_test_answer') }}"
+         data-finish-url="{{ url_for('web.vocab_test_finish') }}"
+         data-history-url="{{ url_for('web.vocab_test_history') }}"
+         data-level-url="{{ url_for('web.reading_settings_update_hard_level') }}">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Vocabulary Size Test')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted">
+          {{_('Estimate how many English words you know, by judging real words against their example sentences. About 2–4 minutes, 20–40 words.')}}
+        </p>
+
+        <p class="help-block vt-el" id="vt-last-line" hidden>
+          {{_('Last result')}}: <strong id="vt-last"></strong>
+        </p>
+
+        <div class="form-group">
+          <label for="vt-add-unknown">
+            <input type="checkbox" id="vt-add-unknown">
+            {{_('Add unknown words to my notebook')}}
+          </label>
+        </div>
+
+        <div class="form-group">
+          <button type="button" id="vt-start" class="btn btn-primary">{{_('Start test')}}</button>
+          {# R154 细筛入口：仅当最近一次结果为标准测试时由 JS 显示（hidden 是默认态） #}
+          <button type="button" id="vt-refine-card" class="btn btn-default" hidden
+                  style="margin-left:10px">{{_('Refine test')}}</button>
+          <a href="#" id="vt-toggle-history" class="vt-el" style="margin-left:12px" hidden>{{_('History')}}</a>
+          <span id="vt-status" class="text-muted" style="margin-left:10px"></span>
+        </div>
+
+        <ul class="list-unstyled vt-history vt-el" id="vt-history-list" hidden></ul>
+      </div>
+    </div>
+
+    <div class="panel panel-default" id="reading-theme">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Theme')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="text-muted">
+          {{_('Choose the theme used when you open a book. It is saved to your account and applies on every device; custom colors stay on the device where you pick them.')}}
+        </p>
+        <form id="reading-theme-form" role="form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <fieldset>
+            <legend class="sr-only">{{_('Theme')}}</legend>
+            <div class="reading-theme-options">
+              <label><input type="radio" name="reader-theme" value="lightTheme"> {{_('Light')}}</label>
+              <label><input type="radio" name="reader-theme" value="darkTheme"> {{_('Dark')}}</label>
+              <label><input type="radio" name="reader-theme" value="sepiaTheme"> {{_('Sepia')}}</label>
+              <label><input type="radio" name="reader-theme" value="amberTheme"> {{_('Amber')}}</label>
+              <label><input type="radio" name="reader-theme" value="blackTheme"> {{_('Black')}}</label>
+            </div>
+          </fieldset>
+          <button type="submit" id="reading-theme-save" class="btn btn-primary">{{_('Save')}}</button>
+          <span id="reading-theme-status" class="reading-status text-muted"
+                role="status" aria-live="polite"></span>
+        </form>
+      </div>
+    </div>
+
+    <section class="reading-onboarding" id="reading-onboarding">
+      <div>
+        <h3>{{_('Onboarding Tour')}}</h3>
+        <p class="text-muted">第一次使用站点或阅读器时，可以跟着引导熟悉主要入口。</p>
+      </div>
+      <button type="button" id="reading-onboarding-start" class="btn btn-default">
+        {{_('Onboarding Tour')}}
+      </button>
+    </section>
+
+  </div>
+</div>
+
+{# ---------- 答题浮层与结果视图（默认隐藏，由 vocab-test.js 驱动）---------- #}
+{# 用 bootstrap 原生 modal 结构，而不是自造蒙层：caliBlur 主题（config_theme=1）对
+   .modal-content/.modal-body/.modal-backdrop 有成套深色规则，自造 .panel 蒙层会拿到
+   「浅色面板 + 白色文字」的低对比（无头截图实测）；复用 modal 才真的跟随宿主主题，
+   且本页不必写任何配色（UI 纪律）。 #}
+{# data-keyboard=false：Esc 交给 vocab-test.js，避免与 bootstrap 双重隐藏 #}
+<div class="modal fade" id="vt-overlay" tabindex="-1" role="dialog" aria-hidden="true"
+     data-keyboard="false" data-backdrop="static">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-body">
+        <div id="vt-asking" class="vt-el">
+          <button type="button" id="vt-exit" class="btn btn-link btn-xs vt-exit">{{_('Exit test')}}</button>
+          <div class="progress vt-progress">
+            <div class="progress-bar" id="vt-progress-fill" role="progressbar" style="width:0"></div>
+          </div>
+          <p class="text-muted vt-count">{{_('Answered')}}: <span id="vt-progress-count">0</span></p>
+          <h1 class="vt-word" id="vt-word"></h1>
+          <p class="text-muted vt-sentence" id="vt-sentence"></p>
+          <p>
+            <button type="button" id="vt-known" class="btn btn-primary">{{_('I know it')}}</button>
+            <button type="button" id="vt-unknown" class="btn btn-default">{{_('Not sure')}}</button>
+          </p>
+          <p id="vt-error-line" class="text-danger vt-error vt-el" hidden>
+            {{_('Something went wrong — retry this word.')}}
+          </p>
+        </div>
+
+        <div id="vt-result" class="vt-el" hidden>
+          <p class="text-muted">{{_('Your vocabulary size')}}</p>
+          <h1 class="vt-word" id="vt-size"></h1>
+          <p class="text-muted vt-el" id="vt-range"></p>
+          <p class="help-block vt-el" id="vt-capped-note" hidden>
+            {{_('25,000 is the top of this scale, so the real number may be higher.')}}
+          </p>
+          {# R154 细筛对照：细筛报告显示「上次标准测试」的估算，与本次并排读 #}
+          <p class="help-block vt-el" id="vt-refine-line" hidden></p>
+          <p class="text-muted vt-chart-title">{{_('Words known per frequency band')}}</p>
+          <div id="vt-band-chart" class="vt-chart"></div>
+          <p class="text-muted vt-el" id="vt-notebook-line" hidden></p>
+          {# R257 方案三：测试落本的词要去哪看——结果旁直达复习队列（≤1 跳）。 #}
+          <p class="vt-el" id="vt-notebook-link-row" hidden>
+            <a href="{{ url_for('web.learning_review_page') }}" id="vt-notebook-link">{{_('View review queue')}} →</a>
+          </p>
+          {# R125 难度推荐：后端按估算词汇量派生建议档位；与当前档位不同时给一键应用。
+             按钮文案用独特 msgid——po 里上游的 "Apply" 已被误译为「查询」，撞上就回错词 #}
+          <p class="text-muted vt-el" id="vt-reco-line" hidden></p>
+          <button type="button" id="vt-apply-level" class="btn btn-default btn-sm vt-el"
+                  style="margin-bottom:16px" hidden>{{_('Apply suggested level')}}</button>
+          {# R154 结果页细筛按钮：标准测试结果旁直接发起细筛，显隐与禁用由 JS 管理 #}
+          <button type="button" id="vt-refine" class="btn btn-default" hidden>{{_('Refine test')}}</button>
+          <button type="button" id="vt-done" class="btn btn-primary">{{_('Done')}}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/common/api.js') }}"></script>
+<script src="{{ url_for('static', filename='js/vocab-test.js') }}"></script>
+<script src="{{ url_for('static', filename='js/reading-preferences.js') }}"></script>
+<script>
+(function () {
+    var form = document.getElementById('reading-settings-form');
+    var select = document.getElementById('hard-level-select');
+    var status = document.getElementById('rs-status');
+    var saveBtn = document.getElementById('rs-save');
+    var retry = document.getElementById('rs-retry');
+
+    function setStatus(text, isError) {
+        status.textContent = text;
+        status.className = isError ? 'text-danger' : 'text-muted';
+    }
+
+    // Why: CSRFProtect 的 token 不放 cookie, 项目惯例是渲染进 hidden input 后由 JS 读取
+    //（与 epub.js readerCsrfToken / ai_chat.js getCsrfToken 一致）
+    function csrfToken() {
+        var input = form.querySelector("input[name='csrf_token']");
+        return input ? input.value : '';
+    }
+
+    // CSRF 失败自愈: token 过期/会话重建后服务端 400, 刷新取新 token（防死循环标记）
+    function reloadIfCsrfBlocked(text) {
+        if (!/csrf/i.test(text || '')) return false;
+        try {
+            if (sessionStorage.getItem('readingSettingsCsrfReloaded') === '1') return true;
+            sessionStorage.setItem('readingSettingsCsrfReloaded', '1');
+        } catch (e) { /* 隐私模式等场景忽略 */ }
+        location.reload();
+        return true;
+    }
+
+    if (retry) {
+        retry.addEventListener('click', function () { window.location.reload(); });
+    }
+
+    if (!form || !select) return;
+
+    form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var level = parseInt(select.value, 10);
+        if (isNaN(level) || level < 0 || level > 9) {
+            setStatus('{{_('Invalid level')}}', true);
+            return;
+        }
+        saveBtn.disabled = true;
+        setStatus('{{_('Saving...')}}');
+        fetch('{{ url_for("web.reading_settings_update_hard_level") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken()
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({hardLevel: level})
+        }).then(function (response) {
+            return response.text().then(function (text) {
+                var data = null;
+                try { data = JSON.parse(text); } catch (e) { /* 非 JSON 响应体 */ }
+                return {ok: response.ok, status: response.status, text: text, data: data};
+            });
+        }).then(function (wrap) {
+            var data = wrap.data || {};
+            if (wrap.ok && data.success !== false) {
+                setStatus('{{_('Saved')}} ✓');
+            } else if (reloadIfCsrfBlocked(wrap.text)) {
+                return; // CSRF 失败: 页面正在刷新取新 token
+            } else {
+                setStatus((data && data.message) || ('{{_('Save failed')}} (HTTP ' + wrap.status + ')'), true);
+            }
+        }).catch(function () {
+            setStatus('{{_('Save failed')}}', true);
+        }).finally(function () {
+            saveBtn.disabled = false;
+        });
+    });
+})();
+</script>
+{% endblock %}

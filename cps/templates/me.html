@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+{% block body %}
+<div class="discover" id="me-page">
+  <h1>{{title}}</h1>
+  <div class="col-md-10 col-lg-8">
+
+    {# A1 owns identity only.  Reading preferences, buddies, credits, mail,
+       achievements and learning-data export each have their own L2 page. #}
+    <div class="panel panel-default" id="me-account">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Account')}}</h3>
+      </div>
+      <div class="panel-body">
+        <dl class="me-account-facts">
+          <dt>{{_('Username')}}</dt>
+          <dd>{{ content.name }}</dd>
+          <dt>{{_('Email')}}</dt>
+          <dd>
+            {% if content.email %}{{ content.email }}
+            {% else %}<span class="text-muted">{{_('Not set')}}</span>{% endif %}
+          </dd>
+        </dl>
+        <p class="help-block">
+          {{_('Your account is managed by your sign-in provider. Your name and email cannot be changed here.')}}
+        </p>
+        <p class="me-account-center">
+          <a id="me-account-center" href="https://account.haoshenqi.top/"
+             target="_blank" rel="noopener noreferrer">
+            {{_('Open account center')}} <span aria-hidden="true">↗</span>
+          </a>
+        </p>
+        {% if registered_oauth and registered_oauth.keys()|length > 0 %}
+        <div class="form-group">
+          {% for id, name in registered_oauth.items() %}
+            {% if oauth_status is not none and id in oauth_status %}
+            <a class="btn btn-default btn-sm" id="config_{{ id }}_oauth"
+               href="{{ url_for('oauth.' + name + '_login_unlink') }}">{{_('Unlink')}} {{ name }}</a>
+            {% else %}
+            <a class="btn btn-default btn-sm" id="config_{{ id }}_oauth"
+               href="{{ url_for('oauth.' + name + '_login') }}">{{_('Link')}} {{ name }}</a>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="panel panel-default" id="me-language">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Language')}}</h3>
+      </div>
+      <div class="panel-body">
+        {# Local-only update: keep this form from resetting unrelated profile fields. #}
+        <form role="form" method="POST" action="{{ url_for('web.update_preferences') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group">
+            <label for="me-locale">{{_('Language')}}</label>
+            <select name="locale" id="me-locale" class="form-control">
+              {% for translation in translations %}
+              <option value="{{ translation }}"
+                      {% if translation|string == content.locale %}selected{% endif %}>{{ translation.display_name|capitalize }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="me-default-language">{{_('Language of Books')}}</label>
+            <select name="default_language" id="me-default-language" class="form-control">
+              <option value="all" {% if content.default_language == "all" %}selected{% endif %}>{{_('Show All')}}</option>
+              {% for language in languages %}
+              <option value="{{ language.lang_code }}"
+                      {% if content.default_language == language.lang_code %}selected{% endif %}>{{ language.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" id="me-language-save" class="btn btn-primary">{{_('Save')}}</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

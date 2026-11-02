@@ -1,0 +1,84 @@
+{# R213-C / MB-18：新首页。四块依次为
+     继续阅读（服务端渲染，最近阅读位置）
+     今日计划（前端异步拉既有代理端点，moon-well 抖动只降级这一块）
+     分级推荐（服务端规则化，按书架名解析难度阶）
+     随机发现（原首页的随机书墙，降级为一个模块）
+
+   Why 不把今日计划也服务端渲染：它是唯一依赖 moon-well 的块，同步拉会让
+       首屏等上游 15s（R166 在 /learning 上定过同款口径：页面零上游调用）。
+   Why 空块整段不渲染：空数据块留个标题加空行比不显示更让人以为页面坏了。 #}
+{% extends "layout.html" %}
+{% from 'partials/_book_card.html' import book_card %}
+{% block body %}
+<div class="home-page">
+
+  {% if recent_books %}
+  <section class="home-section" id="home-recent">
+    <h2 class="home-section-title">{{_('Continue Reading')}}</h2>
+    <div class="row display-flex">
+      {% for item in recent_books %}
+      {% set _pct = item.percent|round(0)|int if item.percent is not none else None %}
+      {% call book_card(item.book, card_id='home_recent', modal=False,
+                        href=url_for('web.read_book', book_id=item.book.id, book_format=item.format)) %}
+        <div class="home-progress">
+          {% if item.page_current is not none and item.page_total %}
+            <span class="home-progress-pages">{{ item.page_current }}/{{ item.page_total }}</span>
+          {% elif _pct is not none %}
+            <span class="home-progress-pages">{{ _pct }}%</span>
+          {% endif %}
+          <span class="home-progress-bar"><span style="width: {{ _pct if _pct is not none else 0 }}%"></span></span>
+        </div>
+      {% endcall %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="home-section" id="home-plan"
+           data-plan-url="{{ url_for('web.learning_plan_today') }}"
+           data-writing-url="{{ url_for('web.learning_writing_history') }}"
+           data-learning-url="{{ url_for('web.learning_page') }}"
+           data-text-reviews="{{_('Words due for review')}}"
+           data-text-writing="{{_('Writing tasks to finish')}}"
+           data-text-unavailable="{{_('Your daily plan is unavailable right now — open the Learning page')}}">
+    <h2 class="home-section-title">{{_("Today's Plan")}}</h2>
+    <div class="home-plan-card">
+      <p class="home-plan-line" id="home_plan_line">
+        <span class="home-plan-loading">{{_('Loading…')}}</span>
+      </p>
+      <a class="home-plan-link" id="home_plan_link" href="{{ url_for('web.learning_page') }}">{{_('Go to Learning')}} →</a>
+    </div>
+  </section>
+
+  {% if level_groups %}
+  <section class="home-section" id="home-levels">
+    <h2 class="home-section-title">{{_('Recommended by level')}}</h2>
+    {% for group in level_groups %}
+    <div class="home-level-group">
+      <h3 class="home-level-label">{{ group.label }}</h3>
+      <div class="row display-flex">
+        {% for book in group.books %}
+          {{ book_card(book, card_id='books_level', modal=False) }}
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if discover_books %}
+  <section class="home-section" id="home-discover">
+    <h2 class="home-section-title">{{_('Discover (Random Books)')}}</h2>
+    <div class="row display-flex">
+      {% for book in discover_books %}
+        {{ book_card(book, card_id='books_rand', modal=False, show_badges=True) }}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+</div>
+{% endblock %}
+{% block js %}
+<script src="{{ url_for('static', filename='js/home.js') }}"></script>
+{% endblock %}

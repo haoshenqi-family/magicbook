@@ -1,0 +1,74 @@
+services:
+  magicbook:
+    image: registry.cn-hangzhou.aliyuncs.com/magichouse/magicbook:latest
+    container_name: magicbook
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      CALIBRE_PORT: 8083
+      CALIBRE_DBPATH: /config
+      CALIBRE_LIBRARY: /calibre-library
+      TZ: Asia/Shanghai
+      # 调试/限流配置（可选）
+      CALIBRE_CONFIG_RECONNECT: ${CALIBRE_CONFIG_RECONNECT:-0}
+      # 仅谷歌请求走内网代理（可选，如 http://192.168.31.11:12811；留空=直连）。
+      # 非谷歌请求不受影响，应用内部已显式直连，不会误走代理。
+      METADATA_GOOGLE_PROXY: ${METADATA_GOOGLE_PROXY:-}
+      # 元数据搜索整体等待上限秒数（防止单个元数据源卡住拖死全站）
+      METADATA_SEARCH_TIMEOUT: ${METADATA_SEARCH_TIMEOUT:-60}
+    env_file:
+      # AI_DATABASE_URL 等敏感配置（.env 已被 gitignore，不提交）
+      - .env
+    volumes:
+      # Calibre 书库目录（必须包含 metadata.db）
+      - ${CALIBRE_LIBRARY_PATH:-./calibre-library}:/calibre-library
+      # 应用配置目录（app.db / settings / keberos / gdrive 凭据等）
+      - ${CONFIG_PATH:-./config}:/config
+      # 日志（可选）
+      - ${LOG_PATH:-./logs}:/app/logs
+    # 以 root 运行以便自动修正挂载卷权限，entrypoint 会 gosu 降权到 calibre 用户
+    user: "0:0"
+    healthcheck:
+      # 应用层 HTTP 探针：TCP nc -z 探不出应用假死（2026-09-28 R87 实踩——
+      # 事件循环冻死后内核仍代答握手，容器一直 healthy）。拿不到响应即非零
+      # 退出，unhealthy 后可被重启策略/autoheal 接手。
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8083/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    # 如需 Traefik 反代，可在此添加 labels（参考 app-manager 项目）
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.calibre.rule=Host(`book.example.com`)
+    #   - traefik.http.routers.calibre.entrypoints=websecure
+    #   - traefik.http.routers.calibre.tls.certresolver=letsencrypt
+    #   - traefik.http.services.calibre.loadbalancer.server.port=8083
+
+  # 日志采集 sidecar：Calibre-Web 日志默认落在配置目录（容器内 /config）下的
+  # calibre-web.log / access.log，采集后写入 ES 索引 app-log-magicbook
+  # 需在 .env 配置 LOG_ES_PASSWORD；索引模板与保留策略见 deploy/init-app-log-es.sh
+  filebeat:
+    image: ${FILEBEAT_IMAGE:-docker.elastic.co/beats/filebeat:8.11.3}
+    container_name: magicbook-filebeat
+    restart: unless-stopped
+    # 挂载的 filebeat.yml 属主非 root 时 strict.perms 会拒绝启动
+    command: ["-e", "--strict.perms=false"]
+    environment:
+      LOG_ES_HOSTS: ${LOG_ES_HOSTS:-https://es.haoshenqi.top:443}
+      LOG_ES_USERNAME: ${LOG_ES_USERNAME:-elastic}
+      LOG_ES_PASSWORD: ${LOG_ES_PASSWORD:-}
+    volumes:
+      - ./deploy/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      # 与 magicbook 共享配置目录（含 calibre-web.log / access.log），只读
+      - ${CONFIG_PATH:-./config}:/var/log/magicbook:ro
+      # filebeat registry：记录采集位点，容器重建不重复投递
+      - filebeat-data:/usr/share/filebeat/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  filebeat-data:

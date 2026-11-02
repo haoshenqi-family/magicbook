@@ -1,0 +1,28 @@
+> 归档：R206（伙伴系统前端 + 薄代理）与 R207（伙伴验收三连 + CSP 拦图修复）原样搬移自 `response.md`。
+> 2026-10-24 R213-C 写入时窗口达 11 且本轮再加一节，按「写入即检查」把最旧两节搬出，只搬移原文、不总结、不改写。
+
+## 2026-10-22（R206：AI 伴读图标改「伙伴」+ 伙伴系统前端——薄代理 + /buddy 页 + FAB 换图 + 引导领取）
+
+### R206（承接 moon-well R201；用户：「AI 伴读悬浮按钮图标改成伙伴图片……主要功能就只是图标替换。默认一个机器人。引导页到伙伴模块，可以领取雪鸮」）
+
+- **薄代理**：新增 `cps/routes/buddy.py`（复用 `credit.py` 的 `_moonwell_proxy` 范式，注册进 `routes/__init__.py`）：`/buddy` 页 + `/ajax/buddy/{catalog,mine,claim,equip}` 透传 moon-well `/buddy`，鉴权 `@user_login_required`。
+- **`/buddy` 页**：`buddy.html`/`buddy.css`/`buddy.js`——花名册卡片网格（全身图 + 名 + 炉石稀有度色签 + 使用中/装备/领取/未开放），复用 `window.MBApi` 解包与 CSRF，领取/装备后就地重渲染。
+- **FAB 换图（主功能）**：`ai-companion-fab` 由文字「AI」改为「文字兜底 + `<img>`」双形态；`loadBuddyFab()` 拉 catalog 取装备伙伴 `imageUrl`，`new Image()` 预载成功才加 `has-buddy` 切图，**未上传/未装备/代理不可达一律保留「AI」文字、绝不裂图**；动效 idle 呼吸 / hover 放大 / thinking 起伏（`streamChat`→`finishMessage`，即 send 禁用→恢复窗口）/ sleep 打盹（45s 无交互），`prefers-reduced-motion` 关闭。
+- **引导领取雪鸮**：`onboarding.js` 新增 `buddy` 段（`STEPS_BUDDY`，锚点 `#buddy-claim-hedwig`）；因花名册异步渲染，`init` 对 buddy 段先 return，由 `buddy.js` 渲染完调 `MagicbookOnboarding.onRosterReady()` 触发；主引导 settings 文案补 Buddies。
+- **导航**：设置下拉新增 `#top_buddy → web.buddy_page`。
+- **i18n**：新增英文 msgid 注册进 `i18n_seed.html`，补 `zh_Hans_CN` po 13 条并 `pybabel compile`；运行时实测 `Buddies→伙伴` 等生效。
+- **验证（如实）**：JS/Python 语法校验通过（`node --check` ×3、`py_compile`）；**未起浏览器真机验收**——FAB 换图与 `/buddy` 页依赖 moon-well R201 先上线 + 18 个资产先传 MinIO（脚本 `moon-well deploy/upload_buddy_assets.py`），二者未就绪前 FAB 走文字兜底、页面无数据。
+- **台账**：requests.md 占号 R206（跨仓 moon-well R201）；分支 `feat/r206-buddy`，worktree `../magicbook-buddy` 原样驻留待验收；merge 本地 develop **`cf068ddb`**（未 push）。PingCode 写入待用户单独确认。
+- **补记（2026-10-22 21:44 / 22:08 push，含一次我造成的站内错）**：已 push develop 两次——`13e44003`（R206 前端 + 台账，5 提交）与 `6b91bf31`（模板语法修复 + `/buddy` 冒烟用例）。**第一次 push 前我漏跑了全量闸门**（只在 worktree 做了 `node --check` / `py_compile` 级校验，违背本仓「push=上线=新基线全量」口径），补跑才暴露：我在 `i18n_seed.html` 的 `{% set mb_i18n = { … } %}` **表达式内部**写了 `# ---- R206 伙伴（buddy）页 + 引导 ----` 行注释——Jinja 的词法注释只认 `{# #}` 且必须位于标签体外，`#` 直接抛 `TemplateSyntaxError: unexpected char '#'`，而 `layout.html` include 本文件，**所有 extends layout 的页面一起 500**（补跑首测：64 failed / 591 passed / 29 errors）。删掉该注释行，并新增 `tests/test_buddy_page.py`（`/buddy` 真渲染 2 条：页面出 `#buddy-roster`/`#buddy-csrf`、导航项 `#top_buddy` 恰出现一次），复跑全量 **686 passed / 0 failed**（R205 基线 684 + 新增 2）。顺带把驻留 worktree ff 到已推 tip 再跑，主检出未碰。教训两条：① 模板改动的判据是「页面渲染出来」，不是语法级校验；② layout 的 include 面使一处模板错＝全站错，`/buddy` 已纳入常驻用例，push 一律在新基线跑全量。
+## 2026-10-22（R207：伙伴验收三连——fnOS 构建核验 / 文档 push / 18 资产上传，附带修掉 CSP 拦图）
+
+### R207（用户：「1 验证，2 推 3 上传」）
+
+- **① 构建核验（ssh fnOS `/app/codelib/logs/*.log`）**：moon-well `76e5aae` 21:44:13 START → 21:45:06 **END OK**，蓝绿 `active=blue → next=green`，代码指纹 `8a4dd2a7e3c2e271 → 14cfcad5bc6ef06c`（不等→完整部署），`[[mw-phase]]` 五段全 ok，green healthy。**magicbook 那条实测出故障窗口**：`13e44003`（含站内错的 sha）21:44:13 START → 21:44:36 END OK 已部署，修复 `6b91bf31` 21:51:51 START → 21:52:06 END OK——**线上全站 500 实际持续约 7.5 分钟**，不是「推了没上线」的侥幸。现网复核：宿主 `curl 127.0.0.1:8083/login` **200**（layout 渲染链路恢复），`/buddy` **302** 属未登录跳转（`@user_login_required` 正常），容器 `Up (healthy)`。
+- **② 文档 push**：moon-well `f2caec8`、magicbook `34b02b55` 已推 develop；两笔均纯文档，fnOS `docs_only_diff` 判 SKIPPED 不触发部署（R154 口径）。
+- **③ 资产上传**：`moon-well/deploy/upload_buddy_assets.py`（凭证从 gitignored `.env` 注入、全程未打印值）dry-run 先自校验 18 个对象键与 `BuddyDefinitionService` 种子逐一对齐，再实跑 → **18/18 上传成功**（`magicbook` 桶 `buddy/*`，full 512² 约 300KB、head 128² 约 30KB）。匿名直读实测 `https://home.haoshenqi.top:9001/magicbook/buddy/robot-head.png` **200**、`buddy/harry-full.png` **200**；对照组不存在对象 `ted-audio/__probe__.aac` **404**——证明 R201 合并进一条 Statement 的前缀策略确实只放开 `buddy/` 与 `ted-audio/`，没有整桶可读。
+- **④ 自查发现并修复第二处缺陷（CSP 拦图）**：`cps/web.py` 的 `img-src 'self' … data:` 未放行 MinIO 源，伙伴头像跨源取图会被浏览器拦；**且这是不可见故障**——`ai_chat.js` 用 `new Image()` 探测，`onerror` 即静默保留「AI」文字兜底，页面表现完全正常，只表现为「图片传了但没换」。修法沿用 R181 `media-src` 的窄面范式：只在 `web.read_book`（一个端点覆盖 epub/pdf/txt/djvu/cbr 五种阅读器，FAB 都在）与 `web.buddy_page`（花名册）放行 `https://home.haoshenqi.top:9001`，其余页面 img-src 不变；该源与 media-src 里已硬编码的是同一个，Nacos 改 `minio.public-url` 时两处一起失效，未新增漂移面。新增 3 条用例（2 端点参数化 + 1 条「index 不得放行」的反向守卫），**反向变异实测**：临时退回未修复版恰好这 2 条红、恢复后全绿。
+- **闸门（本轮记死）**：全量 `.venv/bin/python -m pytest tests/` = **689 passed / 0 failed**（R206 修复后 686 + 本轮 3），判据取 pytest 末行汇总；**在合并后基线 `6b6751a5` 上跑**（`f3b3a782` 代码 + `3f17f288` LLD + merge），merge 前亦在 `f3b3a782` 单跑过一次同为 689。与上一轮的区别正是这次跑在 push **之前**——「先推再补跑」的教训见 R206 补记。
+- **台账与驻留**：requests.md 占号 R207（commit `0ab751d3`，先占即提交）；分支 `feat/r206-buddy`（同会话续作复用同一 worktree，禁止每阶段开新树），先 ff 到已推 tip、再 merge develop 拉齐基线后继续推进；worktree `../magicbook-buddy` 原样驻留待真机验收。**本地 develop 已合至 `6b6751a5`，尚未 push——等一句确认**（本条计数修正 commit 自身使 `git rev-list --count origin/develop..develop` = 8，推平后应为 0；写「4 提交」是没把自己和 merge 带进来的分支提交算全，改记实测命令与结果，不记口算数）；不推的后果不是报错而是「资产传了、图却换不出来」这种静默不生效。跨仓 moon-well 本轮无代码改动，资产上传事实记在其 R201 补记（另有文档 commit `70eecf1` 待推）。PingCode 写入仍待用户单独确认。
+- **补记（2026-10-23 09:28 push 已执行 + 线上 CSP 双探针）**：用户令「推」后 push develop → **`9d67fa3c`**（8 提交推平，`develop...origin/develop` = 0/0）。fnOS：`09:28:35 build START → 09:28:52 END OK`，代码指纹不等故完整部署；同源 moon-well `70eecf1`（纯文档）`09:28:52 build SKIPPED (docs-only)`，与 R207 预判一致。**线上探针**（宿主 `curl -D-`，负对照法）：`/buddy` 返回 `img-src 'self' data: https://home.haoshenqi.top:9001`（302 也走 `after_request`，头照样带）；`/login` **200** 且 img-src 仍为 `'self' data:`——放行面确实只宽到两个端点，没有顺手放宽全站。**余下唯一未验项 = 带鉴权的真机验收**（FAB 换成装备伙伴头像、`/buddy` 花名册出图、引导领取雪鸮、装备切换）：本轮全部服务端/头级证据都不能证明浏览器真的把图画出来了，这一步需要用户登录。
+- **窗口**：本条写入使 request 数达 11，按「写入即检查」把最早一组 R185（架构评审文档修正批 DF1–DF5）原样搬至 `response-archive/response-R185.md` 并登记索引，窗口回 10。

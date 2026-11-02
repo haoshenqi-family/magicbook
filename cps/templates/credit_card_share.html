@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+
+{% block header %}
+<style>
+  .credit-share-shell { max-width: 760px; margin: 28px auto 48px; padding: 0 16px; }
+  .credit-share-card { border: 1px solid #d8e2dc; border-radius: 12px; overflow: hidden;
+                       background: linear-gradient(145deg, #fcfffd 0%, #f1f8f4 100%);
+                       box-shadow: 0 16px 44px rgba(45, 76, 60, .12); }
+  .credit-share-head { padding: 24px 26px 20px; border-bottom: 1px solid #d8e2dc; }
+  .credit-share-kicker { color: #4d7c62; font-size: 12px; font-weight: 700;
+                         letter-spacing: .12em; text-transform: uppercase; }
+  .credit-share-head h1 { margin: 8px 0 8px; font-size: 28px; color: #20372b; }
+  .credit-share-head p { margin: 0; color: #607068; }
+  .credit-share-body { padding: 24px 26px 28px; }
+  .credit-share-key { display: block; width: 100%; padding: 16px 18px; border: 1px dashed #89a996;
+                      border-radius: 8px; background: #fff; color: #173726; font-size: 18px;
+                      font-family: Menlo, Consolas, monospace; letter-spacing: .04em;
+                      overflow-wrap: anywhere; }
+  .credit-share-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .credit-share-usage { margin-top: 28px; padding-top: 22px; border-top: 1px solid #d8e2dc; }
+  .credit-share-usage h2 { margin-top: 0; font-size: 20px; color: #20372b; }
+  .credit-share-usage ol { color: #46564d; padding-left: 22px; }
+  .credit-share-usage li { margin: 8px 0; }
+  .credit-share-note { margin: 18px 0 0; color: #7a5a20; background: #fff8e6;
+                       border: 1px solid #efdbab; border-radius: 8px; padding: 12px 14px; }
+  .credit-share-alert { display: none; margin-top: 14px; }
+  @media (max-width: 600px) {
+    .credit-share-shell { margin-top: 16px; }
+    .credit-share-head, .credit-share-body { padding-left: 18px; padding-right: 18px; }
+    .credit-share-head h1 { font-size: 23px; }
+    .credit-share-key { font-size: 15px; }
+    .credit-share-actions .btn { width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="credit-share-shell" id="credit-card-share"
+     data-authenticated="{{ '1' if current_user.is_authenticated else '0' }}">
+  <section class="credit-share-card">
+    <div class="credit-share-head">
+      <div class="credit-share-kicker">MagicBook 积分卡</div>
+      <h1>有人送你一张积分卡</h1>
+      <p id="credit-share-summary">正在读取卡密...</p>
+    </div>
+    <div class="credit-share-body">
+      <code class="credit-share-key" id="credit-share-key">链接中未找到卡密</code>
+      <div id="credit-share-alert" class="alert credit-share-alert" role="alert"></div>
+      <div class="credit-share-actions">
+        <button type="button" class="btn btn-default" id="credit-share-copy-key">复制卡密</button>
+        <a class="btn btn-default" id="credit-share-login" href="{{ url_for('web.login', next='/credits') }}">
+          登录后兑换
+        </a>
+        <a class="btn btn-primary" id="credit-share-redeem" href="{{ url_for('web.credits_page') }}">
+          去积分页兑换
+        </a>
+      </div>
+
+      <div class="credit-share-usage">
+        <h2>使用方法</h2>
+        <ol>
+          <li>登录 MagicBook 账号。</li>
+          <li>打开积分页，将卡密粘贴到「兑换积分卡」输入框。</li>
+          <li>点击「兑换」，成功后积分会立即到账。</li>
+        </ol>
+        <p class="credit-share-note">
+          每张卡密只能兑换一次。卡密和分享链接都是使用凭证，请不要转发给不需要的人。
+        </p>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/credit-card-share.js') }}"></script>
+{% endblock %}

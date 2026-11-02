@@ -1,0 +1,925 @@
+"""Unit tests for the daily-learning proxy endpoints (R132 / B3).
+
+Covers:
+  1. All seven endpoints require login.
+  2. GET proxies forward to the flat moon-well paths without payload.
+  3. answer: valid grade 1-4 passes; grade 0/5/bool/non-int and bad scheduleId
+     are rejected locally (400) without hitting moon-well.
+  4. plan/settings: local range checks mirror the upstream DTO; the strand-sum
+     rule (100) is left to moon-well (50503 semantics).
+  5. match/book: bookId must be a numeric string; non-numeric rejected locally.
+  6. moon-well business errors (HTTP 500 + Result.code) pass through untouched.
+
+Why mock `_moonwell_proxy` instead of the HTTP layer: the proxy's whole contract
+is "which path/payload/method goes upstream and what comes back" (same approach
+as test_vocab_test_proxy.py); network and moon-well semantics live in its tests.
+"""
+import io
+import json
+from pathlib import Path
+
+import pytest
+from cps.moonwell.client import client as _mb_client
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture
+def moonwell_configured(monkeypatch):
+    from cps import constants
+    monkeypatch.setattr(constants, "MOON_WELL_READING_URL",
+                        "https://moon-well.example.com/")
+    return constants
+
+
+def _envelope(result):
+    return json.dumps({"success": True, "code": 200, "message": "", "result": result})
+
+
+def _json_headers():
+    return {"Content-Type": "application/json"}
+
+
+class RecordingProxy:
+    """记录转发出去的目标，并按 path 返回预设响应。"""
+
+    def __init__(self, replies):
+        self.replies = replies
+        self.calls = []
+
+    def __call__(self, path, payload, timeout, label, binary=False, method="POST",
+                 system_identity=None, identity_headers=None, bearer_token=None):
+        self.calls.append({"path": path, "payload": payload, "method": method,
+                           "timeout": timeout})
+        body, status = self.replies[path]
+        return body, status, _json_headers()
+
+    def call_for(self, path):
+        return next(call for call in self.calls if call["path"] == path)
+
+
+QUEUE_ITEM = {"scheduleId": "42", "word": "install", "questionType": "CHOOSE",
+              "choices": ["install", "instal", "insult", "insulted"],
+              "contextSentence": "He installed it.", "contextBook": "Book A",
+              "contextChapter": "ch1", "encounterCount": 6}
+STATS = {"dueNow": 3, "dueTomorrow": 8, "reviewing": 40, "mastered": 12,
+         "fresh": 5, "retention7d": 87, "answers7d": 31}
+PLAN = {"date": "2026-10-08", "reviews": [QUEUE_ITEM], "reviewTotal": 1,
+        "newWords": [], "strands": {"inputMinutes": 5, "languageMinutes": 5,
+                                    "outputMinutes": 5, "fluencyMinutes": 5,
+                                    "inputPct": 25, "languagePct": 25,
+                                    "outputPct": 25, "fluencyPct": 25},
+        "settings": {"dailyNewLimit": 5, "dailyMinutes": 20, "strandInputPct": 25,
+                     "strandLanguagePct": 25, "strandOutputPct": 25,
+                     "strandFluencyPct": 25}}
+MATCHES = [{"bookId": 1, "title": "Nice Book", "author": "A", "densityPct": 3.2,
+            "level": "FIT", "levelName": "正合适", "unknownTokenCount": 16,
+            "totalTokenCount": 500, "unknownSample": ["quick", "brown"],
+            "upToDate": True}]
+
+PATHS = {
+    "queue": ("/ajax/learning/srs/queue", "/learning/srs/queue"),
+    "stats": ("/ajax/learning/srs/stats", "/learning/srs/stats"),
+    "plan": ("/ajax/learning/plan/today", "/learning/plan/today"),
+    "books": ("/ajax/learning/match/books", "/learning/match/books"),
+}
+
+
+# ---------- 1. 鉴权 ----------
+
+def test_endpoints_require_login(app, moonwell_configured):
+    client = app.test_client()
+    assert client.get("/learning").status_code == 302
+    for local, _ in PATHS.values():
+        assert client.get(local).status_code == 302, local
+    assert client.post("/ajax/learning/srs/answer", json={}).status_code == 302
+    assert client.post("/ajax/learning/plan/settings", json={}).status_code == 302
+    assert client.post("/ajax/learning/match/book", json={}).status_code == 302
+    assert client.post("/ajax/learning/strands/reading", json={}).status_code == 302
+
+
+# ---------- 2. GET 透传 ----------
+
+def test_get_proxies_forward_to_flat_paths(admin_client, moonwell_configured,
+                                           monkeypatch):
+    replies = {
+        "/learning/srs/queue": (_envelope([QUEUE_ITEM]), 200),
+        "/learning/srs/stats": (_envelope(STATS), 200),
+        "/learning/plan/today": (_envelope(PLAN), 200),
+        "/learning/match/books": (_envelope(MATCHES), 200),
+    }
+    proxy = RecordingProxy(replies)
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for local, upstream in PATHS.values():
+        admin_client.get(local)
+        call = proxy.call_for(upstream)
+        assert call["method"] == "GET"
+        assert call["payload"] is None
+
+
+def test_queue_limit_query_stays_in_query_string(admin_client, moonwell_configured,
+                                                 monkeypatch):
+    """limit 是 GET query，代理不解析不转发（moon-well 自己读 query）。"""
+    proxy = RecordingProxy({"/learning/srs/queue": (_envelope([]), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    admin_client.get("/ajax/learning/srs/queue?limit=5")
+    # _moonwell_proxy 签名不带 query（Flask 在 request 里），透传即正确行为
+    assert proxy.call_for("/learning/srs/queue")["payload"] is None
+
+
+# ---------- 3. answer 参数域 ----------
+
+def test_answer_forwards_valid_payload(admin_client, moonwell_configured,
+                                       monkeypatch):
+    proxy = RecordingProxy({"/learning/srs/answer": (
+        _envelope({"scheduleId": "42", "word": "install", "state": "REVIEW",
+                   "dueAt": "2026-10-11T10:00:00", "message": "3 天后再见"}), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/srs/answer",
+                                 json={"scheduleId": "42", "grade": 3,
+                                       "latencyMs": 2500})
+    assert response.status_code == 200
+    call = proxy.call_for("/learning/srs/answer")
+    assert call["payload"] == {"scheduleId": 42, "grade": 3, "latencyMs": 2500}
+
+
+def test_answer_forwards_question_type(admin_client, moonwell_configured,
+                                       monkeypatch):
+    """R167 回归锁：本代理逐字段重建 body，漏抄 questionType 是**静默丢弃**——
+    前端发了、后端收不到、页面照常，只有答题日志的题型悄悄错一半。"""
+    proxy = RecordingProxy({"/learning/srs/answer": (
+        _envelope({"scheduleId": "42", "word": "hike", "state": "LEARNING",
+                   "dueAt": "2026-10-14T10:00:00", "message": "10 分钟后再见"}), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/srs/answer",
+                                 json={"scheduleId": "42", "grade": 3,
+                                       "questionType": "discriminate"})
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/srs/answer")["payload"] == {
+        "scheduleId": 42, "grade": 3, "questionType": "DISCRIMINATE"}, \
+        "辨析题题型必须透传，且归一成上游白名单的大写形态"
+
+
+def test_answer_forwards_no_question_type_when_absent(admin_client, moonwell_configured,
+                                                      monkeypatch):
+    """老客户端不发该字段时 body 形状不得变化（上游按缺省回落重算）。"""
+    proxy = RecordingProxy({"/learning/srs/answer": (_envelope({}), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    admin_client.post("/ajax/learning/srs/answer", json={"scheduleId": "42", "grade": 3})
+    assert proxy.call_for("/learning/srs/answer")["payload"] == {"scheduleId": 42, "grade": 3}
+
+
+def test_answer_rejects_bad_question_type_locally(admin_client, moonwell_configured,
+                                                  monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for question_type in ("", "   ", 42, True, ["CHOOSE"]):
+        response = admin_client.post("/ajax/learning/srs/answer",
+                                     json={"scheduleId": "42", "grade": 3,
+                                           "questionType": question_type})
+        assert response.status_code == 400, question_type
+    assert not proxy.calls, "非法 questionType 不该打到上游"
+
+
+def test_answer_rejects_bad_grades_locally(admin_client, moonwell_configured,
+                                           monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for grade in (0, 5, -1, True, False, "3", None, 2.5):
+        response = admin_client.post("/ajax/learning/srs/answer",
+                                     json={"scheduleId": "42", "grade": grade})
+        assert response.status_code == 400, grade
+    assert not proxy.calls, "bad grade must not reach moon-well"
+
+
+def test_answer_rejects_bad_schedule_ids_locally(admin_client, moonwell_configured,
+                                                 monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for schedule_id in ("", "abc", "-1", "1.5", None, True):
+        response = admin_client.post("/ajax/learning/srs/answer",
+                                     json={"scheduleId": schedule_id, "grade": 3})
+        assert response.status_code == 400, schedule_id
+    assert not proxy.calls
+
+
+def test_answer_rejects_bad_latency_locally(admin_client, moonwell_configured,
+                                            monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/srs/answer",
+                                 json={"scheduleId": "42", "grade": 3,
+                                       "latencyMs": -5})
+    assert response.status_code == 400
+    assert not proxy.calls
+
+
+# ---------- 4. plan/settings 参数域 ----------
+
+def _valid_settings():
+    return {"dailyNewLimit": 10, "dailyMinutes": 40, "strandInputPct": 50,
+            "strandLanguagePct": 10, "strandOutputPct": 20, "strandFluencyPct": 20}
+
+
+def test_plan_settings_forwards_valid_payload(admin_client, moonwell_configured,
+                                              monkeypatch):
+    proxy = RecordingProxy({"/learning/plan/settings": (_envelope(_valid_settings()), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/plan/settings",
+                                 json=_valid_settings())
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/plan/settings")["payload"] == _valid_settings()
+
+
+def test_plan_settings_rejects_out_of_range_locally(admin_client,
+                                                    moonwell_configured,
+                                                    monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    bad = _valid_settings()
+    bad["strandFluencyPct"] = 101  # > 100
+    assert admin_client.post("/ajax/learning/plan/settings", json=bad).status_code == 400
+    bad2 = _valid_settings()
+    bad2["dailyMinutes"] = 4  # < 5
+    assert admin_client.post("/ajax/learning/plan/settings", json=bad2).status_code == 400
+    bad3 = _valid_settings()
+    del bad3["strandInputPct"]  # 缺字段
+    assert admin_client.post("/ajax/learning/plan/settings", json=bad3).status_code == 400
+    assert not proxy.calls
+
+
+def test_plan_settings_strand_sum_left_to_upstream(admin_client,
+                                                   moonwell_configured,
+                                                   monkeypatch):
+    """四股之和≠100 是 moon-well 的 50503：代理放行，业务错误原样透传。"""
+    upstream_body = json.dumps({"success": False, "code": 50503,
+                                "message": "四股配比之和必须等于 100", "result": None})
+    proxy = RecordingProxy({"/learning/plan/settings": (upstream_body, 500)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    payload = _valid_settings()
+    payload["strandFluencyPct"] = 30  # 105
+    response = admin_client.post("/ajax/learning/plan/settings", json=payload)
+    assert response.status_code == 500
+    assert json.loads(response.data)["code"] == 50503
+
+
+# ---------- 5. match/book 参数域 ----------
+
+def test_match_book_forwards_numeric_id(admin_client, moonwell_configured,
+                                        monkeypatch):
+    proxy = RecordingProxy({"/learning/match/book": (_envelope(MATCHES[0]), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/match/book", json={"bookId": "100"})
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/match/book")["payload"] == {"bookId": "100"}
+
+
+def test_match_book_rejects_non_numeric_id(admin_client, moonwell_configured,
+                                           monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for book_id in ("", "abc", "-1", None, True, 1.5):
+        response = admin_client.post("/ajax/learning/match/book",
+                                     json={"bookId": book_id})
+        assert response.status_code == 400, book_id
+    assert not proxy.calls
+
+
+# ---------- 6. 页面与业务错误透传 ----------
+
+def test_learning_page_renders_without_upstream(admin_client, moonwell_configured):
+    """首屏零上游调用：数据由 learning-hub.js 异步取（成就页同模式）。
+
+    R166：中枢只留 banner + 计划 + 复习摘要 + 周视图，三题型 DOM 迁到 /learning/review。
+    """
+    response = admin_client.get("/learning")
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert 'id="lh-banner"' in html
+    assert "js/learning-hub.js" in html
+    assert "web.learning_srs_queue" not in html  # url_for 已渲染成路径
+    # 复习队列的题干/拼写输入不得残留在中枢（迁走即删，否则两处 DOM 会漂移）
+    assert 'id="ln-stem"' not in html
+    assert 'id="ln-spell-input"' not in html
+    assert 'id="ln-spell-check"' not in html
+
+
+def test_learning_review_subpage_renders_queue_dom(admin_client,
+                                                   moonwell_configured):
+    """R137 三题型契约：释义题干 + 拼写输入必须随子页面模板渲染（JS 才有得绑）。"""
+    response = admin_client.get("/learning/review")
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert 'id="ln-card"' in html
+    assert 'id="ln-stem"' in html
+    assert 'id="ln-spell-input"' in html
+    assert 'id="ln-spell-check"' in html
+    assert "js/learning-review.js" in html
+    assert '"/ajax/learning/srs/queue"' in html
+
+
+def test_business_error_passes_through_with_code(admin_client, moonwell_configured,
+                                                 monkeypatch):
+    upstream_body = json.dumps({"success": False, "code": 50501,
+                                "message": "复习计划不存在，请刷新队列", "result": None})
+    proxy = RecordingProxy({"/learning/srs/answer": (upstream_body, 500)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/srs/answer",
+                                 json={"scheduleId": "42", "grade": 3})
+    assert response.status_code == 500
+    assert json.loads(response.data)["code"] == 50501
+
+
+def test_unreachable_upstream_returns_503_json_not_500(admin_client,
+                                                       moonwell_configured):
+    """moon-well 未配置/不可达：代理层 503 JSON（_moonwell_proxy 既有契约）。"""
+    from cps import constants
+    monkeypatch_again = constants
+    response = admin_client.get("/ajax/learning/srs/stats")
+    # moonwell_configured fixture 配了假域名但网络不可达 → 503；不抛 500 白页
+    assert response.status_code in (502, 503, 504)
+    assert monkeypatch_again is not None
+
+
+# ---------- 7. 页面真实渲染（登录后、db 已 mock） ----------
+
+def test_learning_page_renders_full_dom(admin_client, moonwell_configured):
+    """登录态下 /learning 渲染完整 DOM：banner、摘要卡、脚本、URL 注入、导航入口。"""
+    response = admin_client.get("/learning")
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert 'id="ln-review-summary"' in html
+    assert 'id="ln-plan"' in html
+    assert "js/learning-common.js" in html
+    assert "window.learningUrls" in html
+    assert '"/ajax/learning/plan/today"' in html
+    # 导航入口（布局层，R154 起为左侧一级导航）；R166 起说与写并入中枢，一级项撤掉
+    assert 'id="top_learning"' in html
+    assert 'id="top_speaking_writing"' not in html
+    # CSRF 注入（learning-common.js 按 #lh-csrf 读取）
+    assert 'id="lh-csrf"' in html
+
+
+def test_nav_dropdown_contains_daily_learning(admin_client, moonwell_configured):
+    response = admin_client.get("/learning")
+    html = response.data.decode("utf-8")
+    assert "Daily Learning" in html
+
+
+# ---------- 6. strands/reading 心跳（R151，moon-well R149 四股台账 INPUT 股）----------
+
+def test_reading_heartbeat_forwards_valid_payload(admin_client, moonwell_configured,
+                                                  monkeypatch):
+    proxy = RecordingProxy({"/learning/strands/reading": (_envelope("ok"), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/strands/reading",
+                                 json={"seconds": 300, "bookId": "97"})
+    assert response.status_code == 200
+    call = proxy.call_for("/learning/strands/reading")
+    assert call["payload"] == {"seconds": 300, "bookId": "97"}
+
+
+def test_reading_heartbeat_without_book_id_omits_field(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    proxy = RecordingProxy({"/learning/strands/reading": (_envelope("ok"), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/strands/reading",
+                                 json={"seconds": 300})
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/strands/reading")["payload"] == {"seconds": 300}
+
+
+def test_reading_heartbeat_rejects_bad_seconds_locally(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for seconds in (29, 601, 0, -300, True, False, "300", None, 2.5):
+        response = admin_client.post("/ajax/learning/strands/reading",
+                                     json={"seconds": seconds})
+        assert response.status_code == 400, seconds
+    assert not proxy.calls, "bad heartbeat must not reach moon-well"
+
+
+def test_reading_heartbeat_rejects_bad_book_id_locally(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for book_id in ("", "abc", "-1", "1.5", True):
+        response = admin_client.post("/ajax/learning/strands/reading",
+                                     json={"seconds": 300, "bookId": book_id})
+        assert response.status_code == 400, book_id
+    assert not proxy.calls
+
+
+# ---------- 7. B1 输出训练代理（R152：写作工坊/口语陪练/复述训练）----------
+
+B1_POSTS = [
+    ("/ajax/learning/writing/task/generate", "/learning/writing/task/generate"),
+    ("/ajax/learning/writing/submit", "/learning/writing/submit"),
+    ("/ajax/learning/writing/revise", "/learning/writing/revise"),
+    ("/ajax/learning/speaking/session", "/learning/speaking/session"),
+    ("/ajax/learning/speaking/message", "/learning/speaking/message"),
+    ("/ajax/learning/speaking/report", "/learning/speaking/report"),
+    ("/ajax/learning/speaking/messages", "/learning/speaking/messages"),
+    ("/ajax/learning/retell/start", "/learning/retell/start"),
+    ("/ajax/learning/retell/submit-round", "/learning/retell/submit-round"),
+    ("/ajax/learning/retell/finish", "/learning/retell/finish"),
+]
+
+
+def test_b1_endpoints_require_login(app, moonwell_configured):
+    client = app.test_client()
+    for local, _ in B1_POSTS:
+        assert client.post(local, json={}).status_code == 302, local
+    assert client.get("/ajax/learning/writing/history").status_code == 302
+    assert client.get("/ajax/learning/speaking/history").status_code == 302
+    assert client.get("/learning/speaking-writing").status_code == 302
+
+
+def test_b1_submit_forwards_cleaned_payload(admin_client, moonwell_configured,
+                                             monkeypatch):
+    proxy = RecordingProxy({"/learning/writing/submit": (_envelope({}), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post(
+        "/ajax/learning/writing/submit",
+        json={"taskId": "T-1", "text": "Hello world.", "evil": "x"},
+        )
+    assert response.status_code == 200
+    call = proxy.call_for("/learning/writing/submit")
+    # 白名单裁剪：未知键不透传；taskId 原样
+    assert call["payload"] == {"taskId": "T-1", "text": "Hello world."}
+
+
+def test_writing_review_timeout_covers_backend_llm_budget(
+        admin_client, moonwell_configured, monkeypatch):
+    """R191：代理预算必须大于 moon-well 的 150s LLM 预算。
+
+    Why 用 210s 而不是继续 90s：实测 revise 在后端 104s 成功返回，90s 代理先超时
+    只给前端一个 503，用户重试还会再生成一稿。这里锁住 submit/revise 两个入口，
+    避免以后有人按「普通接口」把超时改回去。
+    """
+    proxy = RecordingProxy({
+        "/learning/writing/submit": (_envelope({}), 200),
+        "/learning/writing/revise": (_envelope({}), 200),
+    })
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+
+    admin_client.post("/ajax/learning/writing/submit",
+                      json={"taskId": "1", "text": "x" * 120})
+    admin_client.post("/ajax/learning/writing/revise",
+                      json={"taskId": "1", "text": "x" * 120})
+
+    assert proxy.call_for("/learning/writing/submit")["timeout"] == 210
+    assert proxy.call_for("/learning/writing/revise")["timeout"] == 210
+
+
+def test_speaking_timeout_covers_llm_and_tts(admin_client, moonwell_configured,
+                                             monkeypatch):
+    """R221：口语链路的代理预算必须覆盖后端 LLM 120s + 同步 TTS。"""
+    proxy = RecordingProxy({
+        "/learning/speaking/session": (_envelope({}), 200),
+        "/learning/speaking/message": (_envelope({}), 200),
+        "/learning/speaking/report": (_envelope({}), 200),
+    })
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+
+    admin_client.post("/ajax/learning/speaking/session",
+                      json={"scenario": "COFFEE"})
+    admin_client.post("/ajax/learning/speaking/message",
+                      json={"sessionId": "42", "text": "Hello"})
+    admin_client.post("/ajax/learning/speaking/report",
+                      json={"sessionId": "42"})
+
+    assert proxy.call_for("/learning/speaking/session")["timeout"] == 210
+    assert proxy.call_for("/learning/speaking/message")["timeout"] == 210
+    assert proxy.call_for("/learning/speaking/report")["timeout"] == 210
+
+
+def test_b1_rejects_missing_required_fields_locally(admin_client,
+                                                     moonwell_configured,
+                                                     monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    cases = [
+        ("/ajax/learning/writing/task/generate", {}),                      # 缺 mode
+        ("/ajax/learning/writing/submit", {"taskId": "T-1"}),              # 缺 text
+        ("/ajax/learning/speaking/message", {"sessionId": "S-1"}),         # 缺 text
+        ("/ajax/learning/retell/submit-round", {"retellId": "R-1"}),       # 缺 transcript
+        ("/ajax/learning/retell/finish", {}),                              # 缺 retellId
+    ]
+    for local, body in cases:
+        response = admin_client.post(local, json=body)
+        assert response.status_code == 400, (local, body)
+    assert not proxy.calls, "missing required fields must not reach moon-well"
+
+
+def test_b1_rejects_oversized_text_locally(admin_client, moonwell_configured,
+                                            monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/writing/submit",
+                                 json={"taskId": "T-1", "text": "x" * 20001})
+    assert response.status_code == 400
+    assert not proxy.calls
+
+
+def test_b1_retell_round_keeps_int_fields(admin_client, moonwell_configured,
+                                           monkeypatch):
+    proxy = RecordingProxy({"/learning/retell/submit-round": (_envelope({}), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post(
+        "/ajax/learning/retell/submit-round",
+        json={"retellId": "R-1", "round": 2, "durationMs": 153000,
+              "transcript": "I retell the story."},
+        )
+    assert response.status_code == 200
+    # 整数字段保类型透传（Jackson 语义一致）
+    assert proxy.call_for("/learning/retell/submit-round")["payload"] == {
+        "retellId": "R-1", "round": 2, "durationMs": 153000,
+        "transcript": "I retell the story."}
+
+
+def test_b1_rejects_bad_minutes_per_round_locally(admin_client,
+                                                   moonwell_configured,
+                                                   monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for minutes in (["x"], [], [0], [31], "4,3,2", [True]):
+        response = admin_client.post("/ajax/learning/retell/start",
+                                     json={"paragraphText": "Once upon a time.",
+                                           "minutesPerRound": minutes})
+        assert response.status_code == 400, minutes
+    assert not proxy.calls
+
+
+def test_speaking_writing_page_redirects_to_hub(admin_client, moonwell_configured):
+    """R166：旧五合一页 302 回中枢（书签与 R152 期文档链接不失效）。"""
+    response = admin_client.get("/learning/speaking-writing")
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/learning")
+
+
+def test_writing_subpage_renders(admin_client, moonwell_configured):
+    response = admin_client.get("/learning/writing")
+    assert response.status_code == 200
+    html = response.data.decode("utf-8")
+    assert 'id="lh-csrf"' in html
+    assert "js/learning-writing.js" in html
+    assert "window.learningUrls" in html
+    assert '"/ajax/learning/writing/task/generate"' in html
+
+
+# ---------- 8. P3 代理：计时重读 / 听写 / 周视图（R153）----------
+
+def test_p3_endpoints_require_login(app, moonwell_configured):
+    client = app.test_client()
+    for local in ("/ajax/learning/listening/materials",
+                  "/ajax/learning/rrr/trend", "/ajax/learning/rrr/recommend"):
+        assert client.get(local).status_code == 302, local
+    for local in ("/ajax/learning/listening/paragraphs",
+                  "/ajax/learning/listening/dictation/check",
+                  "/ajax/learning/rrr/record"):
+        assert client.post(local, json={}).status_code == 302, local
+
+
+def test_dictation_check_passes_bool_and_int(admin_client, moonwell_configured,
+                                             monkeypatch):
+    proxy = RecordingProxy({"/learning/listening/dictation/check": (_envelope({}), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/listening/dictation/check",
+                                 json={"bookId": "97", "order": 3,
+                                       "answer": "the quick brown fox",
+                                       "addUnknown": True})
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/listening/dictation/check")["payload"] == {
+        "bookId": "97", "order": 3, "answer": "the quick brown fox",
+        "addUnknown": True}
+
+
+def test_dictation_check_rejects_bad_types_locally(admin_client,
+                                                    moonwell_configured,
+                                                    monkeypatch):
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for body in ({"bookId": "97", "order": "3", "answer": "hi"},        # order 非整数
+                 {"bookId": "97", "order": 3, "answer": "hi", "addUnknown": "yes"},  # 布尔非法
+                 {"bookId": "97", "order": 3, "answer": "x" * 20001}):  # 超长
+        assert admin_client.post("/ajax/learning/listening/dictation/check",
+                                 json=body).status_code == 400, body
+    assert not proxy.calls
+
+
+def test_rrr_record_keeps_int_fields(admin_client, moonwell_configured,
+                                     monkeypatch):
+    proxy = RecordingProxy({"/learning/rrr/record": (_envelope({}), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/rrr/record",
+                                 json={"bookId": "97", "order": 5, "round": 2,
+                                       "durationMs": 92000, "mode": "ALOUD"})
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/rrr/record")["payload"] == {
+        "bookId": "97", "order": 5, "round": 2, "durationMs": 92000, "mode": "ALOUD"}
+
+
+def test_reread_and_dictation_subpages_render(admin_client, moonwell_configured):
+    """R153 的 P3 DOM 契约随拆分搬到各自子页面（R166）。"""
+    reread = admin_client.get("/learning/reread").data.decode("utf-8")
+    assert 'id="sw-rr-panel"' in reread
+    assert "listeningMaterials" in reread
+    assert '"/ajax/learning/rrr/recommend"' in reread
+
+    dictation = admin_client.get("/learning/dictation").data.decode("utf-8")
+    assert 'id="sw-d-panel"' in dictation
+    assert 'id="sw-d-add-unknown"' in dictation
+    assert '"/ajax/learning/listening/dictation/check"' in dictation
+
+
+def test_speaking_subpage_has_coach_tts_and_mic(admin_client, moonwell_configured):
+    html = admin_client.get("/learning/speaking").data.decode("utf-8")
+    assert 'id="sw-s-tts"' not in html, "R212：教练语音是默认行为，不再给用户关闭开关"
+    assert 'id="sw-s-mic"' in html
+    assert 'id="sw-s-voice-preview"' in html
+    assert 'id="sw-s-rerecord"' in html
+    assert "readingTtsCached" in html
+    assert "speakingRecordingUpload" in html
+    assert "js/learning-voice.js" in html
+    assert '"/ajax/learning/asr/transcribe"' in html
+
+
+def test_learning_page_has_week_panel(admin_client, moonwell_configured):
+    html = admin_client.get("/learning").data.decode("utf-8")
+    assert 'id="ln-week"' in html
+    assert "/ajax/learning/strands/summary" in html
+
+
+# ---------- 9. 语音输入（R155：录音 multipart 直传转写）----------
+
+def test_asr_transcribe_requires_login(app, moonwell_configured):
+    client = app.test_client()
+    assert client.post("/ajax/learning/asr/transcribe").status_code == 302
+
+
+def test_asr_transcribe_rejects_missing_file_locally(admin_client,
+                                                     moonwell_configured,
+                                                     monkeypatch):
+    monkeypatch.setattr(_mb_client, "multipart",
+                        lambda *a, **k: (_envelope({}), 200, {}))
+    assert admin_client.post("/ajax/learning/asr/transcribe").status_code == 400
+
+
+def test_asr_transcribe_rejects_oversized_recording_locally(
+        admin_client, moonwell_configured, monkeypatch):
+    calls = []
+    monkeypatch.setattr(_mb_client, "multipart",
+                        lambda *a, **k: calls.append(a) or (_envelope({}), 200, {}))
+    big = b"x" * (10 * 1024 * 1024 + 1)
+    response = admin_client.post("/ajax/learning/asr/transcribe",
+                                 data={"file": (io.BytesIO(big), "recording.wav", "audio/wav")})
+    assert response.status_code == 400
+    assert not calls, "oversized recording must not reach moon-well"
+
+
+def test_asr_transcribe_forwards_file_bytes(admin_client, moonwell_configured,
+                                            monkeypatch):
+    seen = {}
+
+    def fake_forward(path, file_bytes, filename, timeout, label):
+        seen.update(path=path, file_bytes=file_bytes, filename=filename)
+        return _envelope({"text": "hello from mic"}), 200
+
+    monkeypatch.setattr(_mb_client, "multipart", fake_forward)
+    # Why 不手写 content_type：multipart 边界必须由 werkzeug 生成，
+    # 手动指定会把 boundary 弄丢、files 解析为空
+    response = admin_client.post(
+        "/ajax/learning/asr/transcribe",
+        data={"file": (io.BytesIO(b"RIFF...."), "recording.wav", "audio/wav")})
+    assert response.status_code == 200
+    assert seen["path"] == "/learning/asr/transcribe"
+    assert seen["file_bytes"] == b"RIFF...."
+    assert seen["filename"] == "recording.wav"
+
+
+def test_speaking_recording_upload_forwards_session_and_file(
+        admin_client, moonwell_configured, monkeypatch):
+    """发送语音前先存录音：sessionId 与文件必须在同一次 multipart 到达 moon-well。"""
+    seen = {}
+
+    def fake_multipart(path, file_bytes, filename, timeout, label, fields=None):
+        seen.update(path=path, file_bytes=file_bytes, filename=filename,
+                    timeout=timeout, fields=fields)
+        return _envelope("learning-speaking/11/42/2026-10-24/a.wav"), 200
+
+    monkeypatch.setattr(_mb_client, "multipart", fake_multipart)
+    response = admin_client.post(
+        "/ajax/learning/speaking/recording/upload",
+        data={"sessionId": "42",
+              "file": (io.BytesIO(b"RIFF...."), "recording.wav", "audio/wav")})
+
+    assert response.status_code == 200
+    assert seen["path"] == "/learning/speaking/recording/upload"
+    assert seen["file_bytes"] == b"RIFF...."
+    assert seen["fields"] == {"sessionId": "42"}
+    assert seen["timeout"] == 30
+
+
+def test_speaking_recording_upload_rejects_bad_session_locally(
+        admin_client, moonwell_configured, monkeypatch):
+    calls = []
+    monkeypatch.setattr(_mb_client, "multipart",
+                        lambda *a, **k: calls.append(a) or (_envelope(""), 200))
+
+    response = admin_client.post(
+        "/ajax/learning/speaking/recording/upload",
+        data={"sessionId": "../42",
+              "file": (io.BytesIO(b"RIFF"), "recording.wav", "audio/wav")})
+
+    assert response.status_code == 400
+    assert not calls
+
+
+def test_speaking_message_forwards_voice_metadata(admin_client,
+                                                  moonwell_configured,
+                                                  monkeypatch):
+    proxy = RecordingProxy({
+        "/learning/speaking/message": (_envelope({
+            "sessionId": "42", "round": 1, "reply": "Sure.",
+            "replyAudioUrl": "/ajax/reading-tts-cached",
+        }), 200),
+    })
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+
+    response = admin_client.post("/ajax/learning/speaking/message", json={
+        "sessionId": "42",
+        "text": "I would like a latte.",
+        "voice": True,
+        "audioObject": "learning-speaking/11/42/2026-10-24/a.wav",
+        "durationMs": 4200,
+        "unknown": "drop",
+    })
+
+    assert response.status_code == 200
+    payload = proxy.call_for("/learning/speaking/message")["payload"]
+    first_message = payload["text"]
+    assert first_message == "I would like a latte."
+    assert payload == {
+        "sessionId": "42",
+        "text": "I would like a latte.",
+        "voice": True,
+        "audioObject": "learning-speaking/11/42/2026-10-24/a.wav",
+        "durationMs": 4200,
+    }
+
+
+def test_speaking_send_failure_keeps_preview_in_source():
+    """发送失败必须保留待发送录音与转写，不能 alert 后让用户重录。"""
+    source = (ROOT / "cps/static/js/learning-speaking.js").read_text(encoding="utf-8")
+    start = source.index("function sendCurrent()")
+    end = source.index("function uploadRecording", start)
+    block = source[start:end]
+    assert "statusLine(err.message" in block
+    assert "speaking.pending = null" not in block
+    assert "els['sw-s-send'].disabled = !els['sw-s-input'].value.trim();" in block
+
+
+def test_mic_buttons_render_on_their_own_pages(admin_client, moonwell_configured):
+    speaking = admin_client.get("/learning/speaking").data.decode("utf-8")
+    assert 'id="sw-s-mic"' in speaking
+    assert 'id="sw-s-audio-status"' in speaking
+    assert "asrTranscribe" in speaking
+    # 复述页只带自己的麦克风，不继承口语页的会话 DOM（R166 拆页的隔离断言）
+    retell = admin_client.get("/learning/retell").data.decode("utf-8")
+    assert 'id="sw-r-mic"' in retell
+    assert 'id="sw-s-mic"' not in retell
+
+
+# ---------- 10. 麦克风按钮可用性（R156：带标签/状态自更新/用法提示）----------
+
+def test_mic_buttons_have_labels_and_hint(admin_client, moonwell_configured):
+    html = admin_client.get("/learning/speaking").data.decode("utf-8")
+    # 空白按钮修正：麦克风按钮有文字标签，且面板有用法提示
+    assert html.count('sw-mic-label') >= 1
+    assert "Tap to speak" in html
+    assert "after recording" in html
+    assert "sw-mic-hint" in html
+
+
+# ---------- 11. 麦克风设备选择器（R160）----------
+
+def test_mic_device_selector_present(admin_client, moonwell_configured):
+    speaking = admin_client.get("/learning/speaking").data.decode("utf-8")
+    assert 'id="sw-s-mic-device"' in speaking
+    assert "Microphone device" in speaking
+    retell = admin_client.get("/learning/retell").data.decode("utf-8")
+    assert 'id="sw-r-mic-device"' in retell
+
+
+# ---------- 12. 写作续写：任务详情代理（R168，同源 moon-well R172）----------
+
+def test_writing_task_detail_requires_login(app, moonwell_configured):
+    assert app.test_client().get(
+        "/ajax/learning/writing/task?taskId=1").status_code == 302
+
+
+def test_writing_task_detail_forwards_numeric_id_as_get(admin_client,
+                                                        moonwell_configured,
+                                                        monkeypatch):
+    detail = _envelope({"taskId": "42", "mode": "TASK", "cefrLevel": "B1",
+                        "requirements": ["80-120 words"], "tips": [],
+                        "drafts": [{"draftNo": 1, "text": "x" * 120,
+                                    "review": {"overall": "ok"}}]})
+    target = "/learning/writing/task?taskId=42"
+    proxy = RecordingProxy({target: (detail, 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.get("/ajax/learning/writing/task?taskId=42")
+    assert response.status_code == 200
+    call = proxy.call_for(target)
+    assert call["method"] == "GET" and call["payload"] is None
+    result = json.loads(response.data)["result"]
+    assert result["taskId"] == "42"
+    # 续写要的两样都在：草稿正文 + 上次批改（代理不裁字段）
+    assert result["drafts"][0]["text"].startswith("xxx")
+    assert result["drafts"][0]["review"]["overall"] == "ok"
+
+
+def test_writing_task_detail_rejects_non_numeric_task_id_locally(admin_client,
+                                                                moonwell_configured,
+                                                                monkeypatch):
+    """taskId 只认数字：不合法就不进转发路径（防把任意串拼进上游 URL）。"""
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for bad in ("", "abc", "42x", "-1", "42/1", "42%2043", "1" * 65):
+        response = admin_client.get("/ajax/learning/writing/task?taskId=%s" % bad)
+        assert response.status_code == 400, bad
+    assert not proxy.calls
+
+
+def test_writing_page_wires_the_resume_ui(admin_client, moonwell_configured):
+    """续写 UI 的装配面：详情端点注入 + 一键续写按钮 + 历史行提示都在页面上。"""
+    html = admin_client.get("/learning/writing").data.decode("utf-8")
+    assert '"/ajax/learning/writing/task"' in html
+    assert 'id="sw-w-resume"' in html
+    assert 'id="sw-w-resume-bar"' in html
+    assert "Continue your last writing" in html
+    # R190：两稿封顶取消，页面必须明确告知修订次数不限
+    assert "There is no limit on revisions." in html
+    # 双入口已收敛：面板内那套「修订框 + 提交修订按钮」撤掉，只留一个编辑区
+    assert 'id="sw-w-revise-text"' not in html
+    assert 'id="sw-w-revise"' not in html
+
+
+# ---------- 5. plan/settings banner 勾选（R208）----------
+
+def test_plan_settings_forwards_banner_keys(admin_client, moonwell_configured,
+                                            monkeypatch):
+    payload = _valid_settings()
+    payload["bannerHiddenKeys"] = ["writing", "match"]
+    proxy = RecordingProxy({"/learning/plan/settings": (_envelope(_valid_settings()), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/plan/settings", json=payload)
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/plan/settings")["payload"] == payload
+
+
+def test_plan_settings_empty_banner_keys_forwarded(admin_client, moonwell_configured,
+                                                   monkeypatch):
+    """空列表=显式全显，必须原样透传——丢弃会把「全显」错成「不动」，勾选存不上。"""
+    payload = _valid_settings()
+    payload["bannerHiddenKeys"] = []
+    proxy = RecordingProxy({"/learning/plan/settings": (_envelope(_valid_settings()), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/plan/settings", json=payload)
+    assert response.status_code == 200
+    assert proxy.call_for("/learning/plan/settings")["payload"] == payload
+
+
+def test_plan_settings_rejects_bad_banner_keys_locally(admin_client,
+                                                       moonwell_configured,
+                                                       monkeypatch):
+    """形制违例本地 400 不打上游（镜像 moon-well 校验）；字段缺失不拦（null=不动）。"""
+    proxy = RecordingProxy({})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    for bad in ("writing",          # 非列表
+                ["Writing"],        # 大写非法
+                ["writing", 3],     # 非字符串元素
+                ["ok"] * 11):       # 超上限（moon-well MAX_BANNER_KEYS=10）
+        payload = _valid_settings()
+        payload["bannerHiddenKeys"] = bad
+        assert admin_client.post("/ajax/learning/plan/settings",
+                                 json=payload).status_code == 400, bad
+    assert not proxy.calls
+
+
+def test_plan_settings_without_banner_keys_unchanged(admin_client,
+                                                     moonwell_configured,
+                                                     monkeypatch):
+    """老客户端不带 banner 字段：转发体里也不出现该字段（null 语义归上游）。"""
+    proxy = RecordingProxy({"/learning/plan/settings": (_envelope(_valid_settings()), 200)})
+    monkeypatch.setattr(_mb_client, "proxy", proxy)
+    response = admin_client.post("/ajax/learning/plan/settings", json=_valid_settings())
+    assert response.status_code == 200
+    forwarded = proxy.call_for("/learning/plan/settings")["payload"]
+    assert "bannerHiddenKeys" not in forwarded
+    assert forwarded == _valid_settings()

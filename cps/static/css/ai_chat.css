@@ -1,0 +1,430 @@
+/* AI Companion floating chat panel — injected into reader pages.
+   Styles are scoped under #ai-companion-root to avoid clashing with reader CSS. */
+#ai-companion-root { all: initial; }
+
+#ai-companion-root * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+#ai-companion-fab {
+  position: fixed; bottom: 24px; right: 24px; z-index: 2147483646;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: transparent; color: #fff; border: none; cursor: pointer;
+  font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.2s;
+  overflow: visible;
+  touch-action: none; cursor: grab;
+}
+
+/* ============ R223 透明悬浮球 + hover 径向快捷气泡（类 iPhone AssistiveTouch） ============ */
+/* 包裹层负责定位与拖拽命中区；按钮本体只画头像。定位样式原挂在 fab 上，
+   迁到 wrap 后拖拽/吸附/localStorage 逻辑全部以 wrap 为操作对象。 */
+#ai-companion-fab-wrap {
+  position: fixed; bottom: 24px; right: 24px; z-index: 2147483646;
+  width: 56px; height: 56px;
+  touch-action: none;
+}
+#ai-companion-fab-wrap.buddy-snapping { transition: left 0.22s ease-out, top 0.22s ease-out; }
+#ai-companion-fab { position: static; width: 100%; height: 100%; }
+#ai-companion-fab:active { cursor: grabbing; }
+#ai-companion-fab:hover { transform: scale(1.06); }
+/* 文字兜底态（无头像）需要一块浅底保证可读；透明只用于头像态。 */
+#ai-companion-fab:not(.has-buddy) { background: rgba(26,115,232,0.92); }
+#ai-companion-fab.has-buddy { background: transparent; box-shadow: none; }
+
+#ai-companion-bubbles {
+  position: absolute; right: 8px; bottom: 8px;
+  width: 40px; height: 40px; pointer-events: none;
+}
+#ai-companion-bubbles .ai-bubble {
+  position: absolute; right: 0; bottom: 0;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #fff; color: #333;
+  border: 1px solid rgba(0,0,0,0.08);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px; text-decoration: none; cursor: pointer;
+  opacity: 0; visibility: hidden; transform: translate(0, 0) scale(0.6);
+  transition: opacity 0.16s ease, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
+    visibility 0s linear 0.16s;
+}
+/* FAB 吸附到左边缘时扇区朝右展开，tooltip 同步翻到气泡右侧。 */
+#ai-companion-fab-wrap.bubbles-left .ai-bubble .ai-bubble-tip { right: auto; left: 46px; }
+/* 径向展开：以 FAB 圆心为准，第 i 颗落在 130°→50° 扇区，半径 74px。 */
+#ai-companion-fab-wrap.bubbles-open .ai-bubble {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transform: translate(var(--bx), var(--by)) scale(1);
+  transition-delay: 0s;
+}
+#ai-companion-bubbles .ai-bubble:hover { transform: translate(var(--bx), var(--by)) scale(1.12); background: #f0f6ff; }
+/* R223：朗读中的气泡切换为「停止」态，用红色 ■ 明确可停，避免用户误以为只能起播。 */
+#ai-companion-bubbles .ai-bubble.is-playing {
+  background: #fff1f0; border-color: #ffccc7; color: #cf1322;
+}
+#ai-companion-bubbles .ai-bubble.is-playing:hover { background: #ffe7e5; }
+#ai-companion-bubbles .ai-bubble .ai-bubble-tip {
+  position: absolute; right: 46px; top: 50%; transform: translateY(-50%);
+  background: rgba(32,33,36,0.92); color: #fff; font-size: 11px; line-height: 1;
+  padding: 4px 8px; border-radius: 6px; white-space: nowrap;
+  opacity: 0; transition: opacity 0.12s ease; pointer-events: none;
+}
+#ai-companion-bubbles .ai-bubble:hover .ai-bubble-tip { opacity: 1; }
+
+/* ============ R206 伙伴头像 + 动效（idle 呼吸 / thinking 起伏 / sleep 打盹） ============ */
+/* 外圈 hover 缩放走 button transform，内圈动效走 img transform，二者不冲突。 */
+#ai-companion-fab.has-buddy { padding: 0; }
+#ai-companion-fab.has-buddy #ai-companion-fab-text { display: none; }
+#ai-companion-fab-img {
+  width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+  display: none;
+}
+#ai-companion-fab.has-buddy #ai-companion-fab-img { display: block; }
+/* 头像默认可被浏览器原生拖拽，会吞掉按钮的 pointermove 让 FAB 拖不动（R220 验收）。 */
+#ai-companion-fab-img { -webkit-user-drag: none; user-select: none; }
+#ai-companion-fab.has-buddy #ai-companion-fab-img { animation: buddy-breathe 3.4s ease-in-out infinite; }
+#ai-companion-fab.buddy-thinking #ai-companion-fab-img { animation: buddy-bob 0.7s ease-in-out infinite; }
+#ai-companion-fab.buddy-sleep #ai-companion-fab-img {
+  animation: buddy-breathe 5s ease-in-out infinite;
+  filter: grayscale(0.35) brightness(0.9);
+}
+@keyframes buddy-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes buddy-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) {
+  #ai-companion-fab.has-buddy #ai-companion-fab-img { animation: none; }
+}
+
+/* ============ R244 消失动画（隐藏入口 + 金光消散 + 唤回）与收信动画 ============ */
+/* Why 纯 CSS：与 R223 气泡/R206 头像动效同族，零新素材、prefers-reduced-motion 可整体降级；
+   收信动画是「站内信」的展示层钩子（R243 未来调用），数据源不在此层，故只做视觉 + 未读角标。 */
+
+/* 隐藏入口：悬浮球右上角小 ✕，hover/focus 才显形，平时不抢视线。 */
+#ai-companion-hide {
+  position: absolute; top: -3px; right: -3px; z-index: 5;
+  width: 20px; height: 20px; border-radius: 50%; border: none; padding: 0;
+  background: rgba(32,33,36,0.82); color: #fff;
+  font-size: 15px; line-height: 20px; cursor: pointer;
+  opacity: 0; visibility: hidden; transform: scale(0.7);
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s linear 0.14s;
+}
+#ai-companion-fab-wrap:hover #ai-companion-hide,
+#ai-companion-fab-wrap:focus-within #ai-companion-hide {
+  opacity: 1; visibility: visible; transform: scale(1); transition-delay: 0s;
+}
+
+/* 消失：球缩小旋转淡出 + 一圈金色光晕向外扩散消散（poof）。 */
+#ai-companion-fab-wrap.buddy-vanishing #ai-companion-fab {
+  animation: buddy-vanish 0.5s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+#ai-companion-fab-wrap.buddy-vanishing::after,
+#ai-companion-fab-wrap.buddy-appearing::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  pointer-events: none; z-index: 4;
+  animation: buddy-poof 0.55s ease-out forwards;
+}
+@keyframes buddy-vanish {
+  0% { transform: scale(1); opacity: 1; }
+  55% { transform: scale(1.12) rotate(6deg); opacity: 0.92; }
+  100% { transform: scale(0.2) rotate(-12deg); opacity: 0; }
+}
+@keyframes buddy-poof {
+  0% { box-shadow: 0 0 0 2px rgba(255,205,110,0), 0 0 0 0 rgba(255,190,90,0); }
+  35% { box-shadow: 0 0 18px 6px rgba(255,205,110,0.85), 0 0 0 3px rgba(255,190,90,0.5); }
+  100% { box-shadow: 0 0 30px 22px rgba(255,205,110,0), 0 0 0 26px rgba(255,190,90,0); }
+}
+#ai-companion-fab-wrap.buddy-hidden { display: none; }
+
+/* 复原：反向 materialize。 */
+#ai-companion-fab-wrap.buddy-appearing #ai-companion-fab {
+  animation: buddy-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes buddy-appear {
+  0% { transform: scale(0.2) rotate(12deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+/* 唤回标签：伙伴隐藏后贴右缘的低存在感小药丸，hover 展开文字。 */
+#ai-companion-restore {
+  position: fixed; right: 0; bottom: 96px; z-index: 2147483646;
+  display: flex; align-items: center; gap: 4px;
+  padding: 8px 10px 8px 12px; cursor: pointer;
+  border: 1px solid rgba(0,0,0,0.08); border-right: none;
+  border-radius: 16px 0 0 16px;
+  background: rgba(255,255,255,0.92); color: #333;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.14); font-size: 13px; opacity: 0.5;
+  transition: opacity 0.16s ease;
+}
+#ai-companion-restore[hidden] { display: none; }
+#ai-companion-restore:hover { opacity: 1; }
+#ai-companion-restore .ai-restore-spark { color: #e0a93b; }
+#ai-companion-restore .ai-restore-label {
+  max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width 0.18s ease;
+}
+#ai-companion-restore:hover .ai-restore-label { max-width: 120px; }
+.ai-letter-badge {
+  position: absolute; top: 3px; right: 5px; width: 9px; height: 9px; border-radius: 50%;
+  background: #e5484d; box-shadow: 0 0 0 2px rgba(255,255,255,0.92);
+}
+.ai-letter-badge[hidden] { display: none; }
+
+/* 收信：金色信封从右上屏外飞入球心、落定后球轻 peek 一下；未读角标到抽屉打开为止。 */
+#ai-companion-letter {
+  position: absolute; top: 50%; left: 50%; width: 30px; height: 22px; margin: -11px 0 0 -15px;
+  background: linear-gradient(#fffdf7, #f3e7c8);
+  border: 1px solid #d9b45a; border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  opacity: 0; pointer-events: none; z-index: 6;
+}
+#ai-companion-letter .ai-letter-seal {
+  position: absolute; left: 50%; top: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+  border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f6d78a, #c8901f);
+  box-shadow: 0 0 6px rgba(230,180,60,0.9);
+}
+#ai-companion-fab-wrap.buddy-lettering #ai-companion-letter {
+  animation: buddy-letter-fly 1.5s ease-in-out forwards;
+}
+#ai-companion-fab-wrap.buddy-lettering #ai-companion-fab {
+  animation: buddy-peek 1.5s ease-in-out;
+}
+#ai-companion-fab-wrap.buddy-has-letter::before {
+  content: ""; position: absolute; top: 1px; right: 1px; z-index: 7;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #e5484d; border: 2px solid #fff;
+  box-shadow: 0 0 6px rgba(229,72,77,0.7);
+}
+@keyframes buddy-letter-fly {
+  0% { opacity: 0; transform: translate(120px, -160px) rotate(25deg) scale(0.6); }
+  15% { opacity: 1; }
+  70% { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); }
+  100% { opacity: 0; transform: translate(0, 6px) scale(0.9); }
+}
+@keyframes buddy-peek {
+  0%, 60% { transform: translateY(0); }
+  72% { transform: translateY(-5px); }
+  85% { transform: translateY(0); }
+  93% { transform: translateY(-2px); }
+  100% { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #ai-companion-fab-wrap.buddy-vanishing #ai-companion-fab,
+  #ai-companion-fab-wrap.buddy-appearing #ai-companion-fab,
+  #ai-companion-fab-wrap.buddy-vanishing::after,
+  #ai-companion-fab-wrap.buddy-appearing::after,
+  #ai-companion-fab-wrap.buddy-lettering #ai-companion-letter,
+  #ai-companion-fab-wrap.buddy-lettering #ai-companion-fab { animation: none; }
+  #ai-companion-letter { display: none; }
+}
+
+#ai-companion-drawer {
+  position: fixed; top: 0; right: 0; z-index: 2147483647;
+  width: 420px; max-width: 100vw; height: 100vh;
+  background: #fff; box-shadow: -4px 0 24px rgba(0,0,0,0.2);
+  display: none; flex-direction: column;
+}
+#ai-companion-drawer.open { display: flex; }
+
+#ai-companion-drawer header {
+  padding: 12px 16px; background: #4285f4; color: #fff;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+#ai-companion-drawer header h3 {
+  margin: 0; font-size: 16px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#ai-companion-drawer header button {
+  background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;
+  min-width: 36px; min-height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* Conversation switcher bar (dropdown + "+ new conversation") */
+.ai-chat-conv-bar { display: flex; align-items: center; gap: 6px; flex: 1; margin: 0 10px; min-width: 0; }
+.ai-chat-conv-bar select {
+  flex: 1; min-width: 0; padding: 4px 6px; border: none; border-radius: 6px;
+  font-size: 13px; background: #fff; color: #333;
+}
+#ai-chat-new { flex: 0 0 auto; font-size: 18px; line-height: 1; }
+/* R215 验收修订：四个操作在所有宽度只显示图标，名称由 title / aria-label 提供。 */
+#ai-chat-rename, #ai-chat-delete, #ai-chat-memory { flex: 0 0 auto; font-size: 15px; line-height: 1; }
+#ai-chat-rename:hover, #ai-chat-delete:hover, #ai-chat-memory:hover { color: #ffe0b2; }
+
+#ai-chat-messages { flex: 1; overflow-y: auto; padding: 16px; background: #f9f9f9; }
+.ai-chat-msg { margin-bottom: 12px; padding: 10px 14px; border-radius: 12px; max-width: 88%; word-wrap: break-word; }
+.ai-chat-msg.user { background: #4285f4; color: #fff; margin-left: auto; }
+.ai-chat-msg.assistant { background: #fff; color: #333; border: 1px solid #e0e0e0; }
+.ai-chat-msg.assistant .ai-chat-site-link {
+  color: #1a73e8; font-weight: 500; text-decoration: underline;
+  text-decoration-thickness: 1px; text-underline-offset: 2px;
+}
+.ai-chat-msg.assistant .ai-chat-site-link:hover { color: #0b57d0; }
+.ai-chat-msg.user .ai-chat-site-link { color: #fff; text-decoration: underline; }
+.ai-chat-msg.assistant pre { background: #f0f0f0; padding: 8px; border-radius: 4px; overflow-x: auto; }
+.ai-chat-msg.assistant code { font-family: monospace; font-size: 13px; }
+.ai-chat-hint { text-align: center; color: #999; font-size: 12px; margin-bottom: 12px; }
+/* R232 起面板不再有用量行样式：token 用量只在【设置】【积分】的消耗明细里看。 */
+
+/* ============ 工具芯片（tool_call / tool_result 分型事件渲染） ============ */
+.ai-tool-chip {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin: 0 auto 10px; max-width: 92%;
+  padding: 6px 10px; border-radius: 10px; cursor: pointer;
+  background: #eef3fb; border: 1px solid #d7e3f7;
+  font-size: 12px; color: #4a5a75;
+}
+.ai-tool-chip .ai-tool-icon { flex: 0 0 auto; }
+.ai-tool-chip .ai-tool-name { font-weight: 600; }
+.ai-tool-chip .ai-tool-args { opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 45%; }
+.ai-tool-chip .ai-tool-status { margin-left: auto; flex: 0 0 auto; }
+.ai-tool-chip .ai-tool-detail { display: none; width: 100%; white-space: pre-wrap; word-break: break-word; opacity: 0.85; }
+.ai-tool-chip.expanded .ai-tool-detail { display: block; }
+.ai-tool-chip.ok .ai-tool-status { color: #1a7f37; }
+.ai-tool-chip.fail { background: #fdecea; border-color: #f5c6c0; }
+.ai-tool-chip.fail .ai-tool-status { color: #c62828; }
+/* 写工具（requireConfirm）：更醒目，提示「AI 正在写你的数据」 */
+.ai-tool-chip.write { background: #fff7e0; border-color: #f0dfae; }
+.ai-tool-chip.write .ai-tool-icon::after { content: " 写"; font-size: 11px; color: #b8860b; }
+
+/* ============ 记忆面板 + book 学情 ============ */
+#ai-memory-panel {
+  display: none; position: absolute; top: 0; right: 0; bottom: 0; z-index: 5;
+  width: 100%; background: #fff; flex-direction: column; padding: 12px 16px;
+  overflow-y: auto;
+}
+#ai-memory-panel.open { display: flex; }
+.ai-memory-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; margin-bottom: 10px; }
+.ai-memory-header button { background: none; border: none; font-size: 20px; cursor: pointer; }
+.ai-user-profile {
+  margin-bottom: 18px; padding: 14px;
+  border: 1px solid #cfdded; border-radius: 14px;
+  background: linear-gradient(145deg, #f7fbff 0%, #eef5fc 100%);
+  box-shadow: 0 6px 20px rgba(53, 92, 133, .07);
+}
+.ai-user-profile-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ai-memory-section-title { display: block; color: #263b52; font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+.ai-user-profile-subtitle { margin: 4px 0 0; color: #6f8195; font-size: 12px; line-height: 1.45; }
+.ai-user-profile-count { flex: 0 0 auto; color: #7a8aa2; font-size: 11px; font-variant-numeric: tabular-nums; padding-top: 2px; }
+.ai-user-profile-count.at-limit { color: #b42318; font-weight: 600; }
+#ai-user-profile-input {
+  width: 100%; min-height: 118px; margin-top: 10px; padding: 10px 11px;
+  border: 1px solid #b9cbe0; border-radius: 10px; resize: vertical;
+  background: rgba(255, 255, 255, .92); color: #263b52; font: inherit; font-size: 13px; line-height: 1.55;
+}
+#ai-user-profile-input:focus { outline: 2px solid rgba(66, 133, 244, .22); border-color: #4285f4; }
+.ai-user-profile-hint { margin: 8px 0 0; color: #6f8195; font-size: 11px; line-height: 1.5; }
+.ai-user-profile-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.ai-user-profile-actions button {
+  min-height: 38px; padding: 7px 15px;
+  border: 1px solid #4285f4; border-radius: 9px;
+  background: #4285f4; color: #fff; cursor: pointer; font-size: 13px;
+}
+.ai-user-profile-actions button.secondary { background: #fff; color: #40566e; border-color: #b9cbe0; }
+.ai-user-profile-actions button:disabled { opacity: .55; cursor: not-allowed; }
+.ai-user-profile-status { color: #39704a; font-size: 12px; }
+.ai-user-profile-status.is-error { color: #b42318; }
+.ai-memory-section-title + .ai-memory-profile { margin-top: 7px; }
+.ai-memory-section-title:not(:first-of-type) { margin-top: 14px; }
+.ai-memory-profile {
+  background: #f2f7ff; border: 1px solid #d7e3f7; border-radius: 10px;
+  padding: 10px 12px; font-size: 12px; color: #33475e; margin-bottom: 12px;
+  white-space: pre-wrap;
+}
+.ai-profile-summary { font-size: 13px; margin-bottom: 6px; }
+.ai-profile-meta { color: #7a8aa2; margin-top: 3px; }
+.ai-memory-list { flex: 1 0 auto; font-size: 13px; color: #333; }
+.ai-memory-item {
+  display: flex; align-items: flex-start; gap: 6px;
+  padding: 8px 6px; border-bottom: 1px solid #f0f0f0; white-space: pre-wrap; word-break: break-word;
+}
+.ai-memory-scope { flex: 0 0 auto; color: #4285f4; font-size: 11px; padding-top: 2px; }
+.ai-memory-text { flex: 1; }
+.ai-memory-actions { flex: 0 0 auto; }
+.ai-memory-actions button { background: none; border: none; cursor: pointer; font-size: 13px; }
+.ai-memory-add { margin-top: 12px; }
+.ai-memory-add textarea { width: 100%; min-height: 44px; padding: 8px; border: 1px solid #ccc; border-radius: 8px; resize: none; font-size: 13px; }
+.ai-memory-add button { margin-top: 6px; padding: 6px 16px; background: #4285f4; color: #fff; border: none; border-radius: 8px; cursor: pointer; }
+
+#ai-chat-input-area { padding: 12px; border-top: 1px solid #e0e0e0; background: #fff; }
+#ai-chat-input { width: 100%; min-height: 60px; max-height: 120px; padding: 8px; border: 1px solid #ccc; border-radius: 8px; resize: none; font-size: 14px; }
+#ai-chat-send { margin-top: 8px; padding: 8px 20px; background: #4285f4; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+#ai-chat-send:disabled { background: #aaa; cursor: not-allowed; }
+
+/* ============ R227 语音输入（复用口语陪练录音链路）+ 每条回复朗读 ============ */
+/* 录音/转写状态机由 learning-voice.js 自己维护（sw-rec / 按钮文案 / disabled），
+   这里只负责外观与触达盒；按钮文案随状态变长，故用 flex 不设固定宽。 */
+.ai-chat-input-actions { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.ai-chat-input-actions #ai-chat-send { margin-top: 0; margin-left: auto; }
+.ai-chat-mic {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 36px; padding: 6px 12px;
+  background: #f5f7fb; color: #33475e; border: 1px solid #d7e3f7;
+  border-radius: 8px; cursor: pointer; font-size: 13px;
+}
+.ai-chat-mic:hover { background: #eef3fb; }
+.ai-chat-mic:disabled { opacity: 0.55; cursor: not-allowed; }
+/* 录音中：红底 + 呼吸点，明确「再点一次停止」（R221 的点击开始/点击停止口径） */
+.ai-chat-mic.sw-rec { background: #fff1f0; border-color: #ffccc7; color: #cf1322; }
+.ai-chat-mic.sw-rec .ai-mic-icon { animation: ai-mic-pulse 1s ease-in-out infinite; }
+@keyframes ai-mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .ai-chat-mic.sw-rec .ai-mic-icon { animation: none; }
+}
+.ai-chat-voice-status { margin-top: 6px; font-size: 12px; color: #7a8aa2; min-height: 0; }
+.ai-chat-voice-status:empty { display: none; }
+/* 助手消息底部的朗读按钮：轻量文字按钮，播放中变红并可再点停止 */
+.ai-chat-speak {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-top: 8px; padding: 4px 10px;
+  background: #f5f7fb; color: #33475e; border: 1px solid #d7e3f7;
+  border-radius: 999px; cursor: pointer; font-size: 12px;
+}
+.ai-chat-speak:hover { background: #eef3fb; }
+.ai-chat-speak.is-playing { background: #fff1f0; border-color: #ffccc7; color: #cf1322; }
+.ai-chat-typing { color: #999; font-style: italic; }
+/* 思考中三点波浪（首个 delta 到达前的等待反馈） */
+.ai-chat-typing .dot { display: inline-block; animation: ai-chat-dot-bounce 1.2s infinite; }
+.ai-chat-typing .dot:nth-child(2) { animation-delay: 0.2s; }
+.ai-chat-typing .dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ai-chat-dot-bounce {
+  0%, 60%, 100% { opacity: 0.25; }
+  30% { opacity: 1; }
+}
+
+/* ============ Mobile / small-screen adaptations ============ */
+@media (max-width: 900px) {
+  /* FAB: smaller and tucked closer to the edge so it doesn't cover the
+     epub.js prev/next tap zones or page content. */
+  #ai-companion-fab-wrap {
+    width: 48px; height: 48px; font-size: 20px;
+    bottom: 16px; right: 16px;
+  }
+  #ai-companion-fab { font-size: 20px; }
+  #ai-companion-bubbles { right: 4px; bottom: 4px; width: 40px; height: 40px; }
+  #ai-companion-bubbles .ai-bubble { width: 36px; height: 36px; font-size: 15px; }
+
+  /* Slightly more compact header so the conversation dropdown + title fit. */
+  #ai-companion-drawer header { padding: 10px 12px; }
+  #ai-companion-drawer header h3 { font-size: 15px; }
+  #ai-companion-drawer header button { min-width: 44px; min-height: 44px; font-size: 20px; }
+
+  /* Bigger touch targets for the input and send button. */
+  #ai-chat-input { font-size: 16px; min-height: 48px; }
+  #ai-chat-send { padding: 10px 24px; font-size: 16px; }
+  /* R227：麦克风与朗读按钮一起抬到 44px 触达盒（R215 移动端硬指标） */
+  .ai-chat-mic { min-height: 44px; font-size: 15px; }
+  .ai-chat-speak { min-height: 44px; padding: 8px 14px; font-size: 13px; }
+  .ai-user-profile-actions button { min-height: 44px; font-size: 15px; }
+  #ai-user-profile-input { min-height: 144px; font-size: 16px; }
+  #ai-chat-new { padding: 4px 8px; font-size: 20px; }
+  #ai-chat-rename, #ai-chat-delete { padding: 4px 8px; font-size: 17px; }
+
+  /* Messages: allow slightly wider bubbles on phones. */
+  .ai-chat-msg { max-width: 95%; padding: 10px 12px; }
+}
+
+/* R215 验收回滚：移动端恢复全屏覆盖抽屉（原 55vh 底部 sheet 被否决） */
+@media (max-width: 600px) {
+  #ai-companion-drawer {
+    top: 0; bottom: auto; left: auto; right: 0;
+    width: 100vw; max-width: 100vw; height: 100vh;
+    border-radius: 0;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, .2);
+  }
+}
