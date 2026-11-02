@@ -61,6 +61,14 @@
         '.reading-companion-btn::before{content:"✨"}',
         '.reading-companion-btn.is-loading::before{content:"⟳"}',
         '.reading-tts-speaking{background:rgba(255,193,7,.24);box-shadow:inset 3px 0 0 rgba(255,152,0,.85)}',
+        // R268 生词波浪线样式必须注入 iframe：EPUB 正文渲染在本文件的同源 iframe 内，
+        // 而 reader.css 只加载在父页，父页 CSS 不会跨文档作用到 iframe。此前只有
+        // reader.css 定义 .reading-vocabulary-unknown，markVocabulary 已插入 span 但
+        // iframe 内无此规则，表现为「analyze 正常返回生词、页面却看不到下划线」，
+        // 手动刷新也无法恢复（刷新同样不注入）。这里随段落工具样式一起注入 iframe，
+        // 与 R261 gloss 的 ::after 规则同源，确保标注即渲染。
+        '.reading-vocabulary-unknown{text-decoration:underline wavy #d98b00 1px;text-decoration-skip-ink:none;cursor:help}',
+        '.reading-vocabulary-unknown:hover{background:rgba(217,139,0,.16)}',
         // R261 行内小字释义（Word Wise 式，可选功能默认关）：小字浮在词头顶上一行，
         // 不占文档流（gloss 挂 data-gloss 属性，::after 取 attr 渲染）——占流会推动
         // 分栏重排、翻页时全文抖动。opacity 压到 .78 弱于正文，颜色随主题 currentColor

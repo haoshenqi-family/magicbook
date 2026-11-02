@@ -24,7 +24,7 @@ EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上
 
 ### 2. 交互要求
 
-- 陌生词以**波浪下划线** + `cursor: help` 标识，悬停高亮背景（见 `reader.css` 的 `.reading-vocabulary-unknown`）。
+- 陌生词以**波浪下划线** + `cursor: help` 标识，悬停高亮背景（见 `reader.css` 的 `.reading-vocabulary-unknown`）。**R268**：EPUB 正文渲染在同源 iframe 内，父页 `reader.css` 不跨文档生效，故下划线/悬停规则必须同时随 `READER_TOOLS_STYLE` 注入正文 iframe（`reader-core.js`）；否则 `analyze` 正常返回、span 已插入却看不到下划线，刷新也不恢复（只有 MagicLens 重新扫描才可见）。
 - 点击陌生词弹出释义；若无释义则提示「点击查看学习记录」，有历史则附「上次：<书> · <章节>」。
 - 每个词仅包一层 span，禁止出现嵌套标注（已在 `markVocabulary` 中跳过已标注的文本节点）。
 
