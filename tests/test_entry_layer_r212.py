@@ -154,7 +154,9 @@ class TestLocaleSelection:
         assert helper_src.count("locale=new_user_locale(claims)") == 1
 
 
-class TestTopNavLanguage:
+class TestLanguageEntry:
+    """R212 起语言入口在顶栏；R269 起收进「账号」域（/me 的 me-language）。"""
+
     @pytest.fixture
     def language_user(self, app):
         from cps.cw_babel import babel
@@ -180,18 +182,25 @@ class TestTopNavLanguage:
         config.db_configured = True
         return client
 
-    def test_top_nav_has_language_entry(self, language_user):
+    def test_top_nav_no_longer_carries_language_entry(self, language_user, monkeypatch):
+        """R269：语言入口从顶栏撤到「账号」域（/me 的 me-language）。
+
+        R212 前置顶栏的理由是「切语言不该翻两层菜单」；但它同时把语言设置
+        摊成了每页可见的一个下拉位。R269 按用户指令收敛：语言属于账号设置，
+        顶栏只留帮助。行为契约改由 /me 的表单承载（同日 test_topbar_ia_r269）。
+        """
+        from cps import calibre_db
+
         page = language_user.get("/reading/settings").data.decode("utf-8")
-        block = re.search(
-            r'<li class="dropdown" id="top_language">.*?(?=<li class="dropdown" id="top_mb_settings">)',
-            page, re.S)
-        assert block, "登录用户顶栏必须有语言入口"
-        nav = block.group(0)
-        assert 'action="/me/preferences"' in nav
-        assert 'name="locale"' in nav
-        assert 'name="default_language"' not in nav
-        assert 'name="csrf_token"' in nav
-        assert "中文 (简体, 中国)" in nav
+        assert 'id="top_language"' not in page
+        assert 'action="/me/preferences"' not in page
+
+        # /me 要读书籍语言列表，测试环境没有 metadata.db
+        monkeypatch.setattr(calibre_db, "speaking_language", lambda *a, **k: [])
+        me_page = language_user.get("/me").data.decode("utf-8")
+        assert 'id="me-language"' in me_page
+        assert 'action="/me/preferences"' in me_page
+        assert 'name="locale"' in me_page
 
     def test_top_nav_save_changes_only_locale(self, language_user):
         from cps import calibre_db
