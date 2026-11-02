@@ -17,9 +17,9 @@ ZH_MO = os.path.join(ROOT, "cps", "translations", "zh_Hans_CN",
                      "LC_MESSAGES", "messages.mo")
 R225_MSGIDS = (
     "Reading access is not enabled for this account",
-    "Ask an administrator to enable “View” in Users → Edit User for your account.",
-    "Download access is not enabled for this account",
-    "Ask an administrator to enable “Download” in Users → Edit User for your account.",
+    "If you need reading access, please contact the site administrator.",
+    "Download is not available; online reading is unaffected.",
+    "If you need download access, please contact the site administrator.",
     "Self-registered accounts always receive View. Administrators can still adjust it per account. Download is a separate permission.",
 )
 
