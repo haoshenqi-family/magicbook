@@ -1,187 +1,106 @@
-# Calibre-Web
+# MagicBook 魔法书
 
-Calibre-Web is a web app that offers a clean and intuitive interface for browsing, reading, and downloading eBooks using a valid [Calibre](https://calibre-ebook.com) database.
+把一座 Calibre 电子书库，变成「选书 → 读 → 查 → 听 → 练」闭环的 AI 英语分级阅读站点。
 
-[![License](https://img.shields.io/github/license/janeczku/calibre-web?style=flat-square)](https://github.com/janeczku/calibre-web/blob/master/LICENSE)
-![Commit Activity](https://img.shields.io/github/commit-activity/w/janeczku/calibre-web?logo=github&style=flat-square&label=commits)
-[![All Releases](https://img.shields.io/github/downloads/janeczku/calibre-web/total?logo=github&style=flat-square)](https://github.com/janeczku/calibre-web/releases)
-[![PyPI](https://img.shields.io/pypi/v/calibreweb?logo=pypi&logoColor=fff&style=flat-square)](https://pypi.org/project/calibreweb/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dm/calibreweb?logo=pypi&logoColor=fff&style=flat-square)](https://pypi.org/project/calibreweb/)
-[![Discord](https://img.shields.io/discord/838810113564344381?label=Discord&logo=discord&style=flat-square)](https://discord.gg/h2VsJ2NEfB)
+选书按你的词汇量推荐，阅读时逐词判定生词、划词即得翻译与详解，可以听整本书，读完后有复习队列和口语/写作训练等着你——AI 能力按积分计费，账号、生词本、学习记录全端互通。
 
-<details>
-<summary><strong>Table of Contents</strong> (click to expand)</summary>
+在线站点：**<https://magicbook.haoshenqi.top>**（邀请制注册，登录走统一账号中心 OIDC）
 
-1. [About](#calibre-web)
-2. [Features](#features)
-3. [Installation](#installation)
-   - [Installation via pip (recommended)](#installation-via-pip-recommended)
-   - [Quick start](#quick-start)
-   - [Requirements](#requirements)
-4. [Docker Images](#docker-images)
-5. [Troubleshooting](#troubleshooting)
-6. [Contributor Recognition](#contributor-recognition)
-7. [Contact](#contact)
-8. [Contributing to Calibre-Web](#contributing-to-calibre-web)
+## 项目组成
 
-</details>
+| 项目 | 仓库 | 说明 |
+| --- | --- | --- |
+| MagicBook（本仓库） | [haoshenqi-family/magicbook](https://github.com/haoshenqi-family/magicbook) | 阅读站点本体：书库 + 阅读器 + 学习中枢，基于 [Calibre-Web](https://github.com/janeczku/calibre-web) 深度改造 |
+| moon-well | 私有仓库 | 后端 API：词汇判定、翻译、单词详解、TTS、AI 伴读、积分计费 |
+| MagicLens 词镜 | [haoshenqi-family/magiclens](https://github.com/haoshenqi-family/magiclens) | Chrome 扩展：把划词查词、生词高亮、AI 伴读带到**任意网页**，与本站同一账号、同一生词本 |
 
-*This software is a fork of [library](https://github.com/mutschler/calibreserver) and licensed under the GPL v3 License.*
+## 核心功能
 
-![Main screen](https://github.com/janeczku/calibre-web/wiki/images/main_screen.png)
+### 📚 书库
 
-## Features
+- 兼容 Calibre 书库：书架浏览、搜索、元数据管理，EPUB / PDF / TXT 等格式上传下载
+- 内置 **TED 演讲**与 **BBC 6 Minute English** 素材一键导入，自带真人原声与逐段时间轴
+- 整本翻译：后台任务翻译全书，读的时候逐段对照
+- OPDS / Kobo 设备同步、邮件推送等上游 Calibre-Web 能力保留
 
-- Modern and responsive Bootstrap 3 HTML5 interface
-- Full graphical setup
-- Comprehensive user management with fine-grained per-user permissions
-- Admin interface
-- Multilingual user interface supporting 20+ languages ([supported languages](https://github.com/janeczku/calibre-web/wiki/Translation-Status))
-- OPDS feed for eBook reader apps
-- Advanced search and filtering options
-- Custom book collection (shelves) creation
-- eBook metadata editing and deletion support
-- Metadata download from various sources (extensible via plugins)
-- eBook conversion through Calibre binaries
-- eBook download restriction to logged-in users
-- Public user registration support
-- Send eBooks to E-Readers with a single click
-- Sync Kobo devices with your Calibre library
-- In-browser eBook reading support for multiple formats
-- Upload new books in various formats, including audio formats
-- Calibre Custom Columns support
-- Content hiding based on categories and Custom Column content per user
-- Self-update capability
-- "Magic Link" login for easy access on eReaders
-- LDAP, Google/GitHub OAuth, and proxy authentication support
+### 📖 阅读器
 
-## Installation
+- 网页阅读 EPUB / PDF / TXT，5 个内置主题跟随账号跨设备同步
+- 翻译三级：悬停段落点「译」→ 整页翻译 → 整本翻译
+- 划词查词 + 单词详解（基本意思 / 词源 / 搭配用法 / 同反义词等六板块），变形词自动还原词目
+- 生词智能高亮：按你的难度档位自动判定，生词波浪线标注，与生词本联动
+- TTS 朗读：本地神经网络语音合成，顶栏 1.0x / 0.75x / 0.5x 三档语速（变速不变调，初学者友好）
+- 整本连播：逐段顺序听完整本书；TED / BBC 书直接播真人原声，逐段高亮跟随
+- 新概念课级音频、AI 批注、阅读进度跨设备续读
 
-### Installation via pip (recommended)
+### 🧠 词汇学习
 
-1. **Create a virtual environment**: It’s essential to isolate your Calibre-Web installation to avoid dependency conflicts. You can create a virtual environment by running:
-   ```
-   python3 -m venv calibre-web-env
-   ```
-2. **Activate the virtual environment**:
-   ```
-   source calibre-web-env/bin/activate
-   ```
-3. **Install Calibre-Web**: Use pip to install the application:
-   ```
-   pip install calibreweb
-   ```
-4. **Install optional features**: For additional functionality, you may need to install optional features. Refer to [this page](https://github.com/janeczku/calibre-web/wiki/Dependencies-in-Calibre-Web-Linux-and-Windows) for details on what can be installed.
-5. **Start Calibre-Web**: After installation, you can start the application with:
-   ```
-   cps
-   ```
+- 生词判定按「屈折词族」生效：标过 `run`，遇到 `ran` / `runs` 同样算认识
+- 阅读中一键标记 认识 / 生词，数据进生词本与复习队列
+- 词汇量测试：分档粗测 + 细筛估算，测出可用于选书的难度档位
+- 选书难度匹配：每本书标注「约 N 个重复超纲词」，按当前档位推荐
 
-*Note: Users of Raspberry Pi OS may encounter installation issues. If you do, try upgrading pip and/or installing cargo as follows:*
-   ```
-   ./venv/bin/python3 -m pip install --upgrade pip
-   sudo apt install cargo
-   ```
+### 📅 每日学习
 
-### Important Links
-- For additional installation examples, check the following:
-   - [Manual installation](https://github.com/janeczku/calibre-web/wiki/Manual-installation)
-   - [Linux Mint installation](https://github.com/janeczku/calibre-web/wiki/How-To:-Install-Calibre-Web-in-Linux-Mint-19-or-20)
-   - [Cloud Provider setup](https://github.com/janeczku/calibre-web/wiki/How-To:-Install-Calibre-Web-on-a-Cloud-Provider)
+- 复习队列：辨析 / 回忆 / 拼写三梯度，四档评分的间隔重复（SRS）
+- 听写、AI 口语陪练、复述训练 4-3-2、计时重读、写作工坊、单词编故事
+- 今日计划与本周「听 / 说 / 读 / 写」四股统计
 
-## Quick Start
+### 🤝 AI 伴读
 
-1. **Access Calibre-Web**: Open your browser and navigate to:
-   ```
-   http://localhost:8083
-   ```
-   or for the OPDS catalog:
-   ```
-   http://localhost:8083/opds
-   ```
-2. **Log in**: Use the default admin credentials:
-   - **Username:** admin
-   - **Password:** admin123
-3. **Database Setup**: If you do not have a Calibre database, download a sample from:
-   ```
-   https://github.com/janeczku/calibre-web/raw/master/library/metadata.db
-   ```
-   Move it out of the Calibre-Web folder to avoid overwriting during updates.
-4. **Configure Calibre Database**: In the admin interface, set the `Location of Calibre database` to the path of the folder containing your Calibre library (where `metadata.db` is located) and click "Save".
-5. **Google Drive Integration**: For hosting your Calibre library on Google Drive, refer to the [Google Drive integration guide](https://github.com/janeczku/calibre-web/wiki/G-Drive-Setup#using-google-drive-integration).
-6. **Admin Configuration**: Configure your instance via the admin page, referring to the [Basic Configuration](https://github.com/janeczku/calibre-web/wiki/Configuration#basic-configuration) and [UI Configuration](https://github.com/janeczku/calibre-web/wiki/Configuration#ui-configuration) guides.
+- 阅读页右侧抽屉就当前书提问，AI 可代翻段落、代查词（工具调用）
+- 跨书记忆与「AI 了解我」自我介绍，越用越懂你
+- 伙伴（buddy）形象 + 全局悬浮球，随处唤起
 
-## Requirements
+### 💳 积分与账号
 
-- **Python Version**: Ensure you have Python 3.7 or newer.
-- **Imagemagick**: Required for cover extraction from EPUBs. Windows users may also need to install [Ghostscript](https://ghostscript.com/releases/gsdnld.html) for PDF cover extraction.
-- **Optional Tools**:
-   - **Calibre desktop program**: Recommended for on-the-fly conversion and metadata editing. Set the path to Calibre’s converter tool on the setup page.
-   - **Kepubify tool**: Needed for Kobo device support. Download the tool and place the binary in `/opt/kepubify` on Linux or `C:\Program Files\kepubify` on Windows.
+- AI 能力按 token 换算积分，新账号注册即赠 1000 积分
+- 支付宝扫码充值；积分卡可购买、转赠、兑换
+- 站内信（积分到账、余额提醒）、成就徽章、学习数据一键导出（加密 ZIP，保留 7 天）
+- 管理端：用户管理、运营站内信群发、LLM 任务面板
 
-## Docker Images
+## 快速上手
 
-Pre-built Docker images are available:
+1. **登录**：打开 <https://magicbook.haoshenqi.top>，经统一账号中心 `account.haoshenqi.top` 完成 OIDC 登录（没有账号先走邀请注册）。
+2. **引导**：首次登录自动进入 2 分钟使用引导（可跳过，之后在设置下拉「使用引导」重看）。
+3. **定档**：做一次词汇量测试（首页书墙上方入口，或「账号 → 阅读与词汇」），得到难度档位。
+4. **选书开读**：首页「分级推荐」按档位选书进入阅读器；段落旁点「译」看译文，工具栏可整页 / 整本翻译。
+5. **查词与听书**：划词看详解、标认识 / 生词；点段落「朗读」听单段，「整本连播」听全书；TED / BBC 书可原声伴听，语速不够快就切 0.75x / 0.5x。
+6. **每天复习**：进「学习」完成当日复习队列；AI 伴读在阅读页抽屉，随时就当前书提问。
+7. **（可选）装扩展**：从 [MagicLens Releases](https://github.com/haoshenqi-family/magiclens/releases) 安装 Chrome 扩展，任意网页划词即得同一套查词 / 高亮 / 伴读能力。
 
-### **LinuxServer - x64, aarch64**
-- **Docker Hub**: [linuxserver/calibre-web](https://hub.docker.com/r/linuxserver/calibre-web)
-- **GitHub**: [linuxserver/docker-calibre-web](https://github.com/linuxserver/docker-calibre-web)
-- **Optional Calibre layer**: [linuxserver/docker-mods](https://github.com/linuxserver/docker-mods/tree/universal-calibre)
+## 架构一览
 
-To include the Calibre `ebook-convert` binary (x64 only), add the environment variable:
-``` 
-DOCKER_MODS=linuxserver/mods:universal-calibre
+```mermaid
+flowchart LR
+    U[浏览器] --> MB["magicbook（本仓库）<br/>Flask · Calibre-Web fork"]
+    MB --> MW["moon-well（私有仓库）<br/>Spring Boot 后端"]
+    U -.同一账号.-> ML["MagicLens 词镜<br/>Chrome 扩展"]
+    ML --> MW
+    MW --> ES[("Elasticsearch<br/>翻译 / 详解缓存")]
+    MW --> MINIO[("MinIO<br/>TTS 音频缓存")]
+    MW --> TTS["Qwen3-TTS<br/>NAS 本地推理"]
+    MW --> LLM["LLM 网关<br/>翻译 / 伴读 / 详解"]
 ```
-in your Docker run/compose file. Omit this variable for a lightweight image.
 
-- **Paths Configuration**:
-   - Set **Path to Calibre Binaries** to `/usr/bin`.
-   - Set **Path to Unrar** to `/usr/bin/unrar`.
+- 账号：统一账号中心（Authentik）OIDC 登录，magicbook / MagicLens / moon-well 同一账号体系，注册为邀请制。
+- 缓存：段落翻译与单词详解落 Elasticsearch、TTS 音频落 MinIO，重复内容命中缓存不重复计费；缓存全降级不影响功能。
+- TTS：默认走 NAS 本地部署的 Qwen3-TTS（零边际成本），云服务仅作回落。
 
-## Troubleshooting
+## 本地开发
 
-- **Common Issues**: 
-   - If you experience issues starting the application, check the log files located in the `logs` directory for error messages.
-   - If eBooks fail to load, verify that the `Location of Calibre database` is correctly set and that the database file is accessible.
-   - You need to enable uploads under `Basic settings` for this option to appear
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python cps.py                                # 启动，首次需配置 Calibre 书库路径
+.venv/bin/python -m pytest tests/            # 全量单测
+```
 
-- **Configuration Errors**: Ensure that your Calibre database is compatible and properly formatted. Refer to the Calibre documentation for guidance on maintaining the database.
+- 部署：push `develop` 分支即触发 fnOS 自动构建镜像并部署（纯文档 push 自动跳过）；`master` 仅用于发布。
+- 开发约定、文档体系与工作流详见 [AGENTS.md](AGENTS.md)；产品功能手册见 [docs/product/readme/](docs/product/readme/readme.md)。
 
-- **Performance Problems**: 
-   - If the application is slow, consider increasing the allocated resources (CPU/RAM) to your server or optimizing the Calibre database by removing duplicates and unnecessary entries.
-   - Regularly clear the cache in your web browser to improve loading times.
+## 致谢与许可
 
-- **User Management Issues**: If users are unable to log in or register, check the user permission settings in the admin interface. Ensure that registration is enabled and that users are being assigned appropriate roles.
+本项目 fork 自 [Calibre-Web](https://github.com/janeczku/calibre-web)（又源于 [library](https://github.com/mutschler/calibreserver)），在其书库与阅读底座上重构为 AI 英语学习站点；感谢上游所有[贡献者](https://github.com/janeczku/calibre-web/graphs/contributors)。
 
-- **Support Resources**: For additional help, consider visiting the [FAQ section](https://github.com/janeczku/calibre-web/wiki/FAQ) of the wiki or posting your questions in the [Discord community](https://discord.gg/h2VsJ2NEfB).
-
-## Contributor Recognition
-
-We would like to thank all the [contributors](https://github.com/janeczku/calibre-web/graphs/contributors) and maintainers of Calibre-Web for their valuable input and dedication to the project. Your contributions are greatly appreciated.
-
-## Contact
-
-Join us on [Discord](https://discord.gg/h2VsJ2NEfB)
-
-For more information, How To's, and FAQs, please visit the [Wiki](https://github.com/janeczku/calibre-web/wiki)
-
-## Contributing to Calibre-Web
-
-To contribute, please check our [Contributing Guidelines](https://github.com/janeczku/calibre-web/blob/master/CONTRIBUTING.md). We welcome issues, feature requests, and pull requests from the community.
-
-### Reporting Bugs
-
-If you encounter bugs or issues, please report them in the [issues section](https://github.com/janeczku/calibre-web/issues) of the repository. Be sure to include detailed information about your setup and the problem encountered.
-
-### Feature Requests
-
-We welcome suggestions for new features. Please create a new issue in the repository to discuss your ideas.
-
-## Additional Resources
-
-- **Documentation**: Comprehensive documentation is available on the [Calibre-Web wiki](https://github.com/janeczku/calibre-web/wiki).
-- **Community Contributions**: Explore the [community contributions](https://github.com/janeczku/calibre-web/pulls) to see ongoing work and how you can get involved.
-
----
-
-Thank you for using Calibre-Web! We hope you enjoy managing your eBook library with our tool.
+按 **GPL-3.0** 协议开源，详见 [LICENSE](LICENSE)。
