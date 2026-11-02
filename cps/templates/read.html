@@ -183,7 +183,11 @@
             filePath: "{{ url_for('static', filename='js/libs/') }}",
             cssPath: "{{ url_for('static', filename='css/') }}",
             bookmarkUrl: "{{ url_for('web.set_bookmark', book_id=bookid, book_format=book_format) }}",
-            bookUrl: "{{ url_for('web.serve_book', book_id=bookid, book_format=book_format, anyname='file.epub') }}",
+            {# R270：serve_book 在大小写敏感文件系统上按「URL 段原样」拼文件扩展名——
+               /read/<id>/EPUB（首页继续阅读等入口传大写）会去找 <name>.EPUB 而 404，
+               epub.js 拿不到书文件、阅读器永久空白。此处统一 lower，保证 serve_book
+               收到的一定与库内文件扩展名（小写）一致。 #}
+            bookUrl: "{{ url_for('web.serve_book', book_id=bookid, book_format=book_format|lower, anyname='file.epub') }}",
             bookmark: "{{ bookmark.bookmark_key if bookmark != None }}",
             useBookmarks: "{{ current_user.is_authenticated | tojson }}",
             readingVocabularyUrl: "{{ url_for('web.reading_vocabulary') }}",
