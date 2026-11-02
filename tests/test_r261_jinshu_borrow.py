@@ -89,3 +89,22 @@ def test_hub_保存显式携带两开关并落镜像():
     assert 'reviewSourceChip' in js and 'hubDueBadge' in js
     assert 'ln-review-source-chip-v1' in js and 'ln-hub-due-badge-v1' in js
     assert 'window.MBDueBadge' in js, "保存角标开关后即时刷新导航"
+
+
+# ---------- R266：角标 hidden 失效（红横杠缺陷）的样式契约 ----------
+
+def test_badge_css_基准态隐藏且非hidden才显示():
+    """角标是作者 display 元素：作者规则会顶掉 HTML hidden 的 UA 隐藏（R140 同款坑），
+    基准态必须 display:none、非 hidden 才恢复显示——否则默认关闭的角标渲染成空红胶囊。"""
+    css = _read("cps/static/css/magicbook.css")
+    block = re.search(r"\.ln-due-badge \{[^}]*\}", css, re.S)
+    assert block, "magicbook.css 缺少 .ln-due-badge 规则块"
+    assert "display: none" in block.group(0), (
+        "基准态必须 display:none：作者 display 会顶掉 [hidden] 的 UA 隐藏"
+    )
+    assert re.search(r"\.ln-due-badge:not\(\[hidden\]\) \{[^}]*display: inline-block", css), (
+        "非 hidden 态才恢复 inline-block：显示路径由 JS 同步 hidden 属性"
+    )
+    assert "display: inline-block" not in block.group(0), (
+        "基准规则不得直接写 inline-block：那是 R266 红横杠缺陷的根因"
+    )
