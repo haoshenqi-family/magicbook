@@ -29,6 +29,13 @@
             {{_('Open account center')}} <span aria-hidden="true">↗</span>
           </a>
         </p>
+        {# R269：注销只在这里——顶栏的用户名与注销按钮已撤（与「账号」域重复）。
+           仍是 GET 链接：R255 修过 clear→logout_user 的顺序，注销要能一条链接点完。 #}
+        <p class="me-account-session">
+          <a class="btn btn-default btn-sm" id="me-logout" href="{{ url_for('web.logout') }}">
+            <span class="glyphicon glyphicon-log-out"></span> {{_('Logout')}}
+          </a>
+        </p>
         {% if registered_oauth and registered_oauth.keys()|length > 0 %}
         <div class="form-group">
           {% for id, name in registered_oauth.items() %}

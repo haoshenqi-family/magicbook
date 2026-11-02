@@ -59,7 +59,8 @@ def test_account_and_admin_l2_have_one_task_per_page():
     admin_items = _items(ADMIN_L2_GROUPS)
 
     assert len(account_items) == 7
-    assert len(admin_items) == 13
+    # R269：管理域新增「任务列表」（/tasks 从顶栏平铺项收进来），13 → 14
+    assert len(admin_items) == 14
     assert len({item["id"] for item in account_items}) == len(account_items)
     assert len({item["id"] for item in admin_items}) == len(admin_items)
 
@@ -75,7 +76,7 @@ def test_l2_navigation_has_exactly_one_active_item_on_owned_routes():
             "/word-detail-batch", "/llm-tasks", "/admin/credits",
             "/admin/mail", "/admin/viewconfig", "/admin/dbconfig",
             "/admin/mailsettings", "/admin/scheduledtasks", "/admin/logfile",
-            "/admin/debug",
+            "/admin/debug", "/tasks",
         ),
     }
 
@@ -163,6 +164,14 @@ def test_user_and_admin_credit_pages_are_physically_separate(
 def test_magicbook_admin_tools_are_owned_by_admin_domain():
     for path in ("/translate-all", "/word-detail-batch", "/llm-tasks"):
         assert nav_domain(path, "") == "admin"
+
+
+def test_task_list_entry_lives_in_admin_l2_nav():
+    """R269：任务列表从顶栏平铺项收进管理域 L2，且 /tasks 归属管理域。"""
+    admin_items = {item["id"]: item for item in _items(ADMIN_L2_GROUPS)}
+    assert admin_items["admin-tasks"]["endpoint"] == "tasks.get_tasks_status"
+    assert admin_items["admin-tasks"]["label"] == "任务列表"
+    assert nav_domain("/tasks", "tasks") == "admin"
 
 
 def test_l2_header_has_no_debug_style_level_badge(admin_client):

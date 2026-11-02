@@ -25,7 +25,7 @@ ACCOUNT_PATH_PREFIXES = (
     '/achievements', '/buddy', '/credits', '/mail', '/me', '/reading/settings',
 )
 ADMIN_PATH_PREFIXES = (
-    '/translate-all', '/word-detail-batch', '/llm-tasks',
+    '/tasks', '/translate-all', '/word-detail-batch', '/llm-tasks',
 )
 
 # One L2 page carries one task.  These definitions are product-owned navigation
@@ -75,6 +75,10 @@ ADMIN_L2_GROUPS = (
          'endpoint': 'web.admin_mail_page', 'matches': ('/admin/mail',)},
     )),
     ('系统', (
+        # R269：任务列表（/tasks）从顶栏平铺项收进管理域——它看的是后台任务队列，
+        # 属于运营/排障视角，不是每页都要伸手够的主行动。
+        {'id': 'admin-tasks', 'label': '任务列表',
+         'endpoint': 'tasks.get_tasks_status', 'matches': ('/tasks',)},
         {'id': 'admin-ui', 'label': 'UI 配置',
          'endpoint': 'admin.view_configuration', 'matches': ('/admin/viewconfig',)},
         {'id': 'admin-db', 'label': '数据库配置',
