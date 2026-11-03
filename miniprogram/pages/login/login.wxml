@@ -24,7 +24,7 @@
         不用输密码：填网页端账号的邮箱，收一次验证码就能登进去，并把当前微信绑到该账号。
       </view>
     </view>
-    <view class="small muted foot">阅读仍在网页端进行：magicbook.haoshenqi.top</view>
+    <view class="small muted foot">阅读在网页端进行，登录后在「我」页可复制主站链接</view>
   </block>
 
   <!-- 邮箱登录：填邮箱 -->
@@ -39,6 +39,7 @@
         class="field"
         type="text"
         placeholder="你的邮箱"
+        placeholder-class="field-ph"
         value="{{email}}"
         bindinput="onEmailInput"
       />
@@ -56,13 +57,16 @@
   <block wx:else>
     <view class="card">
       <view class="card-title">输入验证码</view>
-      <view class="small muted tip">验证码已发送到 {{email}}，10 分钟内有效。</view>
+      <view class="small muted tip">
+        验证码已发送至 <text class="em">{{email}}</text>，10 分钟内有效。
+      </view>
 
       <input
-        class="field"
+        class="field field-code"
         type="number"
         maxlength="6"
-        placeholder="6 位验证码"
+        placeholder="6 位数字"
+        placeholder-class="field-ph"
         value="{{code}}"
         bindinput="onCodeInput"
       />
@@ -70,9 +74,9 @@
       <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onVerify">
         验证并登录
       </button>
-      <view class="row-between mt">
+      <view class="row-between resend-row">
         <view class="small muted">没收到？检查垃圾邮件</view>
-        <view class="small link" bindtap="onSendCode">
+        <view class="small resend {{countdown > 0 ? 'resend-wait' : 'resend-ready'}}" bindtap="onSendCode">
           {{countdown > 0 ? countdown + ' 秒后重发' : '重新发送'}}
         </view>
       </view>

@@ -1,5 +1,8 @@
 /**
- * 学习数据：今日四股预算与入账 + 复习摘要 + 近 7 天走势 + 最近一次词汇量。
+ * 「我」页：身份与账号入口 + 主站入口 + 学习数据（今日四股 / 复习摘要 / 近 7 天 / 最近词汇量）。
+ *
+ * Why 从「数据」改名「我」：这一页本来就同时是账号入口（绑定邮箱、退出），
+ * 只叫「数据」会让人找不到换绑与退出。tab 只有四个，合并成一个「我」比再开一个 tab 划算。
  *
  * 数据源（全部只读）：
  *   GET /learning/plan/today        四股预算与今日已入账
@@ -12,6 +15,7 @@
  */
 const api = require('../../utils/api');
 const auth = require('../../utils/auth');
+const config = require('../../config');
 
 const STRANDS = [
   { key: 'input', name: '阅读输入', color: '#2f6fed' },
@@ -23,6 +27,8 @@ const STRANDS = [
 Page({
   data: {
     user: null,
+    avatarText: '',
+    identityText: '',
     strands: [],
     srs: null,
     week: [],
@@ -34,13 +40,36 @@ Page({
 
   onShow() {
     if (!auth.ensureLogin()) return;
-    this.setData({ user: api.getUser() });
+    const user = api.getUser() || {};
+    this.setData({
+      user,
+      avatarText: initialOf(user),
+      // 身份文案只在这里算一次：模板里再套三元会让 WXML 难读，也容易两处漂移
+      identityText: identityOf(user)
+    });
     this.loadAll();
   },
 
-  /** 账号与绑定：放在页尾，绑定成功后返回本页会重读 user（onShow）。 */
+  /** 账号与绑定：整张身份卡可点，绑定成功后返回本页会重读 user（onShow）。 */
   onTapAccount() {
     wx.navigateTo({ url: '/pages/account/account' });
+  },
+
+  /**
+   * 主站入口：小程序不能直接调起浏览器，也不该用 web-view——网页版走 OIDC 登录，
+   * 在 web-view 里拿不到浏览器会话，登录会卡住。所以给「复制链接」，用户自己粘到浏览器。
+   */
+  onOpenSite() {
+    wx.showModal({
+      title: '网页版 MagicBook',
+      content: '阅读正文、书库与笔记在网页端。小程序无法直接打开浏览器，复制链接后粘贴打开：\n' + config.siteUrl,
+      confirmText: '复制链接',
+      cancelText: '取消',
+      success: (res) => {
+        if (!res.confirm) return;
+        wx.setClipboardData({ data: config.siteUrl });
+      }
+    });
   },
 
   onPullDownRefresh() {
@@ -78,6 +107,18 @@ Page({
     });
   }
 });
+
+/** 头像占位：取昵称/用户名的首字，没有就用「微」。纯本地计算，不请求头像接口。 */
+function initialOf(user) {
+  const name = String((user && (user.nickname || user.username)) || '微').trim();
+  return name ? name.charAt(0).toUpperCase() : '微';
+}
+
+function identityOf(user) {
+  if (!user) return '已登录';
+  if (user.wechatShadow) return '微信临时账号 · 建议绑定邮箱';
+  return user.email || '已绑定邮箱';
+}
 
 function buildStrands(plan) {
   const budget = (plan && plan.strands) || {};

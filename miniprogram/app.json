@@ -1,8 +1,8 @@
 {
   "pages": [
     "pages/login/login",
-    "pages/notebook/notebook",
     "pages/review/review",
+    "pages/notebook/notebook",
     "pages/test/test",
     "pages/stats/stats",
     "pages/account/account"
@@ -21,12 +21,12 @@
     "borderStyle": "black",
     "list": [
       {
-        "pagePath": "pages/notebook/notebook",
-        "text": "生词本"
-      },
-      {
         "pagePath": "pages/review/review",
         "text": "复习"
+      },
+      {
+        "pagePath": "pages/notebook/notebook",
+        "text": "生词本"
       },
       {
         "pagePath": "pages/test/test",
@@ -34,7 +34,7 @@
       },
       {
         "pagePath": "pages/stats/stats",
-        "text": "数据"
+        "text": "我"
       }
     ]
   },

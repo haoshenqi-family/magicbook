@@ -28,7 +28,7 @@ Page({
 
   onLoad() {
     if (auth.isLoggedIn()) {
-      wx.switchTab({ url: '/pages/notebook/notebook' });
+      wx.switchTab({ url: '/pages/review/review' });
     }
   },
 
@@ -65,7 +65,7 @@ Page({
       if (result && result.newAccount) {
         wx.showToast({ title: '已为你创建微信账号', icon: 'none', duration: 1800 });
       }
-      wx.switchTab({ url: '/pages/notebook/notebook' });
+      wx.switchTab({ url: '/pages/review/review' });
     } catch (error) {
       this.setData({ loading: false, error: error.message || '登录失败' });
     }
@@ -88,7 +88,7 @@ Page({
       // 这个微信已经绑着某个账号：直接进去，不必再验邮箱
       auth.persist(result);
       this.setData({ loading: false });
-      wx.switchTab({ url: '/pages/notebook/notebook' });
+      wx.switchTab({ url: '/pages/review/review' });
     } catch (error) {
       this.setData({ loading: false, error: error.message || '获取登录票据失败' });
     }
@@ -133,7 +133,7 @@ Page({
       auth.persist(result);
       this.setData({ loading: false });
       wx.showToast({ title: '已登录', icon: 'success' });
-      wx.switchTab({ url: '/pages/notebook/notebook' });
+      wx.switchTab({ url: '/pages/review/review' });
     } catch (error) {
       this.setData({ loading: false });
       if (error.code === 50514) {

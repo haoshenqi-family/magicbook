@@ -52,6 +52,7 @@
       class="field"
       type="text"
       placeholder="你的邮箱"
+      placeholder-class="field-ph"
       value="{{email}}"
       disabled="{{stage === 'code'}}"
       bindinput="onEmailInput"
@@ -65,10 +66,11 @@
 
     <block wx:else>
       <input
-        class="field"
+        class="field field-code"
         type="number"
         maxlength="6"
-        placeholder="6 位验证码"
+        placeholder="6 位数字"
+        placeholder-class="field-ph"
         value="{{code}}"
         bindinput="onCodeInput"
       />
@@ -77,7 +79,7 @@
       </button>
       <view class="row-between mt">
         <view class="small muted">没收到？检查垃圾邮件</view>
-        <view class="small link" bindtap="onSendCode">
+        <view class="small resend {{countdown > 0 ? 'resend-wait' : 'resend-ready'}}" bindtap="onSendCode">
           {{countdown > 0 ? countdown + ' 秒后重发' : '重新发送'}}
         </view>
       </view>
