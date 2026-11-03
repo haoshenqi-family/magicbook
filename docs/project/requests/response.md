@@ -5,6 +5,8 @@
 
 **归档索引**
 
+- `response-archive/response-R256-R257.md`：R256（黑盒体验四项缺陷）+ R257（按设计方案实施七项）——2026-11-03 R271 写入前窗口已达 11 节，连同本次新增一并压回 10 节窗口，原样搬移不改写
+
 - `response-archive/response-R251.md`：R251（MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页）——2026-11-01 R265 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R255.md`：R255（注销后 remember_token 未清除，用户被自动登回）——2026-11-02 R269 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R01-R31.md`：R1–R31（2026-08-14 ～ 2026-08-31）
@@ -93,30 +95,6 @@
 
 
 
-
-## 2026-10-30（R256：黑盒体验报告四项缺陷——OIDC 建号侧栏位/空书架/已读歧义/实体解码）
-
-### R256（用户全流程指令：黑盒测试 magicbook → 体验报告 → 设计方案 → 修复缺陷）
-
-- **结论先行**：新用户临时账号（mbtester1030）全功能遍历产出体验报告（4 Bug+9 疑惑点+10 设计不合理）；本轮修复其中 4 项有代码级根因且可测的缺陷。
-- **根因与修复**：B1 OIDC 建号漏设 sidebar_view（列默认值 1 只含 DETAIL_RANDOM 位），浏览路由 check_visibility 位缺失 abort(404)——修法=收拢 `oidc.create_oidc_user`（角色/语言/侧栏位一次取齐，侧栏位取 config_default_show 与本地注册同口径），生产实验已闭环验证因果（恢复 262143 后 /author 立即 200，2 分钟复查无改写者）。B2 create_edit_shelf 补空标题校验（flash+redirect）。B4 详情页阅读状态开关 label 弃用 msgid "Read" 改 Reading status（po/mo 同步「阅读状态」），msgid "Read" 原译保留给筛选器场景。B5 learning-common.js 新增 decodeHtmlEntities，loadMaterials 的 title/author 进 textContent 前解码（听写/复述/重读共用）。
-- **修复范围裁决**：B3（删除书架 div 按钮无反应——main.js:787 绑定存在）/B6（听写载入段落无响应）在自动化环境无法证伪，报告存疑待真机复核，本轮不修。九项疑惑点的设计方案（专名误判黄金区、生词本入口、管理员文案分离等）在 `magicbook-产品设计方案-2026-10-30.md`，未夹带开发。
-- **测试**：新增 `tests/test_newuser_sidebar404_r256.py` 10 用例（建号位组合/九浏览位覆盖/config 未初始化/helper 三项取齐/空标题参数化+正常对照/po+mo 双侧/JS 解码契约）；`TestCallbackContract` 2 用例随收拢结构演进（意图不变）。定向回归：oidc 全家+home/shell+detail+advsearch+i18n 契约+learning 三件套全绿（最后一批 33 passed）。
-- **文档四问**：能力→无变化；契约→无变化；实现/边界→`docs/project/iterations/1.0/r256-newuser-sidebar404/lld.md`；本次实现→同 LLD。**存量数据修复 SQL 在 LLD §2.1**（上线后需在 fnOS 执行一次：sidebar_view=1 的存量 OIDC 用户回填 config_default_show）。
-- **状态与驻留**：**已 merge 待 push/待验收**。主检出 develop `c3badf9e`（含占号 db3f445f）；worktree `../magicbook-r256-newuser-sidebar404`（分支 `fix/r256-newuser-sidebar404`）按闸门保留。push 触发 fnOS 自动部署+存量 SQL 待执行，本轮按「外向动作先确认」等用户拍板后再推。
-- **窗口与总结**：写入前 10 节，新增后 11；按「写入即检查」把最旧一节（R246）原样搬至 `response-archive/response-R246.md` 并登记索引，窗口恢复 10。冲突记录：无撞号。
-
-## 2026-10-31（R257：按产品设计方案实施七个可落地项）
-
-### R257（用户拍板「按照设计方案修复」）
-
-- **结论先行**：设计方案十个方案按文档自身 ⚡/🏗 标记与「不做什么」原则裁剪——本轮实施一/三/四/六/七/八/九，二/五/十（跨仓生词判定/充值卡重排/已读数据诊断）登记待拍板，未夹带。
-- **实现要点**：①render_template 删除非管理员 Downloaded Books else 分支（books_list download 页双门槛必 404）；②review 空态改排程解释+测试结果旁直达复习队列（vt-notebook-link-row）；③detail 下载/阅读两处权限提示去「Users → Edit User」后台路径；④credits.js 三处 t() + buddy.js 稀有度字面量映射 + seed 脚本自动/手动补 7 词条 + po 8 条；语言菜单收敛（常用三项+当前语言直出、其余折叠、完整列表留 /me）；⑤index.html 移除难度横幅 include（模板保留）；⑥update_preferences 分场景 flash+next 白名单（防 openredirect）；⑦删除书架 div→button（form 内显式 type）+侧栏/详情页空名兜底「未命名书架」。
-- **认知修正**：体验报告 B3「删除书架无反应」系自动化环境假阴性——main.js confirmDialog 确认流程原本存在；本轮仅做语义修复。
-- **测试**：新增 test_design_plan_r257.py 20 用例；契约演进 4 处（横幅移除/权限文案 ×2/R212 locale 钉到 create_oidc_user——R212 文件系 R256 收尾漏跑，本轮全量暴露后一并钉住）。全量回归 **1228 passed / 0 failed**（跳过 test_ai_agent_proxy 网络依赖与 slow）。
-- **文档四问**：能力→readme 随验收回填；契约→/me/preferences 新增可选 next 字段（站内白名单）；实现/边界→`docs/project/iterations/1.0/r257-design-plan-fixes/lld.md`。
-- **状态与驻留**：**已 merge 待 push/待验收**。develop `5e03f189`；worktree `../magicbook-r257-design-plan-fixes`（分支 `feat/r257-design-plan-fixes`）按闸门保留；push 触发 fnOS 部署，等用户拍板。
-- **窗口与总结**：写入后 11 节，按「写入即检查」把最旧一节（R247）原样搬至 `response-archive/response-R247.md` 并登记索引，窗口恢复 10。冲突记录：无撞号。
 
 ## 2026-10-31（R259：设置页生词提示语对齐 moon-well R232 新口径——「该等级及以上」）
 
@@ -249,3 +227,34 @@
 - **上线与核验**：实现 `600fe72b` + merge `276f77ee` 推 `origin/develop`（32e32f58..276f77ee），fnOS 链 `00:06` END OK（`af1cd8f0f78ed85b`），容器 healthy；线上核验 `/read/145/EPUB`（大写入口）渲染出的 bookUrl 已是 `/show/145/epub/file.epub` 且 GET 200、epub iframe 正常渲染（本会话视频/截图全走通）。
 - **连带效应**：与 10-28 未结案的「整本朗读后正文空白」（wholebook-whitescreen）是否同源**未证实**（该案症状是「开始朗读后」空白，本案是「打开即空白」），留给原案复测时排除。
 - **状态与驻留**：worktree `../magicbook-r270-reader-bookurl-case`，分支 `fix/r270-reader-bookurl-case`，按闸门保留待验收。requests.md 条目 270 已回填。冲突记录：无（claim.sh 得 270）。
+
+## R271 · 微信小程序：生词本 / 每日复习 / 词汇量测试 / 学习数据（2026-11-03）
+
+**对 R271 的回应**：按「工具型、最低、全是标准列表交互」的口径交付一个原生微信小程序，只做四页，
+阅读留在网页。
+
+- **边界先钉死**：不渲染任何正文。阅读需要长注意力与大屏，塞进小程序只会得到更差的阅读器；
+  而这四件事正好是「掏手机刷几张卡」的动作。这条写进了 L1 与 LLD，避免后续被「顺手加个阅读吧」拉扯。
+- **为什么直连 moon-well**：网页端的 `/ajax/*` 代理依赖 Flask 会话（OIDC 登录态），小程序没有；
+  而数据本来就在 moon-well（生词本、复习调度、测试、四股台账），网页只是薄代理。直连少一跳、少一处
+  会话依赖，代价是要把 `moon-well.haoshenqi.top` 加进小程序后台的 request 合法域名。
+- **登录**：微信身份 + 一次账号绑定（AppID `wxd511f98508dc9cee`）。首次绑定要求输入网页端账号密码
+  ——不新建账号，否则生词本与复习进度会劈成两半。绑定后免密，token 落 storage、401 自动续期一次。
+- **四页**：生词本（筛选带角标 / 前缀搜索 / 上滑加载 / 点词改标记）、复习（四选一·拼写·回忆三态，
+  始终回传后端下发的原始题型，因为它是四技能统计的底座）、词汇量（作答→交卷确认→报告→推荐难度
+  一键应用）、数据（四股 / 复习摘要 / 近 7 天 / 最近词汇量）。
+- **工程位置**：`magicbook/miniprogram/`，原生小程序、无框架、无云开发；`baseUrl` 收在 `config.js`。
+  **不参与容器构建**（不被 Dockerfile COPY、`cps/` 不引用），push develop 不会把它带上线；上线走
+  微信开发者工具上传提审。
+- **验证如实记录**：全部 `.js` 过 `node --check`、全部 `.json` 过 `JSON.parse`、接口路径与 DTO 字段
+  逐项比对；**本机未装微信开发者工具，因此没有编译/模拟器/真机验证过**——首次打开需关注
+  tabBar（纯文字无图标）与 WXML 表达式（`counts[item.key]`、三元嵌套）这两处。
+- **依赖**：后端 moon-well R239（两步式微信登录 + `GET /vocabulary/notebook` 分页）未部署前，
+  小程序登录会返回 50401/404，属预期。
+- **状态**：**开发完成待验收，未 push**（worktree `../magicbook-r271-miniprogram`，分支
+  `feat/r271-miniprogram`；主检出本地 merge 后保留 worktree 待验收）。
+- **冲突记录**：无撞号（本体 R271，后端 R239）。未触碰 calibre 原生代码，与待验收的 R270/R269 等
+  条目无文件交集（本仓既有改动全在 `cps/`、`tests/`，本次只新增 `miniprogram/` 与文档）。
+
+**台账总结**：`requests.md` 新增并回填 R271；`response.md` 写入前窗口已 11 节，本次连同新增压回
+10 节，R256/R257 两节原样搬入 `response-archive/response-R256-R257.md` 并在顶部登记索引。

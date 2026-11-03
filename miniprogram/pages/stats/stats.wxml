@@ -1,0 +1,114 @@
+<view class="container">
+  <view class="card head">
+    <view class="grow">
+      <view class="head-name">{{user.nickname || user.username || '已登录'}}</view>
+      <view class="small muted">阅读在网页端，这里只看学习数据</view>
+    </view>
+    <view class="logout" bindtap="onLogout">退出</view>
+  </view>
+
+  <!-- 今日复习 -->
+  <view class="card">
+    <view class="row-between">
+      <view class="card-title no-margin">今日复习</view>
+      <view wx:if="{{srs}}" class="muted small">{{srs.progressText}}</view>
+    </view>
+    <view wx:if="{{errors.srs}}" class="error-tip mt12">{{errors.srs}}</view>
+    <block wx:elif="{{srs}}">
+      <view class="progress mt12">
+        <view class="progress-inner" style="width:{{srs.percent}}%"></view>
+      </view>
+      <view class="stat-grid">
+        <view class="stat">
+          <view class="stat-num">{{srs.dueNow}}</view>
+          <view class="stat-label">到期</view>
+        </view>
+        <view class="stat">
+          <view class="stat-num">{{srs.dueTomorrow}}</view>
+          <view class="stat-label">明日到期</view>
+        </view>
+        <view class="stat">
+          <view class="stat-num">{{srs.reviewing}}</view>
+          <view class="stat-label">复习中</view>
+        </view>
+        <view class="stat">
+          <view class="stat-num">{{srs.mastered}}</view>
+          <view class="stat-label">已掌握</view>
+        </view>
+        <view class="stat">
+          <view class="stat-num">{{srs.retentionText}}</view>
+          <view class="stat-label">7 天保持率</view>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 今日四股 -->
+  <view class="card">
+    <view class="card-title">今日四股</view>
+    <view wx:if="{{errors.plan}}" class="error-tip">{{errors.plan}}</view>
+    <block wx:else>
+      <view wx:for="{{strands}}" wx:key="key" class="strand">
+        <view class="row-between small">
+          <view class="row">
+            <view class="dot" style="background:{{item.color}}"></view>
+            <text>{{item.name}}</text>
+          </view>
+          <text class="muted">{{item.earnedText}} / {{item.planned}} 分钟</text>
+        </view>
+        <view class="progress mt8">
+          <view class="progress-inner" style="width:{{item.percent}}%;background:{{item.color}}"></view>
+        </view>
+      </view>
+      <view class="small muted mt12">只有阅读输入需要在网页端积累，其余三股在这里就能完成。</view>
+    </block>
+  </view>
+
+  <!-- 近 7 天 -->
+  <view class="card">
+    <view class="row-between">
+      <view class="card-title no-margin">近 7 天</view>
+      <view wx:if="{{weekMeta}}" class="small muted">合计 {{weekMeta.totalText}} 分钟</view>
+    </view>
+    <view wx:if="{{errors.week}}" class="error-tip mt12">{{errors.week}}</view>
+    <block wx:elif="{{week.length}}">
+      <view wx:for="{{week}}" wx:key="date" class="week-row">
+        <view class="week-date">{{item.label}}</view>
+        <view class="week-bar">
+          <view
+            wx:for="{{item.segs}}"
+            wx:for-item="seg"
+            wx:key="key"
+            class="week-seg"
+            style="width:{{seg.width}}%;background:{{seg.color}}"
+          ></view>
+        </view>
+        <view class="week-total">{{item.totalText}}</view>
+      </view>
+      <view class="legend">
+        <view wx:for="{{strands}}" wx:key="key" class="legend-item">
+          <view class="dot" style="background:{{item.color}}"></view>
+          <text class="small muted">{{item.name}}</text>
+        </view>
+      </view>
+    </block>
+    <view wx:else class="empty">近 7 天还没有学习记录</view>
+  </view>
+
+  <!-- 最近词汇量 -->
+  <view class="card">
+    <view class="card-title">词汇量</view>
+    <view wx:if="{{errors.test}}" class="error-tip">{{errors.test}}</view>
+    <block wx:elif="{{latestTest}}">
+      <view class="row-between">
+        <view>
+          <text class="test-size">{{latestTest.sizeText}}</text>
+          <text class="small muted"> 词</text>
+        </view>
+        <view class="small muted">{{latestTest.dateText}}</view>
+      </view>
+      <view class="small muted mt8">区间 {{latestTest.rangeText}}</view>
+    </block>
+    <view wx:else class="empty">还没做过词汇量测试，去「词汇量」页测一次</view>
+  </view>
+</view>
