@@ -336,4 +336,9 @@
      - 验证：`tests/test_r275_home_profile.py` 5 例静态锁，与既有静态锁合计 27 passed；**未真机**。
      - 状态：**开发完成待验收**（同上 worktree）。
 
-276. **切换正式 AppID wx7b31b435be6beae3**（占号 2026-11-03，待回填）
+276. **切换正式 AppID wx7b31b435be6beae3**（2026-11-03）
+     - 交付：`project.config.json` appid 换正式号；新增 `tests/test_r276_appid.py` 2 例
+       （正式号字面量 / `wx`+16 位十六进制格式）；手册新增「工程信息」（AppID、合法域名、导入目录）。
+     - 后端同步：moon-well R242（`app.wx.appid` 默认值 + Nacos），两边必须同值。
+     - 验证：静态锁 8 passed；后端线上已用新 appid+secret（微信回 40029）。**未真机**。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r276-appid`，分支 `feat/r276-appid`）。
