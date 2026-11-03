@@ -1,13 +1,15 @@
 /**
- * 登录态与微信登录/绑定流程。
+ * 登录态与微信登录/绑定流程（R240 起默认自动建号）。
  *
  * 流程（与 moon-well /auth/wx/* 对齐）：
  *   wx.login → code → POST /auth/wx/login
- *     ├─ bindRequired=false：直接拿到 JWT，进主界面
- *     └─ bindRequired=true ：只拿到一张 10 分钟票据，需再用账号密码完成首次绑定
+ *     ├─ 已绑定微信：直接拿到 JWT，进主界面
+ *     ├─ 未绑定（默认）：后端建一个「微信临时账号」并下发 JWT，直接可用
+ *     └─ 未绑定 + linkExisting：只拿到一张 10 分钟票据，输账号密码绑到老账号
  *
- * Why 首次必须输一次账号密码：账号承载网页端积累的生词本与复习进度，
- * 让小程序自动建新号等于把用户的数据劈成两半。
+ * Why 默认建号：R239 的做法要求第一次用的人输账号密码，但新用户根本没有账号。
+ * 现在先给一个能用的账号，再引导他去「账号」页绑定邮箱——绑到已有邮箱时，
+ * 后端会把临时账号并进去，数据不会劈成两半。
  */
 const api = require('./api');
 
@@ -39,26 +41,44 @@ function wxLoginCode() {
   });
 }
 
-/** 第一步：code 换身份。返回 { bindRequired, bindTicket, accessToken, ... } */
-async function login() {
+/**
+ * 登录。
+ *
+ * @param {boolean} linkExisting true = 我已有账号，别帮我建号（只拿票据走密码绑定）
+ */
+async function login(linkExisting) {
   const code = await wxLoginCode();
-  return api.post('/auth/wx/login', { code }, { auth: false });
+  return api.post('/auth/wx/login', { code, linkExisting: !!linkExisting }, { auth: false });
 }
 
-/** 第二步：首次绑定。成功后同样返回 token 形状。 */
+/** 老用户认领：票据 + 账号密码 → 直接登进已有账号。 */
 function bind(bindTicket, username, password) {
   return api.post('/auth/wx/bind', { bindTicket, username, password }, { auth: false });
 }
 
-/** 落盘登录结果（两处形状一致：登录与绑定成功都带 accessToken）。 */
+/**
+ * 落盘登录结果。
+ *
+ * 三种来源形状一致（微信登录 / 密码绑定 / 邮箱绑定），都带 accessToken；
+ * 邮箱绑定还会带上新的 userId——归并后账号换了，必须整份覆盖而不是合并。
+ */
 function persist(result) {
   api.setTokens(result.accessToken, result.refreshToken);
   api.setUser({
     userId: result.userId,
     username: result.username,
     nickname: result.nickname,
-    avatar: result.avatar
+    avatar: result.avatar,
+    email: result.email || '',
+    emailVerified: !!result.emailVerified,
+    wechatShadow: !!result.wechatShadow
   });
+}
+
+/** 刷新本地保存的账号信息（账号页拿到最新状态后调用，不必重新登录）。 */
+function updateUser(patch) {
+  const current = api.getUser() || {};
+  api.setUser(Object.assign({}, current, patch || {}));
 }
 
 function logout() {
@@ -66,4 +86,13 @@ function logout() {
   wx.reLaunch({ url: LOGIN_PAGE });
 }
 
-module.exports = { isLoggedIn, ensureLogin, login, bind, persist, logout, LOGIN_PAGE };
+module.exports = {
+  isLoggedIn,
+  ensureLogin,
+  login,
+  bind,
+  persist,
+  updateUser,
+  logout,
+  LOGIN_PAGE
+};

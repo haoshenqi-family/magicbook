@@ -31,12 +31,20 @@ Page({
     page: 1,
     hasNext: false,
     loading: false,
-    error: ''
+    error: '',
+    wechatShadow: false
   },
 
   onShow() {
     if (!auth.ensureLogin()) return;
+    // 临时账号提示条：每次回到本页重读，账号页绑定成功后这里要立刻消失
+    const user = api.getUser() || {};
+    this.setData({ wechatShadow: !!user.wechatShadow });
     this.reload();
+  },
+
+  onTapAccount() {
+    wx.navigateTo({ url: '/pages/account/account' });
   },
 
   onPullDownRefresh() {

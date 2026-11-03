@@ -1,4 +1,10 @@
 <view class="container">
+  <!-- 临时账号提示：只在还没绑邮箱时出现，点进账号页可合并到已有账号 -->
+  <view wx:if="{{wechatShadow}}" class="shadow-tip" bindtap="onTapAccount">
+    <text class="small">当前是微信临时账号，换手机就找不回来</text>
+    <text class="small shadow-link">绑定邮箱</text>
+  </view>
+
   <view class="search-row">
     <input
       class="search"

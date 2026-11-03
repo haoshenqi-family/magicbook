@@ -12,7 +12,16 @@
         微信一键登录
       </button>
       <view class="small muted tip">
-        首次使用需绑定已有的 MagicBook 账号（用网页端的账号密码确认一次），之后免密登录。
+        第一次使用会为你创建一个微信账号，直接用即可。之后在「账号」页绑定邮箱，
+        即可与网页端的生词本、复习进度合并成同一个账号。
+      </view>
+      <view class="divider"></view>
+      <button class="btn btn-ghost" disabled="{{loading}}" bindtap="onTapLinkExisting">
+        我已有账号，用密码绑定
+      </button>
+      <view class="small muted tip">
+        已有 MagicBook 账号（网页端注册或 OIDC 登录）时走这条：输一次账号密码把这个微信绑过去，
+        不会新建账号。
       </view>
     </view>
     <view class="small muted foot">阅读仍在网页端进行：magicbook.haoshenqi.top</view>
@@ -20,9 +29,9 @@
 
   <block wx:else>
     <view class="card">
-      <view class="card-title">首次绑定账号</view>
+      <view class="card-title">绑定已有账号</view>
       <view class="small muted tip">
-        用网页端 magicbook 的账号密码确认身份。账号里已有你的生词本与复习进度，这里不新建账号。
+        用网页端的用户名和密码确认身份。绑定后这个微信就登录到该账号，不会新建账号。
       </view>
 
       <input

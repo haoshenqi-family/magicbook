@@ -1,10 +1,13 @@
 /**
- * 登录页：微信一键登录 + 首次绑定。
+ * 登录页：微信一键登录（默认自动建号）+ 老用户密码认领。
  *
  * 状态机只有两段：
- *   idle —— 只有「微信一键登录」；
- *   bind —— 免登不了（后端返回 bindRequired），就地出账号密码表单。
+ *   idle —— 主按钮「微信一键登录」，次要入口「我已有账号」；
+ *   bind —— 老用户点了次要入口，后端只给票据，就地展开账号密码表单。
  * 表单就在本页展开而不是跳新页：票据 10 分钟过期，多一次跳转就多一次失败面。
+ *
+ * Why 主按钮不再要求密码：第一次用小程序的人没有账号可输。先给他一个能用的
+ * 临时账号，再引导绑定邮箱；老用户走次要入口，不会产生多余的空账号。
  */
 const auth = require('../../utils/auth');
 const api = require('../../utils/api');
@@ -27,11 +30,21 @@ Page({
     }
   },
 
-  async onTapLogin() {
+  /** 主路径：微信一键登录。后端未绑定时会自动建号并直接返回登录态。 */
+  onTapLogin() {
+    this.doLogin(false);
+  },
+
+  /** 次要路径：我已有账号 → 只拿票据，随后输密码绑到老账号。 */
+  onTapLinkExisting() {
+    this.doLogin(true);
+  },
+
+  async doLogin(linkExisting) {
     if (this.data.loading) return;
     this.setData({ loading: true, error: '' });
     try {
-      const result = await auth.login();
+      const result = await auth.login(linkExisting);
       if (result && result.bindRequired) {
         this.setData({
           phase: 'bind',
@@ -43,6 +56,10 @@ Page({
       }
       auth.persist(result);
       this.setData({ loading: false });
+      if (result && result.newAccount) {
+        // 新账号不拦路：先让他用，提示放在主界面顶部（可点进账号页）
+        wx.showToast({ title: '已为你创建微信账号', icon: 'none', duration: 1800 });
+      }
       wx.switchTab({ url: '/pages/notebook/notebook' });
     } catch (error) {
       this.setData({ loading: false, error: error.message || '登录失败' });

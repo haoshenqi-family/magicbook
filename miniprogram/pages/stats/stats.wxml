@@ -111,4 +111,17 @@
     </block>
     <view wx:else class="empty">还没做过词汇量测试，去「词汇量」页测一次</view>
   </view>
+
+  <!-- 账号入口：放页尾，不抢学习数据的位置 -->
+  <view class="card" bindtap="onTapAccount">
+    <view class="row-between">
+      <view class="grow">
+        <view class="account-name">{{user.nickname || user.username || '微信用户'}}</view>
+        <view class="small muted mt8">
+          {{user.wechatShadow ? '微信临时账号 · 建议绑定邮箱' : (user.email || '已绑定')}}
+        </view>
+      </view>
+      <view class="small muted">账号与绑定 ›</view>
+    </view>
+  </view>
 </view>

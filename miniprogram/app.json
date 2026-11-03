@@ -4,7 +4,8 @@
     "pages/notebook/notebook",
     "pages/review/review",
     "pages/test/test",
-    "pages/stats/stats"
+    "pages/stats/stats",
+    "pages/account/account"
   ],
   "window": {
     "navigationBarTitleText": "MagicBook 工具",
