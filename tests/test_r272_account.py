@@ -39,14 +39,16 @@ def test_login_defaults_to_auto_signup():
     login_js = _read("pages/login/login.js")
     assert "onTapLogin" in login_js
     assert "this.doLogin(false)" in login_js, "主按钮必须是自动建号路径"
-    assert "this.doLogin(true)" in login_js, "「我已有账号」才走只拿票据的路径"
+    assert "this.startEmailLogin()" in login_js, "「我已有账号」走邮箱验证路径"
+    assert "auth.login(true)" in login_js, "邮箱入口必须只要票据、不建号"
 
 
 def test_auth_helper_passes_link_existing_flag():
     auth_js = _read("utils/auth.js")
     assert "linkExisting" in auth_js, "登录请求必须能表达「别帮我建号」"
     assert "/auth/wx/login" in auth_js
-    assert "/auth/wx/bind" in auth_js
+    assert "/auth/wx/email/send-code" in auth_js, "未登录态发码端点"
+    assert "/auth/wx/email/verify" in auth_js, "未登录态验证端点"
 
 
 def test_email_endpoints_match_backend():
