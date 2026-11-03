@@ -335,3 +335,5 @@
        学习数据 + 退出；主站域名收进 `config.siteUrl`，点击复制链接。
      - 验证：`tests/test_r275_home_profile.py` 5 例静态锁，与既有静态锁合计 27 passed；**未真机**。
      - 状态：**开发完成待验收**（同上 worktree）。
+
+276. **切换正式 AppID wx7b31b435be6beae3**（占号 2026-11-03，待回填）
