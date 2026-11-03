@@ -38,3 +38,7 @@
 .mt {
   margin-top: 16rpx;
 }
+
+.link {
+  color: var(--primary);
+}

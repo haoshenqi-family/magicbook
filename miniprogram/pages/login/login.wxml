@@ -6,6 +6,7 @@
 
   <view wx:if="{{error}}" class="error-tip">{{error}}</view>
 
+  <!-- 主入口：没有账号也能进 -->
   <block wx:if="{{phase === 'idle'}}">
     <view class="card">
       <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onTapLogin">
@@ -16,45 +17,66 @@
         即可与网页端的生词本、复习进度合并成同一个账号。
       </view>
       <view class="divider"></view>
-      <button class="btn btn-ghost" disabled="{{loading}}" bindtap="onTapLinkExisting">
-        我已有账号，用密码绑定
+      <button class="btn btn-ghost" disabled="{{loading}}" bindtap="onTapEmailLogin">
+        我已有账号，用邮箱登录
       </button>
       <view class="small muted tip">
-        已有 MagicBook 账号（网页端注册或 OIDC 登录）时走这条：输一次账号密码把这个微信绑过去，
-        不会新建账号。
+        不用输密码：填网页端账号的邮箱，收一次验证码就能登进去，并把当前微信绑到该账号。
       </view>
     </view>
     <view class="small muted foot">阅读仍在网页端进行：magicbook.haoshenqi.top</view>
   </block>
 
-  <block wx:else>
+  <!-- 邮箱登录：填邮箱 -->
+  <block wx:elif="{{phase === 'email'}}">
     <view class="card">
-      <view class="card-title">绑定已有账号</view>
+      <view class="card-title">用邮箱登录已有账号</view>
       <view class="small muted tip">
-        用网页端的用户名和密码确认身份。绑定后这个微信就登录到该账号，不会新建账号。
+        填网页端账号使用的邮箱。验证通过后，当前微信会自动绑到那个账号，不会新建账号。
       </view>
 
       <input
         class="field"
         type="text"
-        placeholder="用户名"
-        value="{{username}}"
-        bindinput="onUsernameInput"
+        placeholder="你的邮箱"
+        value="{{email}}"
+        bindinput="onEmailInput"
       />
+
+      <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onSendCode">
+        发送验证码
+      </button>
+      <button class="btn btn-ghost mt" bindtap="onCancelEmail">返回</button>
+
+      <view class="small muted tip">本次登录凭据 {{expiresIn}} 秒内有效，超时请返回重新点击。</view>
+    </view>
+  </block>
+
+  <!-- 邮箱登录：填验证码 -->
+  <block wx:else>
+    <view class="card">
+      <view class="card-title">输入验证码</view>
+      <view class="small muted tip">验证码已发送到 {{email}}，10 分钟内有效。</view>
+
       <input
         class="field"
-        password="{{true}}"
-        placeholder="密码"
-        value="{{password}}"
-        bindinput="onPasswordInput"
+        type="number"
+        maxlength="6"
+        placeholder="6 位验证码"
+        value="{{code}}"
+        bindinput="onCodeInput"
       />
 
-      <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onTapBind">
-        绑定并登录
+      <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onVerify">
+        验证并登录
       </button>
-      <button class="btn btn-ghost mt" bindtap="onCancelBind">返回</button>
-
-      <view class="small muted tip">绑定票据 {{expiresIn}} 秒内有效，超时请返回重新点微信登录。</view>
+      <view class="row-between mt">
+        <view class="small muted">没收到？检查垃圾邮件</view>
+        <view class="small link" bindtap="onSendCode">
+          {{countdown > 0 ? countdown + ' 秒后重发' : '重新发送'}}
+        </view>
+      </view>
+      <button class="btn btn-ghost mt" bindtap="onCancelEmail">返回</button>
     </view>
   </block>
 </view>

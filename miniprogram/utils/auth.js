@@ -51,9 +51,27 @@ async function login(linkExisting) {
   return api.post('/auth/wx/login', { code, linkExisting: !!linkExisting }, { auth: false });
 }
 
-/** 老用户认领：票据 + 账号密码 → 直接登进已有账号。 */
+/** 老用户认领（密码方式，R239 保留的兜底路径；界面已改用邮箱验证）。 */
 function bind(bindTicket, username, password) {
   return api.post('/auth/wx/bind', { bindTicket, username, password }, { auth: false });
+}
+
+/**
+ * 未登录态：把验证码发到邮箱（R241）。
+ *
+ * 身份靠票据而不是 JWT——这条路径发生在登录之前，还没有 token 可用。
+ */
+function sendEmailCode(bindTicket, email) {
+  return api.post('/auth/wx/email/send-code', { bindTicket, email }, { auth: false });
+}
+
+/**
+ * 未登录态：校验验证码并把当前微信绑到该邮箱对应的账号（R241）。
+ *
+ * 成功返回与普通登录同形的 token；邮箱没有账号时后端回 50514。
+ */
+function verifyEmail(bindTicket, email, code) {
+  return api.post('/auth/wx/email/verify', { bindTicket, email, code }, { auth: false });
 }
 
 /**
@@ -91,6 +109,8 @@ module.exports = {
   ensureLogin,
   login,
   bind,
+  sendEmailCode,
+  verifyEmail,
   persist,
   updateUser,
   logout,
