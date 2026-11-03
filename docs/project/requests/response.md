@@ -249,10 +249,13 @@
 - **验证如实记录**：全部 `.js` 过 `node --check`、全部 `.json` 过 `JSON.parse`、接口路径与 DTO 字段
   逐项比对；**本机未装微信开发者工具，因此没有编译/模拟器/真机验证过**——首次打开需关注
   tabBar（纯文字无图标）与 WXML 表达式（`counts[item.key]`、三元嵌套）这两处。
-- **依赖**：后端 moon-well R239（两步式微信登录 + `GET /vocabulary/notebook` 分页）未部署前，
-  小程序登录会返回 50401/404，属预期。
-- **状态**：**开发完成待验收，未 push**（worktree `../magicbook-r271-miniprogram`，分支
-  `feat/r271-miniprogram`；主检出本地 merge 后保留 worktree 待验收）。
+- **依赖**：后端 moon-well R239（两步式微信登录 + `GET /vocabulary/notebook` 分页）——**已上线**
+  （容器 `sha=6c1433cd`，`/auth/wx/login` 与 `/vocabulary/notebook` 均已生效）。只差人工把 Nacos
+  `app.wx.secret` 从占位换成正式 AppSecret；发布即生效、无需重启（已双向实测）。
+- **状态**：**已上线待验收**（worktree `../magicbook-r271-miniprogram`，分支 `feat/r271-miniprogram`，
+  保留待验收）。`dc3c6ce3` 已推 `origin/develop`，fnOS 构建完成、容器 `sha=dc3c6ce3`、站点 302 正常。
+  小程序源码不进镜像，因此对网页服务只是文档级变化；小程序对外可见仍需微信开发者工具导入后
+  「上传 + 提审」。真机验收时重点看 tabBar（纯文字无图标）与 WXML 表达式两处。
 - **冲突记录**：无撞号（本体 R271，后端 R239）。未触碰 calibre 原生代码，与待验收的 R270/R269 等
   条目无文件交集（本仓既有改动全在 `cps/`、`tests/`，本次只新增 `miniprogram/` 与文档）。
 
