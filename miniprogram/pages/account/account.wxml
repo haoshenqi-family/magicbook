@@ -1,12 +1,12 @@
 <view class="container">
   <view wx:if="{{error}}" class="error-tip">{{error}}</view>
 
-  <!-- 当前身份 -->
+  <!-- 当前身份：只显示邮箱；内部标识与自动生成的用户名一律不渲染（R278） -->
   <view class="card">
     <view class="row-between">
       <view class="grow">
-        <view class="who">{{user.nickname || user.username || '微信用户'}}</view>
-        <view class="small muted mt8">{{user.username}}</view>
+        <view class="who ellipsis">{{user.nickname || user.email || '微信用户'}}</view>
+        <view wx:if="{{user.email}}" class="small muted mt8 ellipsis">{{user.email}}</view>
       </view>
       <view wx:if="{{user.wechatShadow}}" class="tag tag-reviewing">微信临时账号</view>
       <view wx:elif="{{user.emailVerified}}" class="tag tag-mastered">已绑定邮箱</view>
@@ -24,7 +24,7 @@
     </block>
     <block wx:else>
       <view class="small muted">
-        账号 ID {{user.userId}}<text wx:if="{{user.email}}"> · 邮箱 {{user.email}}</text>
+        {{user.email ? '网页端用这个邮箱登录，看到的就是同一份生词本与复习进度。' : '这个账号还没有绑定邮箱。'}}
       </view>
     </block>
   </view>
