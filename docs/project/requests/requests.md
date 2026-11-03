@@ -353,4 +353,12 @@
      - 验证：`tests/test_r277_network_error.py` 4 例静态锁；`node --check` 通过。**未真机**。
      - 状态：**开发完成待验收**（worktree `../magicbook-r277-netmsg`，分支 `feat/r277-netmsg`）。
 
-278. **账号页与「我」页不展示账号 ID，只显示邮箱**（占号 2026-11-03，待回填）
+278. **账号页与「我」页不展示账号 ID，只显示邮箱**（2026-11-03）
+     - 现场：账号页显示「账号 ID 123 · 邮箱 x@y」，副标题还回显自动生成的 `wx_xxx` 用户名；
+       「我」页标题也以 username 兜底，等于把内部标识当名字展示。
+     - 交付：账号页身份行改为「昵称 → 邮箱 → 微信用户」并单独显示邮箱（超长省略）；
+       删掉 ID 与 username 两处；「我」页标题同样改用邮箱，副标题只描述状态（临时账号/已绑定邮箱/
+       邮箱未验证），不再回显邮箱；头像首字取昵称或邮箱。
+     - 验证：`tests/test_r278_identity.py` 4 例静态锁（模板不得出现 userId/user.username、
+       「账号 ID」文案不得回来、身份用邮箱表达、身份计算不碰 username）。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r278-noaccountid`，分支 `feat/r278-noaccountid`）。

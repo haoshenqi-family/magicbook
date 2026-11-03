@@ -3,7 +3,7 @@
   <view class="card head" bindtap="onTapAccount">
     <view class="avatar">{{avatarText}}</view>
     <view class="grow">
-      <view class="head-name">{{user.nickname || user.username || '微信用户'}}</view>
+      <view class="head-name ellipsis">{{user.nickname || user.email || '微信用户'}}</view>
       <view class="small muted mt8">{{identityText}}</view>
     </view>
     <view class="chev">›</view>

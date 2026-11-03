@@ -108,16 +108,24 @@ Page({
   }
 });
 
-/** 头像占位：取昵称/用户名的首字，没有就用「微」。纯本地计算，不请求头像接口。 */
+/**
+ * 头像占位：取昵称或邮箱的首字。
+ * Why 不用 username：那是自动生成的 `wx_xxx` 一类内部标识，露在头像上等于把账号 ID 亮出来。
+ */
 function initialOf(user) {
-  const name = String((user && (user.nickname || user.username)) || '微').trim();
+  const name = String((user && (user.nickname || user.email)) || '微').trim();
   return name ? name.charAt(0).toUpperCase() : '微';
 }
 
+/**
+ * 身份副标题：只描述状态，不回显邮箱——邮箱已经在标题位上，重复显示会让这一行变成噪音。
+ * 账号 ID 一律不展示（R278）：对用户没有可用性，截图分享时还会泄露内部标识。
+ */
 function identityOf(user) {
   if (!user) return '已登录';
   if (user.wechatShadow) return '微信临时账号 · 建议绑定邮箱';
-  return user.email || '已绑定邮箱';
+  if (user.emailVerified) return '已绑定邮箱';
+  return user.email ? '邮箱未验证' : '已登录';
 }
 
 function buildStrands(plan) {
