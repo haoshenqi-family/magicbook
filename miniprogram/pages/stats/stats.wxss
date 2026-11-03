@@ -3,17 +3,52 @@
   align-items: center;
 }
 
+/* 头像占位：只取首字，不请求微信头像（R271 就没做 getUserInfo 授权） */
+.avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
 .head-name {
   font-size: 32rpx;
   font-weight: 600;
 }
 
-.logout {
-  color: var(--danger);
-  font-size: 26rpx;
-  padding: 8rpx 18rpx;
-  border: 1rpx solid var(--danger);
-  border-radius: 999rpx;
+.chev {
+  margin-left: 12rpx;
+  color: var(--muted);
+  font-size: 36rpx;
+}
+
+/* 网页版入口 */
+.site {
+  display: flex;
+  align-items: center;
+}
+
+.site-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.site-go {
+  margin-left: 16rpx;
+  color: var(--primary);
+  font-size: 24rpx;
+}
+
+.foot {
+  margin-top: 16rpx;
+  text-align: center;
 }
 
 .no-margin {
@@ -112,9 +147,4 @@
   font-size: 44rpx;
   font-weight: 700;
   color: var(--primary);
-}
-
-.account-name {
-  font-size: 29rpx;
-  font-weight: 500;
 }
