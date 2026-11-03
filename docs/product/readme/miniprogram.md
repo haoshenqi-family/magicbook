@@ -62,3 +62,20 @@ magicbook 的**词汇工具**在微信里的入口：每日复习、生词本、
   通常显示为 0。
 - 换微信或换账号：在新微信里登录后，用它绑定同一个邮箱即可并回原账号（原绑定会让路）；
   也可以在「账号」页重新绑定邮箱。
+
+## 工程信息（换环境要改的地方）
+
+| 项 | 值 | 备注 |
+|---|---|---|
+| AppID | `wx7b31b435be6beae3` | 正式号。写在 `project.config.json`，必须与后端 `app.wx.appid` **完全一致** |
+| 后端 | `https://moon-well.haoshenqi.top` | `config.js` 的 `baseUrl`；需在该 AppID 的 **request 合法域名**里 |
+| 网页版 | `https://magicbook.haoshenqi.top` | `config.js` 的 `siteUrl`；只在「我」页作为「复制链接」使用 |
+| 导入目录 | `magicbook/miniprogram` | 微信开发者工具「导入项目」选这一层 |
+
+两处容易踩的坑：
+
+- **合法域名是按 AppID 存的**：换 AppID 后旧号的域名白名单不会继承，需要在「开发管理 →
+  开发设置 → 服务器域名」重新添加 `https://moon-well.haoshenqi.top`，否则真机报「不在合法域名列表」。
+  开发期可先勾「不校验合法域名」。
+- **openid 也是按 AppID 分的**：换号后同一个微信会拿到新的 openid，微信侧无法把它与旧账号关联。
+  换号后第一次登录会落到一个新账号，需要用登录页的「我已有账号，用邮箱登录」认领回原账号。
