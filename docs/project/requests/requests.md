@@ -342,3 +342,5 @@
      - 后端同步：moon-well R242（`app.wx.appid` 默认值 + Nacos），两边必须同值。
      - 验证：静态锁 8 passed；后端线上已用新 appid+secret（微信回 40029）。**未真机**。
      - 状态：**开发完成待验收**（worktree `../magicbook-r276-appid`，分支 `feat/r276-appid`）。
+
+277. **请求失败可诊断：透传 errMsg 并识别域名白名单错误**（占号 2026-11-03，待回填）
