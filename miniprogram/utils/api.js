@@ -55,12 +55,36 @@ function rawRequest(options) {
       header: options.header || {},
       timeout: CONFIG.timeout,
       success: resolve,
-      fail: () => reject({
-        code: -1,
-        message: '网络请求失败：请检查网络，或在开发者工具中关闭「域名校验」'
-      })
+      fail: (err) => {
+        // 原始 errMsg 必须留痕：体验版最常见的失败是「域名不在白名单」，
+        // 它只出现在这里。统一抹成「请检查网络」会把排查方向整体带偏——
+        // 开发者工具关了域名校验就正常，真机/体验版却全挂，正是这个组合的典型症状。
+        console.error('[api] 请求失败', options.path, (err && err.errMsg) || '');
+        reject({ code: -1, message: describeNetworkError(err) });
+      }
     });
   });
+}
+
+/**
+ * 把 wx.request 的 fail 翻成「下一步该做什么」。
+ *
+ * 三类分开：白名单（要改小程序后台）、超时（重试）、链路/证书（查服务端与网络）。
+ * 认不出来的原样带出 errMsg——保底可见，胜过一句什么都没说的「请检查网络」。
+ */
+function describeNetworkError(err) {
+  const raw = (err && err.errMsg) || '';
+  if (/url not in domain list|not in domain list/i.test(raw)) {
+    return '请求域名未配置白名单：请在小程序后台「开发管理 → 开发设置 → 服务器域名」'
+      + '添加 ' + CONFIG.baseUrl.replace('https://', '');
+  }
+  if (/timeout/i.test(raw)) {
+    return '请求超时：网络较慢或服务未响应，请重试';
+  }
+  if (/ssl|cert|handshake|ERR_CONNECTION/i.test(raw)) {
+    return '连接失败：' + raw;
+  }
+  return raw ? '网络请求失败：' + raw : '网络请求失败：请检查网络';
 }
 
 function unwrap(res) {

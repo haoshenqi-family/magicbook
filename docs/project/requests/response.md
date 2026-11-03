@@ -5,6 +5,8 @@
 
 **归档索引**
 
+- `response-archive/response-R265.md`：R265 站内信新增类型与来源文案——2026-11-03 R277 写入触发轮转搬移，原样搬移不改写
+
 - `response-archive/response-R263.md`：R263 阅读器朗读速度选项——2026-11-03 R276 写入触发轮转搬移，原样搬移不改写
 
 - `response-archive/response-R260-R261.md`：R260（AI 了解我——自我介绍与提示词注入）+ R261（Jinshu 借鉴三件套）——2026-11-03 R274/R275 写入前窗口 10 节，连同本次两条新增一并压回 10 节，原样搬移不改写
@@ -102,24 +104,6 @@
 
 
 
-
-
-## R265 · 站内信新增类型与来源文案（承接 moon-well R235，2026-11-01）
-
-**需求**：moon-well R235 把积分到账从「管理员勾选才发」改成「注册赠送/充值/兑换/购卡全部自动发」，并新增余额不足与归零提醒。本仓是消费侧，必须让这些信在收件箱里能被读懂，而不是掉进 `You have a new notification.` 兜底文案。
-
-**做了什么**
-
-1. `describeMail` 的 `CREDIT_GRANTED` 分支按 `params.source` 分流：新人赠送、充值到账（附订单号）、卡兑换（附卡密掩码）；**没有 source 的历史邮件仍走原通用文案**——线上已经存在 13 封 hedwig/积分信，不能因为新增字段就把老信渲染成空白标题。
-2. 三个新分支：`CREDIT_CARD_PURCHASED`（面额 + 掩码 + 有效期，无 `expiresAt` 视为长期有效）、`CREDIT_BALANCE_LOW`、`CREDIT_BALANCE_ZERO`，都跳 `/credits`（白名单已含，无需扩）。
-3. 15 条新词条同时落 `i18n_seed.html`、`zh_Hans_CN` PO 并重编译 MO。仓库的 `test_mail_js_translations_are_in_seed_po_and_mo` 会把 mail.js 里每个 `t()` 字面量拿去跟 seed/po/mo 三方比对，漏一处就红——这也是为什么不能只在 JS 里写英文。
-4. 新增 Node 守卫 `test_credit_mail_variants_render_by_source_and_type`：直接执行生产 `describeMail`，覆盖 4 种来源 + 3 种新类型 + 历史回退，并断言跳转白名单。
-
-**验证**：`test_mail_ui_r243.py` 25 例、`test_mail_proxy_r243.py`、`test_admin_mail_r250.py` 共 101 例全绿；`test_i18n_seed_contract.py`、积分页/积分卡/明细 34 例全绿。
-
-**未做**：管理员「同时发送到账通知」默认勾选。R243 的守卫用例断言了 `syncAdminNotificationState` 里 `prop('checked', false)`，改默认勾选要连守卫一起改；这是 UX 决策而非缺陷，留给你拍板。
-
-**驻留**：worktree `../magicbook-r265-credit-mail-render`，分支 `feat/r265-credit-mail-render`。
 
 
 ## R267 · 重写 GitHub README：核心功能与入门用法（2026-11-02）
@@ -324,3 +308,24 @@
 
 **台账总结**：`requests.md` 第 276 条本处回填；`response.md` 写入前 10 节，本次压回 10 节，
 最旧一节 R263（朗读速度选项）原样搬入 `response-archive/response-R263.md` 并登记索引。
+
+## R277 · 请求失败必须自己说清原因（2026-11-03）
+
+**对 R277 的回应**：开发者工具里一切正常，发布体验版后所有请求失败、提示「请检查网络」。
+
+- **先排除服务端**：`moon-well.haoshenqi.top` 解析到公网 116.62.200.90，证书链完整
+  （`Verify return code: 0`）、TLS 1.2、单次请求 0.2s。不是超时、不是证书、不是内网域名。
+- **问题在我们自己的错误处理**：`wx.request` 的 `fail` 回调原本直接抛「请检查网络」，
+  把 `errMsg` 丢了。而体验版最典型的失败——`request:fail url not in domain list`——
+  **只存在于 `errMsg` 里**。抹掉之后，「白名单没配」被显示成「网络有问题」，
+  方向直接反了；旧文案还顺带建议「在开发者工具关闭域名校验」，可体验版根本没有这个开关。
+- **改法**：`describeNetworkError()` 三分——白名单（直接给出后台路径 + 实际域名）、
+  超时、链路/证书；认不出来就原样带出 `errMsg`。同时 `console.error` 留一行，
+  体验版打开调试就能在 vConsole 里看到原始原因。
+- **给手册加了「请求失败怎么查」**，第一条就是那句最容易误解的：**「不校验合法域名」
+  只对开发版生效**，真机与体验版一律严格校验。
+- **验证**：`tests/test_r277_network_error.py` 4 例静态锁（fail 必须收 err、白名单必须单独识别、
+  兜底必须带 raw、旧文案必须消失）；`node --check` 通过。**未真机**。
+
+**台账总结**：`requests.md` 第 277 条本处回填；`response.md` 写入前 10 节，本次压回 10 节，
+最旧一节 R265（站内信类型与来源文案）原样搬入 `response-archive/response-R265.md` 并登记索引。
