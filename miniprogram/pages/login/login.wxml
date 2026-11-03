@@ -1,0 +1,51 @@
+<view class="container">
+  <view class="brand">
+    <view class="brand-title">MagicBook 工具</view>
+    <view class="brand-sub">生词本 · 每日复习 · 词汇量测试 · 学习数据</view>
+  </view>
+
+  <view wx:if="{{error}}" class="error-tip">{{error}}</view>
+
+  <block wx:if="{{phase === 'idle'}}">
+    <view class="card">
+      <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onTapLogin">
+        微信一键登录
+      </button>
+      <view class="small muted tip">
+        首次使用需绑定已有的 MagicBook 账号（用网页端的账号密码确认一次），之后免密登录。
+      </view>
+    </view>
+    <view class="small muted foot">阅读仍在网页端进行：magicbook.haoshenqi.top</view>
+  </block>
+
+  <block wx:else>
+    <view class="card">
+      <view class="card-title">首次绑定账号</view>
+      <view class="small muted tip">
+        用网页端 magicbook 的账号密码确认身份。账号里已有你的生词本与复习进度，这里不新建账号。
+      </view>
+
+      <input
+        class="field"
+        type="text"
+        placeholder="用户名"
+        value="{{username}}"
+        bindinput="onUsernameInput"
+      />
+      <input
+        class="field"
+        password="{{true}}"
+        placeholder="密码"
+        value="{{password}}"
+        bindinput="onPasswordInput"
+      />
+
+      <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onTapBind">
+        绑定并登录
+      </button>
+      <button class="btn btn-ghost mt" bindtap="onCancelBind">返回</button>
+
+      <view class="small muted tip">绑定票据 {{expiresIn}} 秒内有效，超时请返回重新点微信登录。</view>
+    </view>
+  </block>
+</view>

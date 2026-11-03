@@ -1,0 +1,43 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/notebook/notebook",
+    "pages/review/review",
+    "pages/test/test",
+    "pages/stats/stats"
+  ],
+  "window": {
+    "navigationBarTitleText": "MagicBook 工具",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f4f5f7",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#8a8f99",
+    "selectedColor": "#2f6fed",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/notebook/notebook",
+        "text": "生词本"
+      },
+      {
+        "pagePath": "pages/review/review",
+        "text": "复习"
+      },
+      {
+        "pagePath": "pages/test/test",
+        "text": "词汇量"
+      },
+      {
+        "pagePath": "pages/stats/stats",
+        "text": "数据"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

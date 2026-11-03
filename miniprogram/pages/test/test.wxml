@@ -1,0 +1,130 @@
+<view class="container">
+  <view wx:if="{{error}}" class="error-tip">{{error}}</view>
+
+  <!-- 开始前 -->
+  <block wx:if="{{phase === 'idle'}}">
+    <view class="card">
+      <view class="card-title">测一下你的词汇量</view>
+      <view class="small muted desc">
+        3–4 分钟自适应测试：屏幕只出现英文单词与例句，你只需回答「认识 / 不认识」。
+        交卷后给出词汇量估算、区间、各频段掌握度，并推荐适合你的阅读难度档位。
+      </view>
+      <button class="btn btn-primary mt20" loading="{{loading}}" disabled="{{loading}}" bindtap="onTapStart">
+        开始测试
+      </button>
+    </view>
+
+    <view wx:if="{{history.length}}" class="card">
+      <view class="card-title">最近成绩</view>
+      <view wx:for="{{history}}" wx:key="sessionId" class="history-row">
+        <view class="grow">
+          <view class="history-size">{{item.sizeText}} 词</view>
+          <view class="small muted">{{item.rangeText}} · {{item.typeText}}</view>
+        </view>
+        <view class="small muted">{{item.dateText}}</view>
+      </view>
+    </view>
+    <view wx:else class="empty">还没有测试记录</view>
+  </block>
+
+  <!-- 逐题作答 -->
+  <block wx:elif="{{phase === 'question'}}">
+    <view class="card question-card">
+      <view class="row-between small muted">
+        <text>{{progress.answeredText}}</text>
+        <text class="band-tag">第 {{progress.band}} 档</text>
+      </view>
+      <view class="word">{{question.word}}</view>
+      <view class="sentence">{{question.sentence}}</view>
+    </view>
+
+    <view class="btn-row">
+      <button class="btn btn-ghost" loading="{{loading}}" disabled="{{loading}}" bindtap="onTapUnknown">
+        不认识
+      </button>
+      <button class="btn btn-primary" loading="{{loading}}" disabled="{{loading}}" bindtap="onTapKnown">
+        认识
+      </button>
+    </view>
+
+    <view class="center small muted mt16" bindtap="onCancelTest">放弃本次测试</view>
+  </block>
+
+  <!-- 交卷确认 -->
+  <block wx:elif="{{phase === 'submit'}}">
+    <view class="card">
+      <view class="card-title">估算已完成</view>
+      <view class="estimate">
+        <text class="estimate-num">{{estimation.size}}</text>
+        <text class="estimate-unit">词</text>
+      </view>
+      <view class="small muted">区间 {{estimation.ciLow}} – {{estimation.ciHigh}}</view>
+
+      <view class="divider"></view>
+
+      <view class="row-between">
+        <view class="grow">
+          <view>把这次不认识的词收进生词本</view>
+          <view class="small muted">收进去后会进入你的复习队列，可以在小程序里直接复习。</view>
+        </view>
+        <switch checked="{{addUnknown}}" color="#2f6fed" bindchange="onSwitchChange" />
+      </view>
+
+      <button class="btn btn-primary mt20" loading="{{loading}}" disabled="{{loading}}" bindtap="onTapFinish">
+        交卷并查看报告
+      </button>
+    </view>
+  </block>
+
+  <!-- 报告 -->
+  <block wx:else>
+    <view class="card">
+      <view class="row-between">
+        <view class="card-title no-margin">词汇量估算</view>
+        <view class="small muted">{{report.typeText}}测试</view>
+      </view>
+      <view class="estimate">
+        <text class="estimate-num">{{report.sizeText}}</text>
+        <text class="estimate-unit">词</text>
+      </view>
+      <view class="small muted">置信区间 {{report.rangeText}} · 共答 {{report.questionCount}} 题，认识 {{report.knownCount}} 个</view>
+
+      <view wx:if="{{report.previousEstimatedSize}}" class="small muted mt8">
+        上次标准测试：{{report.previousEstimatedSize}} 词（{{report.previousCiLow}} – {{report.previousCiHigh}}）
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">各频段掌握度</view>
+      <view wx:for="{{report.bandRows}}" wx:key="band" class="band-row">
+        <view class="band-name">档 {{item.band}}</view>
+        <view class="band-bar">
+          <view class="band-bar-inner" style="width:{{item.width}}%"></view>
+        </view>
+        <view class="band-rate">{{item.rateText}}</view>
+      </view>
+      <view class="small muted mt8">档位越高代表词越难；某一档认识率骤降的位置，通常就是你的边界。</view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">推荐阅读难度</view>
+      <view class="reco">
+        <view class="grow">
+          <view class="reco-name">{{report.recommendedHardLevelName}}</view>
+          <view class="small muted">按你的词汇量推导，决定阅读时哪些词会被标为生词。</view>
+        </view>
+        <view
+          class="btn btn-primary btn-small {{applied ? 'is-applied' : ''}}"
+          bindtap="onApplyRecommended"
+        >
+          {{applied ? '已应用' : '一键应用'}}
+        </view>
+      </view>
+      <view wx:if="{{report.addedToNotebook}}" class="small muted mt8">
+        本次已把 {{report.addedToNotebook}} 个生词收进生词本。
+      </view>
+    </view>
+
+    <button class="btn btn-ghost" bindtap="onTapRetake">再测一次</button>
+  </block>
+</view>

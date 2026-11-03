@@ -1,0 +1,115 @@
+.head {
+  display: flex;
+  align-items: center;
+}
+
+.head-name {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.logout {
+  color: var(--danger);
+  font-size: 26rpx;
+  padding: 8rpx 18rpx;
+  border: 1rpx solid var(--danger);
+  border-radius: 999rpx;
+}
+
+.no-margin {
+  margin-bottom: 0;
+}
+
+.mt8 {
+  margin-top: 8rpx;
+}
+
+.mt12 {
+  margin-top: 12rpx;
+}
+
+.stat-grid {
+  display: flex;
+  margin-top: 20rpx;
+}
+
+.stat {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-num {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.stat-label {
+  margin-top: 4rpx;
+  font-size: 21rpx;
+  color: var(--muted);
+}
+
+.strand {
+  margin-bottom: 22rpx;
+}
+
+.strand:last-child {
+  margin-bottom: 0;
+}
+
+.dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+  margin-right: 10rpx;
+}
+
+.week-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 14rpx;
+}
+
+.week-date {
+  width: 90rpx;
+  font-size: 22rpx;
+  color: var(--muted);
+}
+
+.week-bar {
+  flex: 1;
+  height: 22rpx;
+  border-radius: 6rpx;
+  background: #f2f3f5;
+  overflow: hidden;
+  display: flex;
+}
+
+.week-seg {
+  height: 100%;
+}
+
+.week-total {
+  width: 150rpx;
+  text-align: right;
+  font-size: 22rpx;
+  color: var(--muted);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 12rpx;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-right: 24rpx;
+}
+
+.test-size {
+  font-size: 44rpx;
+  font-weight: 700;
+  color: var(--primary);
+}

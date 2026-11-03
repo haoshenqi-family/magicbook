@@ -23,6 +23,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | companion | AI 伴读：围绕当前书对话提问、工具调用、跨书记忆；伙伴系统（AI 阅读按钮的外观）；伙伴信封与站内信入口 | [companion](companion.md) |
 | credit | 积分与订阅：积分余额/流水/充值（支付宝扫码）、可转赠积分卡、订阅状态、成就徽章 | [credit](credit.md) |
 | admin | 管理：管理员运营站内信、LLM 任务手动执行面板、用户与站点管理、统一账号中心 OIDC 登录 | [admin](admin.md) |
+| miniprogram | 微信小程序（工具型）：生词本、每日复习、词汇量测试、学习数据四页；阅读仍在网页端 | [miniprogram](miniprogram.md) |
 
 > `account` 是用户视角的跨模块账号域，聚合资料、伙伴、邮件、阅读设置、积分、成就和导出页面；
 > 它不新增后端模块或 L2 契约。

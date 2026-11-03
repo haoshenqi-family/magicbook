@@ -1,0 +1,23 @@
+{
+  "description": "MagicBook 工具型小程序：生词本 / 每日复习 / 词汇量测试 / 学习数据",
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "folder",
+        "value": ".workbuddy"
+      }
+    ],
+    "include": []
+  },
+  "setting": {
+    "bundle": false,
+    "es6": true,
+    "minified": true,
+    "postcss": true,
+    "urlCheck": true
+  },
+  "compileType": "miniprogram",
+  "appid": "wxd511f98508dc9cee",
+  "projectname": "magicbook-tools",
+  "miniprogramRoot": "./"
+}
