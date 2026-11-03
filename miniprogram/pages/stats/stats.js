@@ -38,6 +38,11 @@ Page({
     this.loadAll();
   },
 
+  /** 账号与绑定：放在页尾，绑定成功后返回本页会重读 user（onShow）。 */
+  onTapAccount() {
+    wx.navigateTo({ url: '/pages/account/account' });
+  },
+
   onPullDownRefresh() {
     this.loadAll().then(() => wx.stopPullDownRefresh());
   },

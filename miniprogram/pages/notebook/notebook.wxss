@@ -45,3 +45,21 @@
 .dot {
   margin: 0 10rpx;
 }
+
+/* 临时账号提示条：不占整块卡片，避免把首屏的词往下推 */
+.shadow-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+  border-radius: 12rpx;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.shadow-link {
+  color: var(--primary);
+  flex: none;
+  margin-left: 16rpx;
+}

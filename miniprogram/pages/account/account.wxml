@@ -1,0 +1,96 @@
+<view class="container">
+  <view wx:if="{{error}}" class="error-tip">{{error}}</view>
+
+  <!-- 当前身份 -->
+  <view class="card">
+    <view class="row-between">
+      <view class="grow">
+        <view class="who">{{user.nickname || user.username || '微信用户'}}</view>
+        <view class="small muted mt8">{{user.username}}</view>
+      </view>
+      <view wx:if="{{user.wechatShadow}}" class="tag tag-reviewing">微信临时账号</view>
+      <view wx:elif="{{user.emailVerified}}" class="tag tag-mastered">已绑定邮箱</view>
+      <view wx:else class="tag tag-plain">未绑定邮箱</view>
+    </view>
+
+    <view class="divider"></view>
+
+    <block wx:if="{{user.wechatShadow}}">
+      <view class="small muted">
+        这个账号是你第一次用微信登录时自动创建的，功能都能用，但没有找回途径：
+        换手机或卸载小程序后就找不回来了。绑定邮箱即可正式化。
+      </view>
+      <view wx:if="{{user.email}}" class="small muted mt8">已填写邮箱：{{user.email}}（未验证）</view>
+    </block>
+    <block wx:else>
+      <view class="small muted">
+        账号 ID {{user.userId}}<text wx:if="{{user.email}}"> · 邮箱 {{user.email}}</text>
+      </view>
+    </block>
+  </view>
+
+  <!-- 绑定邮箱 -->
+  <view wx:if="{{user.emailVerified}}" class="card">
+    <view class="card-title">邮箱</view>
+    <view class="row-between">
+      <view class="grow ellipsis">{{user.email}}</view>
+      <view class="tag tag-mastered">已验证</view>
+    </view>
+    <view class="small muted mt8">
+      在网页端用这个邮箱对应的账号登录，看到的就是同一份生词本与复习进度。
+    </view>
+  </view>
+
+  <view wx:else class="card">
+    <view class="card-title">绑定邮箱</view>
+    <view class="small muted tip">
+      如果你的网页端账号用的就是这个邮箱，绑定后这个微信会直接并入那个账号
+      （不新建、不复制），两边的生词本与复习进度合成一份。
+    </view>
+
+    <input
+      class="field"
+      type="text"
+      placeholder="你的邮箱"
+      value="{{email}}"
+      disabled="{{stage === 'code'}}"
+      bindinput="onEmailInput"
+    />
+
+    <block wx:if="{{stage === 'idle'}}">
+      <button class="btn btn-primary" loading="{{sending}}" disabled="{{sending || countdown > 0}}" bindtap="onSendCode">
+        {{countdown > 0 ? countdown + ' 秒后可重发' : '发送验证码'}}
+      </button>
+    </block>
+
+    <block wx:else>
+      <input
+        class="field"
+        type="number"
+        maxlength="6"
+        placeholder="6 位验证码"
+        value="{{code}}"
+        bindinput="onCodeInput"
+      />
+      <button class="btn btn-primary" loading="{{submitting}}" disabled="{{submitting}}" bindtap="onSubmitCode">
+        验证并绑定
+      </button>
+      <view class="row-between mt">
+        <view class="small muted">没收到？检查垃圾邮件</view>
+        <view class="small link" bindtap="onSendCode">
+          {{countdown > 0 ? countdown + ' 秒后重发' : '重新发送'}}
+        </view>
+      </view>
+    </block>
+
+    <view class="small muted tip">
+      验证码 10 分钟内有效、只能用一次。我们不会用它给你发别的东西。
+    </view>
+  </view>
+
+  <view class="card">
+    <button class="btn btn-danger-ghost" bindtap="onLogout">退出登录</button>
+  </view>
+
+  <view class="small muted foot">阅读仍在网页端进行：magicbook.haoshenqi.top</view>
+</view>

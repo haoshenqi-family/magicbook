@@ -113,3 +113,8 @@
   font-weight: 700;
   color: var(--primary);
 }
+
+.account-name {
+  font-size: 29rpx;
+  font-weight: 500;
+}

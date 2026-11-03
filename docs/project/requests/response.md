@@ -5,6 +5,8 @@
 
 **归档索引**
 
+- `response-archive/response-R259.md`：R259 设置页生词提示语对齐 moon-well R232 新口径——2026-11-03 R272 写入触发轮转搬移，原样搬移不改写
+
 - `response-archive/response-R256-R257.md`：R256（黑盒体验四项缺陷）+ R257（按设计方案实施七项）——2026-11-03 R271 写入前窗口已达 11 节，连同本次新增一并压回 10 节窗口，原样搬移不改写
 
 - `response-archive/response-R251.md`：R251（MagicBook UI 信息架构、导航分组与账号/管理 L2 拆页）——2026-11-01 R265 写入触发轮转搬移，原样搬移不改写
@@ -96,16 +98,6 @@
 
 
 
-## 2026-10-31（R259：设置页生词提示语对齐 moon-well R232 新口径——「该等级及以上」）
-
-### R259（承接 moon-well R232；用户原话「判定逻辑改为大于等于，当前用户的难度等级+1……」）
-
-- **结论先行**：moon-well R232 把生词判定兜底改为「词档 ≥ 用户档位」（档位=学习目标线）并做存量档位 +1 迁移。本仓零判定逻辑改动，只同步用户可见表述：设置页提示语从「高于该等级的词会被标记为生词」改为「该等级及以上的词会被标记为生词」，消除文案与行为的漂移（数值同源纪律）。
-- **实现**：`cps/templates/reading_settings.html:46` msgid 改「Words at or above this level are marked as unknown while reading. Default: CET4.」；`cps/translations/zh_Hans_CN/LC_MESSAGES/messages.po` 同步 msgid + msgstr「阅读时该等级及以上的词会被标记为生词。默认：CET4。」；`pybabel compile` 重建 messages.mo（运行时读 .mo，不编译则中文不生效）。其余 27 个 locale 无此条翻译，走英文源文回退（源文已正确表达新语义）。
-- **文档**：L1 `docs/product/readme/vocabulary.md` 档位句补「档位代表你正在学的目标水平：该档及以上的词默认判为生词」；需求基线 `vocabulary/requirements.md` 变更记录加 R259 行。判定矩阵权威仍在 moon-well `docs/product/vocabulary/interface.md`（R232 已更新）。
-- **测试**：定向 `test_nav_settings_dropdown.py + test_i18n_seed_contract.py + test_me_preferences.py + test_common_api_contract.py` 共 **28 passed**（i18n 种子契约与设置页回归均绿）；旧 msgid 全仓 grep 归零。
-- **状态与驻留**：**已 merge 待验收**。worktree `../magicbook-r259-judge-tooltip`（分支 `feat/r259-judge-tooltip`）按闸门保留待验收；验收通过后删除。跨仓主线：moon-well R232（判定翻转 + 迁移 SQL，SQL 执行前线上行为与改前一致）。
-- **窗口与总结**：写入前 10 节，写入后 11 节；按「写入即检查」把最旧一节（R248）原样搬至 `response-archive/response-R248.md` 并登记索引，窗口恢复 10。requests.md 条目 259 已从占位回填。冲突记录：无撞号。
 ## 2026-10-31（R258：设计方案五充值卡五段式 + 方案十已读三态口径）
 
 ### R258（用户拍板「方案五按照你的设计修改。方案十按你的设计开始」；方案二提问已答复）
@@ -261,3 +253,35 @@
 
 **台账总结**：`requests.md` 新增并回填 R271；`response.md` 写入前窗口已 11 节，本次连同新增压回
 10 节，R256/R257 两节原样搬入 `response-archive/response-R256-R257.md` 并在顶部登记索引。
+
+## R272 · 小程序账号体系：自动建号 + 账号页（绑定邮箱 / 认领老账号）（2026-11-03）
+
+**对 R272 的回应**：R271 的登录要求「首次必须输网页端账号密码」，把第一次用小程序的人
+挡在一张他没有密码可填的表单前。本次改成「先给一个能用的账号，再用邮箱认领」。
+
+- **登录页两条路**：主按钮「微信一键登录」→ 后端未绑定即自动建**微信临时账号**并直接进主界面
+  （`doLogin(false)`）；次按钮「我已有账号，用密码绑定」→ `linkExisting=true` 只拿票据，
+  输密码后绑到老账号（`doLogin(true)`），不产生空账号。两条路写反会让新用户看到密码表单，
+  静态锁专门守这两个调用。
+- **账号页 `pages/account`**：显示当前身份（微信临时账号 / 已绑定邮箱）、绑定邮箱表单（发码 →
+  60 秒倒计时 → 输 6 位码）、退出登录。归并成功后用 `auth.persist(新 token)` **整份替换**本地
+  登录态——归并后 userId 变了，沿用旧 token 会「登录着但数据全空」。
+- **50512 必须二次确认**：临时账号里已有数据时后端返回摘要（如「生词本 12 条」），
+  前端弹 `wx.showModal` 摆出后果，用户点「放弃并合并」才带 `discardShadowData=true` 重提。
+  默认拒绝丢弃：用户背过的词不该被一次点击抹掉。
+- **提示条不抢首屏**：生词本页顶部一条窄提示（仅临时账号显示），点进账号页；数据页页尾加
+  「账号与绑定」入口。没做成强制拦截弹窗——工具型小程序的第一次体验不该被表单打断。
+- **部署顺序**：必须**先发 moon-well R240、再发小程序**。旧后端（R239）会对主按钮回
+  `bindRequired=true`，新用户会被带到「绑定已有账号」表单（旧版行为），不会数据错乱但会卡住；
+  小程序本身有审核周期，先发后端天然安全。
+- **验证**：新增 `tests/test_r272_account.py` 7 例静态锁（账号页四件套与注册、登录页两条路径
+  不写反、`linkExisting` 透传、邮箱端点路径、50512 二次确认、归并后换 token、临时账号提示条），
+  与 R271 的 7 例一起 **14 passed**；全部 `.js` 过 `node --check`、全部 `.json` 过 `JSON.parse`。
+  **本机仍无微信开发者工具，未编译、未真机**——首次打开重点看账号页倒计时与 50512 弹窗文案换行。
+- **状态**：**开发完成待验收，未 push**（worktree `../magicbook-r272-account`，分支 `feat/r272-account`）。
+- **冲突记录**：未撞号（本体 R272 / 后端 R240）。改动只在 `miniprogram/`、`tests/`、文档，
+  不碰 `cps/` 与 calibre 原生代码，与待验收的 R269/R270/R271 无文件交集。
+
+**台账总结**：`requests.md` 第 272 条本处回填；`response.md` 写入前 10 节，本次压回 10 节，
+最旧一节 R259（设置页生词提示语对齐 moon-well R232）原样搬入 `response-archive/response-R259.md`
+并登记索引。
