@@ -24,7 +24,7 @@
     </block>
     <block wx:else>
       <view class="small muted">
-        {{user.email ? '网页端用这个邮箱登录，看到的就是同一份生词本与复习进度。' : '这个账号还没有绑定邮箱。'}}
+        {{user.email ? '网页端用这个邮箱登录，看到的就是同一份学习记录。' : '这个账号还没有绑定邮箱。'}}
       </view>
     </block>
   </view>
@@ -37,7 +37,7 @@
       <view class="tag tag-mastered">已验证</view>
     </view>
     <view class="small muted mt8">
-      在网页端用这个邮箱对应的账号登录，看到的就是同一份生词本与复习进度。
+      在网页端用这个邮箱对应的账号登录，看到的就是同一份学习记录。
     </view>
   </view>
 
@@ -45,7 +45,7 @@
     <view class="card-title">绑定邮箱</view>
     <view class="small muted tip">
       如果你的网页端账号用的就是这个邮箱，绑定后这个微信会直接并入那个账号
-      （不新建、不复制），两边的生词本与复习进度合成一份。
+      （不新建、不复制），两边的学习记录合成一份。
     </view>
 
     <input

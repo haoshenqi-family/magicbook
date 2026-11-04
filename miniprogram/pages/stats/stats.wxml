@@ -9,6 +9,12 @@
     <view class="chev">›</view>
   </view>
 
+  <!-- 临时账号提示：R280 生词本页下掉后迁到这里，仍只在未绑定邮箱时出现 -->
+  <view wx:if="{{user.wechatShadow}}" class="shadow-tip" bindtap="onTapAccount">
+    <text class="small">当前是微信临时账号，换手机就找不回来</text>
+    <text class="small shadow-link">绑定邮箱</text>
+  </view>
+
   <!-- 网页版入口：阅读留在网页，这里给一条过去的路 -->
   <view class="card site" bindtap="onOpenSite">
     <view class="grow">

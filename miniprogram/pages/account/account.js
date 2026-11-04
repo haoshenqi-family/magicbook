@@ -96,7 +96,7 @@ Page({
       if (result.merged) {
         wx.showModal({
           title: '已合并到原账号',
-          content: '这个微信现在登录的是你原来的账号，网页端的生词本与复习进度都在。',
+          content: '这个微信现在登录的是你原来的账号，网页端的学习记录都在。',
           showCancel: false
         });
       } else {
