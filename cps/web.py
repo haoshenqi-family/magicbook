@@ -2375,6 +2375,9 @@ def profile():
     else:
         oauth_status = None
         local_oauth_check = {}
+    # R279：投稿面板仅在 MinIO 暂存区可用时渲染（未配置时提交必然 503，
+    # 与其给用户一个点了就错的按钮，不如不渲染）。
+    from .library_submission import storage as submission_storage
     return render_title_template("me.html",
                                  translations=translations,
                                  profile=1,
@@ -2383,7 +2386,8 @@ def profile():
                                  title=_("%(name)s's Profile", name=current_user.name),
                                  page="me",
                                  registered_oauth=local_oauth_check,
-                                 oauth_status=oauth_status)
+                                 oauth_status=oauth_status,
+                                 submission_enabled=submission_storage.configured())
 
 
 @web.route("/me/export", methods=["GET"])

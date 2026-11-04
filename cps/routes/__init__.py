@@ -4,4 +4,4 @@ def register_domain_routes(web):
     """web.py 末尾调用：import 即完成各域装饰注册。"""
     from cps.routes import (reading, credit, vocab, learning, buddy, preferences,
                             book_detail, home, user_export, brand, mail,
-                            admin_mail)  # noqa: F401
+                            admin_mail, library_submission)  # noqa: F401
