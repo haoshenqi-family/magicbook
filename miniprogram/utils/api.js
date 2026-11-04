@@ -59,11 +59,28 @@ function rawRequest(options) {
         // 原始 errMsg 必须留痕：体验版最常见的失败是「域名不在白名单」，
         // 它只出现在这里。统一抹成「请检查网络」会把排查方向整体带偏——
         // 开发者工具关了域名校验就正常，真机/体验版却全挂，正是这个组合的典型症状。
-        console.error('[api] 请求失败', options.path, (err && err.errMsg) || '');
+        console.error('[api] 请求失败', options.path, 'appid=' + runtimeAppId(), (err && err.errMsg) || '');
         reject({ code: -1, message: describeNetworkError(err) });
       }
     });
   });
+}
+
+/**
+ * 当前运行时的 AppID（基础库 2.11.2+；失败时返回空串）。
+ *
+ * Why 要把它塞进错误里：白名单是**按 AppID 存**的，而「代码里的 appid」不等于
+ * 「这个安装包上传时用的 appid」——改了 project.config.json 却没重新上传，
+ * 或者开发者工具里项目 AppID 还是旧号，都会让人对着后台一遍遍确认「我明明配好了」。
+ * 把运行时 AppID 直接写在报错里，一次就能把这类猜测排除掉。
+ */
+function runtimeAppId() {
+  try {
+    const info = typeof wx.getAccountInfoSync === 'function' ? wx.getAccountInfoSync() : null;
+    return (info && info.miniProgram && info.miniProgram.appId) || '';
+  } catch (e) {
+    return '';
+  }
 }
 
 /**
@@ -75,8 +92,10 @@ function rawRequest(options) {
 function describeNetworkError(err) {
   const raw = (err && err.errMsg) || '';
   if (/url not in domain list|not in domain list/i.test(raw)) {
-    return '请求域名未配置白名单：请在小程序后台「开发管理 → 开发设置 → 服务器域名」'
-      + '添加 ' + CONFIG.baseUrl.replace('https://', '');
+    const appid = runtimeAppId();
+    return '请求域名未配置白名单（当前 AppID ' + (appid || '未知') + '）：请在小程序后台'
+      + '「开发管理 → 开发设置 → 服务器域名」为这个 AppID 添加 '
+      + CONFIG.baseUrl.replace('https://', '');
   }
   if (/timeout/i.test(raw)) {
     return '请求超时：网络较慢或服务未响应，请重试';

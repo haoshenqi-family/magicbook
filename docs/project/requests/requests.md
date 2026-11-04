@@ -367,4 +367,10 @@
 
 280. **R279 小程序接入 AI 伴读（对话）功能，加载通用对话 prompt，生词本功能下掉**（占号 2026-11-04，待回填）
 
-281. **白名单错误提示带上运行时 AppID，消除「配了还是不生效」的猜测**（占号 2026-11-04，待回填）
+281. **白名单错误提示带上运行时 AppID，消除「配了还是不生效」的猜测**（2026-11-04）
+     - 现场：后台白名单已配、代码 appid 已是正式号，体验版仍报「请求域名未配置白名单」。
+       白名单按 AppID 存，而「代码里的 appid」≠「这个包上传时用的 appid」——无法从报错里判断。
+     - 交付：`runtimeAppId()`（`wx.getAccountInfoSync().miniProgram.appId`，容错）+ 白名单报错文案带上
+       「当前 AppID xxx · 为这个 AppID 添加域名」；`console.error` 同步带 appid，体验版 vConsole 可核对。
+     - 验证：`tests/test_r281_runtime_appid.py` 3 例 + R277 的 4 例，合计 7 passed。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r281-runtime-appid`，分支 `feat/r281-runtime-appid`）。
