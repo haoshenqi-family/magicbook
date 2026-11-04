@@ -259,7 +259,10 @@ def _ingest_worker(submission_id, app=None):
     Why app.app_context()：uploader/cover 链路里有 gettext 与 config 读取。
     """
     app = app or _flask_app()
-    with app.app_context():
+    # 用 request context 而不是纯 app context：uploader/epub 链路里的 gettext
+    # 会走 flask_babel.get_locale() → request.accept_languages（cps/cw_babel.py），
+    # 纯 app context 下直接抛 “Working outside of request context”。
+    with app.test_request_context('/'):
         session = _submission_session()
         temp_path = None
         try:
@@ -304,14 +307,16 @@ def _ingest_worker(submission_id, app=None):
                 log.warning("submission %s: cleanup object failed: %s",
                             row.id, remove_error)
         except Exception as ingest_error:  # noqa: BLE001
-            log.error("submission %s ingest failed: %s",
-                          submission_id, ingest_error)
+            import traceback
+            _trace = traceback.format_exc()
+            log.error("submission %s ingest failed: %s\n%s",
+                      submission_id, ingest_error, _trace)
             try:
                 from ..reading_translation.timeutil import now_utc
                 row = session.query(models.BookSubmission).get(int(submission_id))
                 if row is not None:
                     row.status = models.STATUS_FAILED
-                    row.error_message = str(ingest_error)[:2000]
+                    row.error_message = _trace[:2000]
                     row.updated_at = now_utc()
                     session.commit()
             except Exception:

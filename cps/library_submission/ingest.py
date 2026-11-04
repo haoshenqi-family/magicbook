@@ -35,7 +35,7 @@ def _get_or_create_author(name):
         db.Authors.name == name).first()
     if author is None:
         author = db.Authors(name, helper.get_sorted_author(name), "")
-        calibre_db.session.merge(author)
+        calibre_db.session.add(author)
         calibre_db.session.flush()
     return author
 
@@ -45,7 +45,7 @@ def _get_or_create_simple(db_class, name):
         db_class.name == name).first()
     if row is None:
         row = db_class(name=name)
-        calibre_db.session.merge(row)
+        calibre_db.session.add(row)
         calibre_db.session.flush()
     return row
 
@@ -55,7 +55,7 @@ def _get_or_create_language(lang_code):
         db.Languages.lang_code == lang_code).first()
     if row is None:
         row = db.Languages(lang_code)
-        calibre_db.session.merge(row)
+        calibre_db.session.add(row)
         calibre_db.session.flush()
     return row
 
@@ -88,6 +88,10 @@ def ingest_book_from_meta(meta, temp_path):
     失败返回 (None, error_message)；调用方决定回滚与状态回写。
     """
     try:
+        # Calibre schema 的 INSERT 触发器依赖 title_sort/uuid4 等 UDF；
+        # /upload 同样在建书前显式注册（cps/editbooks.py:116）。线程作用域
+        # 连接是新的，必须在本线程连接上注册一次。
+        calibre_db.create_functions(config)
         title = strip_whitespaces(meta.title) or original_title(temp_path)
         author_name = strip_whitespaces(meta.author) or "Unknown"
 

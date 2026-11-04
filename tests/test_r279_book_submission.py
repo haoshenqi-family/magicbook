@@ -274,6 +274,24 @@ class TestStorageSafety:
         assert "presigned" not in source
         assert "get_presigned" not in source
 
+    def test_ingest_registers_calibre_udfs_before_insert(self):
+        """E2E 实测：calibre 的 INSERT 触发器依赖 title_sort/uuid4，未注册会直接失败。"""
+        from cps.library_submission import ingest
+        source = open(ingest.__file__, encoding="utf-8").read()
+        assert "create_functions(config)" in source
+
+    def test_ingest_worker_uses_request_context_for_gettext(self):
+        """E2E 实测：uploader 链路会走 flask_babel.get_locale() → request.accept_languages。"""
+        from cps.library_submission import service
+        source = open(service.__file__, encoding="utf-8").read()
+        assert "test_request_context" in source
+
+    def test_ingest_helpers_do_not_use_merge(self):
+        """E2E 实测：session.merge 返回托管副本，原对象再 append 会撞 authors.name UNIQUE。"""
+        from cps.library_submission import ingest
+        source = open(ingest.__file__, encoding="utf-8").read()
+        assert ".merge(" not in source
+
     def test_object_key_never_contains_user_input(self):
         from cps.library_submission import storage
         key = storage.object_key_for(42, "abc123", "epub")

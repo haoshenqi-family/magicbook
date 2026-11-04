@@ -61,7 +61,9 @@ APPROVED --worker fail--> FAILED --approve(retry)--> APPROVED
 - `set_metadata_dirty` 后 commit。
 
 后台线程（`_ingest_worker`）：
-- `app.app_context()`；`db.CalibreDB(app)`（线程作用域会话）。
+- **`app.test_request_context('/')`**（不是纯 app context）：uploader→epub 链路里的 `gettext` 会走 `flask_babel.get_locale()` → `request.accept_languages`（`cps/cw_babel.py:22`），纯 app context 会抛 `Working outside of request context`。
+- 入库前必须 `calibre_db.create_functions(config)`：calibre 的 INSERT 触发器依赖 `title_sort`/`uuid4` 等 UDF，线程作用域的新连接要重新注册。
+- 作者/标签/系列/出版社/语言一律 `session.add(...)` 后 flush，**不要用 `session.merge`**：merge 返回托管副本，原对象再 append 会撞 `authors.name` UNIQUE。
 - MinIO 流 → `书库/.submissions-tmp/sub-<id>.<ext>` → 解析 → 入库。
 - 成功：`INGESTED` + `book_id`，删对象；失败：`FAILED` + `error_message`，保留对象供重试。
 - 线程不读取请求上下文（`_flask_app()` 捕获 app 实例传入）。
