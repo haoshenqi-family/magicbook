@@ -366,3 +366,11 @@
 279. **普通用户投稿书籍：上传仅进 MinIO 暂存区，管理员审核后才解析入库**（占号 2026-11-04）：承接本会话前两轮评估（开放 `ROLE_UPLOAD` = 直写共享书库且可覆盖任意书目文件，书库无归属、无配额、无审核）。用户原话「给普通用户一个新的上传图书接口，仅上传到 mino，管理者审核后可以解析入库」+「确认，开工」。方案（用户已确认）：新前缀 `book-submissions/<user_id>/<uuid>.<ext>`（不进匿名只读 Statement，只读面仍是 `buddy/` 与 `ted-audio/`）；app.db 新表 `book_submission`（提交人/对象键/原始文件名/大小/sha256/状态机 PENDING→APPROVED|REJECTED→INGESTED|FAILED/审核人/备注/入库 book_id）；用户接口 `POST /ajax/library/submit`（登录即可、不查 role_upload、扩展名白名单 + MIME 校验 + sha256 去重 + 单用户配额 + 限流）；管理页 `/admin/submissions`（@admin_required，列表/预览/通过/驳回，预览走同源代理不直链 MinIO）；入库走后台线程（app.app_context + _thread_db_session），前置抽出无请求上下文的纯入库函数（现有 create_book_on_upload 依赖 flash/current_user），不改既有 `/upload` 行为；驳回/入库完成即删对象 + 孤儿扫描；提交页勾选「我有权分享该文件」声明。先做同步入库最小闭环，异步入库第二步。状态：**占号开工**。
 
 280. **R279 小程序接入 AI 伴读（对话）功能，加载通用对话 prompt，生词本功能下掉**（占号 2026-11-04，待回填）
+
+281. **白名单错误提示带上运行时 AppID，消除「配了还是不生效」的猜测**（2026-11-04）
+     - 现场：后台白名单已配、代码 appid 已是正式号，体验版仍报「请求域名未配置白名单」。
+       白名单按 AppID 存，而「代码里的 appid」≠「这个包上传时用的 appid」——无法从报错里判断。
+     - 交付：`runtimeAppId()`（`wx.getAccountInfoSync().miniProgram.appId`，容错）+ 白名单报错文案带上
+       「当前 AppID xxx · 为这个 AppID 添加域名」；`console.error` 同步带 appid，体验版 vConsole 可核对。
+     - 验证：`tests/test_r281_runtime_appid.py` 3 例 + R277 的 4 例，合计 7 passed。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r281-runtime-appid`，分支 `feat/r281-runtime-appid`）。
