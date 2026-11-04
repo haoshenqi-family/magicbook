@@ -109,6 +109,24 @@ button {
   color: var(--muted);
 }
 
+/* 临时账号提示条（R280 从已下掉的生词本页迁到「我」页，提到全局供跨页复用） */
+.shadow-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+  border-radius: 12rpx;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.shadow-link {
+  color: var(--primary);
+  flex: none;
+  margin-left: 16rpx;
+}
+
 /* 文字 */
 .muted {
   color: var(--muted);

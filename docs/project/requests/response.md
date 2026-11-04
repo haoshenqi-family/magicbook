@@ -5,6 +5,8 @@
 
 **归档索引**
 
+- `response-archive/response-R270.md`：R270 阅读器 bookUrl 大小写致 /show 404——2026-11-05 R280 写入触发轮转搬移，原样搬移不改写
+
 - `response-archive/response-R269.md`：R269 顶栏信息架构收敛——2026-11-04 R281 写入触发轮转搬移，原样搬移不改写
 
 - `response-archive/response-R267.md`：R267 重写 GitHub README——2026-11-03 R278 写入触发轮转搬移，原样搬移不改写
@@ -109,19 +111,6 @@
 
 
 
-
-## R270 · 阅读器 bookUrl 大小写致 /show 404——首页继续阅读打开空白阅读器（2026-11-03）
-
-### R270（缺陷：截图/视频会话中生产实测发现，R229 同款「顺路修复」）
-
-- **结论先行**：`read.html` 的 `bookUrl` 单点加 `|lower`，一行修复 + 两条静态锁定测试。首页「继续阅读」卡片（R213-C 透传阅读进度里的大写格式 `EPUB`）从此不再打开永久空白的阅读器。**已上线待验收**。
-- **发现链**：2026-11-03 产品视频录制会话，puppeteer 打开 `/read/145/EPUB`（与首页继续阅读卡片同款链接）epub.js 永不渲染（0 个 iframe）。逐层定位：`/show/145/EPUB/file.epub` → 404（Flask 页），`/show/145/epub/…` → 200（Matilda 2.3MB）；匿名直连容器两种写法都 302（路由都在、非权限问题）；容器内文件 `Matilda - Roald Dahl.epub` 小写扩展名在盘。
-- **根因**：`serve_book`（web.py:2050）在大小写敏感文件系统上按 **URL 段原样**拼扩展名（`send_from_directory(..., data.name + "." + book_format)`）。Calibre 落盘扩展名恒小写；`/read/<id>/<book_format>` 的入口里，home.html:22 把进度记录的大写 `EPUB` 原样透传，read.html:186 再透传给 `url_for('web.serve_book')` → 找 `<name>.EPUB` → NotFound → epub.js 拿不到书文件 → 阅读器空白。detail.html 的「首章试读」（`|lower`，L179）与「继续阅读」（`or 'epub'`，L515）两条入口是对的——所以从详情页进阅读正常、从首页卡片进就空白，hsq 日常走详情页入口躲过了它，隐患存活至今。上游引入点是 2024-12-08 `01215aaa`（KEPUB 支持）把字面量 `'epub'` 换成了变量透传。
-- **修复**：`cps/templates/read.html` bookUrl 一处 `book_format=book_format|lower`——所有阅读入口共用此模板，单点收口；epub.js `restore:true` 的 IndexedDB 缓存键也随之统一为小写，跨入口命中同一缓存。未动 `serve_book`（保持与上游贴合，URL 侧收口最小）。
-- **测试**：新增 `tests/test_reader_bookurl_case_r270.py` 2 例（正向锁定 `|lower` 形态 + 防回退断言「不许再出现原样透传」）；全量 **1274 passed / 0 failed**（1273 基线 + 1 新文件）。
-- **上线与核验**：实现 `600fe72b` + merge `276f77ee` 推 `origin/develop`（32e32f58..276f77ee），fnOS 链 `00:06` END OK（`af1cd8f0f78ed85b`），容器 healthy；线上核验 `/read/145/EPUB`（大写入口）渲染出的 bookUrl 已是 `/show/145/epub/file.epub` 且 GET 200、epub iframe 正常渲染（本会话视频/截图全走通）。
-- **连带效应**：与 10-28 未结案的「整本朗读后正文空白」（wholebook-whitescreen）是否同源**未证实**（该案症状是「开始朗读后」空白，本案是「打开即空白」），留给原案复测时排除。
-- **状态与驻留**：worktree `../magicbook-r270-reader-bookurl-case`，分支 `fix/r270-reader-bookurl-case`，按闸门保留待验收。requests.md 条目 270 已回填。冲突记录：无（claim.sh 得 270）。
 
 ## R271 · 微信小程序：生词本 / 每日复习 / 词汇量测试 / 学习数据（2026-11-03）
 
@@ -346,3 +335,49 @@
 
 **台账总结**：`requests.md` 第 281 条本处回填；`response.md` 写入前 10 节，本次压回 10 节，
 最旧一节 R269（顶栏信息架构收敛）原样搬入 `response-archive/response-R269.md` 并登记索引。
+
+## R280 · 小程序接入 AI 伴读通用对话，生词本页下掉（2026-11-05）
+
+**对 R280 的回应**：用户原话「微信小程序接入AI伴读（对话）功能，加载通用对话prompt。生词本功能下掉。」
+三个口径先问清楚才动手：现网**没有**名为「通用对话」的 prompt（只有书内 `agent-chat-system`
+与网页 `agent-chat-system-web`），用户拍板新建；「下掉」是删页面换 tab；对话复用现网 SSE。
+
+- **为什么不能复用那两套 prompt**：书内模板要 `bookTitle` / `chapter` / `pageContext`，网页模板要
+  「当前页面正文摘录」——小程序里既没有书也没有网页，套上去模型只能凭空编一个书名和一段页面原文。
+  用户要的「通用对话」是第三种场景，所以新开 `agent-chat-system-general`（moon-well R243），
+  正文明确「不假设用户手边有文本、不提书名章节页码」，并剔除批注 / 段落译文这类依赖书页的工具。
+- **`scene` 是显式声明，不是靠 `bookId` 猜**：网页 Buddy 与 magiclens 也传 `bookId=null`，
+  若把 null 当通用，会把网页场景一起改坏。故 `scene=general` 优先于老判定，空值 / 未知值原样回落，
+  老客户端零改动。
+- **小程序没有 fetch/EventSource**：走 `wx.request` 的 `enableChunked + onChunkReceived`。
+  这里最容易翻车的是 UTF-8——分片按 TCP 边界切，一个汉字 3 字节、emoji 4 字节完全可能被切开，
+  直接转会满屏乱码。所以自己写 `decodeUtf8(bytes, carry)`，凑不齐的字节留到下一块；
+  再用 `\n\n` 分帧解析 `event:` / `data:`。静态锁里用 Node 故意切断汉字字节做实测，
+  不只是 grep 代码里有没有函数名。
+- **401 只在流开始前重试一次**：流一旦开始就回滚不了已发的 `delta`，重放会重复出字、重复计费。
+  其余失败保留 `wx.request` 原始 `errMsg`（白名单 / 超时 / SSL 分开说），不抹成「请检查网络」。
+- **删页面不能顺手删掉功能**：生词本页没了，挂在它上面的「微信临时账号」提示条也就没了——
+  而这条提示是唯一告诉用户「换手机就找不回来」的地方。故迁到「我」页，`.shadow-tip` 样式迁到
+  `app.wxss`；登录/账号/测试页文案统一改「网页端生词本」，避免指向一个不存在的入口。
+- **Nacos 发布口径（上一轮卡住的点，已查清）**：公网 `nacos.haoshenqi.top` 是 v3 **console** 侧，
+  `/v3/console/ai/prompt` 的 OPTIONS 返回 `allow=DELETE,OPTIONS`，POST 报
+  `Request method 'POST' is not supported`；`publish` / `force-publish` 接 POST，`version` / `list` 只读
+  ——**console 根本没有 create 写入口**。create 只存在于内网 8848 的 admin API
+  （`/nacos/v3/admin/ai/prompt`，与仓内 `NacosPromptAdminClient` 同源）。所以不再从公网强写，
+  按设计交给后端部署期的 `NacosPromptBootstrap` 自动 `create + publish`，上线后回读 online 版本与正文。
+- **验证**：小程序 R271–R281 静态锁 **46 passed**；`node --check` / JSON 解析通过。
+  后端 R243 定向 + 上下文测试 **8 passed / BUILD SUCCESS**。
+  全量 `pytest tests/` 在本机被 SIGKILL（Flask 集成用例占资源），按开发态闸门只跑受影响子集，
+  未冒充「全量通过」。**真机 `enableChunked` 表现未验**（本机无微信开发者工具）。
+- **部署顺序是硬的**：先 moon-well R243，再发小程序体验版。老后端不认 `scene` 会把通用对话
+  落到网页伴读 prompt，用户会看到「当前页面正文摘录」这种小程序里不存在的东西。
+- **状态**：**开发完成待验收**（worktree `../magicbook-r280-ai-chat`，分支 `feat/r280-ai-chat`，
+  已 merge 本地 develop，**未 push、未部署**；跨仓 moon-well R243 同状态）。
+- **冲突记录**：开工后 `origin/develop` 前进了 R281（同改 `utils/api.js`），已 `git merge origin/develop`
+  自动合并，两处函数（`runtimeAppId` 与 `chatStream`）共存、静态锁 46 例复跑通过，未撞号。
+  `requests.md` 第 280 条占号标题原误写「R279」（R279 已被投稿书籍需求占用），本次按实际编号更正文字，
+  编号本身不动。
+
+**台账总结**：`requests.md` 第 280 条本处回填（含三口径、契约、部署顺序与验证结果）；
+`response.md` 写入前 10 节，本次压回 10 节，最旧一节 R270（阅读器 bookUrl 大小写致 /show 404）
+原样搬入 `response-archive/response-R270.md` 并在顶部登记索引。
