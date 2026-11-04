@@ -17,7 +17,7 @@ from cps.web import web
 from cps import limiter
 from .. import logger
 from ..cw_login import current_user
-from ..library_submission import service, storage
+from ..library_submission import service
 from ..library_submission.service import SubmissionError
 from ..render_template import render_title_template
 from ..usermanagement import user_login_required
