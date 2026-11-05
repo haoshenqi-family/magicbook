@@ -394,4 +394,16 @@
      - 验证：`tests/test_r281_runtime_appid.py` 3 例 + R277 的 4 例，合计 7 passed。
      - 状态：**开发完成待验收**（worktree `../magicbook-r281-runtime-appid`，分支 `feat/r281-runtime-appid`）。
 
-282. **请求失败诊断补全：打印实际请求的完整 URL**（占号 2026-11-05，待回填）
+282. **请求失败诊断补全：打印实际请求的完整 URL**（2026-11-05）
+     - 现场：白名单（后台 + 开发者工具「项目配置 → 域名信息」+ 工具本地缓存三处）都显示
+       `https://moon-well.haoshenqi.top` 已配、运行时 AppID 也是正式号，请求仍报
+       `url not in domain list`；且开发调试阶段就复现，不是体验版缓存。
+     - 根因（诊断侧）：报错文案只打印 `CONFIG.baseUrl`，**它永远显示那个「本该正确」的域名**。
+       路径拼接错误、baseUrl 含隐藏字符、请求发往别处时，提示照样看起来完全正常，
+       把排查引向「一遍遍确认后台」。R282 补齐：日志与文案都带实际请求 URL + errMsg 原文。
+     - 交付：`rawRequest` 先算 `const url` 再复用；白名单文案改为「为这个 AppID 添加 <host>｜
+       实际请求 <完整URL>｜微信原文 <errMsg>」；新增 `hostOf()`（去协议/路径/查询串、保留端口）；
+       SSE 的 `chatStream` 同步带 `chatUrl`。
+     - 验证：`tests/test_r282_requrl.py` 6 例 + R277/R281 既有锁，合计 **13 passed**；
+       `hostOf` 经 Node 实测（含 null/空串/带端口）。**未真机**。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r282-requrl`，分支 `feat/r282-requrl`）。

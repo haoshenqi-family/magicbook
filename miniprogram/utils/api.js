@@ -47,9 +47,15 @@ function clearSession() {
 }
 
 function rawRequest(options) {
+  // Why 先把完整 URL 算出来：报错必须能说出「到底请求了哪个地址」。
+  // 只打印 CONFIG.baseUrl 是不够的——域名对、路径拼错（少一个 `/`）时，
+  // 拼接结果会变成 `moon-well.haoshenqi.topauth/wx/login` 这种畸形主机名，
+  // 而提示仍然显示「添加 moon-well.haoshenqi.top」，看起来完全正确。
+  // R282 就是因为提示里没有真实 URL，才在白名单不存在的矛盾上绕了几轮。
+  const url = CONFIG.baseUrl + options.path;
   return new Promise((resolve, reject) => {
     wx.request({
-      url: CONFIG.baseUrl + options.path,
+      url,
       method: options.method || 'GET',
       data: options.data,
       header: options.header || {},
@@ -59,8 +65,8 @@ function rawRequest(options) {
         // 原始 errMsg 必须留痕：体验版最常见的失败是「域名不在白名单」，
         // 它只出现在这里。统一抹成「请检查网络」会把排查方向整体带偏——
         // 开发者工具关了域名校验就正常，真机/体验版却全挂，正是这个组合的典型症状。
-        console.error('[api] 请求失败', options.path, 'appid=' + runtimeAppId(), (err && err.errMsg) || '');
-        reject({ code: -1, message: describeNetworkError(err) });
+        console.error('[api] 请求失败', url, 'appid=' + runtimeAppId(), (err && err.errMsg) || '');
+        reject({ code: -1, message: describeNetworkError(err, url) });
       }
     });
   });
@@ -84,18 +90,33 @@ function runtimeAppId() {
 }
 
 /**
+ * 从 URL 里取主机名（去协议、去路径、去端口）。
+ *
+ * Why 单独抽出来：报错要告诉用户「去后台加哪个域名」，而白名单只认主机名。
+ * 直接打印整条 URL 会让人把路径也粘进输入框（后台会拒），打印 CONFIG.baseUrl
+ * 又会在拼接出错时给出错误结论。统一走这里，两种失误都避免。
+ */
+function hostOf(url) {
+  if (!url) return '';
+  return String(url).replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, '').split('/')[0].split('?')[0];
+}
+
+/**
  * 把 wx.request 的 fail 翻成「下一步该做什么」。
  *
  * 三类分开：白名单（要改小程序后台）、超时（重试）、链路/证书（查服务端与网络）。
  * 认不出来的原样带出 errMsg——保底可见，胜过一句什么都没说的「请检查网络」。
  */
-function describeNetworkError(err) {
+function describeNetworkError(err, url) {
   const raw = (err && err.errMsg) || '';
   if (/url not in domain list|not in domain list/i.test(raw)) {
     const appid = runtimeAppId();
+    // 被拦的域名从「真实请求的 URL」里取，而不是从 CONFIG.baseUrl 取：
+    // 两者不一致时（路径拼接错误、baseUrl 带隐藏字符），要暴露的是前者。
+    const target = hostOf(url) || CONFIG.baseUrl.replace('https://', '');
     return '请求域名未配置白名单（当前 AppID ' + (appid || '未知') + '）：请在小程序后台'
-      + '「开发管理 → 开发设置 → 服务器域名」为这个 AppID 添加 '
-      + CONFIG.baseUrl.replace('https://', '');
+      + '「开发管理 → 开发设置 → 服务器域名」为这个 AppID 添加 ' + target
+      + '｜实际请求 ' + (url || '未知') + '｜微信原文 ' + raw;
   }
   if (/timeout/i.test(raw)) {
     return '请求超时：网络较慢或服务未响应，请重试';
@@ -330,13 +351,14 @@ function chatStream(payload, handlers) {
   }
 
   function start() {
+    const chatUrl = CONFIG.baseUrl + '/ai/agent/chat';
     const header = {
       'content-type': 'application/json',
       Accept: 'text/event-stream'
     };
     if (getAccess()) header.authorization = 'Bearer ' + getAccess();
     task = wx.request({
-      url: CONFIG.baseUrl + '/ai/agent/chat',
+      url: chatUrl,
       method: 'POST',
       data: payload,
       header,
@@ -368,8 +390,8 @@ function chatStream(payload, handlers) {
         finish();
       },
       fail: (err) => {
-        console.error('[api] chat 请求失败', (err && err.errMsg) || '');
-        finish(describeNetworkError(err));
+        console.error('[api] chat 请求失败', chatUrl, (err && err.errMsg) || '');
+        finish(describeNetworkError(err, chatUrl));
       }
     });
     if (task && typeof task.onChunkReceived === 'function') {
@@ -401,6 +423,7 @@ module.exports = {
   request,
   get,
   post,
+  hostOf,
   refreshToken,
   toastError,
   chatStream,
