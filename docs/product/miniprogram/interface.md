@@ -11,7 +11,8 @@
 账号等普通请求走统一 `Result{success, result, message}` 解包（见 `miniprogram/utils/api.js`）；
 **AI 伴读是唯一例外**——它是 `text/event-stream` 流式响应，必须单独一条通道。
 
-R280 起 tab 为「复习 / 伴读 / 词汇量 / 我」。`pages/notebook` 已删除，
+R280 起 tab 为「复习 / 伴读 / 词汇量 / 我」，**R283 起第二项文案改为「AI」**
+（功能名与页面标题仍「AI 伴读」，接口契约不变）。`pages/notebook` 已删除，
 词汇量测试报告里的「收进生词本」指的是**网页端**生词本，数据面未改。
 
 ## 2. AI 伴读对话：`POST /ai/agent/chat`（SSE）

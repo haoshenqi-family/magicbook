@@ -13,7 +13,8 @@ magicbook 的移动端入口：**AI 伴读 / 每日复习 / 词汇量测试 / �
 
 ## AI 伴读（通用对话）
 
-- 入口：tabBar「伴读」。直连 moon-well `POST /ai/agent/chat`（SSE 流式），
+- 入口：tabBar「AI」（R283 起；页面标题与功能名仍叫「AI 伴读」）。
+  直连 moon-well `POST /ai/agent/chat`（SSE 流式），
   请求带 `scene: 'general'` 并置 `skipMemoryExtract: true`，**不传** `bookId` /
   `bookTitle` / `pageText` / `unfamiliarWords`。
 - 后端按 `scene=general` 加载 `agent-chat-system-general`（Nacos Prompt Registry，
