@@ -5,9 +5,11 @@
 
 **归档索引**
 
+- `response-archive/response-R271.md`：R271 微信小程序（生词本/复习/词汇量/学习数据）——2026-11-05 R279 merge develop 写入触发轮转搬移，原样搬移不改写
+
 - `response-archive/response-R270.md`：R270 阅读器 bookUrl 大小写致 /show 404——2026-11-05 R280 写入触发轮转搬移，原样搬移不改写
 
-- `response-archive/response-R269.md`：R269 顶栏信息架构收敛——2026-11-04 R281 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R269.md`：R269 顶栏信息架构收敛——2026-11-04 先由 R279 写入轮转（response-R269.md 含 R269 一节），2026-11-05 R281 再轮转时被 develop 侧同名文件覆盖合并——两侧均为 R269 原文，无内容差异
 
 - `response-archive/response-R267.md`：R267 重写 GitHub README——2026-11-03 R278 写入触发轮转搬移，原样搬移不改写
 
@@ -111,40 +113,6 @@
 
 
 
-
-## R271 · 微信小程序：生词本 / 每日复习 / 词汇量测试 / 学习数据（2026-11-03）
-
-**对 R271 的回应**：按「工具型、最低、全是标准列表交互」的口径交付一个原生微信小程序，只做四页，
-阅读留在网页。
-
-- **边界先钉死**：不渲染任何正文。阅读需要长注意力与大屏，塞进小程序只会得到更差的阅读器；
-  而这四件事正好是「掏手机刷几张卡」的动作。这条写进了 L1 与 LLD，避免后续被「顺手加个阅读吧」拉扯。
-- **为什么直连 moon-well**：网页端的 `/ajax/*` 代理依赖 Flask 会话（OIDC 登录态），小程序没有；
-  而数据本来就在 moon-well（生词本、复习调度、测试、四股台账），网页只是薄代理。直连少一跳、少一处
-  会话依赖，代价是要把 `moon-well.haoshenqi.top` 加进小程序后台的 request 合法域名。
-- **登录**：微信身份 + 一次账号绑定（AppID `wxd511f98508dc9cee`）。首次绑定要求输入网页端账号密码
-  ——不新建账号，否则生词本与复习进度会劈成两半。绑定后免密，token 落 storage、401 自动续期一次。
-- **四页**：生词本（筛选带角标 / 前缀搜索 / 上滑加载 / 点词改标记）、复习（四选一·拼写·回忆三态，
-  始终回传后端下发的原始题型，因为它是四技能统计的底座）、词汇量（作答→交卷确认→报告→推荐难度
-  一键应用）、数据（四股 / 复习摘要 / 近 7 天 / 最近词汇量）。
-- **工程位置**：`magicbook/miniprogram/`，原生小程序、无框架、无云开发；`baseUrl` 收在 `config.js`。
-  **不参与容器构建**（不被 Dockerfile COPY、`cps/` 不引用），push develop 不会把它带上线；上线走
-  微信开发者工具上传提审。
-- **验证如实记录**：全部 `.js` 过 `node --check`、全部 `.json` 过 `JSON.parse`、接口路径与 DTO 字段
-  逐项比对；**本机未装微信开发者工具，因此没有编译/模拟器/真机验证过**——首次打开需关注
-  tabBar（纯文字无图标）与 WXML 表达式（`counts[item.key]`、三元嵌套）这两处。
-- **依赖**：后端 moon-well R239（两步式微信登录 + `GET /vocabulary/notebook` 分页）——**已上线**
-  （容器 `sha=6c1433cd`，`/auth/wx/login` 与 `/vocabulary/notebook` 均已生效）。只差人工把 Nacos
-  `app.wx.secret` 从占位换成正式 AppSecret；发布即生效、无需重启（已双向实测）。
-- **状态**：**已上线待验收**（worktree `../magicbook-r271-miniprogram`，分支 `feat/r271-miniprogram`，
-  保留待验收）。`dc3c6ce3` 已推 `origin/develop`，fnOS 构建完成、容器 `sha=dc3c6ce3`、站点 302 正常。
-  小程序源码不进镜像，因此对网页服务只是文档级变化；小程序对外可见仍需微信开发者工具导入后
-  「上传 + 提审」。真机验收时重点看 tabBar（纯文字无图标）与 WXML 表达式两处。
-- **冲突记录**：无撞号（本体 R271，后端 R239）。未触碰 calibre 原生代码，与待验收的 R270/R269 等
-  条目无文件交集（本仓既有改动全在 `cps/`、`tests/`，本次只新增 `miniprogram/` 与文档）。
-
-**台账总结**：`requests.md` 新增并回填 R271；`response.md` 写入前窗口已 11 节，本次连同新增压回
-10 节，R256/R257 两节原样搬入 `response-archive/response-R256-R257.md` 并在顶部登记索引。
 
 ## R272 · 小程序账号体系：自动建号 + 账号页（绑定邮箱 / 认领老账号）（2026-11-03）
 
@@ -385,3 +353,16 @@
 **台账总结**：`requests.md` 第 280 条本处回填（含三口径、契约、部署顺序与验证结果）；
 `response.md` 写入前 10 节，本次压回 10 节，最旧一节 R270（阅读器 bookUrl 大小写致 /show 404）
 原样搬入 `response-archive/response-R270.md` 并在顶部登记索引。
+
+## R279 · 普通用户投稿书籍：暂存 MinIO，管理员审核后入库（2026-11-04）
+
+**对 R279 的回应**：需求是「给普通用户一个新的上传图书接口，仅上传到 MinIO，管理者审核后可以解析入库」，operator 已确认开工。
+
+- **没有复用 `/upload`**：那条链路的权限位 `ROLE_UPLOAD` 会直写共享书库，`upload_book_formats` 甚至能覆盖任意书目的格式文件。新链路把写权限收回管理员：用户提交只进 MinIO 私有暂存区并落一条 PENDING 台账，**入库只发生在管理员点「通过」之后**。
+- **暂存前缀 `book-submissions/<user_id>/<uuid>.<ext>`**：不进匿名只读 Statement（现在只放开 `buddy/`、`ted-audio/`）。预览走同源代理、不生成预签名直链，仓库侧有守卫测试锁死。
+- **审核页** `/admin/submissions`（管理 → 内容与 AI → 书籍投稿）：列表、预览、通过、驳回；通过后后台线程 `app.app_context()` + 线程作用域会话解析入库，状态写 `INGESTED` 并回填 `book_id`；驳回删对象留备注。失败置 `FAILED` 可重审。
+- **用户侧**：`/me` 新增「建议一本书」面板，提交前必须勾选「我有权分享此文件」；文件先入私有暂存区，审核通过前不出现在书库。支持 epub/pdf/txt/mobi/azw3/fb2/docx 等，单文件上限 100MB。
+- **未做**：站内信通知、对象定期清理/孤儿扫描、「只对投稿者可见」的 owner 模型——均记入 LLD §8，需另立需求。
+- **验证**：`tests/test_r279_book_submission.py` 20 例（提交/声明/白名单/音视频拒绝/匿名/去重/权限/通过入库/驳回/状态机/安全守卫/导航归属 + 3 条 E2E 回归守卫）全绿；**真实上传测试**用一本真实 EPUB 走完「提交→暂存→审核→入库」：`book_id=1`、暂存对象已删、`calibredb list` 可见「E2E 投稿测试书 / 测试作者 / EPUB」；这次 E2E 抓出并修掉三个单测桩覆盖不到的缺陷（后台线程需 `test_request_context`、入库前需 `create_functions`、add-or-get 不能用 `merge`）。生产 MinIO 凭据本机不可得，E2E 用本地 S3 兼容端点走真实 minio SDK，生产真机验证待合并部署后补。`test_account_admin_ia_r251` 契约演进 14→15 管理页；i18n 种子契约与相关导航/账号回归全绿。**全量 1315 passed / 21 failed（21 项在 origin/develop 基线同样失败，属本机无 calibre 书库的环境性失败，非本次回归）**。画面证据见 `docs/project/iterations/2026-11-book-submission/evidence/`。
+
+**台账总结**：`requests.md` 第 279 条本处回填；`response.md` 写入前窗口与 R280/R281 并行增长，merge develop 后按 10 节窗口把最旧一节 R271（微信小程序）原样搬入 `response-archive/response-R271.md` 并登记索引（R270 由 develop 侧 R280 写入轮转、R269 由 R279/R281 先后轮转，见归档索引）。

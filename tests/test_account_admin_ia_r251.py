@@ -60,7 +60,8 @@ def test_account_and_admin_l2_have_one_task_per_page():
 
     assert len(account_items) == 7
     # R269：管理域新增「任务列表」（/tasks 从顶栏平铺项收进来），13 → 14
-    assert len(admin_items) == 14
+    # R279：新增「书籍投稿」审核页（/admin/submissions），14 → 15
+    assert len(admin_items) == 15
     assert len({item["id"] for item in account_items}) == len(account_items)
     assert len({item["id"] for item in admin_items}) == len(admin_items)
 

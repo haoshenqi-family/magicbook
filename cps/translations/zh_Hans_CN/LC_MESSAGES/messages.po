@@ -5506,7 +5506,10 @@ msgid "Starter credits received"
 msgstr "新人赠送到账"
 
 #: cps/static/js/mail.js
-msgid "Welcome! {amount} starter credits have been added. Current balance: {balance}."
+#, python-brace-format
+msgid ""
+"Welcome! {amount} starter credits have been added. Current balance: "
+"{balance}."
 msgstr "欢迎！已为你赠送 {amount} 积分，当前余额：{balance}。"
 
 #: cps/static/js/mail.js
@@ -5514,10 +5517,12 @@ msgid "Recharge received"
 msgstr "充值到账"
 
 #: cps/static/js/mail.js
+#, python-brace-format
 msgid "{amount} credits from your recharge are in. Current balance: {balance}."
 msgstr "充值到账 {amount} 积分，当前余额：{balance}。"
 
 #: cps/static/js/mail.js
+#, python-brace-format
 msgid "Order {orderNo}."
 msgstr "订单号 {orderNo}。"
 
@@ -5526,6 +5531,7 @@ msgid "Credit card redeemed"
 msgstr "积分卡兑换到账"
 
 #: cps/static/js/mail.js
+#, python-brace-format
 msgid "{amount} credits were added from your card. Current balance: {balance}."
 msgstr "卡密兑换成功，已到账 {amount} 积分，当前余额：{balance}。"
 
@@ -5534,10 +5540,12 @@ msgid "Credit card ready"
 msgstr "积分卡已生成"
 
 #: cps/static/js/mail.js
+#, python-brace-format
 msgid "{credits} credits card is ready. Card: {maskedKey}."
 msgstr "{credits} 积分卡已生成，卡密：{maskedKey}。"
 
 #: cps/static/js/mail.js
+#, python-brace-format
 msgid "Valid until {date}."
 msgstr "有效期至 {date}。"
 
@@ -5550,6 +5558,7 @@ msgid "Credits running low"
 msgstr "积分余额不足"
 
 #: cps/static/js/mail.js
+#, python-brace-format
 msgid "Only {balance} credits left. Top up to keep using AI features."
 msgstr "当前仅剩 {balance} 积分，充值后可继续使用 AI 功能。"
 
@@ -5558,7 +5567,10 @@ msgid "Credits used up"
 msgstr "积分已用完"
 
 #: cps/static/js/mail.js
-msgid "Your credits are used up (balance {balance}). Top up to keep using AI features."
+#, python-brace-format
+msgid ""
+"Your credits are used up (balance {balance}). Top up to keep using AI "
+"features."
 msgstr "积分已用完（当前余额 {balance}），充值后可继续使用 AI 功能。"
 
 #: cps/templates/i18n_seed.html:462
@@ -7834,6 +7846,101 @@ msgstr "批次已停止：剩余批次不再入队。"
 #: cps/templates/partials/_book_card.html:28
 msgid "Audio"
 msgstr "音频"
+
+msgid "Book Submissions"
+msgstr "书籍投稿"
+
+msgid "Filename"
+msgstr "文件名"
+
+msgid "Size"
+msgstr "大小"
+
+msgid "Reviewer note"
+msgstr "审核备注"
+
+msgid "Suggest a book"
+msgstr "建议一本书"
+
+msgid "Choose file"
+msgstr "选择文件"
+
+msgid "Approved"
+msgstr "已通过"
+
+msgid "Rejected"
+msgstr "已驳回"
+
+msgid "In library"
+msgstr "已入库"
+
+msgid "Pending review"
+msgstr "待审核"
+
+msgid "Ingest failed"
+msgstr "入库失败"
+
+msgid "Reject"
+msgstr "驳回"
+
+msgid "Open book"
+msgstr "打开书籍"
+
+msgid "No submissions yet"
+msgstr "暂无投稿"
+
+msgid "Submission"
+msgstr "投稿"
+
+msgid "Approved; ingest started"
+msgstr "已通过，正在入库"
+
+msgid "Review action failed"
+msgstr "审核操作失败"
+
+msgid "Failed to load submissions"
+msgstr "加载投稿列表失败"
+
+msgid "Rejection note (optional)"
+msgstr "驳回备注（可选）"
+
+msgid "Choose a file first"
+msgstr "请先选择文件"
+
+msgid "I confirm I have the right to share this file."
+msgstr "我确认有权分享此文件。"
+
+msgid "You must confirm you have the right to share this file."
+msgstr "请先确认你有权分享此文件。"
+
+msgid ""
+"Upload a book file for the admins to review. It stays private and does "
+"not appear in the library until approved."
+msgstr "上传书籍文件供管理员审核；审核通过前不会出现在书库中。"
+
+msgid ""
+"Allowed: epub, pdf, txt, mobi, azw3, fb2, docx and similar book formats. "
+"Max 100 MB."
+msgstr "支持 epub、pdf、txt、mobi、azw3、fb2、docx 等书籍格式，单文件最大 100 MB。"
+
+msgid ""
+"User uploads land in a private staging area. Review before anything "
+"reaches the shared library."
+msgstr "用户上传先进入私有暂存区，审核通过后才会进入共享书库。"
+
+msgid ""
+"Approving publishes the book to the library — the submitter declared they"
+" have the right to share it."
+msgstr "通过即代表向书库发布该内容——投稿人已声明有权分享。"
+
+msgid "Submission storage is temporarily unavailable."
+msgstr "投稿存储暂时不可用。"
+
+msgid "Approve & ingest"
+msgstr "通过并入库"
+
+msgid "Submitted; an admin will review it"
+msgstr "已提交，等待管理员审核"
 
 #~ msgid "Admin page"
 #~ msgstr "管理页"

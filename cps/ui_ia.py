@@ -26,6 +26,7 @@ ACCOUNT_PATH_PREFIXES = (
 )
 ADMIN_PATH_PREFIXES = (
     '/tasks', '/translate-all', '/word-detail-batch', '/llm-tasks',
+    '/admin/submissions',
 )
 
 # One L2 page carries one task.  These definitions are product-owned navigation
@@ -67,6 +68,9 @@ ADMIN_L2_GROUPS = (
          'endpoint': 'web.word_detail_batch_page', 'matches': ('/word-detail-batch',)},
         {'id': 'admin-llm', 'label': 'LLM 任务中心',
          'endpoint': 'web.llm_task_runner_page', 'matches': ('/llm-tasks',)},
+        # R279：用户投稿审核——暂存区在 MinIO，通过后才解析入库。
+        {'id': 'admin-submissions', 'label': '书籍投稿',
+         'endpoint': 'web.admin_submissions_page', 'matches': ('/admin/submissions',)},
     )),
     ('资产与运营', (
         {'id': 'admin-credits', 'label': '积分治理',

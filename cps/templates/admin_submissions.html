@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+{# R279 书籍投稿审核：列表 + 预览（同源代理）+ 通过/驳回。
+   数据面全在 /ajax/admin/submissions*，本页只承载交互。 #}
+
+{% block body %}
+<div class="discover" id="admin-submissions">
+  <h1>{{_('Book Submissions')}}</h1>
+  <p class="admin-submissions-help">
+    {{_('User uploads land in a private staging area. Review before anything reaches the shared library.')}}
+    {{_('Approving publishes the book to the library — the submitter declared they have the right to share it.')}}
+  </p>
+
+  <input type="hidden" id="lh-csrf" value="{{ csrf_token() }}">
+  <div id="submissions-alert" class="alert" style="display:none" role="alert"></div>
+
+  <table class="table table-striped" id="submissions-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>{{_('Filename')}}</th>
+        <th>{{_('Size')}}</th>
+        <th>{{_('Status')}}</th>
+        <th>{{_('Reviewer note')}}</th>
+        <th>{{_('Actions')}}</th>
+      </tr>
+    </thead>
+    <tbody id="submissions-body">
+      <tr><td colspan="6">{{_('Loading...')}}</td></tr>
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/admin_submissions.js') }}"></script>
+{% endblock %}
