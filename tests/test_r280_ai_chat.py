@@ -1,7 +1,8 @@
 """R280 小程序 AI 伴读（通用对话）+ 生词本下掉的静态锁。
 
 钉住四件事：
-1. tabBar 与页面清单换成「伴读」，pages/notebook 整目录消失；
+1. tabBar 与页面清单换成 AI 对话页（R280 tab 文案「伴读」，R283 改为「AI」），
+   pages/notebook 整目录消失；
 2. 对话请求必须带 scene='general' 且不带任何书籍/网页上下文字段
    （否则后端会回落到网页助手 prompt，用户看到「正在浏览网页」）；
 3. SSE 流式通道的关键件（enableChunked / onChunkReceived / UTF-8 分块解码 /
@@ -29,7 +30,8 @@ def test_tabbar_swapped_to_chat_and_notebook_page_removed():
     assert not os.path.exists(os.path.join(ROOT, "pages", "notebook")), "生词本页目录必须删除"
 
     tabs = app["tabBar"]["list"]
-    assert [item["text"] for item in tabs] == ["复习", "伴读", "词汇量", "我"]
+    # R283 修改意见：tabBar 文案「伴读」→「AI」，其余三项不动
+    assert [item["text"] for item in tabs] == ["复习", "AI", "词汇量", "我"]
     assert tabs[1]["pagePath"] == "pages/chat/chat"
 
 

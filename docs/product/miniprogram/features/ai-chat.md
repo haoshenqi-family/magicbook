@@ -46,6 +46,7 @@
 ## 4. 与生词本下掉有关的迁移
 
 - `pages/notebook/*` 已删除，`app.json` 的页面清单与 tabBar 第二项换成 `pages/chat/chat`。
+  R283 起该 tab 的 `text` 由「伴读」改为「AI」——只改标签，页面路径、标题与功能名不动。
 - 原挂在生词本页的「微信临时账号」提示条迁到「我」页（`pages/stats/stats.wxml`），
   `.shadow-tip` / `.shadow-link` 样式从 `notebook.wxss` 迁到 `app.wxss`——页面删了，
   提示不能跟着一起消失。
