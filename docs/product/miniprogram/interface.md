@@ -81,6 +81,10 @@ R280 起 tab 为「复习 / 伴读 / 词汇量 / 我」。`pages/notebook` 已�
 
 ## 4. 部署顺序（强约束）
 
+> 2026-11-05 回填：后端 moon-well R243 已上线（10:13:04 deploy SUCCESS，
+> `agent-chat-system-general@1.0.0` 在线且正文校验通过），顺序约束的前半段已完成；
+> 小程序体验版待开发者工具 CLI 服务端口开启后上传。
+
 1. **先上线 moon-well R243**：`scene` 分支 + `agent-chat-system-general` 必须先在现网可用。
    新 prompt 现网缺失时由 `NacosPromptBootstrap` 在后端启动自检里 `create + publish`（已在线则跳过），
    上线后应回读 Nacos prompt 列表与版本确认在线。

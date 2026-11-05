@@ -365,14 +365,23 @@
   ——**console 根本没有 create 写入口**。create 只存在于内网 8848 的 admin API
   （`/nacos/v3/admin/ai/prompt`，与仓内 `NacosPromptAdminClient` 同源）。所以不再从公网强写，
   按设计交给后端部署期的 `NacosPromptBootstrap` 自动 `create + publish`，上线后回读 online 版本与正文。
+  **上线实况（2026-11-05 回填）**：push `develop` 自动触发 fnOS 发版链，10:13:04 后端部署 SUCCESS
+  （blue→green healthy）；bootstrap create 成功但 publish 被 Nacos 审批流水线拦下
+  `20002 Pipeline not approved: 1.0.0`，稍后手动 `publish` 返回 `code=0`，
+  回读 `latestVersion=1.0.0` / `onlineCnt=1`、在线正文 851 字符与代码模板逐字一致。
+  runtime 首次 `findTemplate` 拉在线模板并订阅推送，无需重启。
 - **验证**：小程序 R271–R281 静态锁 **46 passed**；`node --check` / JSON 解析通过。
   后端 R243 定向 + 上下文测试 **8 passed / BUILD SUCCESS**。
   全量 `pytest tests/` 在本机被 SIGKILL（Flask 集成用例占资源），按开发态闸门只跑受影响子集，
-  未冒充「全量通过」。**真机 `enableChunked` 表现未验**（本机无微信开发者工具）。
+  未冒充「全量通过」。**真机 `enableChunked` 表现未验**：本机已装微信开发者工具
+  （`/Applications/wechatwebdevtools.app`），但 CLI 调用被「IDE 服务端口已关闭」挡住，
+  需在 设置 → 安全设置 手动开启服务端口后才能 `cli upload` 上传体验版。
 - **部署顺序是硬的**：先 moon-well R243，再发小程序体验版。老后端不认 `scene` 会把通用对话
   落到网页伴读 prompt，用户会看到「当前页面正文摘录」这种小程序里不存在的东西。
-- **状态**：**开发完成待验收**（worktree `../magicbook-r280-ai-chat`，分支 `feat/r280-ai-chat`，
-  已 merge 并 push `origin/develop`，**未部署**——部署待验收后执行；跨仓 moon-well R243 同状态）。
+- **状态**：**后端已上线、小程序体验版待上传**（worktree `../magicbook-r280-ai-chat`，分支
+  `feat/r280-ai-chat`，已 merge 并 push `origin/develop`；后端 moon-well R243 已于 10:13 上线、
+  Nacos 新 prompt 在线。小程序上传卡在开发者工具 CLI 服务端口未开启，开启后即可发体验版；
+  真机验收通过后本条才置 Completed）。
 - **状态回写**：PingCode idea `MB-239`（`xB0tmxqa`，<https://haoshenqi.pingcode.com/ship/ideas/xB0tmxqa>）。
   本轮占号后漏建 idea，按 `ops/AGENTS.md`「状态必回写」于开发完成待验收阶段补建并置
   `In progress`；**验收通过后才置 `Completed`**，worktree 才清理。moon-well R243 是同源后端，

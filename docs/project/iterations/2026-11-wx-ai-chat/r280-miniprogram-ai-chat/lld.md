@@ -1,6 +1,7 @@
 # R280 小程序接入 AI 伴读（通用对话）· LLD
 
-状态：开发完成待验收（代码完成、定向测试全绿，已 merge 并 push `origin/develop`；未部署，待真机验收；上线后回填「已上线」）
+状态：后端已上线、小程序体验版待上传（2026-11-05 10:13 moon-well R243 上线且 Nacos 新 prompt 已在线；
+小程序体验版卡在开发者工具 CLI 服务端口未开启，需人工开启后上传；真机 `enableChunked` 仍待验）
 
 > 本次怎么实现。需求基线见 [`../../../../product/miniprogram/requirements.md`](../../../../product/miniprogram/requirements.md)，
 > 静态契约见 [`../../../../product/miniprogram/interface.md`](../../../../product/miniprogram/interface.md)，
