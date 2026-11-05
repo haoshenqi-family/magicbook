@@ -308,18 +308,23 @@
   `20002 Pipeline not approved: 1.0.0`，稍后手动 `publish` 返回 `code=0`，
   回读 `latestVersion=1.0.0` / `onlineCnt=1`、在线正文 851 字符与代码模板逐字一致。
   runtime 首次 `findTemplate` 拉在线模板并订阅推送，无需重启。
-- **验证**：小程序 R271–R281 静态锁 **46 passed**；`node --check` / JSON 解析通过。
-  后端 R243 定向 + 上下文测试 **8 passed / BUILD SUCCESS**。
-  全量 `pytest tests/` 在本机被 SIGKILL（Flask 集成用例占资源），按开发态闸门只跑受影响子集，
-  未冒充「全量通过」。**真机 `enableChunked` 表现未验**：本机已装微信开发者工具
-  （`/Applications/wechatwebdevtools.app`），但 CLI 调用被「IDE 服务端口已关闭」挡住，
-  需在 设置 → 安全设置 手动开启服务端口后才能 `cli upload` 上传体验版。
+- **验证**：拉齐 R282 基线后小程序 R271–R282 静态锁 **52 passed**；`node --check` / JSON 解析通过。
+  后端 R243 定向 + 上下文测试 **8 passed / BUILD SUCCESS**。全量 `pytest tests/` 在本机被
+  SIGKILL，按开发态闸门只跑受影响子集，未冒充「全量通过」。
+  **体验版已上传（2026-11-05 11:35）**：用户先在开发者工具「设置 → 安全设置」开启服务端口
+  （端口 **13564**、CLI 访问令牌留空），`cli islogin` 返回 `{"login":true}`，随后
+  `cli upload --project <主检出>/miniprogram -v 1.0.0 --port 13564` 成功，
+  TOTAL **65.3 KB / 66,840 Byte**。两点留痕：① 上传源用主检出 `develop@6db0aba2`
+  （含 R280 + R282），worktree 当时落后 10 个提交、缺 R282 的请求 URL 诊断；
+  ② 带 `--info-output` 会触发 IDE `code 10 / 17 二维码输出路径无效或不存在`，
+  去掉该参数即成功。`cli upload` 产生「开发版本」，体验版仍需后台「版本管理」指定。
+  **真机 `enableChunked` 表现仍未验**，是唯一剩余验收待办。
 - **部署顺序是硬的**：先 moon-well R243，再发小程序体验版。老后端不认 `scene` 会把通用对话
   落到网页伴读 prompt，用户会看到「当前页面正文摘录」这种小程序里不存在的东西。
-- **状态**：**后端已上线、小程序体验版待上传**（worktree `../magicbook-r280-ai-chat`，分支
-  `feat/r280-ai-chat`，已 merge 并 push `origin/develop`；后端 moon-well R243 已于 10:13 上线、
-  Nacos 新 prompt 在线。小程序上传卡在开发者工具 CLI 服务端口未开启，开启后即可发体验版；
-  真机验收通过后本条才置 Completed）。
+- **状态**：**已上线待验收**（worktree `../magicbook-r280-ai-chat`，分支 `feat/r280-ai-chat`，
+  已 merge 并 push `origin/develop`；后端 moon-well R243 于 10:13 上线、Nacos 新 prompt 在线；
+  小程序体验版 `1.0.0` 于 11:35 上传成功，待后台设为体验版并真机验收。
+  真机验收通过后本条才置 Completed、worktree 才清理）。
 - **状态回写**：PingCode idea `MB-239`（`xB0tmxqa`，<https://haoshenqi.pingcode.com/ship/ideas/xB0tmxqa>）。
   本轮占号后漏建 idea，按 `ops/AGENTS.md`「状态必回写」于开发完成待验收阶段补建并置
   `In progress`；**验收通过后才置 `Completed`**，worktree 才清理。moon-well R243 是同源后端，

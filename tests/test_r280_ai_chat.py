@@ -50,8 +50,11 @@ def test_sse_transport_is_complete():
     assert "function decodeUtf8" in api and "carry" in api
     assert "parseSseBlock" in api
     assert "CONFIG.chatTimeout" in api
-    # 连接期 401 单次刷新，且失败仍透传 errMsg（R277 的教训不能丢）
-    assert "describeNetworkError(err)" in api
+    # 连接期 401 单次刷新，且失败仍透传 errMsg（R277 的教训不能丢）。
+    # R282 把 describeNetworkError 扩成 (err, url)，让报错带出真实请求地址；
+    # 这里锁 chatStream 的 fail 分支仍调用它、并传入 SSE 自己的 chatUrl。
+    assert "function describeNetworkError" in api
+    assert "describeNetworkError(err, chatUrl)" in api
     assert "retried" in api
     config = _read("config.js")
     assert "chatTimeout: 180000" in config, "对话不能沿用 15s 普通请求超时"
