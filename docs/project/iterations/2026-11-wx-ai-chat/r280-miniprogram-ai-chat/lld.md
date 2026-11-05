@@ -1,6 +1,6 @@
 # R280 小程序接入 AI 伴读（通用对话）· LLD
 
-状态：开发中（代码完成、定向测试全绿、本地 merge 待 push 待真机验收；上线后回填「已上线」）
+状态：开发完成待验收（代码完成、定向测试全绿，已 merge 并 push `origin/develop`；未部署，待真机验收；上线后回填「已上线」）
 
 > 本次怎么实现。需求基线见 [`../../../../product/miniprogram/requirements.md`](../../../../product/miniprogram/requirements.md)，
 > 静态契约见 [`../../../../product/miniprogram/interface.md`](../../../../product/miniprogram/interface.md)，

@@ -372,7 +372,11 @@
 - **部署顺序是硬的**：先 moon-well R243，再发小程序体验版。老后端不认 `scene` 会把通用对话
   落到网页伴读 prompt，用户会看到「当前页面正文摘录」这种小程序里不存在的东西。
 - **状态**：**开发完成待验收**（worktree `../magicbook-r280-ai-chat`，分支 `feat/r280-ai-chat`，
-  已 merge 本地 develop，**未 push、未部署**；跨仓 moon-well R243 同状态）。
+  已 merge 并 push `origin/develop`，**未部署**——部署待验收后执行；跨仓 moon-well R243 同状态）。
+- **状态回写**：PingCode idea `MB-239`（`xB0tmxqa`，<https://haoshenqi.pingcode.com/ship/ideas/xB0tmxqa>）。
+  本轮占号后漏建 idea，按 `ops/AGENTS.md`「状态必回写」于开发完成待验收阶段补建并置
+  `In progress`；**验收通过后才置 `Completed`**，worktree 才清理。moon-well R243 是同源后端，
+  按「后端跟随 magicbook、不单独建载体」共用这一条，不另建。
 - **冲突记录**：开工后 `origin/develop` 前进了 R281（同改 `utils/api.js`），已 `git merge origin/develop`
   自动合并，两处函数（`runtimeAppId` 与 `chatStream`）共存、静态锁 46 例复跑通过，未撞号。
   `requests.md` 第 280 条占号标题原误写「R279」（R279 已被投稿书籍需求占用），本次按实际编号更正文字，
