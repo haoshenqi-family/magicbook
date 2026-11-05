@@ -56,9 +56,10 @@
 
 ## 5. 已知边界 / 待真机验收
 
-- **未真机验证 `enableChunked` / `onChunkReceived`**：本机无微信开发者工具，
-  当前证据只有静态锁、`node --check` 与 Node 侧的解码/分帧实测。体验版需实测首字到达、
-  中文不乱码、切后台再回来的流是否续得上。
+- **未真机验证 `enableChunked` / `onChunkReceived`**：体验版 `1.0.0` 已于 2026-11-05 11:35
+  上传（本机装有微信开发者工具，CLI 服务端口 13564），但当前证据仍只有静态锁、
+  `node --check` 与 Node 侧的解码/分帧实测。真机需实测首字到达、中文不乱码、
+  切后台再回来的流是否续得上。
 - **合法域名按 AppID 存**：新号要在小程序后台重新加 `https://moon-well.haoshenqi.top`，
   并且 `request 合法域名` 与 `socket` 无关；开发者工具勾「不校验合法域名」只影响开发版。
 - **180s 上限**：`chatTimeout` 是给长回答留的窗口，超时后 `wx.request` 走 `fail`，

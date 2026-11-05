@@ -1,7 +1,7 @@
 # R280 小程序接入 AI 伴读（通用对话）· LLD
 
-状态：后端已上线、小程序体验版待上传（2026-11-05 10:13 moon-well R243 上线且 Nacos 新 prompt 已在线；
-小程序体验版卡在开发者工具 CLI 服务端口未开启，需人工开启后上传；真机 `enableChunked` 仍待验）
+状态：已上线待验收（2026-11-05 10:13 moon-well R243 上线、Nacos 新 prompt 在线；
+11:35 小程序体验版 `1.0.0` 上传成功，包 65.3 KB / 66,840 Byte；真机 `enableChunked` 待验）
 
 > 本次怎么实现。需求基线见 [`../../../../product/miniprogram/requirements.md`](../../../../product/miniprogram/requirements.md)，
 > 静态契约见 [`../../../../product/miniprogram/interface.md`](../../../../product/miniprogram/interface.md)，
@@ -89,19 +89,34 @@ moon-well POST /ai/agent/chat（SSE，AgentChatController）
      `publish` / `force-publish` 接 POST，**没有 create 写入口**；
      create 只存在于内网 8848 的 **admin** API（`/nacos/v3/admin/ai/prompt`，
      与 `NacosPromptAdminClient` 同源）。故不绕过 console 强写，交给部署期 bootstrap。
-2. **再上传小程序体验版**：旧后端不认 `scene` 会按 `bookId == null` 落到网页伴读 prompt，
-   出现「当前页面正文摘录」这类假上下文。
+2. **再上传小程序体验版**（2026-11-05 11:35 已完成）：旧后端不认 `scene` 会按
+   `bookId == null` 落到网页伴读 prompt，出现「当前页面正文摘录」这类假上下文。
+   实际命令（用户先在开发工具「设置 → 安全设置」开启服务端口，端口 **13564**、CLI 访问令牌留空）：
+   ```
+   cli upload --project /Users/haoshenqi/codelib/haoshenqi-family/magicbook/miniprogram \
+     -v 1.0.0 -d "R280 小程序接入 AI 伴读通用对话…develop 6db0aba2" --port 13564
+   ```
+   **上传源必须是主检出 `develop@6db0aba2`**（含 R280 + R282），不能用 worktree：
+   `feat/r280-ai-chat` 当时落后 develop 10 个提交、`utils/api.js` 缺 R282 的请求 URL 诊断。
+   **IDE 坑**：带 `--info-output` 会报 `code 10 / 17 二维码输出路径无效或不存在 %s`；
+   去掉该参数即成功（✔ upload，TOTAL 65.3 KB / 66840 Byte）。CLI `upload` 只能产生
+   「开发版本」，体验版仍需在小程序后台「版本管理」把它选为体验版。
 3. 新 AppID 的 **request 合法域名**需含 `https://moon-well.haoshenqi.top`（R281 报错已带运行时 AppID）。
 
 ## 7. 验证记录（2026-11-05）
 
-- 小程序静态锁：R271–R281 共 **46 passed**；全量 `pytest tests/` 在本机被 SIGKILL（Flask 集成用例占资源），
-  按开发态闸门只跑本次新增 / 受影响用例。
+- 小程序静态锁：拉齐 R282 基线后 R271–R282 共 **52 passed**（`tests/test_r279_book_submission.py`
+  是另一条需求的后端集成用例，本机因 WorkBuddy pytest shim 的 tmp 目录 `FileExistsError` 报 11 个
+  error，与本次无关）；全量 `pytest tests/` 在本机被 SIGKILL，按开发态闸门只跑受影响子集。
 - `node --check`：`api.js` / `chat.js` / `config.js` 通过；`app.json` / `chat.json` / `project.config.json` JSON 解析通过。
 - 后端（moon-well R243）：`AgentChatSceneResolverTest` + `AgentChatGeneralSceneIntegrationTest`
   + `MagicbookApplicationTests` 共 **8 passed，BUILD SUCCESS**。
-- **未做**：微信开发者工具真机 / 体验版验证——本机没有该工具，
-  `enableChunked` 与 `onChunkReceived` 的实际表现列为验收待办。
+- **R282 基线同步**：并行会话把 `describeNetworkError` 扩成 `(err, url)` 以带出真实请求地址，
+  R280 静态锁原写死 `describeNetworkError(err)` 而报红；改为锁 `function describeNetworkError`
+  + `describeNetworkError(err, chatUrl)`，确认 SSE 的 fail 分支仍透传 `errMsg`，52 例复跑通过。
+- **体验版已上传（11:35）**：`1.0.0`，65.3 KB / 66,840 Byte；`cli islogin` 返回 `{"login":true}`、
+  `cli open --project` 成功、IDE 服务端口 13564。**未做**：真机验证 `enableChunked` /
+  `onChunkReceived`（首字到达、中文不乱码、切后台返回），列为唯一剩余验收待办。
 
 ## 8. 里程碑回填
 
@@ -109,5 +124,6 @@ moon-well POST /ai/agent/chat（SSE，AgentChatController）
 | --- | --- |
 | 设计 | 已完成（三口径经用户确认） |
 | 开发 | 已完成（两仓源码 + 静态锁 + 定向单测） |
-| 本地 merge / push | 本地 merge 完成，**未 push、未部署**（等用户 `ok push`） |
-| 上线 / 真机验收 | 待办 |
+| 本地 merge / push | 已完成（两仓 `origin/develop` 已 push） |
+| 上线 | 后端已上线（10:13）；小程序体验版 `1.0.0` 已上传（11:35） |
+| 真机验收 | 待办（`enableChunked` 流式表现，验收通过才置 Completed、才清 worktree） |
