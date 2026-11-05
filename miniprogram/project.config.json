@@ -1,5 +1,5 @@
 {
-  "description": "MagicBook 工具型小程序：生词本 / 每日复习 / 词汇量测试 / 学习数据",
+  "description": "MagicBook 工具型小程序：AI 伴读 / 每日复习 / 词汇量测试 / 学习数据",
   "packOptions": {
     "ignore": [
       {

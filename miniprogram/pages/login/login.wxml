@@ -1,7 +1,7 @@
 <view class="container">
   <view class="brand">
     <view class="brand-title">MagicBook 工具</view>
-    <view class="brand-sub">生词本 · 每日复习 · 词汇量测试 · 学习数据</view>
+    <view class="brand-sub">AI 伴读 · 每日复习 · 词汇量测试 · 学习数据</view>
   </view>
 
   <view wx:if="{{error}}" class="error-tip">{{error}}</view>
@@ -14,7 +14,7 @@
       </button>
       <view class="small muted tip">
         第一次使用会为你创建一个微信账号，直接用即可。之后在「账号」页绑定邮箱，
-        即可与网页端的生词本、复习进度合并成同一个账号。
+        即可与网页端的学习记录合并成同一个账号。
       </view>
       <view class="divider"></view>
       <button class="btn btn-ghost" disabled="{{loading}}" bindtap="onTapEmailLogin">

@@ -2,7 +2,7 @@
   "pages": [
     "pages/login/login",
     "pages/review/review",
-    "pages/notebook/notebook",
+    "pages/chat/chat",
     "pages/test/test",
     "pages/stats/stats",
     "pages/account/account"
@@ -25,8 +25,8 @@
         "text": "复习"
       },
       {
-        "pagePath": "pages/notebook/notebook",
-        "text": "生词本"
+        "pagePath": "pages/chat/chat",
+        "text": "伴读"
       },
       {
         "pagePath": "pages/test/test",

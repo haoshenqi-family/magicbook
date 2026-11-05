@@ -23,7 +23,8 @@ def _app():
 def test_review_is_the_first_tab():
     tabs = [item["pagePath"] for item in _app()["tabBar"]["list"]]
     assert tabs[0] == "pages/review/review", "首页必须是复习，不是生词本"
-    assert tabs[1] == "pages/notebook/notebook"
+    # R280 起第二 tab 由「生词本」换成「伴读」
+    assert tabs[1] == "pages/chat/chat"
 
 
 def test_tab_renamed_to_me():

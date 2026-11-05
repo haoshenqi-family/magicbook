@@ -73,12 +73,13 @@ def test_merge_replaces_local_token():
     assert "auth.persist(result)" in account_js, "归并成功必须落盘后端返回的新 token"
 
 
-def test_shadow_hint_visible_on_notebook():
-    notebook_wxml = _read("pages/notebook/notebook.wxml")
-    notebook_js = _read("pages/notebook/notebook.js")
-    assert "wechatShadow" in notebook_wxml, "临时账号必须有可见提示，否则用户不知道账号是临时的"
-    assert "onTapAccount" in notebook_js
-    assert "/pages/account/account" in notebook_js
+def test_shadow_hint_visible_on_profile():
+    """R280 生词本页下掉后，临时账号提示必须跟着迁到「我」页，不能一起消失。"""
+    stats_wxml = _read("pages/stats/stats.wxml")
+    stats_js = _read("pages/stats/stats.js")
+    assert "wechatShadow" in stats_wxml, "临时账号必须有可见提示，否则用户不知道账号是临时的"
+    assert "onTapAccount" in stats_js
+    assert "/pages/account/account" in stats_js
 
 
 def test_account_entry_on_stats_page():

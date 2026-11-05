@@ -64,7 +64,7 @@
 
       <view class="row-between">
         <view class="grow">
-          <view>把这次不认识的词收进生词本</view>
+          <view>把这次不认识的词收进网页端生词本</view>
           <view class="small muted">收进去后会进入你的复习队列，可以在小程序里直接复习。</view>
         </view>
         <switch checked="{{addUnknown}}" color="#2f6fed" bindchange="onSwitchChange" />
@@ -121,7 +121,7 @@
         </view>
       </view>
       <view wx:if="{{report.addedToNotebook}}" class="small muted mt8">
-        本次已把 {{report.addedToNotebook}} 个生词收进生词本。
+        本次已把 {{report.addedToNotebook}} 个生词收进网页端生词本。
       </view>
     </view>
 
