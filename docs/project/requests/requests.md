@@ -393,3 +393,5 @@
        「当前 AppID xxx · 为这个 AppID 添加域名」；`console.error` 同步带 appid，体验版 vConsole 可核对。
      - 验证：`tests/test_r281_runtime_appid.py` 3 例 + R277 的 4 例，合计 7 passed。
      - 状态：**开发完成待验收**（worktree `../magicbook-r281-runtime-appid`，分支 `feat/r281-runtime-appid`）。
+
+282. **请求失败诊断补全：打印实际请求的完整 URL**（占号 2026-11-05，待回填）
