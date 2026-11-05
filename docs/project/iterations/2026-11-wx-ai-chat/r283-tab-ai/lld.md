@@ -1,6 +1,7 @@
 # R283 修改意见（挂 R280）：tabBar「伴读」改为「AI」· LLD
 
-状态：开发中（代码与守卫完成、静态锁 54 passed、已 merge/push `origin/develop`；体验版 `1.0.1` 待重传，上传并真机验收后回填「已上线」）
+状态：已上线待验收（代码与守卫完成、静态锁 54 passed、已 merge/push `origin/develop`；
+体验版 `1.0.1` 已上传，65.3 KB / 66,836 Byte；待后台设为体验版并真机验收）
 
 > 本次怎么实现。需求基线见 [`../../../../product/miniprogram/requirements.md`](../../../../product/miniprogram/requirements.md)，
 > 静态契约见 [`../../../../product/miniprogram/interface.md`](../../../../product/miniprogram/interface.md)，
@@ -40,11 +41,15 @@
 - `node -e JSON.parse(app.json)` 通过，回读 tabBar 四项实值：
   `复习 / AI / 词汇量 / 我`，第二项 `pagePath=pages/chat/chat`。
 - 源码扫描确认 3 处用户可见「AI 伴读」按口径保留，未越界。
+- **上传后包体对照**：`1.0.1` = 66,836 Byte，R280 的 `1.0.0` = 66,840 Byte，
+  正好少 **4 字节**（「伴读」6B → 「AI」2B），反证包内只有这一处文案变化。
 
 ## 5. 部署与状态
 
-- 只改小程序包：上传源为主检出最新 `develop`，沿用开发者工具 CLI 服务端口 13564、
-  `cli upload -v 1.0.1`，**不带 `--info-output`**（R280 实测触发 IDE `code 17`）。
+- **上传实况（已完成）**：上传源为主检出 `develop@a3a205e5`，
+  `cli upload --project <主检出>/miniprogram -v 1.0.1 --port 13564`
+  → ✔ upload，TOTAL **65.3 KB / 66,836 Byte**；`cli islogin` 仍 `{"login":true}`。
+  **不带 `--info-output`**（R280 实测触发 IDE `code 17` 二维码路径报错）。
   上传产生「开发版本」，仍需后台「版本管理」选为体验版。
 - 状态回写：修改意见挂 PingCode `MB-239`（`xB0tmxqa`，R280 载体），不新建 idea；
   仍 `In progress`，真机验收通过后才 `Completed` 并清理驻留 worktree。

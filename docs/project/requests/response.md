@@ -374,15 +374,17 @@
   R280 静态锁里写死的「伴读」同步改为「AI」，R275 注释补 R283 标注。
 - **验证**：小程序静态锁 **54 passed**（R271–R283，排除 R279 后端集成用例）；
   `app.json` JSON 解析通过，四项 tab 实值回读正确。
-- **状态**：**开发中 / 体验版待重传**（复用验收期驻留 worktree
-  `../magicbook-r280-ai-chat`，分支 `feat/r280-ai-chat`，已 merge 并 push `origin/develop`；
-  体验版 `1.0.1` 待上传，上传后回填包大小与状态）。
+- **状态**：**已上线待验收**（复用验收期驻留 worktree `../magicbook-r280-ai-chat`，
+  分支 `feat/r280-ai-chat`，已 merge 并 push `origin/develop`；体验版 `1.0.1` 已上传，
+  65.3 KB / 66,836 Byte；待后台设为体验版并真机验收，通过后才置 Completed）。
 - **状态回写**：修改意见按治理「必须挂到已有需求 / 任务、不做无主修复」，**不新建
   PingCode idea**，挂 `MB-239`（`xB0tmxqa`，R280 载体，仍 `In progress`，
   待真机验收后才置 `Completed`）。本轮虽占号 R283，但 worktree 按
   「一次会话一个 worktree / 验收期驻留续作」复用 r280 树，不新开。
-- **部署**：只改小程序包，不涉及后端；上传源为主检出最新 `develop`，沿用 CLI
+- **部署**：只改小程序包，不涉及后端；上传源为主检出 `develop@a3a205e5`，沿用 CLI
   服务端口 13564，且不带 `--info-output`（R280 实测会触发 IDE `code 17` 二维码路径报错）。
+  `cli upload -v 1.0.1` 返回 ✔ upload，TOTAL **65.3 KB / 66,836 Byte**；
+  比 R280 的 `1.0.0`（66,840 Byte）少 4 字节，正好是「伴读」6B → 「AI」2B 的差值。
 
 **台账总结**：`requests.md` 第 283 条本处回填；`response.md` 写入前 10 节、本次 11 节，
 最旧一节 R273（小程序邮箱登录）原样搬入 `response-archive/response-R273.md` 并在顶部登记索引。

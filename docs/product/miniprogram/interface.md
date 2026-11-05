@@ -83,9 +83,10 @@ R280 起 tab 为「复习 / 伴读 / 词汇量 / 我」，**R283 起第二项文
 ## 4. 部署顺序（强约束）
 
 > 2026-11-05 回填：顺序约束两段均已完成——后端 moon-well R243 于 10:13:04 deploy SUCCESS
-> （`agent-chat-system-general@1.0.0` 在线且正文校验通过），小程序体验版 `1.0.0` 于 11:35
-> 上传成功（65.3 KB；CLI 服务端口 13564）。上传产生的是「开发版本」，仍需在小程序后台
-> 「版本管理」选为体验版；真机 `enableChunked` 表现待验。
+> （`agent-chat-system-general@1.0.0` 在线且正文校验通过），小程序体验版 `1.0.1`
+> 已于 2026-11-05 重传（R283 改 tab 文案；65.3 KB / 66,836 Byte；CLI 服务端口 13564）。
+> 上传产生的是「开发版本」，仍需在小程序后台「版本管理」选为体验版；
+> 真机 `enableChunked` 表现待验。
 
 1. **先上线 moon-well R243**：`scene` 分支 + `agent-chat-system-general` 必须先在现网可用。
    新 prompt 现网缺失时由 `NacosPromptBootstrap` 在后端启动自检里 `create + publish`（已在线则跳过），
