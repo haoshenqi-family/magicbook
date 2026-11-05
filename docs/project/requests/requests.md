@@ -406,4 +406,7 @@
        SSE 的 `chatStream` 同步带 `chatUrl`。
      - 验证：`tests/test_r282_requrl.py` 6 例 + R277/R281 既有锁，合计 **13 passed**；
        `hostOf` 经 Node 实测（含 null/空串/带端口）。**未真机**。
-     - 状态：**开发完成待验收**（worktree `../magicbook-r282-requrl`，分支 `feat/r282-requrl`）。
+     - 状态：**已上线**（`d83cf2ae` 已合入 develop 并推送）；用户 2026-11-05 11:22 确认
+       开发调试已恢复。**根因未确证**：白名单三处（后台 / 工具「项目配置 → 域名信息」/ 工具缓存
+       `RequestDomain`）与运行时 AppID 均正确，服务端无跳转且带小程序 UA 返回业务 JSON，
+       最终恢复也可能来自工具侧配置刷新——下次同类问题先看报错里的「实际请求」一行。
