@@ -400,10 +400,11 @@
   定向 **106 passed / 0 failed**，`node --check` 三个改动 JS 全过。**未真机**：
   hover 原生 tooltip 延迟与深色主题表现、从 Help 启动导览的跨页 handoff 待线上验收；
   开发态闸门下未跑全量。
-- **状态**：开发完成待验收。worktree `../magicbook-r284-hover-gloss-onboarding`、
-  分支 `feat/r284-hover-gloss-onboarding`，merge 后原样保留；**本轮未 push**
-  （push `develop` 会触发 fnOS 自动部署，等用户点头）。修改意见按治理挂
-  R268/R226 后续，不新建 PingCode idea。
+- **状态**：**已上线待验收**。用户 11:11 令 push，`43e9bec2..48030f33` 已推
+  `origin/develop`（merge `48030f33` + 实现 `3d31fa43`），触发 fnOS 自动部署；
+  随后纯文档状态回填单独推送。worktree `../magicbook-r284-hover-gloss-onboarding` /
+  分支 `feat/r284-hover-gloss-onboarding` 原样保留，真机验收通过后才 `worktree remove`
+  → `branch -d`。修改意见按治理挂 R268/R226 后续，不新建 PingCode idea。
 
 **台账总结**：`requests.md` 第 284 条本处回填；`response.md` 写入前 10 节、本次 11 节，
 按「写入即检查」把最旧一节 R274 原样搬入 `response-archive/response-R274.md`

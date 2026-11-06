@@ -1,6 +1,6 @@
 # LLD · R284 恢复生词 hover 释义 + 页面引导入口下线
 
-- 状态：**开发完成待验收**（2026-11-06，worktree `../magicbook-r284-hover-gloss-onboarding`）
+- 状态：**已上线待验收**（2026-11-06 11:11 push `48030f33` 触发 fnOS 部署；worktree `../magicbook-r284-hover-gloss-onboarding`）
 - 关联需求：R284（修改意见；挂 R268 生词波浪线 / R226 引导入口的后续，按治理不新建 PingCode idea）
 - 目标仓：magicbook（纯前端 + i18n + 文档，moon-well 零改动）
 
@@ -88,4 +88,6 @@ if (record.gloss) span.title = record.gloss;
 
 worktree `../magicbook-r284-hover-gloss-onboarding`，分支 `feat/r284-hover-gloss-onboarding`，
 基线 `origin/develop@43e9bec2`（R284 占号提交）。按家族纪律 merge 后原样保留待验收，
-验收通过才 `worktree remove` → `branch -d`。本轮**未 push** 到 origin/develop。
+验收通过才 `worktree remove` → `branch -d`。代码已于 11:11 推送 `origin/develop`
+（`43e9bec2..48030f33`），台账/LLD 状态回填以纯文档提交单独推送（不触发重建）。
+worktree 分支停在 `3d31fa43`，比 develop 少一个纯文档提交，验收以 develop 为准。

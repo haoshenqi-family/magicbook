@@ -434,6 +434,8 @@
        LLD `iterations/2026-11-reader-hover-gloss/r284-hover-gloss-onboarding/lld.md`。
      - 验证：新增 `tests/test_r284_hover_gloss.py` 4 例，更新 R226/R109 两条既有守卫；
        定向 **106 passed**，`node --check` 三文件通过；**未真机**、未跑全量。
-     - 状态：**开发完成待验收**（worktree `../magicbook-r284-hover-gloss-onboarding`，
-       分支 `feat/r284-hover-gloss-onboarding`；按「修改意见挂已有需求」不新建 idea，
-       本轮未 push）。
+     - 状态：**已上线待验收**（用户 11:11 令 push，`43e9bec2..48030f33` 已推
+       `origin/develop`，触发 fnOS 自动构建部署；worktree
+       `../magicbook-r284-hover-gloss-onboarding` / 分支
+       `feat/r284-hover-gloss-onboarding` 原样保留待真机验收；按「修改意见挂已有需求」
+       不新建 idea）。
