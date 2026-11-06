@@ -72,48 +72,15 @@
   background: rgba(217, 139, 0, 0.16);
 }
 
-/* R286 生词悬停释义卡：与 MagicLens 划词气泡同形制（白卡 + 词条 + 释义 + 胶囊按钮）。
-   卡片挂在父页 body 上（正文 iframe 内没有层级可用），坐标由 reader-selection.js 换算 */
-.reading-vocab-card {
-  position: fixed;
-  z-index: 10001;
-  max-width: min(360px, calc(100vw - 24px));
-  padding: 10px 12px;
-  border: 1px solid rgba(127, 127, 127, .22);
-  border-radius: 10px;
-  background: #fff;
-  color: #1f2937;
-  box-shadow: 0 8px 26px rgba(15, 23, 42, .18);
-  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-  text-align: left;
-}
-
-.reading-vocab-card .rvc-word {
-  margin-bottom: 2px;
-  color: #6b7280;
-  font-size: 13px;
-  word-break: break-word;
-}
-
-.reading-vocab-card .rvc-mean {
-  font-size: 15px;
-  line-height: 1.55;
-  word-break: break-word;
-}
-
-.reading-vocab-card .rvc-mean.is-empty {
-  color: #9ca3af;
-  font-size: 13px;
-}
-
-.reading-vocab-card .rvc-acts {
+/* R287：非单词选区的显式入口（译 / AI）——用户框选长段或中文，多数是为了复制/引用，
+   一选就送 LLM 等于把复制也计费，所以气泡先只出原文预览 + 两个按钮，点谁是谁 */
+.reading-translation-popover .translation-actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 6px;
   margin-top: 8px;
 }
 
-.reading-vocab-card .rvc-btn {
+.reading-translation-popover .translation-action {
   padding: 3px 10px;
   border-radius: 6px;
   background: #eef2ff;
@@ -125,28 +92,30 @@
   -webkit-user-select: none;
 }
 
-.reading-vocab-card .rvc-btn:hover {
+.reading-translation-popover .translation-action:hover {
   background: #e0e7ff;
 }
 
-.reading-vocab-card .rvc-btn.is-marked {
-  background: #4f46e5;
-  color: #fff;
-}
-
-.reading-vocab-card .rvc-btn.is-loading {
+.reading-translation-popover .translation-action.is-loading {
   opacity: .55;
   pointer-events: none;
 }
 
-.reading-vocab-card .rvc-close {
-  margin-left: auto;
-  background: transparent;
-  color: #94a3b8;
+/* 单词气泡里的 AI 与 🔊 / ＋ / － / 详 同一排（float 链），不单独占行 */
+.reading-translation-popover .translation-ask {
+  float: right;
+  margin-left: 8px;
+  color: #4f46e5;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.reading-vocab-card .rvc-close:hover {
-  background: #f1f5f9;
+.reading-translation-popover .translation-ask:hover {
+  opacity: .75;
 }
 
 .reading-translation-popover {

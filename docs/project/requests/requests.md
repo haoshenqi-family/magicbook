@@ -471,3 +471,22 @@
        `iterations/2026-11-reader-hover-gloss/r286-vocab-hover-card/lld.md`。
      - 状态：**开发完成待验收**（worktree `../magicbook-r286-vocab-hover-card` /
        分支 `feat/r286-vocab-hover-card`）。
+
+287. **划词翻译与生词划线拆成两条独立功能**（占号 2026-11-06）
+     - 现场：R286 上线半小时后用户给出完整口径（原话见需求基线 §R287）——生词划线只负责
+       自动标识（开关开了才在词上方显示小字），划词翻译适用于任何位置；单词自动翻译，
+       非单词必须点「译」才翻译（避免选中复制的场景烧 token）；生词悬停 = 免去框选的划词翻译。
+     - 与 R286 的三处不符：① 悬停另造了独立卡片（两套 UI）；② 划词被 `readingVocabularyEnabled`
+       绑死；③ 任何选区都自动送 LLM（含中文/长句）。
+     - 交付：新增 `openTranslationFor()` 作为**唯一**入口（框选与悬停共用）；单词自动请求、
+       非单词只出原文预览 + `译`/`AI`（0 请求，点译才发）；`bindVocabHover` 140ms 确认、
+       触屏点按等价；`.reading-vocab-card` 的 DOM/样式/状态/导出与 `epub.js` 三处卡片钩子
+       全部删除；`cursor:help → pointer` 与 `setHost` 台账通道修复保留。
+     - 验证：新增 `tests/test_r287_selection_vs_vocab.py` 7 例；定向 26 passed；
+       无头 Chrome 真实代码冒烟——悬停生词 1 条 POST 出译文、英文句子 0 POST 只出
+       `译`/`AI`、中文 0 POST、点「译」后 1 POST 出结果。
+     - 文档四问：L1 `readme/reading.md` 拆两条；L2 `reading/interface.md` 修正
+       「暂无调用方」过期说法；L3 `product/reading-vocabulary.md` 重写；需求基线 §R287
+       （§R286 标注被取代）；LLD `iterations/2026-11-reader-hover-gloss/r287-selection-vs-vocab/lld.md`。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r287-selection-vs-vocab` /
+       分支 `feat/r287-selection-vs-vocab`）。
