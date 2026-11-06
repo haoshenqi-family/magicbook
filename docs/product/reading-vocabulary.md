@@ -3,6 +3,8 @@
 EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上交给 `moon-well`，由其对每个单词分词、查释义、判定陌生词并回传标注所需数据；陌生词在阅读器内以波浪下划线标识，悬停或点击可查看释义与历史学习信息。
 
 > **2026-09-14 调整（截至 2026-10-07 仍为现状，已运行近一月）**：生词的两种信息展示（悬停 tooltip / 点击 alert）因「释义 + 上次：书 · 章节」文本太长暂时下线（`epub.js` `markVocabulary` 内已注释），波浪线标注与划词气泡 ＋/－ 标记保留；`moon-well` 的 analyze 同步暂停查词典释义、仅返回生词本身（判定规则与词族口径见 moon-well `docs/vocabulary/hld/hld.md` §2）。释义获取现走划词翻译/金山直连快路径（magiclens v0.6.0）；如需恢复 tooltip 展示请作为正式需求提出。
+>
+> **状态（2026-11-06 R286）· 悬停释义按 MagicLens 气泡形态恢复**：上一段「如需恢复请作为正式需求提出」即 R286——但不是回到原生 tooltip，而是 `.reading-vocab-card` 白卡（词条 + 释义 + 译/详/🔊/认识/生词/AI/✕），指针由 `cursor: help`（问号）改为 `pointer`。R284 曾试过的 `span.title` 与自绘小卡已否决并撤销，形态以本段为准。
 
 > **状态（2026-10-09 R141 设、R143 收窄，当日已上线）· 只让位 magiclens 已实现的部分**：阅读器**内置**划词翻译气泡（含气泡内 🔊 发音、＋/－ 生词标记、「详」单词详解入口）与生词波浪线 DOM 标注**下线**，由 magiclens 扩展单独承担。根因：magiclens R24 起把 content script 绑进 epub.js 渲染正文的同源 iframe，其划词气泡（README 当前状态表 ✅）与生词高亮（v0.5.0 起，v0.7.2 起明确支持 magicbook 阅读器 iframe 正文）与内置实现同开时，会出现双气泡重叠、一词两条波浪线，两套 Esc/点空白关闭逻辑互相抢占。~~落点是 `epub.js` 顶部单一开关 `LENS_OVERLAP_UI_ENABLED=false`~~ → **落点已改为运行时探测（2026-10-10 R146）**：epub.js 读 magiclens v0.8.6（其 R37）留在 DOM 上的接管标记，分能力判定——划词气泡看**本帧**的 `data-magiclens-selection`、生词波浪线看**顶层**的 `data-magiclens-highlight`；读不到标记就保留内置实现（未装扩展、扩展过旧、该 frame 注入失败、用户关了高亮这四种情况都不再出现功能空白）。静态锁定见 `tests/test_reader_lens_handoff.py`。
 >
@@ -24,7 +26,12 @@ EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上
 
 ### 2. 交互要求
 
-- 陌生词以**波浪下划线** + `cursor: help` 标识，悬停高亮背景（见 `reader.css` 的 `.reading-vocabulary-unknown`）。**R268**：EPUB 正文渲染在同源 iframe 内，父页 `reader.css` 不跨文档生效，故下划线/悬停规则必须同时随 `READER_TOOLS_STYLE` 注入正文 iframe（`reader-core.js`）；否则 `analyze` 正常返回、span 已插入却看不到下划线，刷新也不恢复（只有 MagicLens 重新扫描才可见）。
+- 陌生词以**波浪下划线** + `cursor: pointer` 标识，悬停高亮背景（见 `reader.css` 的 `.reading-vocabulary-unknown`）。**R268**：EPUB 正文渲染在同源 iframe 内，父页 `reader.css` 不跨文档生效，故下划线/悬停规则必须同时随 `READER_TOOLS_STYLE` 注入正文 iframe（`reader-core.js`）；否则 `analyze` 正常返回、span 已插入却看不到下划线，刷新也不恢复（只有 MagicLens 重新扫描才可见）。
+- **悬停释义卡（R286，取代 `cursor: help` 的问号指针）**：指针停在生词上 140ms 出卡，触屏点一下出卡；卡片 `.reading-vocab-card` 挂在父页 body（正文 iframe 内没有可用层级），坐标按 `frameElement` 换算（与划词气泡同口径）。内容：词条 + 释义 + 胶囊按钮 `译 / 详 / 🔊 / 认识 / 生词 / AI / ✕`。
+  - **释义取 `record.gloss`**（`/ajax/reading-vocabulary` 回传的词典首义项），零请求零计费；**缺 gloss 时不得自动发翻译请求**——单词未命中词典会走 LLM 计费，悬停不能悄悄扣积分，由用户点「译」显式触发（moon-well 按文本持久缓存，重复点不再花钱）。
+  - 关闭路径：`✕`、Esc（详解面板从卡片打开时先收面板）、翻页 `relocated`、正文 `mousedown`、点卡片外部、「标认识」成功后、正文连续滚动（锚点失效）。
+  - 互斥：与划词气泡同层——开卡收气泡，拖选出译文时收卡；扩展声明接管本帧时不画内置 span，卡片自然不触发。
+  - 守卫：`tests/test_r286_vocab_hover_card.py`（禁回 `cursor:help`、卡片与按钮形制、台账通道、关闭路径）。
 - 点击陌生词弹出释义；若无释义则提示「点击查看学习记录」，有历史则附「上次：<书> · <章节>」。
 - 每个词仅包一层 span，禁止出现嵌套标注（已在 `markVocabulary` 中跳过已标注的文本节点）。
 

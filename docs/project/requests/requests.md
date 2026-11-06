@@ -444,3 +444,30 @@
        不新建 idea）。
 
 285. **Buddy 头顶滚动复习气泡（SRS 到期词轮播）**（占号 2026-11-06，待回填）
+
+286. **生词悬停释义卡：去掉「问号指针」，悬停即出释义**（占号 2026-11-06）
+     - 现场：用户 12:41 截图（阅读器里 `reversed` 橙色波浪线 + 悬停底色）反馈
+       「magicbook 划词翻译显示问号，而不是像 MagicLens 那样显示正确的信息」。
+       参考图仍是 MagicLens 气泡（词条 + 释义 + 译/详/🔊/认识/生词/AI/✕）。
+     - 根因（两层，都是界面上静默退化）：① `.reading-vocabulary-unknown` 的
+       `cursor:help` 让鼠标变问号，而 `span.title` 自 R268 已下线、悬停没有任何释义落点；
+       ② `ReaderSelection.setHost` 只接 `markVocabulary`/`buildSpeechUtterance`，装配层
+       一直在传的 `getWordRecord`/`applyWordRecord` 被静默丢弃（`record.gloss` 读不到、
+       ＋/－ 标记不回写波浪线）。划词（拖选）气泡本身正常，但只在 mouseup 弹——
+       而阅读时鼠标大半时间在悬停。
+     - 用户拍板（四选一）：**悬停弹 MagicLens 同款气泡**。
+     - 交付：`reader-selection.js` 新增「生词悬停释义卡」F 节（`openVocabCard` /
+       `bindVocabCard`、140ms 悬停确认、触屏点按、`译/详/🔊/认识/生词/AI/✕`、
+       与划词气泡互斥）；指针改 `pointer`（`reader.css` + `reader-core.js` 注入样式两处）；
+       标记逻辑收敛为 `markWord()` 供气泡 ＋/－ 与卡片共用；`setHost` 补接三条台账通道；
+       关闭路径覆盖 ✕/Esc/翻页/点外/正文 mousedown/滚动。
+     - 计费边界：释义取 `record.gloss`（零请求）；缺 gloss 不自动请求，由「译」显式触发。
+     - 验证：新增 `tests/test_r286_vocab_hover_card.py` 6 例；定向回归 25 passed；
+       阅读器/词汇子集 273 passed（`test_reading_tts_service.py` 44 例为 pytest tmpdir
+       沙箱 `FileExistsError`，develop 同样复现，与本轮无关）；无头 Chrome 真实代码路径
+       冒烟截图确认卡片形态。
+     - 文档四问：L1 `readme/reading.md`；L3 `product/reading-vocabulary.md` §2；
+       需求基线 `learning/requirements.md` §R286；LLD
+       `iterations/2026-11-reader-hover-gloss/r286-vocab-hover-card/lld.md`。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r286-vocab-hover-card` /
+       分支 `feat/r286-vocab-hover-card`）。
