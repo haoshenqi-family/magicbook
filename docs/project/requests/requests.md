@@ -418,24 +418,27 @@
        挂 PingCode MB-239、不新建 idea；worktree 复用 r280 驻留树；
        待后台设为体验版并真机验收，通过后才 Completed）。
 
-284. **恢复生词 hover 释义 + 页面引导入口全部下线（只保留右上角 Help）**（占号 2026-11-06）
-     - 现场：用户 11-06 截图（BBC 6ME 双栏）反馈「这个 bug 又回来了」——生词有橙色
-       波浪线，hover 只出现问号光标，没有释义也没有划词翻译。核查线上 `reader-core.js`
-       与 `origin/develop@3413afa0` sha256 一致，R268 注入仍在，**不是代码回退**；
-       成因是 R42 下线 `span.title` + R268 把 `cursor:help` 注入 iframe 两者叠加。
-     - 用户拍板：①恢复 hover 释义；②页面上的引导入口全部下线，只保留右上角 Help。
-     - 交付：`epub.js` `markVocabulary` 在 `record.gloss` 非空时写 `span.title`
-       （不拼历史书名/章节、不复活 `translation`）；`onboarding.js` 断开 `runSegment`
-       与 `showEntryAgainIfNeeded` 两条自动入口调用链；删 `reading_settings.html`
-       引导区块与 `reading-preferences.js` 转发；收尾文案与 i18n 种子 / zh po-mo 改指
-       右上角 Help；`layout.html` 的 `#top_onboarding` 保留为唯一入口。
-     - 文档四问：L1 `readme/reading.md` + `readme/readme.md`；L2 `reading-vocabulary.md`；
-       L3 `learning/features/onboarding.md`；需求基线 `learning/requirements.md` §R284；
+284. **页面引导入口全部下线（只保留右上角 Help）**（占号 2026-11-06）
+     - 现场：用户 11-06 截图反馈阅读器里「问号」。后续给出参考截图确认期望的
+       「划词翻译」是 **MagicLens 扩展**的气泡（紫色 `#8b5cf6` 波浪线 +
+       译/详/🔊/认识/生词/AI/✕）；扩展接管高亮时 magicbook 内置 `markVocabulary`
+       让位，改内置标注链路不解决该问题。
+     - 用户拍板（本轮保留部分）：页面上的引导入口全部下线，只保留右上角 Help。
+     - 交付：`onboarding.js` 断开 `runSegment` 与 `showEntryAgainIfNeeded` 两条自动
+       入口调用链；删 `reading_settings.html` 引导区块与 `reading-preferences.js` 转发；
+       收尾文案与 i18n 种子 / zh po-mo 改指右上角 Help；`layout.html` 的
+       `#top_onboarding` 保留为唯一入口；导览引擎与 `read.html` 挂载点保留以支持跨页续览。
+     - **已否决撤销（12:31）**：用户明确「撤销我这两轮改动」——同批做过的
+       「恢复生词 hover 释义」（`span.title = gloss`）与「hover 即时释义卡 + 划词翻译
+       兜底 + 去掉 `cursor:help`」两轮改动全部回滚：`epub.js` / `reader.css` /
+       `reader-core.js` 恢复到 R284 之前，删除 `tests/test_r284_hover_gloss.py`，
+       L2 `reading-vocabulary.md` 与 L1 生词条目同步回退。生词链路回到 R268 原状
+       （`span.title` 仍下线、`cursor:help` 保留），本轮不再改生词链路。
+     - 文档四问：L1 `readme/reading.md` + `readme/readme.md`；L3
+       `learning/features/onboarding.md`；需求基线 `learning/requirements.md` §R284；
        LLD `iterations/2026-11-reader-hover-gloss/r284-hover-gloss-onboarding/lld.md`。
-     - 验证：新增 `tests/test_r284_hover_gloss.py` 4 例，更新 R226/R109 两条既有守卫；
-       定向 **106 passed**，`node --check` 三文件通过；**未真机**、未跑全量。
-     - 状态：**已上线待验收**（用户 11:11 令 push，`43e9bec2..48030f33` 已推
-       `origin/develop`，触发 fnOS 自动构建部署；worktree
-       `../magicbook-r284-hover-gloss-onboarding` / 分支
-       `feat/r284-hover-gloss-onboarding` 原样保留待真机验收；按「修改意见挂已有需求」
+     - 验证：更新 `test_reader_r226_acceptance.py`（改钉「调用链断开」）与
+       `test_onboarding_tour.py`（中文种子词条）；定向回归全绿（撤销后复跑）。
+     - 状态：**已上线待验收**（worktree `../magicbook-r284-hover-gloss-onboarding` /
+       分支 `feat/r284-hover-gloss-onboarding` 原样保留；按「修改意见挂已有需求」
        不新建 idea）。

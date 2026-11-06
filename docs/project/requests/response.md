@@ -372,51 +372,34 @@
 **台账总结**：`requests.md` 第 283 条本处回填；`response.md` 写入前 10 节、本次 11 节，
 最旧一节 R273（小程序邮箱登录）原样搬入 `response-archive/response-R273.md` 并在顶部登记索引。
 
-## R284 · 恢复生词 hover 释义 + 页面引导入口下线（2026-11-06）
+## R284 · 页面引导入口下线，只保留右上角 Help（2026-11-06）
 
-**对 R284 的回应**：用户看完上一轮排查后拍板「①恢复 hover 释义。页面上的引导入口全部下线掉。
-只保留右上角的帮助的入口」。
+**对 R284 的回应**：用户口径「页面上的引导入口全部下线掉。只保留右上角的帮助的入口」。
+修改意见挂 R226 后续，不新建 PingCode idea。
 
-- **先钉死「不是回归」**：线上 `magicbook.haoshenqi.top/static/js/reading/reader-core.js`
-  与 `origin/develop@3413afa0` sha256 同为 `c9b4765c…`，R268 注入未丢。问号来自
-  父页 `reader.css` 的 `cursor: help`（8/12 起就有），R268 才把它随波浪线注入 iframe；
-  而 hover 释义自 R42 下线 `span.title`、R261 删掉残留注释后一直没恢复，两者叠加
-  就是「只有问号、没有内容」。所以这次是**补回缺失的那半边**，不是修回退。
-- **hover 释义**：`markVocabulary` 在 `record.gloss`（R236 词典中文首义项）非空时写
-  `span.title`；不拼「上次：书 · 章节」（R42 下线理由），不复活 R139 删除的
-  `translation`，词典无文档就不设 title。原生 tooltip 不依赖父页 CSS，iframe 内可见，
-  与 R146 划词气泡让位、R261 行内小字开关互不干扰。
-- **引导入口**：右上角 Help 下拉的 `#top_onboarding` 是唯一入口。断开 `runSegment`
-  的自动邀请 / 右下常驻按钮与 `showEntryAgainIfNeeded` 的收尾重挂；删
-  `/reading/settings` 引导区块与 `reading-preferences.js` 转发。
-  `showInvite` / `showReaderHelp` 函数体保留但不再调用——R111/R226 视觉守卫仍锁其
-  几何与文案形制，删除会让那批守卫失去锚点。`read.html` 的挂载点保留，导览从 Help
+- **唯一入口**：右上角 Help 下拉的 `#top_onboarding`。断开 `onboarding.js`
+  `runSegment` 的自动邀请 / 右下常驻按钮与 `showEntryAgainIfNeeded` 的收尾重挂；
+  删 `/reading/settings` 引导区块与 `reading-preferences.js` 转发。
+- **函数体保留**：`showInvite` / `showReaderHelp` 仍在但不再调用——R111/R226 视觉守卫
+  锁其几何与文案形制，删除会让那批守卫失去锚点。`read.html` 挂载点保留，导览从 Help
   启动后仍可跨页续到阅读器段。
 - **文案同源**：收尾卡改指右上角 Help，`i18n_seed.html` + zh po/mo 同步；只重编译
-  zh_Hans_CN 的 mo（整树编译会撞上 `it` 语既有的 `unknown named placeholder 'nome'`，
-  与本轮无关，未动其它语言）。
-- **验证**：新增 `tests/test_r284_hover_gloss.py` 4 例；更新 `test_reader_r226_acceptance.py`
-  （R226 断言改为「调用链断开」）与 `test_onboarding_tour.py`（中文种子词条）。
-  定向 **106 passed / 0 failed**，`node --check` 三个改动 JS 全过。**未真机**：
-  hover 原生 tooltip 延迟与深色主题表现、从 Help 启动导览的跨页 handoff 待线上验收；
-  开发态闸门下未跑全量。
-- **状态**：**已上线待验收**。用户 11:11 令 push，`43e9bec2..48030f33` 已推
-  `origin/develop`（merge `48030f33` + 实现 `3d31fa43`），触发 fnOS 自动部署；
-  随后纯文档状态回填单独推送。worktree `../magicbook-r284-hover-gloss-onboarding` /
-  分支 `feat/r284-hover-gloss-onboarding` 原样保留，真机验收通过后才 `worktree remove`
-  → `branch -d`。修改意见按治理挂 R268/R226 后续，不新建 PingCode idea。
+  zh_Hans_CN 的 mo（整树编译会撞上 `it` 语既有的 `unknown named placeholder 'nome'`）。
+- **验证**：更新 `test_reader_r226_acceptance.py`（R226 断言改「调用链断开」）与
+  `test_onboarding_tour.py`（中文种子词条）；定向回归全绿，`node --check` 通过。
 
-**验收缺陷环（11:34 用户反馈「hover 波浪线生词还是问号」）**：首版只补
-`span.title`，却保留了 `cursor: help` 问号光标，且原生 tooltip 要停留约 1 秒、
-`gloss=null` 时不生成——用户 hover 到的仍然只有问号。本环按 R284 验收缺陷处理，
-不另占号、不新建 idea，复用同一 worktree：
-- 父页 `reader.css` 与 R268 注入 iframe 的样式中 `cursor: help` → `cursor: pointer`；
-- `epub.js` 新增 hover 即时释义卡：优先 `gloss`（过滤 `?` 等占位），缺失时回退
-  `/ajax/reading-translate` 并按词缓存 `hoverTranslation`，迟到响应按词+序号丢弃；
-- 卡片挂父页 fixed 层，不插 iframe 正文，避免污染 `currentPageText` 与 analyze
-  页面签名；坐标用 `frameElement.getBoundingClientRect()` 换算（与划词气泡同款）。
-- 定向 **131 passed / 0 failed**（新增 1 例、更新 2 处断言），`node --check` 两文件、
-  `git diff --check` 通过；L1/L2/LLD 已同步。**仍待真机复验**。
+**已否决并撤销（12:31，用户「撤销我这两轮改动」）**：同批做过的「恢复生词 hover
+释义」（`span.title = gloss`）与「hover 即时释义卡 + 划词翻译兜底 + 去掉
+`cursor:help`」两轮改动全部回滚。起因是用户随后给出参考截图，明确期望的是
+**MagicLens 扩展的划词气泡**（紫色 `#8b5cf6` 波浪线 + 译/详/🔊/认识/生词/AI/✕），
+不是 magicbook 内置 hover 卡片；扩展接管高亮时内置 `markVocabulary` 让位，
+内置改动本就不会执行。回滚范围：`epub.js` / `reader.css` / `reader-core.js`
+恢复到 R284 之前、删除 `tests/test_r284_hover_gloss.py`、L2 `reading-vocabulary.md`
+与 L1 生词条目回退；引导入口下线部分全部保留。生词链路回到 R268 原状。
+
+- **状态**：已上线待验收；worktree `../magicbook-r284-hover-gloss-onboarding` /
+  分支 `feat/r284-hover-gloss-onboarding` 原样保留，真机验收通过后才 `worktree remove`
+  → `branch -d`。
 
 **台账总结**：`requests.md` 第 284 条本处回填；`response.md` 写入前 10 节、本次 11 节，
 按「写入即检查」把最旧一节 R274 原样搬入 `response-archive/response-R274.md`
