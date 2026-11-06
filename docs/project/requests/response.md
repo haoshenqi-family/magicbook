@@ -5,6 +5,8 @@
 
 **归档索引**
 
+- `response-archive/response-R274.md`：R274 · 登录页表单 UI 修正（2026-11-03）——2026-11-06 R284 写入触发轮转搬移，原样搬移不改写
+
 - `response-archive/response-R273.md`：R273 · 小程序登录页：密码绑定改为邮箱验证绑定（2026-11-03）——2026-11-05 R283 写入触发轮转搬移，原样搬移不改写
 
 - `response-archive/response-R272.md`：R272 小程序账号体系（自动建号 + 账号页）——2026-11-05 R282 写入触发轮转搬移，原样搬移不改写
@@ -117,25 +119,6 @@
 
 
 
-
-## R274 · 登录页表单 UI 修正：输入框被压塌 + 重发态不可辨（2026-11-03）
-
-**对 R274 的回应**：截图里验证码框的 placeholder 只露出下半截、还压在边框上。
-
-- **根因不是「样式没写」，是「写得太满」**：`input` 自带高度（约 1.4rem），`.field` 又加了
-  `box-sizing: border-box` 与上下 `22rpx` padding，三者相减后内容区≈0，文字被挤出框外。
-  改为显式 `height: 92rpx` + 竖向 padding 归零 + `line-height` 兜底。
-- **`.field` 上提 `app.wxss`**：登录页与账号页各写过一份，两份都带同一个 bug。留两份等于
-  留两次再犯的机会；账号页的 `.field[disabled]` 一并上提。
-- **顺带三处**：placeholder 走 `placeholder-class`（不再继承 30rpx）；验证码框 40rpx 居中 + 字距
-  12rpx（六位数一眼核对）；「重新发送」倒计时期间灰掉——逻辑层本来就有 `countdown > 0` 拦截，
-  但视觉上和可点长得一样，用户会反复点。
-- **不动的**：生词本搜索框 `.search` 与复习拼写框 `.field-inline` 没有 `box-sizing: border-box`，
-  高度是叠加而非相减，没压塌；没实测的东西不改。也没加 focus 描边——`input` 的 `:focus` 不可靠，
-  用 `bindfocus` 改 `setData` 有打断输入的风险。
-- **验证**：`tests/test_r274_login_ui.py` 4 例静态锁（显式 height、竖向 padding 为 0、`.field`
-  只允许全局定义一次、验证码框与重发两态在位）。**未真机**：本机无开发者工具，需你在真机确认
-  文字是否垂直居中（`line-height` 在原生 input 上随基础库版本略有差异）与长邮箱是否被裁。
 
 ## R275 · 首页改复习、「数据」改「我」、新增主站入口（2026-11-03）
 
@@ -388,3 +371,41 @@
 
 **台账总结**：`requests.md` 第 283 条本处回填；`response.md` 写入前 10 节、本次 11 节，
 最旧一节 R273（小程序邮箱登录）原样搬入 `response-archive/response-R273.md` 并在顶部登记索引。
+
+## R284 · 恢复生词 hover 释义 + 页面引导入口下线（2026-11-06）
+
+**对 R284 的回应**：用户看完上一轮排查后拍板「①恢复 hover 释义。页面上的引导入口全部下线掉。
+只保留右上角的帮助的入口」。
+
+- **先钉死「不是回归」**：线上 `magicbook.haoshenqi.top/static/js/reading/reader-core.js`
+  与 `origin/develop@3413afa0` sha256 同为 `c9b4765c…`，R268 注入未丢。问号来自
+  父页 `reader.css` 的 `cursor: help`（8/12 起就有），R268 才把它随波浪线注入 iframe；
+  而 hover 释义自 R42 下线 `span.title`、R261 删掉残留注释后一直没恢复，两者叠加
+  就是「只有问号、没有内容」。所以这次是**补回缺失的那半边**，不是修回退。
+- **hover 释义**：`markVocabulary` 在 `record.gloss`（R236 词典中文首义项）非空时写
+  `span.title`；不拼「上次：书 · 章节」（R42 下线理由），不复活 R139 删除的
+  `translation`，词典无文档就不设 title。原生 tooltip 不依赖父页 CSS，iframe 内可见，
+  与 R146 划词气泡让位、R261 行内小字开关互不干扰。
+- **引导入口**：右上角 Help 下拉的 `#top_onboarding` 是唯一入口。断开 `runSegment`
+  的自动邀请 / 右下常驻按钮与 `showEntryAgainIfNeeded` 的收尾重挂；删
+  `/reading/settings` 引导区块与 `reading-preferences.js` 转发。
+  `showInvite` / `showReaderHelp` 函数体保留但不再调用——R111/R226 视觉守卫仍锁其
+  几何与文案形制，删除会让那批守卫失去锚点。`read.html` 的挂载点保留，导览从 Help
+  启动后仍可跨页续到阅读器段。
+- **文案同源**：收尾卡改指右上角 Help，`i18n_seed.html` + zh po/mo 同步；只重编译
+  zh_Hans_CN 的 mo（整树编译会撞上 `it` 语既有的 `unknown named placeholder 'nome'`，
+  与本轮无关，未动其它语言）。
+- **验证**：新增 `tests/test_r284_hover_gloss.py` 4 例；更新 `test_reader_r226_acceptance.py`
+  （R226 断言改为「调用链断开」）与 `test_onboarding_tour.py`（中文种子词条）。
+  定向 **106 passed / 0 failed**，`node --check` 三个改动 JS 全过。**未真机**：
+  hover 原生 tooltip 延迟与深色主题表现、从 Help 启动导览的跨页 handoff 待线上验收；
+  开发态闸门下未跑全量。
+- **状态**：开发完成待验收。worktree `../magicbook-r284-hover-gloss-onboarding`、
+  分支 `feat/r284-hover-gloss-onboarding`，merge 后原样保留；**本轮未 push**
+  （push `develop` 会触发 fnOS 自动部署，等用户点头）。修改意见按治理挂
+  R268/R226 后续，不新建 PingCode idea。
+
+**台账总结**：`requests.md` 第 284 条本处回填；`response.md` 写入前 10 节、本次 11 节，
+按「写入即检查」把最旧一节 R274 原样搬入 `response-archive/response-R274.md`
+并在顶部归档索引登记，窗口回到 10 节。冲突记录：无撞号；
+唯一口径变更是 R226 的「阅读器右下使用引导」被 R284 取代，已在 L1/L3 标注。

@@ -398,8 +398,9 @@ def test_i18n_seed_renders_chinese_for_zh_user(app):
     assert d["Book wall"] == "书墙"
     # 尾点这条曾出现「字典 key 带句点、_() 实参不带」的不一致：值非空但是英文，
     # 遍历断言查不出来，故逐字比对（同缺陷类由 test_i18n_seed_contract 从源码侧锁死）
-    replay = d["Use the “Onboarding Tour” button at the bottom-right any time to replay the tour."]
-    assert replay == "随时点右下角「使用引导」重看本段导览。"
+    # R284：右下常驻按钮下线，收尾文案改指右上角 Help（msgid 与中文译文同源）
+    replay = d["Open Help in the top-right corner to replay this tour."]
+    assert replay == "随时从右上角「帮助」重看本段导览。"
     # 含 \n / 引号转义的长词条走运行时比对（源码转义形态不可靠）
     for key, val in d.items():
         assert val, f"词条 {key!r} 翻译为空"
