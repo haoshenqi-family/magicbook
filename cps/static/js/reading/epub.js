@@ -469,6 +469,12 @@ var reader;
         if (RS.isMenuOpen() && !RS.menuContainsNode(event.target)) {
             RS.closeMenu();
         }
+        // R286：悬停卡点外即关（卡内点击是它自己的事；「详」打开的详解面板是卡的兄弟节点，
+        // 在面板里按鼠标不算点卡外，否则面板还在、卡先没了，面板下次重定位就失去锚点）
+        if (RS.isVocabCardOpen() && !RS.vocabCardContainsNode(event.target)
+            && !RD.containsNode(event.target)) {
+            RS.closeVocabCard();
+        }
         if (RS.isPopoverOpen() && !RS.popoverContainsNode(event.target)
             && !RD.containsNode(event.target)) {
             // 详解面板是气泡的兄弟节点：面板内点击不算「点气泡外」，
@@ -493,6 +499,13 @@ var reader;
         // 多层面板同开时逐层退出；全部关闭时不阻断，ai_chat.js 正常关抽屉。
         if (RS.isMenuOpen()) {
             RS.closeMenu();
+            event.stopImmediatePropagation();
+            return;
+        }
+        // R286：悬停卡是最表层（详解面板从卡里打开时，Esc 应先由面板自己收走，
+        // 故面板存活期间跳过这一层，退出顺序才是 面板 → 卡 → 气泡）
+        if (RS.isVocabCardOpen() && !RD.isOpen()) {
+            RS.closeVocabCard();
             event.stopImmediatePropagation();
             return;
         }
@@ -742,8 +755,9 @@ var reader;
         }
     }
     reader.rendition.on('relocated', function () {
-        // 翻页后旧气泡/批注弹层/右键菜单的坐标基于已换下的页面，必须关闭
+        // 翻页后旧气泡/批注弹层/右键菜单/悬停卡的坐标基于已换下的页面，必须关闭
         RS.closePopover();
+        RS.closeVocabCard();
         AN.closePopover();
         RS.closeMenu();
         setTimeout(inspectVocabulary, 120);

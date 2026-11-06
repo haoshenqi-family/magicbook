@@ -5,6 +5,8 @@
 
 **归档索引**
 
+- `response-archive/response-R275.md`：R275 · 首页改复习、「数据」改「我」、新增主站入口（2026-11-03）——2026-11-06 R286 写入触发轮转搬移，原样搬移不改写
+
 - `response-archive/response-R274.md`：R274 · 登录页表单 UI 修正（2026-11-03）——2026-11-06 R284 写入触发轮转搬移，原样搬移不改写
 
 - `response-archive/response-R273.md`：R273 · 小程序登录页：密码绑定改为邮箱验证绑定（2026-11-03）——2026-11-05 R283 写入触发轮转搬移，原样搬移不改写
@@ -115,34 +117,6 @@
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事） · [response-R238.md](response-archive/response-R238.md)（2026-10-29 R250 / R252 并行写入轮转，原样搬移不改写） · [response-R239.md](response-archive/response-R239.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R244.md](response-archive/response-R244.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R243.md](response-archive/response-R243.md)（2026-10-29 R254 写入触发轮转搬移） · [response-R246.md](response-archive/response-R246.md)（2026-10-30 R256 写入触发轮转搬移） · [response-R247.md](response-archive/response-R247.md)（2026-10-31 R257 写入触发轮转搬移） · [response-R248.md](response-archive/response-R248.md)（2026-10-31 R258 写入触发轮转搬移） · [response-R253.md](response-archive/response-R253.md)（2026-11-01 R263 写入触发轮转搬移） · [response-R254.md](response-archive/response-R254.md)（2026-11-02 R267 写入触发轮转搬移）
-
-
-
-
-
-## R275 · 首页改复习、「数据」改「我」、新增主站入口（2026-11-03）
-
-**对 R275 的回应**：三条一起做，因为都落在同一份 `app.json` / 同一个页面结构上。
-
-- **复习置首**：四页里只有复习是「每天都有明确下一步」的动作（队列有限、有终点），
-  生词本与词汇量是「想起来才点」。工具型小程序打开成本高，首页必须是不用思考就能开始的那个。
-  连带把登录成功后的 4 处 `switchTab` 全改成复习——不改的话用户登录完落在第二屏，每天多点一次。
-- **「数据」→「我」**：这一页本来同时是账号入口（绑定邮箱、退出），只叫「数据」会让人找不到换绑。
-  结构顺势重排为「身份卡（点进账号页）→ 网页版入口 → 学习数据 → 退出登录」：
-  身份卡置顶，退出从头部小胶囊移到页面末尾——不可逆动作不该放在拇指最容易误触的位置。
-- **主站入口用「复制链接」而不是 web-view**：小程序不能直接调起浏览器；web-view 里跑 OIDC
-  拿不到浏览器会话，进去就是登录页，且要额外配置业务域名校验文件。产品口径本来也是「阅读留在
-  网页」，塞进 web-view 只是把网页装进更小的框。域名只写在 `config.js` 的 `siteUrl`，
-  登录页页脚那句写死的域名也一并去掉（静态锁守着「域名只允许出现在 config.js」）。
-- **验证**：`tests/test_r275_home_profile.py` 5 例静态锁；与 R271–R274 合计 **27 passed**；
-  全部 `.js` 过 `node --check`、`.json` 过 `JSON.parse`。**未真机**：需确认改顺序后首次进入落在复习、
-  以及两张卡片的点击热区没被 flex 挤掉。
-- **已知边界**：从「复制链接」跳出去的人数拿不到（没有外链点击上报）；链接本身仍要浏览器登录态。
-
-**台账总结**：`requests.md` 第 274、275 条本处回填；`response.md` 写入前 10 节，
-本次连同新增两条压回 10 节，最旧两节 R260/R261 原样搬入
-`response-archive/response-R260-R261.md` 并在顶部登记索引。R274 与 R275 共用同一分支与 worktree
-（`../magicbook-r274-login-ui`，`feat/r274-login-ui`），两条改动无文件冲突。
 
 ## R276 · 小程序切正式 AppID wx7b31b435be6beae3（2026-11-03）
 
@@ -405,3 +379,33 @@
 按「写入即检查」把最旧一节 R274 原样搬入 `response-archive/response-R274.md`
 并在顶部归档索引登记，窗口回到 10 节。冲突记录：无撞号；
 唯一口径变更是 R226 的「阅读器右下使用引导」被 R284 取代，已在 L1/L3 标注。
+
+## R286 · 生词悬停释义卡：去掉「问号指针」，悬停即出释义（2026-11-06）
+
+**对 R286 的回应**：用户 12:41 截图「magicbook 划词翻译显示问号」，并在四个形态里选定
+「悬停弹 MagicLens 同款气泡」。R284 否决的是**形态**（原生 tooltip / 自绘小卡），
+本轮按参考图重做，并把用户实际看到的「问号」这一层一并处理。
+
+- **「问号」不是文案，是指针**：`.reading-vocabulary-unknown{cursor:help}` 让鼠标一停生词
+  就变成问号指针；而 `span.title` 自 R268 已下线，悬停没有任何释义落点。父页 `reader.css`
+  与注入 iframe 的 `READER_TOOLS_STYLE` 两处同改 `pointer`（R268 的教训：只改一处等于没改）。
+- **卡片形态**：`.reading-vocab-card`（白卡 + 词条 + 释义 + `译/详/🔊/认识/生词/AI/✕` 胶囊），
+  挂父页 body、坐标按 `frameElement` 换算，与划词气泡同一套口径；悬停 140ms 确认后弹出，
+  触屏点一下弹出。关闭路径：✕ / Esc / 翻页 / 点卡外 / 正文 mousedown / 正文滚动 /
+  「标认识」成功后；与划词气泡互斥（开卡收气泡，拖选出译文收卡）。
+- **顺手挖出一个真 bug**：`ReaderSelection.setHost` 只接了 `markVocabulary` /
+  `buildSpeechUtterance`，装配层一直在传的 `getWordRecord` / `applyWordRecord` /
+  `startWholeBookProgressPolling` 被静默丢弃——于是「＋标生词」不画波浪线、「－标认识」
+  不拆线、＋/－ 高亮永不亮，卡片也读不到 `record.gloss`。本轮补接三条通道，
+  并把气泡 ＋/－ 与卡片「认识/生词」收敛到同一个 `markWord()`。
+- **计费边界**：卡片释义取 analyze 回传的词典首义项（零请求零计费）；缺释义时**不**自动
+  发翻译请求（单词未命中词典会走 LLM 计费，悬停不能悄悄扣积分），由用户点「译」显式触发。
+- **验证**：`tests/test_r286_vocab_hover_card.py` 6 例；定向回归 25 passed；阅读器/词汇
+  子集 273 passed（`test_reading_tts_service.py` 的 44 例为 pytest tmpdir 在沙箱里的
+  `FileExistsError`，develop 上同样复现，与本轮无关）；无头 Chrome 加载真实 JS/CSS 冒烟，
+  卡片形态与参考图一致。**未真机**：真实 EPUB 分栏、深色主题对比度、触屏点按待线上验收。
+
+**台账总结**：`requests.md` 第 286 条本处回填；`response.md` 写入前 10 节、本次 11 节，
+按「写入即检查」把最旧一节 R275 原样搬入 `response-archive/response-R275.md` 并在顶部
+归档索引登记，窗口回到 10 节。编号：285 已被「Buddy 头顶滚动复习气泡」占号（并行会话），
+本轮取 286；无撞号、无冲突分支。

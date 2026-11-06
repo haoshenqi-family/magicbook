@@ -1,7 +1,8 @@
 /* global $, calibre */
 
 /**
- * R183（架构评审 B4 批次 4）：划词簇——翻译气泡（B）+ 划词发音与生词标记（C）+ 右键快捷菜单（E）。
+ * R183（架构评审 B4 批次 4）：划词簇——翻译气泡（B）+ 划词发音与生词标记（C）+ 右键快捷菜单（E）
+ * + 生词悬停释义卡（F，R286 增补）。
  *
  * Why 三个小节合成一个模块：它们不是三个功能，而是一件事的三段——一次划词先探测 MagicLens
  * 是否接管，再决定弹不弹气泡，气泡上同时挂「＋/－」生词标记、「详」详解与朗读；
@@ -166,6 +167,8 @@
                 left: rect.left + frameRect.left, width: rect.width, height: rect.height};
         }
         var requestId = ++translationRequest;
+        // R286：拖选出了译文气泡，悬停卡就该退场（两者锚点几乎重合，同屏会互相遮挡）
+        closeVocabCard();
         var popover = showTranslationPopover('', rect, true);
         var context = range.commonAncestorContainer.parentElement &&
             range.commonAncestorContainer.parentElement.textContent || text;
@@ -287,6 +290,30 @@
         });
     }
 
+    // 标记一次（＋生词 / －认识）：气泡的 ＋/－ 与 R286 悬停卡的「认识/生词」共用这条
+    // 请求与回写路径，避免两处各写一份「调接口 + 回写台账 + 同步波浪线」的实现
+    function markWord(word, unknown, btn, onDone) {
+        if (btn && btn.classList.contains('is-loading')) return;
+        if (btn) btn.classList.add('is-loading');
+        $.ajax({
+            url: calibre.readingWordMarkUrl, method: 'POST', contentType: 'application/json',
+            headers: {'X-CSRFToken': readerCsrfToken()},
+            data: JSON.stringify({word: word, unknown: unknown})
+        }).done(function () {
+            applyWordUnknown(word, unknown);
+            if (onDone) onDone();
+            // 插入的是用户选中的原文，用回调形式：String.replace 的第二参里 $&/$1 有特殊含义
+            readerToast(unknown ? mbT('Marked as unknown: {w}').replace('{w}', function () { return word; })
+                                : mbT('Marked as known: {w}').replace('{w}', function () { return word; }));
+        }).fail(function (xhr) {
+            // CSRF 过期/会话重建：刷新页面拿新 token，避免「标记失败」误导
+            if (reloadIfCsrfBlocked(xhr)) return;
+            readerToast(mbT('Failed to mark, please retry later'));
+        }).always(function () {
+            if (btn) btn.classList.remove('is-loading');
+        });
+    }
+
     // 构建划词气泡的 ＋/－ 标记按钮：互斥高亮当前状态，点击即调 moon-well
     function appendWordMarkButtons(popover, text) {
         var word = normalizedWord(text);
@@ -308,39 +335,260 @@
             minusBtn.classList.toggle('is-marked', !!record && !unknown);
         }
 
-        function mark(unknown, btn) {
-            if (btn.classList.contains('is-loading')) return;
-            btn.classList.add('is-loading');
-            $.ajax({
-                url: calibre.readingWordMarkUrl, method: 'POST', contentType: 'application/json',
-                headers: {'X-CSRFToken': readerCsrfToken()},
-                data: JSON.stringify({word: word, unknown: unknown})
-            }).done(function () {
-                applyWordUnknown(word, unknown);
-                refreshState();
-                // 插入的是用户选中的原文，用回调形式：String.replace 的第二参里 $&/$1 有特殊含义
-                readerToast(unknown ? mbT('Marked as unknown: {w}').replace('{w}', function () { return word; })
-                                    : mbT('Marked as known: {w}').replace('{w}', function () { return word; }));
-            }).fail(function (xhr) {
-                // CSRF 过期/会话重建：刷新页面拿新 token，避免「标记失败」误导
-                if (reloadIfCsrfBlocked(xhr)) return;
-                readerToast(mbT('Failed to mark, please retry later'));
-            }).always(function () {
-                btn.classList.remove('is-loading');
-            });
-        }
-
         plusBtn.addEventListener('click', function (ev) {
             ev.stopPropagation();
-            mark(true, plusBtn);
+            markWord(word, true, plusBtn, refreshState);
         });
         minusBtn.addEventListener('click', function (ev) {
             ev.stopPropagation();
-            mark(false, minusBtn);
+            markWord(word, false, minusBtn, refreshState);
         });
         refreshState();
         popover.appendChild(plusBtn);
         popover.appendChild(minusBtn);
+    }
+
+    // ===== 生词悬停释义卡（R286）=====
+    // Why：生词波浪线只解决「这里有生词」，`span.title` 又在 R268 下线（浏览器会弹出
+    // 一个又慢又丑的原生提示），最后只剩 `cursor:help` 的「问号」指针——用户看到的
+    // 是「有个问号，却没有任何信息」，与 MagicLens 扩展的划词气泡（词条 + 释义 +
+    // 译/详/🔊/认识/生词/AI/✕）差一整层。R286 按用户拍板把这层补进内置链路：
+    // 悬停生词即出同形制卡片，移开/翻页/Esc 关闭。
+    //
+    // 释义取分析结果里的词典首义项（record.gloss，零请求零计费）；没有 gloss 时**不**
+    // 自作主张发请求——单词未命中词典会走 LLM 计费，悬停不能悄悄扣积分，交给用户点
+    // 「译」显式触发（词典命中吃缓存，重复点也不再花钱）。
+    var vocabCard = null;
+    var vocabCardWord = '';
+    var vocabHoverTimer = null;
+    var vocabCardHideTimer = null;
+    var vocabCardRequest = 0;
+    var vocabCardMeanings = {}; // 本次会话已取到的完整释义：同一单词的重复点击不再发请求
+
+    function vcEl(tag, cls, text) {
+        var el = document.createElement(tag);
+        if (cls) el.className = cls;
+        if (text !== undefined && text !== null) el.textContent = text;
+        return el;
+    }
+
+    function closeVocabCard() {
+        vocabCardRequest++; // 在途响应作废：旧词的慢响应不得写进新卡
+        if (vocabHoverTimer) { clearTimeout(vocabHoverTimer); vocabHoverTimer = null; }
+        cancelVocabCardHide();
+        if (vocabCard) {
+            vocabCard.remove();
+            vocabCard = null;
+        }
+        vocabCardWord = '';
+    }
+
+    function cancelVocabCardHide() {
+        if (vocabCardHideTimer) { clearTimeout(vocabCardHideTimer); vocabCardHideTimer = null; }
+    }
+
+    function scheduleVocabCardHide(delay) {
+        cancelVocabCardHide();
+        vocabCardHideTimer = setTimeout(function () {
+            vocabCardHideTimer = null;
+            closeVocabCard();
+        }, delay || 200);
+    }
+
+    // 生词 span 在主视口的矩形：正文在 iframe 内，与划词气泡同款坐标换算
+    function vocabAnchorRect(span, content) {
+        var rect = span.getBoundingClientRect();
+        var frame = content.window.frameElement;
+        if (frame) {
+            var frameRect = frame.getBoundingClientRect();
+            rect = {top: rect.top + frameRect.top, bottom: rect.bottom + frameRect.top,
+                left: rect.left + frameRect.left, width: rect.width, height: rect.height};
+        }
+        return rect;
+    }
+
+    function positionVocabCard(anchor) {
+        if (!vocabCard) return;
+        var bounds = vocabCard.getBoundingClientRect();
+        var top = anchor.bottom + 6;
+        // 词在页尾时卡片翻到上方，避免被视口裁掉
+        if (top + bounds.height > window.innerHeight) top = Math.max(8, anchor.top - bounds.height - 6);
+        var left = Math.min(Math.max(8, anchor.left), window.innerWidth - bounds.width - 8);
+        vocabCard.style.top = top + 'px';
+        vocabCard.style.left = left + 'px';
+    }
+
+    function openVocabCard(content, span) {
+        var word = (span.dataset && span.dataset.word) || normalizedWord(span.textContent || '');
+        if (!word) return;
+        // 同一个词已经在显示：重开会让卡片闪一下，也让在途的「译」响应作废
+        if (vocabCard && vocabCardWord === word) {
+            cancelVocabCardHide();
+            return;
+        }
+        // Why 先清理再取序号：closeVocabCard 会自增序号作废旧响应，
+        // 先取 seq 会让本卡的请求被自己的守卫丢弃（详解面板踩过同一个坑）
+        closeVocabCard();
+        var seq = ++vocabCardRequest;
+        var display = String(span.textContent || word).trim();
+        var anchor = vocabAnchorRect(span, content);
+        var record = host.getWordRecord(word) || {};
+
+        var card = vcEl('div', 'reading-vocab-card');
+        card.appendChild(vcEl('div', 'rvc-word', display));
+        var mean = vcEl('div', 'rvc-mean');
+        var known = vocabCardMeanings[word] || record.gloss || '';
+        if (known) {
+            mean.textContent = known;
+        } else {
+            mean.className = 'rvc-mean is-empty';
+            mean.textContent = mbT('No translation yet');
+        }
+        card.appendChild(mean);
+
+        var acts = vcEl('div', 'rvc-acts');
+        card.appendChild(acts);
+
+        function addBtn(label, title) {
+            var btn = vcEl('span', 'rvc-btn', label);
+            if (title) btn.title = title;
+            acts.appendChild(btn);
+            return btn;
+        }
+
+        // 「译」：词典命中直接复用缓存释义（moon-well 侧已按文本持久缓存），未命中才走 LLM
+        var btnTranslate = addBtn('译');
+        btnTranslate.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            if (btnTranslate.classList.contains('is-loading')) return;
+            btnTranslate.classList.add('is-loading');
+            mean.className = 'rvc-mean';
+            mean.textContent = mbT('Translating…');
+            positionVocabCard(anchor);
+            $.ajax({
+                url: calibre.readingTranslationUrl, method: 'POST', contentType: 'application/json',
+                headers: {'X-CSRFToken': readerCsrfToken()},
+                data: JSON.stringify({text: display, context: ''})
+            }).done(function (response) {
+                if (seq !== vocabCardRequest || !vocabCard) return;
+                var result = response.result || response.data || {};
+                var translation = result.translation || mbT('No translation yet');
+                vocabCardMeanings[word] = translation;
+                mean.textContent = translation;
+                positionVocabCard(anchor); // 内容撑高后重新定位
+            }).fail(function (xhr) {
+                if (reloadIfCsrfBlocked(xhr)) return;
+                if (seq !== vocabCardRequest || !vocabCard) return;
+                mean.textContent = mbT('Translation failed, please retry later');
+                positionVocabCard(anchor);
+            }).always(function () {
+                btnTranslate.classList.remove('is-loading');
+            });
+        });
+
+        // 「详」：详解面板以卡片为锚点打开（面板存活期间气泡自动隐藏已由宿主挂起）
+        var btnDetail = addBtn('详', mbT('Word detail (etymology, phrases, forms…)'));
+        btnDetail.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            RD.open(word, card);
+        });
+
+        var btnSpeak = addBtn('🔊', mbT('Read original aloud'));
+        btnSpeak.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            speakSelection(display);
+        });
+
+        function refreshMarkState() {
+            var rec = host.getWordRecord(word);
+            var unknown = !!(rec && rec.unknown);
+            btnUnknown.classList.toggle('is-marked', unknown);
+            btnKnown.classList.toggle('is-marked', !!rec && !unknown);
+        }
+
+        // 文案沿用 MagicLens 气泡的「认识/生词」（与划词气泡的 ＋/－ 同一语义、同一接口）
+        var btnKnown = addBtn('认识', mbT('Mark as known'));
+        btnKnown.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            // 标认识会立刻拆掉这条波浪线，卡片留在原地会指向一个已不存在的词
+            markWord(word, false, btnKnown, closeVocabCard);
+        });
+        var btnUnknown = addBtn('生词', mbT('Mark as unknown'));
+        btnUnknown.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            markWord(word, true, btnUnknown, refreshMarkState);
+        });
+
+        var btnAi = addBtn('AI', mbT('Quote to AI companion'));
+        btnAi.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            quoteSelectionToAi(display);
+        });
+
+        var btnClose = addBtn('✕', mbT('Close'));
+        btnClose.className = 'rvc-btn rvc-close';
+        btnClose.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            closeVocabCard();
+        });
+
+        // 指针移进卡片不算「离开生词」：给用户时间点卡片上的按钮
+        card.addEventListener('mouseenter', cancelVocabCardHide);
+        card.addEventListener('mouseleave', function () { scheduleVocabCardHide(180); });
+
+        document.body.appendChild(card);
+        vocabCard = card;
+        vocabCardWord = word;
+        refreshMarkState();
+        positionVocabCard(anchor);
+        // 卡片与划词气泡同层：开卡即收气泡，避免两个浮层叠在一起互相遮挡
+        if (translationPopover) closeTranslationPopover();
+    }
+
+    // 悬停/点按生词出卡；扩展接管高亮时内置 span 不存在，这里自然不触发
+    function bindVocabCard(content) {
+        var doc = content.document;
+
+        function vocabSpanOf(target) {
+            if (!target || !target.closest) return null;
+            return target.closest('.reading-vocabulary-unknown');
+        }
+
+        doc.addEventListener('mouseover', function (ev) {
+            var span = vocabSpanOf(ev.target);
+            if (!span) return;
+            var word = (span.dataset && span.dataset.word) || '';
+            if (vocabCard && word && word === vocabCardWord) {
+                cancelVocabCardHide();
+                return;
+            }
+            if (vocabHoverTimer) clearTimeout(vocabHoverTimer);
+            // 悬停确认 140ms：扫过一行文字、拖选经过生词时不该弹卡
+            vocabHoverTimer = setTimeout(function () {
+                vocabHoverTimer = null;
+                openVocabCard(content, span);
+            }, 140);
+        });
+
+        doc.addEventListener('mouseout', function (ev) {
+            if (!vocabSpanOf(ev.target)) return;
+            if (vocabHoverTimer) { clearTimeout(vocabHoverTimer); vocabHoverTimer = null; }
+            scheduleVocabCardHide(200);
+        });
+
+        // 触屏没有 hover：点一下生词看释义；点出选区时仍交给划词气泡
+        doc.addEventListener('touchend', function (ev) {
+            var span = vocabSpanOf(ev.target);
+            if (!span) return;
+            setTimeout(function () {
+                var selection = content.window.getSelection();
+                if (selection && String(selection.toString()).trim()) return;
+                openVocabCard(content, span);
+            }, 90);
+        });
+
+        // 连续滚动模式下正文会滑动，卡片锚点随之失效——直接收走而不是跟着乱飘
+        content.window.addEventListener('scroll', closeVocabCard, {passive: true});
     }
 
     // ===== 划词右键快捷菜单：引用选中内容到 AI 伴读输入框 =====
@@ -434,6 +682,8 @@
             closeTranslationPopover();
             AN.closePopover();
             closeSelectionMenu();
+            // R286：正文按下即要开始一次拖选/点击，悬停卡让位（含未到点的悬停确认计时）
+            closeVocabCard();
         });
         content.document.addEventListener('mouseup', function () {
             setTimeout(function () { translateSelection(content); }, 0);
@@ -441,11 +691,12 @@
         content.document.addEventListener('touchend', function () {
             setTimeout(function () { translateSelection(content); }, 80);
         });
-        // iframe 内按 ESC 同样关闭划词气泡与右键菜单
+        // iframe 内按 ESC 同样关闭划词气泡、右键菜单与悬停卡
         content.document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
                 closeTranslationPopover();
                 closeSelectionMenu();
+                closeVocabCard();
             }
         });
         // 有选区的右键替换为快捷菜单（引用到 AI 伴读/复制）；无选区放行原生菜单
@@ -454,6 +705,8 @@
             event.preventDefault();
             showSelectionMenu(content, event);
         });
+        // R286：生词悬停释义卡（悬停/点按生词出卡）
+        bindVocabCard(content);
     }
 
     window.ReaderSelection = {
@@ -461,6 +714,12 @@
         setHost: function (next) {
             if (next.markVocabulary) host.markVocabulary = next.markVocabulary;
             if (next.buildSpeechUtterance) host.buildSpeechUtterance = next.buildSpeechUtterance;
+            // R286：装配层一直在传这三个，但这里只收了前两个——getWordRecord 恒返回 null、
+            // applyWordRecord 恒返回 []，于是「＋标生词」不画波浪线、「－标认识」不拆线、
+            // ＋/－ 高亮也永远不亮；悬停卡要读 record.gloss，更依赖这条台账通道
+            if (next.startWholeBookProgressPolling) host.startWholeBookProgressPolling = next.startWholeBookProgressPolling;
+            if (next.getWordRecord) host.getWordRecord = next.getWordRecord;
+            if (next.applyWordRecord) host.applyWordRecord = next.applyWordRecord;
         },
         bindFrame: bindSelectionTranslation,
         startWholeBookTranslation: startWholeBookTranslation,
@@ -478,6 +737,10 @@
         /* 右键菜单 */
         isMenuOpen: function () { return !!selectionMenu; },
         menuContainsNode: function (node) { return !!(selectionMenu && node && selectionMenu.contains(node)); },
-        closeMenu: closeSelectionMenu
+        closeMenu: closeSelectionMenu,
+        /* R286 生词悬停释义卡 */
+        isVocabCardOpen: function () { return !!vocabCard; },
+        vocabCardContainsNode: function (node) { return !!(vocabCard && node && vocabCard.contains(node)); },
+        closeVocabCard: closeVocabCard
     };
 })();
