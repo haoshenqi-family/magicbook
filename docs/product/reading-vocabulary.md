@@ -4,7 +4,9 @@ EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上
 
 > **2026-09-14 调整（截至 2026-10-07 仍为现状，已运行近一月）**：生词的两种信息展示（悬停 tooltip / 点击 alert）因「释义 + 上次：书 · 章节」文本太长暂时下线（`epub.js` `markVocabulary` 内已注释），波浪线标注与划词气泡 ＋/－ 标记保留；`moon-well` 的 analyze 同步暂停查词典释义、仅返回生词本身（判定规则与词族口径见 moon-well `docs/vocabulary/hld/hld.md` §2）。释义获取现走划词翻译/金山直连快路径（magiclens v0.6.0）；如需恢复 tooltip 展示请作为正式需求提出。〔**已被 R284 取代，见下方状态**〕
 
-> **状态（2026-11-06 R284）· 恢复 hover 释义**：用户反馈「波浪线生词悬浮只有问号光标、没有内容」——R42 下线 `span.title`，R268 又把 `cursor: help` 注入 iframe，两者叠加就是这个现象。R284 恢复 `span.title`，数据源改用 R236 的 `gloss`（词典中文首义项），**不再拼**「释义 + 上次：书 · 章节」，避免 R42 当初嫌长的整串回来；词典无文档时不设 title，只留波浪线。原生 title 由浏览器渲染、不依赖父页 CSS，iframe 内可见，与 R146 划词气泡让位、R261 行内小字开关互不影响。静态锁见 `tests/test_r284_hover_gloss.py`。
+> **状态（2026-11-06 R284）· 恢复 hover 释义**：用户反馈「波浪线生词悬浮只有问号光标、没有内容」——R42 下线 `span.title`，R268 又把 `cursor: help` 注入 iframe，两者叠加就是这个现象。R284 恢复 `span.title`，数据源改用 R236 的 `gloss`（词典中文首义项），**不再拼**「释义 + 上次：书 · 章节」，避免 R42 当初嫌长的整串回来；与 R146 划词气泡让位、R261 行内小字开关互不影响。静态锁见 `tests/test_r284_hover_gloss.py`。
+>
+> **验收缺陷修复（同日）**：初版仍保留问号光标、且原生 title 要停留约 1 秒并在 `gloss=null` 时不生成，用户 hover 依旧只看到问号。现把 `cursor: help` 改为 `cursor: pointer`，hover 立即弹父页 fixed 释义卡 `.reading-vocab-hover-card`：优先 `gloss`（过滤 `?` 等占位），缺失时回退 `/ajax/reading-translate` 并按词缓存 `hoverTranslation`；迟到响应按词+序号丢弃。卡片挂在父页，不插进 iframe 正文，避免污染 `currentPageText` 与 analyze 页面签名。
 
 > **状态（2026-10-09 R141 设、R143 收窄，当日已上线）· 只让位 magiclens 已实现的部分**：阅读器**内置**划词翻译气泡（含气泡内 🔊 发音、＋/－ 生词标记、「详」单词详解入口）与生词波浪线 DOM 标注**下线**，由 magiclens 扩展单独承担。根因：magiclens R24 起把 content script 绑进 epub.js 渲染正文的同源 iframe，其划词气泡（README 当前状态表 ✅）与生词高亮（v0.5.0 起，v0.7.2 起明确支持 magicbook 阅读器 iframe 正文）与内置实现同开时，会出现双气泡重叠、一词两条波浪线，两套 Esc/点空白关闭逻辑互相抢占。~~落点是 `epub.js` 顶部单一开关 `LENS_OVERLAP_UI_ENABLED=false`~~ → **落点已改为运行时探测（2026-10-10 R146）**：epub.js 读 magiclens v0.8.6（其 R37）留在 DOM 上的接管标记，分能力判定——划词气泡看**本帧**的 `data-magiclens-selection`、生词波浪线看**顶层**的 `data-magiclens-highlight`；读不到标记就保留内置实现（未装扩展、扩展过旧、该 frame 注入失败、用户关了高亮这四种情况都不再出现功能空白）。静态锁定见 `tests/test_reader_lens_handoff.py`。
 >

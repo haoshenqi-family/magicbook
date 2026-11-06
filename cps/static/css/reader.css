@@ -63,7 +63,25 @@
 .reading-vocabulary-unknown {
   text-decoration: underline wavy #d98b00 1px;
   text-decoration-skip-ink: none;
-  cursor: help;
+  /* R284 验收修复：cursor:help 会把鼠标变成「问号」，用户以为 hover 只给了个问号。
+     释义改由即时卡片承载，这里只保留「可点/可查」的手型提示。 */
+  cursor: pointer;
+}
+
+/* R284 验收修复：hover 生词的即时释义卡。放父页 fixed 层，不插进 iframe 正文，
+   避免污染 currentPageText（会被 analyze 当正文重新上送、破坏分页缓存签名）。 */
+.reading-vocab-hover-card {
+  position: fixed;
+  z-index: 10001;
+  max-width: min(300px, calc(100vw - 24px));
+  padding: 8px 11px;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .22);
+  font: 13px/1.45 sans-serif;
+  pointer-events: none;
 }
 
 .reading-vocabulary-unknown:hover {

@@ -67,7 +67,8 @@
         // iframe 内无此规则，表现为「analyze 正常返回生词、页面却看不到下划线」，
         // 手动刷新也无法恢复（刷新同样不注入）。这里随段落工具样式一起注入 iframe，
         // 与 R261 gloss 的 ::after 规则同源，确保标注即渲染。
-        '.reading-vocabulary-unknown{text-decoration:underline wavy #d98b00 1px;text-decoration-skip-ink:none;cursor:help}',
+        // R284 验收修复：问号光标下线——hover 反馈改由父页即时释义卡承载
+        '.reading-vocabulary-unknown{text-decoration:underline wavy #d98b00 1px;text-decoration-skip-ink:none;cursor:pointer}',
         '.reading-vocabulary-unknown:hover{background:rgba(217,139,0,.16)}',
         // R261 行内小字释义（Word Wise 式，可选功能默认关）：小字浮在词头顶上一行，
         // 不占文档流（gloss 挂 data-gloss 属性，::after 取 attr 渲染）——占流会推动
