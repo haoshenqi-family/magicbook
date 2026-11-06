@@ -1,6 +1,6 @@
 # LLD · R285 Buddy 头顶滚动复习气泡
 
-> 状态：开发中（2026-11-06：编码与定向回归完成，待 merge 与真机验收）
+> 状态：开发中（2026-11-06：已 merge 回 develop `31cba765`，**未 push 上线**，待真机验收；worktree `../magicbook-r285-rolling-review` 原样保留）
 > 需求基线：`docs/product/companion/requirements.md` §6 · HLD：[`../hld.md`](../hld.md) · AC：[`ac/acceptance.md`](./ac/acceptance.md)
 
 ## 1. 改动清单
@@ -123,6 +123,8 @@ Why 不用顶层 `mbT`：i18n_seed 在面板之后 include，脚本载入时 `mb
 - i18n 三方逐一运行时校验（`.mo` 13 个 key 全部有中文）。
 - 交叉审查（独立 Agent 视角）发现并已修复：标记/tick 竞态删错词、bfcache 停摆、
   iframe 焦点误停、拖拽过渡错位、markError 跨词残留、移动端触达盒；测试同步补强。
+- merge 回 develop 后与并行会话 R286 的联合回归 **127 passed**（含
+  `test_r286_vocab_hover_card.py`），`node --check` 通过；台账三处合并冲突已按编号顺序解决。
 - **未真机验收**：需在登录态全站页面、EPUB/PDF/TXT 三种阅读器、伙伴拖拽/隐藏/快捷气泡、
   窗口切后台与 bfcache 后退等场景人工确认。
 
