@@ -5,6 +5,8 @@
 
 **归档索引**
 
+- `response-archive/response-R275.md`：R275 · 首页改复习、「数据」改「我」、新增主站入口（2026-11-03）——2026-11-06 R285 写入触发轮转搬移，原样搬移不改写
+
 - `response-archive/response-R274.md`：R274 · 登录页表单 UI 修正（2026-11-03）——2026-11-06 R284 写入触发轮转搬移，原样搬移不改写
 
 - `response-archive/response-R273.md`：R273 · 小程序登录页：密码绑定改为邮箱验证绑定（2026-11-03）——2026-11-05 R283 写入触发轮转搬移，原样搬移不改写
@@ -119,30 +121,6 @@
 
 
 
-
-## R275 · 首页改复习、「数据」改「我」、新增主站入口（2026-11-03）
-
-**对 R275 的回应**：三条一起做，因为都落在同一份 `app.json` / 同一个页面结构上。
-
-- **复习置首**：四页里只有复习是「每天都有明确下一步」的动作（队列有限、有终点），
-  生词本与词汇量是「想起来才点」。工具型小程序打开成本高，首页必须是不用思考就能开始的那个。
-  连带把登录成功后的 4 处 `switchTab` 全改成复习——不改的话用户登录完落在第二屏，每天多点一次。
-- **「数据」→「我」**：这一页本来同时是账号入口（绑定邮箱、退出），只叫「数据」会让人找不到换绑。
-  结构顺势重排为「身份卡（点进账号页）→ 网页版入口 → 学习数据 → 退出登录」：
-  身份卡置顶，退出从头部小胶囊移到页面末尾——不可逆动作不该放在拇指最容易误触的位置。
-- **主站入口用「复制链接」而不是 web-view**：小程序不能直接调起浏览器；web-view 里跑 OIDC
-  拿不到浏览器会话，进去就是登录页，且要额外配置业务域名校验文件。产品口径本来也是「阅读留在
-  网页」，塞进 web-view 只是把网页装进更小的框。域名只写在 `config.js` 的 `siteUrl`，
-  登录页页脚那句写死的域名也一并去掉（静态锁守着「域名只允许出现在 config.js」）。
-- **验证**：`tests/test_r275_home_profile.py` 5 例静态锁；与 R271–R274 合计 **27 passed**；
-  全部 `.js` 过 `node --check`、`.json` 过 `JSON.parse`。**未真机**：需确认改顺序后首次进入落在复习、
-  以及两张卡片的点击热区没被 flex 挤掉。
-- **已知边界**：从「复制链接」跳出去的人数拿不到（没有外链点击上报）；链接本身仍要浏览器登录态。
-
-**台账总结**：`requests.md` 第 274、275 条本处回填；`response.md` 写入前 10 节，
-本次连同新增两条压回 10 节，最旧两节 R260/R261 原样搬入
-`response-archive/response-R260-R261.md` 并在顶部登记索引。R274 与 R275 共用同一分支与 worktree
-（`../magicbook-r274-login-ui`，`feat/r274-login-ui`），两条改动无文件冲突。
 
 ## R276 · 小程序切正式 AppID wx7b31b435be6beae3（2026-11-03）
 
@@ -422,3 +400,16 @@
 按「写入即检查」把最旧一节 R274 原样搬入 `response-archive/response-R274.md`
 并在顶部归档索引登记，窗口回到 10 节。冲突记录：无撞号；
 唯一口径变更是 R226 的「阅读器右下使用引导」被 R284 取代，已在 L1/L3 标注。
+
+## R285 · Buddy 头顶滚动复习气泡（2026-11-06）
+
+**对 R285 的回应**：用户要「AI buddy 头顶定时播放一段话，内容是最近划词的单词详情」。两轮只读核查后先纠正两个事实再动手：用户点名的「单词学习表」确实存在（`vocabulary_notebook` / `vocabulary_study_history` / `learning_review_schedule` / `learning_answer_log`），但查词历史只写不读、无倒序接口、划词路径不写入，不需要也不该新建表；「点认识算复习」在代码里不成立——`GET /vocabulary/known/{word}` 只把 SRS 调度行异步毕业 `MASTERED`，不写 `learning_answer_log`、不涨 x/20。用户据此拍板：词源改取 SRS 到期队列、认识复用已有端点、只做被动展示。
+
+- **交付**：登录态全站 FAB 头顶一张纯文字词卡，8 秒轮播 20 个到期词（前端洗牌），显示 `word + meaning + contextSentence`；页面不可见 / 窗口不活跃 / 伙伴隐藏 / 快捷气泡 / 抽屉 / 邮件弹层时暂停；气泡自带暂停·继续与收起·展开，状态记本机 localStorage；点「认识」复用 `/ajax/reading-word-mark {unknown:false}`，成功后只从本地轮播移除。**`cps/routes/*` 与 moon-well 零改动、零新增表、零新增端点、零 TTS / 详解 / 评分调用、零计费**。
+- **实现要点**：卡片挂 `#ai-companion-root` 而非 `fab-wrap`，fixed 按 FAB rect 定位（`is-left` / `is-below` 自适应），避开 hover 快捷气泡与拖拽命中区；所有服务端字段 `textContent`；解包与 CSRF 委托 `MBApi`（R177 单点）。
+- **交叉审查**：独立 Agent 视角发现并修复 6 处——标记请求跨 8s tick 会删错词（`markedIndex` + `inFlight` 暂停）、bfcache 返回轮播停摆（`pageshow` 重建 timer）、EPUB iframe 焦点被 `hasFocus()` 误判为不活跃、拖拽吸附过渡期间定位错位（`transitionend` + 260ms 兜底）、`markError` 跨词残留、移动端触达盒补 44px；测试同步补强到 12 例。
+- **验证**：`node --check` 通过、`pybabel compile -f` 通过；定向 **129 passed**；全量 `1296 passed / 80 errors`，errors 全是干净 worktree 的 pytest tmp 目录 `FileExistsError` 竞态（R144 同类），独立 `--basetemp` 复验三个报错文件 **25 passed**，与本轮改动无关；i18n 13 个 key 中文齐全。**未真机验收**。
+- **文档四问**：L1 `readme/companion.md`、L2 `companion/interface.md` §滚动复习、L3 `companion/features/rolling-review.md`、需求基线 `companion/requirements.md` §6；HLD/LLD/AC/plan 落 `iterations/2026-11-rolling-review/r285-rolling-review/`，`iterations/1.0/plan.md` 补行。
+- **已知前置缺陷**：`readpdf.html` 未引入 jQuery 却 include 面板，`ai_chat.js` 以 `jQuery` 为实参会抛 `ReferenceError`——R285 之前 Buddy 面板在 PDF 阅读器就不可用。本轮不扩范围，AC 单列真机确认项，若属实另立需求。
+
+**台账总结**：`requests.md` 第 285 条本处回填（占号 2026-11-06，`6bbc4738`）；`response.md` 写入前 10 节、本次 11 节，按「写入即检查」把最旧一节 R275 原样搬入 `response-archive/response-R275.md` 并在顶部归档索引登记，窗口回到 10 节。冲突记录：无撞号；R284 与 R285 共用 `origin/develop` 基线、改动文件无重叠（R284 动 `epub.js` / `onboarding.js` / 阅读器模板，R285 动 `ai_chat.*` / i18n / 文档）。worktree `../magicbook-r285-rolling-review` / 分支 `feat/r285-rolling-review` merge 后原样保留待验收，**未 push 上线**（等用户下令）。

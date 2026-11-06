@@ -400,6 +400,7 @@
     initBubbles();
     initVoiceInput();
     initBuddyVisibility();
+    initRollingReview();
     loadConversations();
     loadBuddyFab();
   }
@@ -914,6 +915,328 @@
     }
     $("#ai-companion-hide").on("click", function (e) { e.stopPropagation(); hideBuddy(); });
     $("#ai-companion-restore").on("click", restoreBuddy);
+  }
+
+  // ------------------------------------------------------------------
+  // R285 滚动复习：FAB 头顶的纯文字词卡轮播（不出声、不计费、不新增后端）。
+  //
+  // Why 取 SRS 到期队列而不是「最近划词」：用户 2026-11-06 拍板——复习对象以
+  // learning_review_schedule 的 due_at <= now 为准（含历史积压），20 个词前端洗牌；
+  // 查词历史 vocabulary_study_history 不属本轮范围，不新建表、不写查词记录。
+  // Why 不调 /vocabulary/detail/{word}：队列 VO 自带 meaning（中文首义项，上游
+  // shortMeanings 只读 ES 缓存）与 contextSentence（阅读原句），两者都不触发 LLM；
+  // 详解端点缓存 miss 会现场生成（15~30s 且计费），与「不出声、不计费」冲突。
+  // Why 不调 /learning/srs/answer：点「认识」复用划词气泡已有的
+  // /ajax/reading-word-mark → GET /vocabulary/known/{word}，语义是「毕业/移出队列」，
+  // 不写复习日志、不计 x/20；用户确认「算复习」= 这条从轮播里移除。
+  // Why 卡片挂在 root 而不是 wrap 内：wrap 上有 mouseenter→openBubbles 与
+  // pointerdown→拖拽，放进去会出现「鼠标移到卡片上卡片反而被快捷气泡遮住」，
+  // 也会抢走伙伴的拖拽命中区。fixed + 按 FAB rect 算位置可完全解耦。
+  // ------------------------------------------------------------------
+  var REVIEW_QUEUE_URL = "/ajax/learning/srs/queue"; // 代理不透传 ?limit=，上游默认 20
+  var REVIEW_MARK_URL = "/ajax/reading-word-mark";
+  var REVIEW_MAX = 20;
+  var REVIEW_INTERVAL_MS = 8000;
+  var REVIEW_PAUSED_KEY = "calibre.ai.review.paused";
+  var REVIEW_COLLAPSED_KEY = "calibre.ai.review.collapsed";
+  // 与 cps/web.py 的 _READING_WORD_RE 同形：不合法词不给一个必然 400 的「认识」按钮。
+  var REVIEW_WORD_RE = /^[A-Za-z](?:[A-Za-z'\u2019-]*[A-Za-z])?$/;
+  var review = {
+    items: [], index: 0, timer: null, loading: false, inFlight: false,
+    paused: false, collapsed: false, failed: false, markError: "",
+  };
+
+  function reviewRoot() { return document.getElementById("ai-companion-review"); }
+  function reviewWrap() { return document.getElementById("ai-companion-fab-wrap"); }
+
+  function reviewReadFlag(key) {
+    try { return localStorage.getItem(key) === "1"; } catch (e) { return false; }
+  }
+  function reviewWriteFlag(key, on) {
+    try { localStorage.setItem(key, on ? "1" : "0"); } catch (e) {}
+  }
+  function reviewMessage(raw, fallback) { return jsonMessage(raw) || t(fallback); }
+  function reviewSetText(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = value == null ? "" : String(value);
+  }
+  function reviewCurrent() {
+    return review.items.length ? review.items[review.index % review.items.length] : null;
+  }
+  function reviewShuffled(list) {
+    var a = list.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a;
+  }
+
+  // 纯展示：任一「用户不在看」或「已有浮层」态都只跳过本次 tick，不重置计时器、
+  // 不发请求。页面生命周期内队列只在初始化拉一次，不轮询（R243 口径同源）。
+  function reviewPageActive() {
+    if (document.visibilityState === "hidden") return false;
+    if (document.hasFocus()) return true;
+    // EPUB 正文渲染在 iframe 里：焦点进 iframe 后顶层 hasFocus() 可能返回 false，
+    // 但用户明明还在读这一页。activeElement 是 IFRAME 就仍算页面内活跃，
+    // 只有切到别的窗口/地址栏（activeElement 不是 iframe）才真的暂停。
+    var el = document.activeElement;
+    return !!(el && el.tagName === "IFRAME");
+  }
+
+  function reviewShouldPause() {
+    var wrap = reviewWrap();
+    var drawer = document.getElementById("ai-companion-drawer");
+    var mail = document.getElementById("buddy-mail-popover");
+    // inFlight 必须算暂停：标记请求在途时若让 tick 推进 index，回来会删错词（S1）。
+    return review.loading || review.failed || review.inFlight || review.paused ||
+      review.collapsed || review.items.length === 0 || !reviewPageActive() ||
+      (wrap && (wrap.classList.contains("buddy-hidden") ||
+                wrap.classList.contains("bubbles-open"))) ||
+      (drawer && drawer.classList.contains("open")) ||
+      (mail && !mail.hidden);
+  }
+
+  // FAB 可拖拽吸附到四边：卡片按 FAB rect 贴右上，左缘吸附时改贴左，
+  // 上方空间不足时翻到球下方，避免被视口裁掉或压住伙伴头像。
+  function reviewPosition() {
+    var root = reviewRoot(), wrap = reviewWrap();
+    if (!root || !wrap || root.hidden) return;
+    var rect = wrap.getBoundingClientRect();
+    var w = root.offsetWidth || 280, h = root.offsetHeight || 150;
+    var leftSide = rect.left + rect.width / 2 < window.innerWidth / 2;
+    var left = leftSide ? rect.left : rect.right - w;
+    left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+    var top = rect.top - h - 12;
+    var below = top < 8;
+    if (below) top = rect.bottom + 12;
+    root.classList.toggle("is-left", leftSide);
+    root.classList.toggle("is-below", below);
+    root.style.left = Math.round(left) + "px";
+    root.style.top = Math.round(top) + "px";
+  }
+
+  function reviewShowError(message) {
+    review.failed = true;
+    reviewSetText("ai-review-error-text", message);
+    var err = document.getElementById("ai-review-error");
+    if (err) err.hidden = false;
+    var body = document.getElementById("ai-review-body");
+    if (body) body.hidden = true;
+  }
+
+  function reviewClearError() {
+    review.failed = false;
+    var err = document.getElementById("ai-review-error");
+    if (err) err.hidden = true;
+    var body = document.getElementById("ai-review-body");
+    if (body) body.hidden = false;
+  }
+
+  function reviewRender() {
+    var root = reviewRoot(), wrap = reviewWrap();
+    if (!root) return;
+    root.hidden = !!(wrap && wrap.classList.contains("buddy-hidden"));
+    if (root.hidden) return;
+    root.classList.toggle("is-collapsed", review.collapsed);
+    var peek = document.getElementById("ai-review-peek");
+    if (peek) {
+      peek.hidden = !review.collapsed;
+      peek.textContent = review.collapsed ? String(review.items.length) : "";
+      peek.title = t("Show review");
+      peek.setAttribute("aria-label", t("Show review"));
+    }
+    if (review.collapsed) { reviewPosition(); return; }
+
+    var toggle = document.getElementById("ai-review-toggle");
+    if (toggle) {
+      var label = review.paused ? t("Resume review") : t("Pause review");
+      toggle.textContent = review.paused ? "▶" : "❚❚";
+      toggle.title = label;
+      toggle.setAttribute("aria-label", label);
+    }
+    var collapse = document.getElementById("ai-review-collapse");
+    if (collapse) {
+      collapse.title = t("Collapse review");
+      collapse.setAttribute("aria-label", t("Collapse review"));
+    }
+    reviewSetText("ai-review-title", t("Rolling review"));
+    reviewSetText("ai-review-next", t("Next word"));
+    reviewSetText("ai-review-known", t("I know this"));
+    reviewSetText("ai-review-retry", t("Retry"));
+
+    var item = reviewCurrent();
+    if (!item) {
+      reviewSetText("ai-review-progress", "");
+      reviewSetText("ai-review-word", "");
+      reviewSetText("ai-review-meaning", "");
+      reviewSetText("ai-review-context", "");
+      reviewSetText("ai-review-source", "");
+      reviewSetText("ai-review-status", review.loading
+        ? t("Loading review words…") : t("No words to review right now"));
+      var known0 = document.getElementById("ai-review-known");
+      var next0 = document.getElementById("ai-review-next");
+      if (known0) known0.disabled = true;
+      if (next0) next0.disabled = true;
+      reviewPosition();
+      return;
+    }
+    reviewSetText("ai-review-progress", (review.index + 1) + "/" + review.items.length);
+    // 服务端内容一律 textContent：meaning / contextSentence 来自 ES，不能拼 HTML。
+    reviewSetText("ai-review-word", item.word);
+    reviewSetText("ai-review-meaning", item.meaning || "");
+    reviewSetText("ai-review-context", item.contextSentence || "");
+    reviewSetText("ai-review-source", item.contextBook || "");
+    // 「认识」失败的原因要留到用户下一次操作；reviewRender 每次都会重画状态行，
+    // 所以错误文案存在 review.markError 里，而不是直接写进 DOM。
+    reviewSetText("ai-review-status", review.markError);
+    var status = document.getElementById("ai-review-status");
+    if (status) status.classList.toggle("is-error", !!review.markError);
+    var known = document.getElementById("ai-review-known");
+    if (known) {
+      var word = String(item.word || "");
+      // 后端先归一再校验（strip → 弯撇号转直撇号 → lower），前端照做才不会误禁用。
+      var normalized = word.trim().replace(/\u2019/g, "'").toLowerCase();
+      var ok = REVIEW_WORD_RE.test(normalized) && normalized.length <= 64;
+      known.disabled = !ok || review.inFlight;
+      known.title = ok ? t("I know this") : t("This word cannot be marked here");
+    }
+    var next = document.getElementById("ai-review-next");
+    if (next) next.disabled = review.inFlight;
+    reviewPosition();
+  }
+
+  function reviewTick() {
+    if (reviewShouldPause()) return;
+    review.markError = "";  // 换词就清掉上一条的「认识」失败原因（M3）
+    review.index = (review.index + 1) % review.items.length;
+    reviewRender();
+  }
+
+  function reviewLoad() {
+    var root = reviewRoot(), api = window.MBApi;
+    if (!root || !api || typeof api.getJson !== "function" || review.loading) return;
+    review.loading = true;
+    review.markError = "";
+    reviewClearError();
+    reviewRender();
+    api.getJson(REVIEW_QUEUE_URL).then(function (resp) {
+      if (!resp.ok) throw new Error(reviewMessage(resp.raw, "Could not load review words"));
+      var data = unwrap(resp.data);  // Result 信封：success=false 抛上游 message
+      if (!Array.isArray(data)) {
+        throw new Error(reviewMessage(resp.raw, "Could not load review words"));
+      }
+      review.items = reviewShuffled(data.filter(function (it) {
+        return it && typeof it.word === "string" && it.word.trim();
+      })).slice(0, REVIEW_MAX);
+      review.index = 0;
+    }).catch(function (err) {
+      reviewShowError(err && err.message ? err.message : t("Could not load review words"));
+    }).then(function () {
+      review.loading = false;
+      reviewRender();
+    });
+  }
+
+  function reviewAdvance() {
+    if (!review.items.length) return;
+    review.markError = "";
+    review.index = (review.index + 1) % review.items.length;
+    reviewRender();
+  }
+
+  function reviewMarkKnown() {
+    var item = reviewCurrent(), api = window.MBApi;
+    if (!item || !api || typeof api.postJson !== "function" || review.inFlight) return;
+    // 请求可能跨过一个 8s tick；删词只能按点击瞬间的下标，不能用回来时的 index。
+    var markedIndex = review.index;
+    review.inFlight = true;
+    reviewRender();
+    api.postJson(REVIEW_MARK_URL, { word: String(item.word), unknown: false })
+      .then(function (resp) {
+        if (!resp.ok) {
+          throw new Error(reviewMessage(resp.raw, "Could not mark this word as known"));
+        }
+        // 解包单点委托 MBApi（R177）：非信封 / success:false 一律抛，
+        // 失败原因优先取上游 message，不在页面里重写一份解包判读。
+        try {
+          api.unwrapStrict(resp.data);
+        } catch (e) {
+          throw new Error(reviewMessage(resp.raw, "Could not mark this word as known"));
+        }
+        // 上游把 SRS 行异步毕业；本地先移除，避免 8 秒后它又滚回来。
+        // 失败时什么都不改，卡片留在原地并显出上游原因。
+        review.items.splice(markedIndex, 1);
+        if (review.index > markedIndex) review.index -= 1;
+        if (review.index >= review.items.length) review.index = 0;
+        review.markError = "";
+        reviewClearError();
+      })
+      .catch(function (err) {
+        review.markError = err && err.message
+          ? err.message : t("Could not mark this word as known");
+      })
+      .then(function () { review.inFlight = false; reviewRender(); });
+  }
+
+  function reviewSetPaused(on) {
+    review.paused = !!on;
+    reviewWriteFlag(REVIEW_PAUSED_KEY, review.paused);
+    reviewRender();
+  }
+  function reviewSetCollapsed(on) {
+    review.collapsed = !!on;
+    reviewWriteFlag(REVIEW_COLLAPSED_KEY, review.collapsed);
+    reviewRender();
+  }
+
+  function initRollingReview() {
+    var root = reviewRoot();
+    if (!root) return;   // 匿名/登录页不渲染容器 → 不发任何请求
+    review.paused = reviewReadFlag(REVIEW_PAUSED_KEY);
+    review.collapsed = reviewReadFlag(REVIEW_COLLAPSED_KEY);
+
+    $("#ai-review-toggle").on("click", function (e) { e.stopPropagation(); reviewSetPaused(!review.paused); });
+    $("#ai-review-collapse").on("click", function (e) { e.stopPropagation(); reviewSetCollapsed(true); });
+    $("#ai-review-peek").on("click", function (e) { e.stopPropagation(); reviewSetCollapsed(false); });
+    $("#ai-review-next").on("click", function (e) { e.stopPropagation(); reviewAdvance(); });
+    $("#ai-review-known").on("click", function (e) { e.stopPropagation(); reviewMarkKnown(); });
+    $("#ai-review-retry").on("click", function (e) { e.stopPropagation(); reviewLoad(); });
+    // 卡片上的点击/按下都不该穿透成 FAB 的点击或拖拽。
+    root.addEventListener("click", function (e) { e.stopPropagation(); });
+    root.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+    // 伙伴隐藏/复原后重算可见性（tick 在隐藏态会暂停，不会自己刷新）。
+    // 隐藏要等 R244 的 700ms 消散动画走完才落 .buddy-hidden，0ms 读不到该状态；
+    // 复原是同步 remove class，0ms 即可。
+    $("#ai-companion-hide").on("click", function () {
+      setTimeout(reviewRender, BUDDY_ANIM_MS + 50);
+    });
+    $("#ai-companion-restore").on("click", function () {
+      setTimeout(reviewRender, 0);               // 立刻恢复可见
+      setTimeout(reviewPosition, BUDDY_ANIM_MS); // 等缩放动画落定再校正位置
+    });
+    window.addEventListener("resize", reviewPosition);
+    var wrap = reviewWrap();
+    if (wrap) {
+      // .buddy-snapping 有 0.22s left/top 过渡，pointerup 当帧读到的是插值位置。
+      wrap.addEventListener("transitionend", function (e) {
+        if (e.propertyName === "left" || e.propertyName === "top") reviewPosition();
+      });
+      wrap.addEventListener("pointerup", function () { setTimeout(reviewPosition, 260); });
+    }
+    function reviewStartTimer() {
+      if (!review.timer) review.timer = setInterval(reviewTick, REVIEW_INTERVAL_MS);
+    }
+    window.addEventListener("pagehide", function () {
+      if (review.timer) { clearInterval(review.timer); review.timer = null; }
+    });
+    // bfcache 返回时 pagehide 已清掉 timer，必须重建，否则轮播永久停摆。
+    window.addEventListener("pageshow", function (event) {
+      if (event && event.persisted) { reviewStartTimer(); reviewRender(); }
+    });
+
+    reviewStartTimer();
+    reviewLoad();
   }
 
   function clearLetterBadge() {

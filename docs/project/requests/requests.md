@@ -440,4 +440,10 @@
        `feat/r284-hover-gloss-onboarding` 原样保留待真机验收；按「修改意见挂已有需求」
        不新建 idea）。
 
-285. **Buddy 头顶滚动复习气泡（SRS 到期词轮播）**（占号 2026-11-06，待回填）
+285. **Buddy 头顶滚动复习气泡（SRS 到期词轮播）**（占号 2026-11-06）
+     - 现场：用户 11-06 原话「加一个滚动复习的功能，AI buddy 头顶定时播放一段话，这段话是我最近划词的单词详情。先理解需求，不做开发」。两轮只读核查后确认：① 用户点名的「单词学习表」确实存在（`vocabulary_notebook` / `vocabulary_study_history` / `learning_review_schedule` / `learning_answer_log`），但查词历史只写不读、无倒序接口、划词路径不写入，无需也不该新建表；② 「今天该复习」= `due_at <= now` 的全部到期积压，无今日窗口端点；③ 「点认识算复习」不成立——`known/{word}` 只把 SRS 行毕业，不写 `learning_answer_log`、不涨 x/20。
+     - 用户拍板：①词源取 SRS 到期队列（A，不做查词记录）；②「认识」复用已有 `known/{word}`，后端不用改；③一段话 = 词 + 中文首义项 + 阅读原句（队列 VO 现成字段，不取六板块）；④ 8 秒轮播、20 个随机、页面不活跃/伙伴隐藏时停、全站、开关记本机；⑤不出声不计费；⑥只做被动展示。
+     - 交付：`ai_chat_panel.html` 新增登录守卫的 `#ai-companion-review`（挂 root 不挂 fab-wrap，fixed 跟随拖拽）；`ai_chat.js` R285 段（洗牌/轮播/暂停/开关/认识/失败可见）；`ai_chat.css` 卡片样式与 `[hidden]` 显式覆盖、快捷气泡让位；i18n 新增 12 词条进 seed / zh po-mo；**`cps/routes/*` 与 moon-well 零改动、零新增表、零新增端点、零 TTS/计费调用**。
+     - 文档四问：L1 `readme/companion.md`；L2 `companion/interface.md` §滚动复习；L3 `companion/features/rolling-review.md`；需求基线 `companion/requirements.md` §6；HLD/LLD/AC/plan 落 `iterations/2026-11-rolling-review/r285-rolling-review/`，`iterations/1.0/plan.md` 补行。
+     - 验证：新增 `tests/test_r285_rolling_review.py` 12 例；定向回归 **129 passed**（含 R227 语音、i18n 三方、CSP 反向守卫、公共层解包单点、FAB 动画、阅读器验收与 learning 代理）；全量 `1296 passed / 80 errors`，errors 全是干净 worktree 的 pytest tmp 目录 `FileExistsError` 竞态，独立 `--basetemp` 复验 25 passed，与改动无关；`node --check` 与 `pybabel compile` 通过。独立 Agent 交叉审查后修复标记/tick 竞态删错词、bfcache 轮播停摆、iframe 焦点误停、拖拽过渡错位、markError 跨词残留、移动端 44px 触达盒，并补强测试；**未真机验收**。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r285-rolling-review` / 分支 `feat/r285-rolling-review` 原样保留待用户验收；按流程 merge 回 develop 后不主动 push 上线，等用户下令）。
