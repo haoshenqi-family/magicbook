@@ -15,7 +15,7 @@
 | magicbook 端点 | moon-well 端点 | 超时 | 说明 |
 | --- | --- | --- | --- |
 | `POST /ajax/reading-vocabulary` | `POST /vocabulary/reading/analyze` | 15s | 生词判定（容忍 moon-well 重启后 ES 首连慢响应）；epub.js 仍每页上送（喂阅读事件流 + AI 伴读生词上下文），仅波浪线标注下线 |
-| `POST /ajax/reading-translate` | `POST /vocabulary/reading/translate` | 20s | 划词/选区翻译（**R141 起阅读器内置气泡已下线、本端点暂无调用方**；magiclens 直连 moon-well 不走此代理） |
+| `POST /ajax/reading-translate` | `POST /vocabulary/reading/translate` | 20s | 划词/选区翻译：内置气泡在扩展未接管本帧时调用（R146 运行时探测），R287 起**悬停生词**也走这条；magiclens 直连 moon-well 不走此代理 |
 | `POST /ajax/reading-translate-batch` | `POST /vocabulary/reading/translate-batch` | 20s | 段落批量翻译 |
 | `GET /ajax/reading-translate-all`（+ `/progress`） | 复用 translate-batch 链路 | — | 整页批量翻译与进度轮询 |
 | `POST /ajax/reading-translate-book*`（`/status` `/cancel` `/retry`） | system LLM 任务队列（`/llm/task/*`）+ 完成事件写段落缓存 | — | 整本翻译：发起/进度/取消/重试 |

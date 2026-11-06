@@ -887,8 +887,10 @@ def test_word_detail_reader_wiring_contract(moonwell_configured):
 
     source = reader_blob()
     # 配置注入与按钮挂载（与生词标记同口径：仅单个英文单词）
-    assert re.search(r"readingWordDetailUrl && SINGLE_WORD_RE\.test\(text\)", source)
-    assert "appendWordDetailButton(popover, text)" in source
+    # R287 形制变更：气泡渲染收敛到 renderTranslationResult，单词判定提成局部 isWord，
+    # 断言随之演进——语义不变（详解入口只挂在单词气泡上）
+    assert re.search(r"readingWordDetailUrl && isWord", source)
+    assert "RD.appendButton(popover, text)" in source
     # 请求带 CSRF 头（生产环境 CSRF 全局启用，缺 token 会被 400 拦截）
     assert re.search(r"readingWordDetailUrl[\s\S]{0,200}X-CSRFToken", source)
     # 面板内容组装不得有非空 innerHTML 赋值（只允许清空容器）：
