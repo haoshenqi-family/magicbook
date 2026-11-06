@@ -632,115 +632,6 @@ var reader;
         });
     }
 
-    // ===== R284 验收缺陷修复：hover 生词即时释义卡 =====
-    // Why：R284 初版只恢复 span.title，那是浏览器原生 tooltip——要停留约 1 秒，
-    //      词典无文档（gloss=null）时干脆不生成；而 cursor:help 的「问号光标」
-    //      还在，用户 hover 到的仍然只有一个问号。这里改成 hover 立即弹卡：
-    //      gloss 命中零延迟显示，没命中走划词翻译接口拿中文（按词缓存）。
-    // Why 卡片放父页：插进 iframe 正文会被 currentPageText 当正文上送，改变
-    //      analyze 的页面签名并触发重复请求 / 重分页。
-    var vocabHoverCard = null;
-    var vocabHoverWord = '';
-    var vocabHoverSeq = 0;
-    var vocabHoverHideTimer = null;
-
-    function cleanGloss(value) {
-        var text = String(value || '').trim();
-        // 词典 / 翻译接口偶发的占位不能当释义展示（「hover 只给个问号」的来源之一）
-        if (!text || /^[?？\-—.\s]+$/.test(text)) return '';
-        return text;
-    }
-
-    function hideVocabHoverCard() {
-        if (vocabHoverCard && vocabHoverCard.parentNode) vocabHoverCard.parentNode.removeChild(vocabHoverCard);
-        vocabHoverCard = null;
-        vocabHoverWord = '';
-    }
-
-    function showVocabHoverCard(span, doc, text) {
-        if (!vocabHoverCard) {
-            vocabHoverCard = document.createElement('div');
-            vocabHoverCard.className = 'reading-vocab-hover-card';
-            document.body.appendChild(vocabHoverCard);
-        }
-        vocabHoverCard.textContent = text;
-        var rect = span.getBoundingClientRect();
-        var top = rect.bottom, left = rect.left;
-        try {
-            var frame = doc.defaultView && doc.defaultView.frameElement;
-            if (frame) {
-                var fr = frame.getBoundingClientRect();
-                top += fr.top; left += fr.left;
-            }
-        } catch (e) { /* 取不到 frame 时退化为 iframe 内坐标，卡片仍可见 */ }
-        vocabHoverCard.style.top = Math.min(top + 6, Math.max(8, window.innerHeight - 70)) + 'px';
-        vocabHoverCard.style.left = Math.min(Math.max(8, left), Math.max(8, window.innerWidth - 310)) + 'px';
-    }
-
-    function lookupVocabHover(word, span, doc) {
-        var seq = ++vocabHoverSeq;
-        var context = word;
-        try {
-            var para = span.closest && span.closest('p, li, blockquote, div');
-            context = String(para && para.textContent || word).slice(0, 2000);
-        } catch (e) { /* 上下文取不到就只翻单词 */ }
-        $.ajax({
-            url: calibre.readingTranslationUrl, method: 'POST', contentType: 'application/json',
-            headers: {'X-CSRFToken': $("input[name='csrf_token']").val() || ''},
-            data: JSON.stringify({text: word, context: context})
-        }).done(function (response) {
-            if (seq !== vocabHoverSeq || vocabHoverWord !== word || !vocabHoverCard) return;
-            var result = response.result || response.data || {};
-            var translation = cleanGloss(result.translation);
-            if (translation) {
-                vocabularyRecords[word] = vocabularyRecords[word] || {word: word, unknown: true};
-                vocabularyRecords[word].hoverTranslation = translation;
-            }
-            vocabHoverCard.textContent = translation || mbT('No translation yet');
-        }).fail(function (xhr) {
-            if (RC.reloadIfCsrfBlocked(xhr)) return;
-            if (seq === vocabHoverSeq && vocabHoverWord === word && vocabHoverCard) {
-                vocabHoverCard.textContent = mbT('No translation yet');
-            }
-        });
-    }
-
-    function onVocabHover(ev) {
-        var target = ev.target;
-        var span = target && target.closest && target.closest('span.reading-vocabulary-unknown');
-        if (!span) return;
-        clearTimeout(vocabHoverHideTimer);
-        var doc = target.ownerDocument;
-        var word = span.dataset.word || String(span.textContent || '').toLowerCase();
-        var record = vocabularyRecords[word] || {};
-        var text = cleanGloss(record.gloss) || cleanGloss(record.hoverTranslation) || cleanGloss(span.title);
-        if (vocabHoverWord === word && vocabHoverCard) {
-            showVocabHoverCard(span, doc, vocabHoverCard.textContent);
-            return;
-        }
-        vocabHoverWord = word;
-        showVocabHoverCard(span, doc, text || mbT('Translating…'));
-        if (!text && calibre.readingTranslationUrl && calibre.readingVocabularyEnabled) {
-            lookupVocabHover(word, span, doc);
-        }
-    }
-
-    function onVocabHoverOut(ev) {
-        var span = ev.target && ev.target.closest && ev.target.closest('span.reading-vocabulary-unknown');
-        if (!span) return;
-        vocabHoverHideTimer = setTimeout(function () {
-            hideVocabHoverCard();
-            vocabHoverSeq++;
-        }, 140);
-    }
-
-    function bindVocabHover(doc) {
-        if (doc.__vocabHoverBound) return;
-        doc.__vocabHoverBound = true;
-        doc.addEventListener('mouseover', onVocabHover, true);
-        doc.addEventListener('mouseout', onVocabHoverOut, true);
-    }
-
     function markVocabulary(records) {
         // 扩展高亮引擎在跑时不画内置波浪线（它经 contentDocument 跨文档标注，同页并存
         // 就是一个词两条线）；引擎关了 / 未登录 / 站点被禁用时它会自己清掉标记，内置随即
@@ -754,7 +645,6 @@ var reader;
         reader.rendition.getContents().forEach(function (content) {
             var doc = content.document;
             if (!doc || !doc.body) return;
-            bindVocabHover(doc);
             var walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
             var textNodes = [], node;
             while ((node = walker.nextNode())) textNodes.push(node);
@@ -775,18 +665,9 @@ var reader;
                     span.textContent = match[0];
                     // R261 行内小字释义（Word Wise 式，可选功能默认关）：开关开且词典
                     // 有释义时把 gloss 挂在词上，小字由 iframe 注入样式的 ::after 渲染；
-                    // 词典无文档（record.gloss 缺失）即不挂属性，降级为仅波浪线。
+                    // 词典无文档（record.gloss 缺失）即不挂属性、自然降级为仅波浪线。
                     if (vocabGlossEnabled() && record.gloss) span.dataset.gloss = record.gloss;
                     span.dataset.word = word;
-                    // R284：恢复生词悬停释义。R42 下线 span.title 后一直只有波浪线，
-                    // R268 把 cursor:help 注入 iframe 又让「问号光标」重新可见，
-                    // 于是 hover 变成「只有问号、没有内容」。数据源用 R236 的 gloss
-                    // （词典文档首义项），不再拼 R42 那条「释义 + 历史书名与章节」——
-                    // 当初下线就是因为整串太长干扰阅读。词典无文档时不设 title，
-                    // 避免空释义；原生 title 由浏览器渲染、不依赖父页 CSS，
-                    // iframe 内同样可见，也不与 R146 的划词气泡让位冲突。
-                    var hoverGloss = cleanGloss(record.gloss);
-                    if (hoverGloss) span.title = hoverGloss;
                     // span.addEventListener('click', function () {
                     //     alert(this.title);
                     // });
