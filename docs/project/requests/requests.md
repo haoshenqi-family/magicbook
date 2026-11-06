@@ -442,3 +442,5 @@
      - 状态：**已上线待验收**（worktree `../magicbook-r284-hover-gloss-onboarding` /
        分支 `feat/r284-hover-gloss-onboarding` 原样保留；按「修改意见挂已有需求」
        不新建 idea）。
+
+285. **Buddy 头顶滚动复习气泡（SRS 到期词轮播）**（占号 2026-11-06，待回填）
