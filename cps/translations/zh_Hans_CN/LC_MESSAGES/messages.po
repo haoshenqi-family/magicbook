@@ -4111,10 +4111,8 @@ msgid "Start Tour"
 msgstr "开始引导"
 
 #: cps/templates/i18n_seed.html:76
-msgid ""
-"Use the “Onboarding Tour” button at the bottom-right any time to replay "
-"the tour."
-msgstr "随时点右下角「使用引导」重看本段导览。"
+msgid "Open Help in the top-right corner to replay this tour."
+msgstr "随时从右上角「帮助」重看本段导览。"
 
 #: cps/templates/i18n_seed.html:77 cps/templates/layout.html:238
 msgid "Browse"

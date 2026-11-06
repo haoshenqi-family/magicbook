@@ -1,8 +1,10 @@
 # 阅读单词学习（划词翻译）
 
-EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上交给 `moon-well`，由其对每个单词分词、查释义、判定陌生词并回传标注所需数据；陌生词在阅读器内以波浪下划线标识，悬停或点击可查看释义与历史学习信息。
+EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上交给 `moon-well`，由其对每个单词分词、查释义、判定陌生词并回传标注所需数据；陌生词在阅读器内以波浪下划线标识，**悬停可查看词典短释义（R284）**。
 
-> **2026-09-14 调整（截至 2026-10-07 仍为现状，已运行近一月）**：生词的两种信息展示（悬停 tooltip / 点击 alert）因「释义 + 上次：书 · 章节」文本太长暂时下线（`epub.js` `markVocabulary` 内已注释），波浪线标注与划词气泡 ＋/－ 标记保留；`moon-well` 的 analyze 同步暂停查词典释义、仅返回生词本身（判定规则与词族口径见 moon-well `docs/vocabulary/hld/hld.md` §2）。释义获取现走划词翻译/金山直连快路径（magiclens v0.6.0）；如需恢复 tooltip 展示请作为正式需求提出。
+> **2026-09-14 调整（截至 2026-10-07 仍为现状，已运行近一月）**：生词的两种信息展示（悬停 tooltip / 点击 alert）因「释义 + 上次：书 · 章节」文本太长暂时下线（`epub.js` `markVocabulary` 内已注释），波浪线标注与划词气泡 ＋/－ 标记保留；`moon-well` 的 analyze 同步暂停查词典释义、仅返回生词本身（判定规则与词族口径见 moon-well `docs/vocabulary/hld/hld.md` §2）。释义获取现走划词翻译/金山直连快路径（magiclens v0.6.0）；如需恢复 tooltip 展示请作为正式需求提出。〔**已被 R284 取代，见下方状态**〕
+
+> **状态（2026-11-06 R284）· 恢复 hover 释义**：用户反馈「波浪线生词悬浮只有问号光标、没有内容」——R42 下线 `span.title`，R268 又把 `cursor: help` 注入 iframe，两者叠加就是这个现象。R284 恢复 `span.title`，数据源改用 R236 的 `gloss`（词典中文首义项），**不再拼**「释义 + 上次：书 · 章节」，避免 R42 当初嫌长的整串回来；词典无文档时不设 title，只留波浪线。原生 title 由浏览器渲染、不依赖父页 CSS，iframe 内可见，与 R146 划词气泡让位、R261 行内小字开关互不影响。静态锁见 `tests/test_r284_hover_gloss.py`。
 
 > **状态（2026-10-09 R141 设、R143 收窄，当日已上线）· 只让位 magiclens 已实现的部分**：阅读器**内置**划词翻译气泡（含气泡内 🔊 发音、＋/－ 生词标记、「详」单词详解入口）与生词波浪线 DOM 标注**下线**，由 magiclens 扩展单独承担。根因：magiclens R24 起把 content script 绑进 epub.js 渲染正文的同源 iframe，其划词气泡（README 当前状态表 ✅）与生词高亮（v0.5.0 起，v0.7.2 起明确支持 magicbook 阅读器 iframe 正文）与内置实现同开时，会出现双气泡重叠、一词两条波浪线，两套 Esc/点空白关闭逻辑互相抢占。~~落点是 `epub.js` 顶部单一开关 `LENS_OVERLAP_UI_ENABLED=false`~~ → **落点已改为运行时探测（2026-10-10 R146）**：epub.js 读 magiclens v0.8.6（其 R37）留在 DOM 上的接管标记，分能力判定——划词气泡看**本帧**的 `data-magiclens-selection`、生词波浪线看**顶层**的 `data-magiclens-highlight`；读不到标记就保留内置实现（未装扩展、扩展过旧、该 frame 注入失败、用户关了高亮这四种情况都不再出现功能空白）。静态锁定见 `tests/test_reader_lens_handoff.py`。
 >
@@ -25,7 +27,7 @@ EPUB 阅读器自动识别当前可见页面的英文单词，将页面文本上
 ### 2. 交互要求
 
 - 陌生词以**波浪下划线** + `cursor: help` 标识，悬停高亮背景（见 `reader.css` 的 `.reading-vocabulary-unknown`）。**R268**：EPUB 正文渲染在同源 iframe 内，父页 `reader.css` 不跨文档生效，故下划线/悬停规则必须同时随 `READER_TOOLS_STYLE` 注入正文 iframe（`reader-core.js`）；否则 `analyze` 正常返回、span 已插入却看不到下划线，刷新也不恢复（只有 MagicLens 重新扫描才可见）。
-- 点击陌生词弹出释义；若无释义则提示「点击查看学习记录」，有历史则附「上次：<书> · <章节>」。
+- 点击陌生词弹出释义；若无释义则提示「点击查看学习记录」，有历史则附「上次：<书> · <章节>」。〔**已被 R284 取代**：改为悬停显示 `gloss` 短释义，不再弹 alert、不再带上次的书/章节；历史信息仍由单词详解面板与学习数据承载。〕
 - 每个词仅包一层 span，禁止出现嵌套标注（已在 `markVocabulary` 中跳过已标注的文本节点）。
 
 ### 3. 数据上报要求
@@ -96,10 +98,14 @@ MOON_WELL_READING_URL=http://fnos:8082
 > 七个死字段已从契约删除（自 2026-09-14 起永不赋值）；moon-well VO 仅 `word/unknown`。
 > **R236（2026-11）**：新增 `gloss`——词目中文首义项（词典文档缓存批量查询，屈折候选展开；
 > 词典无文档为 null），服务阅读器行内小字释义（Word Wise 式，可选功能默认关）。
+> **R284（2026-11-06）**：同一个 `gloss` 同时作为生词悬停释义的数据源（`span.title`），
+> 默认生效、与行内小字开关解耦；词典无文档为 null 时两种展示都降级为仅波浪线。
 
 前端仅在 `unknown: true` 时用波浪线标注该词；阅读器设置开启「行内小字释义」且 `gloss`
 非空时，波浪线词上方再浮一行小字（`data-gloss` 属性 + iframe 注入样式 `::after` 渲染，
 `epub.js` `markVocabulary` 挂属性、`window.ReaderVocabGloss.remark` 切换重标）。
+R284 起 `markVocabulary` 另在 `gloss` 非空时写 `span.title`，由浏览器原生 tooltip 显示
+短释义；`remark` 切换只管 `data-gloss`，不动 `title`。
 
 ### moon-well 侧职责
 

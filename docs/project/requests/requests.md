@@ -418,4 +418,22 @@
        挂 PingCode MB-239、不新建 idea；worktree 复用 r280 驻留树；
        待后台设为体验版并真机验收，通过后才 Completed）。
 
-284. **R284 恢复生词 hover 释义 + 页面引导入口全部下线（只保留右上角 Help）**（占号 2026-11-06，待回填）
+284. **恢复生词 hover 释义 + 页面引导入口全部下线（只保留右上角 Help）**（占号 2026-11-06）
+     - 现场：用户 11-06 截图（BBC 6ME 双栏）反馈「这个 bug 又回来了」——生词有橙色
+       波浪线，hover 只出现问号光标，没有释义也没有划词翻译。核查线上 `reader-core.js`
+       与 `origin/develop@3413afa0` sha256 一致，R268 注入仍在，**不是代码回退**；
+       成因是 R42 下线 `span.title` + R268 把 `cursor:help` 注入 iframe 两者叠加。
+     - 用户拍板：①恢复 hover 释义；②页面上的引导入口全部下线，只保留右上角 Help。
+     - 交付：`epub.js` `markVocabulary` 在 `record.gloss` 非空时写 `span.title`
+       （不拼历史书名/章节、不复活 `translation`）；`onboarding.js` 断开 `runSegment`
+       与 `showEntryAgainIfNeeded` 两条自动入口调用链；删 `reading_settings.html`
+       引导区块与 `reading-preferences.js` 转发；收尾文案与 i18n 种子 / zh po-mo 改指
+       右上角 Help；`layout.html` 的 `#top_onboarding` 保留为唯一入口。
+     - 文档四问：L1 `readme/reading.md` + `readme/readme.md`；L2 `reading-vocabulary.md`；
+       L3 `learning/features/onboarding.md`；需求基线 `learning/requirements.md` §R284；
+       LLD `iterations/2026-11-reader-hover-gloss/r284-hover-gloss-onboarding/lld.md`。
+     - 验证：新增 `tests/test_r284_hover_gloss.py` 4 例，更新 R226/R109 两条既有守卫；
+       定向 **106 passed**，`node --check` 三文件通过；**未真机**、未跑全量。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r284-hover-gloss-onboarding`，
+       分支 `feat/r284-hover-gloss-onboarding`；按「修改意见挂已有需求」不新建 idea，
+       本轮未 push）。

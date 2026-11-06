@@ -665,9 +665,17 @@ var reader;
                     span.textContent = match[0];
                     // R261 行内小字释义（Word Wise 式，可选功能默认关）：开关开且词典
                     // 有释义时把 gloss 挂在词上，小字由 iframe 注入样式的 ::after 渲染；
-                    // 词典无文档（record.gloss 缺失）即不挂属性、自然降级为仅波浪线。
+                    // 词典无文档（record.gloss 缺失）即不挂属性，降级为仅波浪线。
                     if (vocabGlossEnabled() && record.gloss) span.dataset.gloss = record.gloss;
                     span.dataset.word = word;
+                    // R284：恢复生词悬停释义。R42 下线 span.title 后一直只有波浪线，
+                    // R268 把 cursor:help 注入 iframe 又让「问号光标」重新可见，
+                    // 于是 hover 变成「只有问号、没有内容」。数据源用 R236 的 gloss
+                    // （词典文档首义项），不再拼 R42 那条「释义 + 历史书名与章节」——
+                    // 当初下线就是因为整串太长干扰阅读。词典无文档时不设 title，
+                    // 避免空释义；原生 title 由浏览器渲染、不依赖父页 CSS，
+                    // iframe 内同样可见，也不与 R146 的划词气泡让位冲突。
+                    if (record.gloss) span.title = record.gloss;
                     // span.addEventListener('click', function () {
                     //     alert(this.title);
                     // });
