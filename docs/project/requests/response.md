@@ -418,3 +418,13 @@ L1 `readme/reading.md` 拆成两条用户文案；L2 `reading/interface.md` 同�
 **台账总结**：`requests.md` 第 287 条本处回填；`response.md` 写入前 10 节、本次 11 节，把最旧
 一节 R277 原样搬入 `response-archive/response-R277.md` 并登记索引，窗口回到 10 节
 （R276 早已由并行会话的 R285/R286 merge 轮转归档，本轮复核未重复）。
+
+**补记（14:20，用户当场纠正）**：上文「扩展侧没有 hover」是我的错判，纠正三点——
+① magiclens **R20/R21 本来就实现了「悬浮生词即出划词气泡」**（`highlight.js` 的
+`onMouseMove` → `__magicLensShowWordBubble(word, rect, 'hover')`，200ms 稳定延迟 / 150ms
+离词宽限），② **R24 起支持同源 iframe 内悬浮**（书页正文正是这种 iframe，矩形按 `frameElement`
+叠加到顶层视口），③ 命中范围与内置一致，只对**已高亮（生词）**的 `nodeRaws` 生效。
+所以「扩展接管高亮 → 内置不画线 → 悬停没人管」这个担心不成立：接管期间悬停也归扩展，
+用户那句「两者功能一致，留一个」正是现状——同一页面任何时候只有一个气泡属主。
+改动仅文档：修正 R287 LLD 的错句、在 `reading-vocabulary.md` 的历史沿革里记下扩展侧悬停的
+版本坐标（R20/R21、R24、R37、R57），免得下次又把「扩展没悬停」当成待办重新实现一遍。
