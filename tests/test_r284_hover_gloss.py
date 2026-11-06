@@ -22,19 +22,41 @@ def test_生词悬停释义用_gloss_且不含冗长历史文案():
     marker = js.split("function markVocabulary(records)", 1)[1].split(
         "function inspectVocabulary()", 1
     )[0]
-    assert "if (record.gloss) span.title = record.gloss;" in marker
+    assert "var hoverGloss = cleanGloss(record.gloss);" in marker
+    assert "if (hoverGloss) span.title = hoverGloss;" in marker
     assert "上次：" not in marker, "R42 下线的「释义 + 上次：书·章节」长串不得复活"
     assert "record.translation" not in marker, "R139 已移除 translation 死字段"
-    # 问号光标与波浪线继续作为「这里有释义」的提示，不再是唯一反馈
+    # 波浪线仍在，但问号光标已下线（R284 验收缺陷修复）
     core = _read("cps/static/js/reading/reader-core.js")
     assert "reading-vocabulary-unknown{text-decoration:underline wavy" in core
-    assert "cursor:help" in core
+    assert "cursor:pointer" in core and "cursor:help" not in core
+
+
+def test_问号光标下线且_hover_即时卡片与翻译兜底齐备():
+    """R284 验收缺陷：只补 span.title 时，hover 仍只有 cursor:help 的问号光标；
+       原生 tooltip 要等约 1 秒且 gloss=null 时不生成。改为立即弹卡 + 划词翻译兜底。"""
+    import re
+
+    js = _read("cps/static/js/reading/epub.js")
+    for token in (
+        "function cleanGloss(", "function showVocabHoverCard(", "function lookupVocabHover(",
+        "function bindVocabHover(", "bindVocabHover(doc);", "reading-vocab-hover-card",
+        "calibre.readingTranslationUrl", "hoverTranslation", "cleanGloss(record.gloss)",
+    ):
+        assert token in js, f"hover 释义卡链路缺 {token}"
+    assert "cursor: help" not in js
+
+    css = re.sub(r"/\*.*?\*/", "", _read("cps/static/css/reader.css"), flags=re.S)
+    assert ".reading-vocab-hover-card" in css
+    assert "cursor: help" not in css and "cursor:help" not in css
+    core = _read("cps/static/js/reading/reader-core.js")
+    assert "cursor:help" not in core
 
 
 def test_gloss_开关不联动_hover_释义():
     js = _read("cps/static/js/reading/epub.js")
     marker = js.split("function remarkVocabularyForGlossToggle()", 1)[1].split(
-        "function markVocabulary", 1
+        "// ===== R284 验收缺陷修复", 1
     )[0]
     assert "span.title" not in marker, "开关只管行内小字，不该清掉 hover 释义"
 

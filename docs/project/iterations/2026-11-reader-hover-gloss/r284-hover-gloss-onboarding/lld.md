@@ -91,3 +91,25 @@ worktree `../magicbook-r284-hover-gloss-onboarding`，分支 `feat/r284-hover-gl
 验收通过才 `worktree remove` → `branch -d`。代码已于 11:11 推送 `origin/develop`
 （`43e9bec2..48030f33`），台账/LLD 状态回填以纯文档提交单独推送（不触发重建）。
 worktree 分支停在 `3d31fa43`，比 develop 少一个纯文档提交，验收以 develop 为准。
+
+## 7. 验收缺陷环：hover 仍然只有「问号」（同日 11:34 用户反馈）
+
+- **现象**：R284 首版上线后用户复验「hover 波浪线生词还是问号」。
+- **根因**：首版只补 `span.title`（浏览器原生 tooltip，需停留约 1 秒、`gloss=null`
+  时根本不生成），**没有动产生问号的那行 `cursor: help`**。父页 `reader.css` 与
+  R268 注入 iframe 的样式都留着它，hover 时鼠标变问号光标，观感完全没变。
+- **修复**：① 两处 `cursor: help` → `cursor: pointer`；② `epub.js` 新增
+  `cleanGloss` / `showVocabHoverCard` / `lookupVocabHover` / `bindVocabHover`，
+  在 `markVocabulary` 遍历 contents 时对每个 iframe 文档幂等绑定 `mouseover`/`mouseout`；
+  ③ hover 立即弹父页 fixed 卡片，优先 `record.gloss` → `hoverTranslation` → `span.title`，
+  `?`/`-`/空白占位一律过滤；三者皆空时先显示「翻译中」，再走
+  `/ajax/reading-translate`（与划词气泡同一端点、同样补 CSRF 头），结果按词缓存；
+  ④ 迟到响应用 `vocabHoverSeq` + `vocabHoverWord` 双判据丢弃，`mouseout` 140ms 隐藏。
+- **为什么不把卡片放进 iframe**：插进正文会被 `currentPageText` 当成正文上送，
+  改变 analyze 页面签名并触发重复请求 / 重分页；父页 fixed 层用
+  `frameElement.getBoundingClientRect()` 换算坐标（与 `translateSelection` 同款）。
+- **验证**：`tests/test_r284_hover_gloss.py` 增 1 例并更新 2 处断言（问号光标下线、
+  卡片与翻译兜底齐备、gloss 开关不联动）；定向 **131 passed / 0 failed**，
+  `node --check` 两个改动 JS、`git diff --check` 通过。`mbT('Translating…')` 复用既有
+  种子词条，避免 i18n 契约守卫报缺。
+- **流程**：挂 R284 验收缺陷环，不另占号、不新建 idea；复用同一 worktree。

@@ -406,6 +406,18 @@
   分支 `feat/r284-hover-gloss-onboarding` 原样保留，真机验收通过后才 `worktree remove`
   → `branch -d`。修改意见按治理挂 R268/R226 后续，不新建 PingCode idea。
 
+**验收缺陷环（11:34 用户反馈「hover 波浪线生词还是问号」）**：首版只补
+`span.title`，却保留了 `cursor: help` 问号光标，且原生 tooltip 要停留约 1 秒、
+`gloss=null` 时不生成——用户 hover 到的仍然只有问号。本环按 R284 验收缺陷处理，
+不另占号、不新建 idea，复用同一 worktree：
+- 父页 `reader.css` 与 R268 注入 iframe 的样式中 `cursor: help` → `cursor: pointer`；
+- `epub.js` 新增 hover 即时释义卡：优先 `gloss`（过滤 `?` 等占位），缺失时回退
+  `/ajax/reading-translate` 并按词缓存 `hoverTranslation`，迟到响应按词+序号丢弃；
+- 卡片挂父页 fixed 层，不插 iframe 正文，避免污染 `currentPageText` 与 analyze
+  页面签名；坐标用 `frameElement.getBoundingClientRect()` 换算（与划词气泡同款）。
+- 定向 **131 passed / 0 failed**（新增 1 例、更新 2 处断言），`node --check` 两文件、
+  `git diff --check` 通过；L1/L2/LLD 已同步。**仍待真机复验**。
+
 **台账总结**：`requests.md` 第 284 条本处回填；`response.md` 写入前 10 节、本次 11 节，
 按「写入即检查」把最旧一节 R274 原样搬入 `response-archive/response-R274.md`
 并在顶部归档索引登记，窗口回到 10 节。冲突记录：无撞号；
