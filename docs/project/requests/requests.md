@@ -310,6 +310,164 @@
 
 266. **学习入口待复习角标 hidden 失效：默认关闭时仍渲染空红胶囊（红横杠缺陷）**（占号 2026-11-02，待回填）
 
-267. **重写 GitHub README：核心功能与入门用法**（2026-11-02 完成已 push）：仓库根 README 上游原样内容整体重写为本仓产品 README（定位/三件套/六组核心功能/快速上手七步/架构图/本地开发/GPL 致谢），口径以 L1 为准；用户拍板连同本地 10 个待验收提交一起 push 上线（711f6065..4454e9f2 → origin/develop，R262/R264/R265 随本次部署），README 另 cherry-pick 至 master 落地页生效（a712694c..5b01c880）。闸门修复：R225 权限提示断言对齐 R257 现行文案（预存破损，31e87b6e），全量 1270 passed / 0 failed。README 本身 docs-only。
+267. **重写 GitHub README：核心功能与入门用法**（2026-11-02 完成已 push）：仓库根 README 上游原样内容整体重写为本仓产品 README（定位/三件套/六组核心功能/快速上手七步/架构图/本地开发/GPL 致谢），口径以 L1 为准；用户拍板连同本地 10 个待验收提交一起 push 上线（711f6065..4454e9f2 → origin/develop，R262/R264/R265 随本次部署），README 另 cherry-pick 至 master 落地页生效（a712694c..5b01c880）。闸门修复：R225 权限提示断言对齐 R257 现行文案（预存破损，31e87b6e），全量 1270 passed / 0 failed。README 本身 docs-only。同日追加：用户指令「都 push 到 master」，develop 全量正式合并至 master（61deacf7，worktree 发布合并，epub.js 冲突以 develop 现行实现为准、master 9 月旧章节标题补丁系被取代不复活），合并点全量 1273 passed。
 
 268. **播客阅读页生词不显示：波浪下划线样式未注入 EPUB iframe（analyze 正常返回但 span 不可见）**（占号 2026-11-02，待回填）
+
+269. **顶栏信息架构收敛：搜索与上传书籍只在书库域、任务列表归管理权限、语言与注销归账号、右上只留帮助**（占号 2026-11-02）：用户原话「搜索只在书库有就可以了其他四个主入口不要。同样的上传书籍也是。最右边的用户跟主用户重复了，是相同的功能，还有注销按钮，和语言按钮，只放到账号中。任务列表只放到管理权限中。右上角只留帮助按钮」。口径：顶栏搜索框（含高级搜索）与「上传书籍」按 `current_domain == 'library'` 门控，其他四个一级域不渲染；顶栏撤掉登录态用户名（`#top_user`）、注销（`#logout`）、语言下拉（`#top_language`）、任务列表（`#top_tasks`），右上只留「帮助」；注销新增 `/me` 的 `#me-logout`，语言沿用 `/me` 的 `#me-language`；任务列表进 `ADMIN_L2_GROUPS` 系统组（M8），`/tasks` 归管理域但仍对普通登录用户开放，管理 L2 加 `role_admin()` 守卫。连带下线 R257 方案六语言折叠菜单与 R212 顶栏语言入口（语言整体归账号域）。状态：**已上线待验收**（实现 `49406fe8` + merge `066bb8e9` 已推 `origin/develop`（fc3a9154..066bb8e9）；定向 8 文件 121 passed、全量 1287 passed / 0 failed；线上 `/static/js/main.js` `last-modified 2026-11-02T13:42:54Z` 且已无 `mb-lang-more-toggle`、`style.css` 已含 R269 注记——新镜像已在服务；worktree `../magicbook-r269-topbar-ia`，分支 `feat/r269-topbar-ia`，保留待验收）。
+
+270. **阅读器 bookUrl 大小写致 /show 404——首页继续阅读打开空白阅读器**（2026-11-03 完成已上线待验收）：`serve_book` 在大小写敏感文件系统按 URL 段原样拼扩展名，库内 Calibre 落盘恒小写；首页继续阅读卡片（R213-C）透传进度记录的大写 `EPUB`，read.html 再透传给 `url_for('web.serve_book')` → `<name>.EPUB` NotFound → epub.js 拿不到书、阅读器永久空白（详情页两条入口 `|lower`/`or 'epub'` 正常，日常走详情页故潜伏）。视频录制会话实测发现（/show/145/EPUB 404 / /show/145/epub 200）。修复 read.html bookUrl 单点 `|lower`（全部阅读入口共用模板，epub.js restore 缓存键随之统一小写），实现 `600fe72b` + merge `276f77ee` 已推 develop，fnOS `00:06` END OK；测试 `tests/test_reader_bookurl_case_r270.py` 2 例，全量 1274 passed；线上大写入口 bookUrl 已小写且 200。worktree `../magicbook-r270-reader-bookurl-case`，分支 `fix/r270-reader-bookurl-case`，保留待验收；与 10-28 wholebook-whitescreen 是否同源未证实、留原案复测排除。
+
+271. **微信小程序：生词本 / 每日复习 / 词汇量测试 / 学习数据四个工具页（阅读留网页）**（占号 2026-11-03）：用户原话「工具型小程序 | 生词本/每日复习/词汇量测试/学习数据，阅读留在网页 | 最低，全是标准列表交互」。口径：新建 `magicbook/miniprogram/` 原生小程序（无框架、无云开发），四个 tab 页——生词本（四状态筛选带角标 + 词前缀搜索 + 上滑加载 + 点词改标记）、每日复习（到期队列一卡一答：四选一/拼写/回忆三态 + 四档自评，始终回传原始 `questionType`）、词汇量测试（自适应作答 → 交卷确认含「收进生词本」开关 → 报告含各频段与推荐难度一键应用）、学习数据（今日四股 + 复习摘要 + 近 7 天堆叠条 + 最近词汇量）；阅读、翻译、朗读、AI 伴读一律不做。登录走微信身份 + 一次账号绑定（AppID `wxd511f98508dc9cee`），数据直连 moon-well 而非网页代理（网页代理依赖 Flask 会话，小程序没有）；`baseUrl` 集中在 `config.js`。小程序不参与容器构建（`miniprogram/` 不被 Dockerfile COPY、`cps/` 不引用），push develop 不会把它带上线，上线走微信开发者工具上传提审。同源后端 moon-well R239（两步式微信登录 + `GET /vocabulary/notebook` 分页）。验证：全部 `.js` 过 `node --check`、全部 `.json` 过 `JSON.parse`、接口路径与 DTO 字段逐项比对；**本机未装微信开发者工具，未编译/未真机运行**（tabBar 纯文字与 WXML 表达式待真机确认）。文档：L1 `docs/product/readme/miniprogram.md` + 索引行、LLD `iterations/1.0/r271-miniprogram/`、工程内 `miniprogram/README.md`。状态：**已上线待验收**（worktree `../magicbook-r271-miniprogram`，分支 `feat/r271-miniprogram`，保留待验收）。上线实况（2026-11-03）：`dc3c6ce3` 已推 `origin/develop`，fnOS 构建完成、现役容器 `magicbook` `sha=dc3c6ce3`/`digest=ba47ad55`、站点 302 正常；`miniprogram/` 不进镜像（Dockerfile 未 COPY、`cps/` 零引用），所以这次部署对网页服务只是文档级变化，小程序本身仍需微信开发者工具导入「上传+提审」才对外可见。同源后端 moon-well R239 已上线（`sha=6c1433cd`、`/auth/wx/login` 与 `/vocabulary/notebook` 均已生效），**只差人工把 Nacos `app.wx.secret` 换成正式 AppSecret**。
+
+272. **小程序账号体系：自动建号 + 账号页（绑定邮箱 / 认领老账号 / 退出）**（占号 2026-11-03）：R271 的「首次必须输网页端账号密码」把第一次用小程序的人挡在他没有的表单前，本次改为**先建号、后用邮箱认领**（后端同源 moon-well R240）。①登录页两条路：主按钮「微信一键登录」→ 未绑定即由后端自动建「微信临时账号」并直接进主界面（`doLogin(false)`）；次按钮「我已有账号，用密码绑定」→ `linkExisting=true` 只拿 10 分钟票据、输密码绑到老账号（`doLogin(true)`），不产生空账号。②新增 `pages/account`：身份状态（微信临时账号 / 已绑定邮箱）、邮箱验证码绑定（发码 → 秒级倒计时 → 6 位码）、退出登录；归并成功后用后端返回的**新 token** 整份替换本地登录态（userId 已变，沿用旧 token 会「登录着但数据全空」）。③50512（临时账号已有数据）必须 `wx.showModal` 二次确认并展示后端给的数据摘要，用户点「放弃并合并」才带 `discardShadowData=true` 重提，默认拒绝丢弃。④生词本页顶部窄提示条（仅临时账号）+ 数据页页尾「账号与绑定」入口，不做强制拦截弹窗。⑤**部署顺序：先 moon-well R240 再发小程序**（旧后端会回 `bindRequired=true` 把新用户带到密码表单）。测试：新增 `tests/test_r272_account.py` 7 例静态锁（账号页四件套与注册、两条登录路径不写反、`linkExisting` 透传、邮箱端点路径、50512 二次确认、归并后换 token、临时账号提示条），与 R271 合计 14 passed；`.js` 全过 `node --check`、`.json` 全过 `JSON.parse`；**本机无微信开发者工具，未编译未真机**。状态：**开发完成待验收，未 push**（worktree `../magicbook-r272-account`，分支 `feat/r272-account`）。
+
+273. **小程序登录页：改密码绑定为邮箱验证绑定已有账号**（占号 2026-11-03）：用户要求「已有网页端账号不要用密码绑定，直接用邮箱+验证码」。①登录页第二入口从「用密码绑定」改为「我已有账号，用邮箱登录」：先 `auth.login(true)` 只拿 10 分钟票据（**不建号**），再填邮箱 → 发码 → 6 位码 → `/auth/wx/email/verify` 直接登进老账号。②三态状态机 `idle / email / code`，倒计时用后端 `resendAfter`；`50514`（邮箱没有账号）回 `idle` 并提示去用微信一键登录建号，`50403`（票据过期）同样回收刷新，避免用户拿着废票据反复点。③删掉登录页的用户名/密码输入与处理逻辑；后端 `/auth/wx/bind` 端点保留为兜底能力（界面不再暴露，原因见 LLD）。④`utils/auth.js` 增 `sendEmailCode` / `verifyEmail`（均 `auth:false`）。⑤测试：新增 `tests/test_r273_email_login.py` 4 例静态锁（登录页不得再有密码框、三态齐全、邮箱入口不得走建号分支、端点与 50514/50403 处理），并同步修正 R272 的两条断言；与 R271/R272 合计 **18 passed**；`.js` 全过 `node --check`、`.json` 全过 `JSON.parse`。**本机无微信开发者工具，未编译未真机**。状态：**开发完成待验收，未 push**（worktree `../magicbook-r273-email-login`，分支 `feat/r273-email-login`）。
+
+274. **小程序登录页 UI 调整：输入框高度修复 + 验证码输入与重发态**（2026-11-03）
+     - 交付：`.field` 显式 height + 竖向 padding 归零，修「placeholder 只露半截」；`.field` 上提 `app.wxss`
+       供登录页与账号页共用；验证码框居中放大；「重新发送」倒计时期间灰掉。
+     - 验证：`tests/test_r274_login_ui.py` 4 例静态锁；**未真机**（本机无开发者工具）。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r274-login-ui`，分支 `feat/r274-login-ui`）。
+
+275. **小程序首页改为复习、数据页改「我」、新增主站入口**（2026-11-03）
+     - 交付：tabBar 改为 复习/生词本/词汇量/我；登录后落复习；「我」页 = 身份卡 + 网页版卡片 +
+       学习数据 + 退出；主站域名收进 `config.siteUrl`，点击复制链接。
+     - 验证：`tests/test_r275_home_profile.py` 5 例静态锁，与既有静态锁合计 27 passed；**未真机**。
+     - 状态：**开发完成待验收**（同上 worktree）。
+
+276. **切换正式 AppID wx7b31b435be6beae3**（2026-11-03）
+     - 交付：`project.config.json` appid 换正式号；新增 `tests/test_r276_appid.py` 2 例
+       （正式号字面量 / `wx`+16 位十六进制格式）；手册新增「工程信息」（AppID、合法域名、导入目录）。
+     - 后端同步：moon-well R242（`app.wx.appid` 默认值 + Nacos），两边必须同值。
+     - 验证：静态锁 8 passed；后端线上已用新 appid+secret（微信回 40029）。**未真机**。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r276-appid`，分支 `feat/r276-appid`）。
+
+277. **请求失败可诊断：透传 errMsg 并识别域名白名单错误**（2026-11-03）
+     - 现场：开发者工具调试正常，发布体验版后所有请求失败，提示「网络请求失败，请检查网络」。
+     - 根因（代码侧）：`wx.request` 的 `fail` 回调把 `errMsg` 整个丢掉了，而「域名不在白名单」
+       这条只出现在 `errMsg` 里；被抹成「请检查网络」后，排查方向整体跑偏。
+     - 交付：`describeNetworkError()` 分类「白名单 / 超时 / 链路」，白名单那条直接给出后台配置路径与
+       实际域名；认不出也原样带出 `errMsg`；`console.error` 留痕供体验版 vConsole 查看。
+       手册补「请求失败怎么查」一节（含「不校验合法域名只对开发版有效」这条关键前提）。
+     - 验证：`tests/test_r277_network_error.py` 4 例静态锁；`node --check` 通过。**未真机**。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r277-netmsg`，分支 `feat/r277-netmsg`）。
+
+278. **账号页与「我」页不展示账号 ID，只显示邮箱**（2026-11-03）
+     - 现场：账号页显示「账号 ID 123 · 邮箱 x@y」，副标题还回显自动生成的 `wx_xxx` 用户名；
+       「我」页标题也以 username 兜底，等于把内部标识当名字展示。
+     - 交付：账号页身份行改为「昵称 → 邮箱 → 微信用户」并单独显示邮箱（超长省略）；
+       删掉 ID 与 username 两处；「我」页标题同样改用邮箱，副标题只描述状态（临时账号/已绑定邮箱/
+       邮箱未验证），不再回显邮箱；头像首字取昵称或邮箱。
+     - 验证：`tests/test_r278_identity.py` 4 例静态锁（模板不得出现 userId/user.username、
+       「账号 ID」文案不得回来、身份用邮箱表达、身份计算不碰 username）。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r278-noaccountid`，分支 `feat/r278-noaccountid`）。
+
+279. **普通用户投稿书籍：上传仅进 MinIO 暂存区，管理员审核后才解析入库**（占号 2026-11-04）：承接本会话前两轮评估（开放 `ROLE_UPLOAD` = 直写共享书库且可覆盖任意书目文件，书库无归属、无配额、无审核）。用户原话「给普通用户一个新的上传图书接口，仅上传到 mino，管理者审核后可以解析入库」+「确认，开工」。方案（用户已确认）：新前缀 `book-submissions/<user_id>/<uuid>.<ext>`（不进匿名只读 Statement，只读面仍是 `buddy/` 与 `ted-audio/`）；app.db 新表 `book_submission`（提交人/对象键/原始文件名/大小/sha256/状态机 PENDING→APPROVED|REJECTED→INGESTED|FAILED/审核人/备注/入库 book_id）；用户接口 `POST /ajax/library/submit`（登录即可、不查 role_upload、扩展名白名单 + MIME 校验 + sha256 去重 + 单用户配额 + 限流）；管理页 `/admin/submissions`（@admin_required，列表/预览/通过/驳回，预览走同源代理不直链 MinIO）；入库走后台线程（app.app_context + _thread_db_session），前置抽出无请求上下文的纯入库函数（现有 create_book_on_upload 依赖 flash/current_user），不改既有 `/upload` 行为；驳回/入库完成即删对象 + 孤儿扫描；提交页勾选「我有权分享该文件」声明。先做同步入库最小闭环，异步入库第二步。状态：**开发完成，待验收**（实现见 `cps/library_submission/`、`cps/routes/library_submission.py`、`cps/templates/admin_submissions.html`、`me.html` 投稿面板；`tests/test_r279_book_submission.py` 17 用例 + 契约演进 1 处；LLD `docs/project/iterations/2026-11-book-submission/lld.md`；worktree `../assess-user-book-upload-429d294ca21c`，分支 `feat/r279-book-submission`）。
+
+280. **小程序接入 AI 伴读（对话）功能，加载通用对话 prompt，生词本功能下掉**（占号 2026-11-04）
+     - 口径（用户 2026-11-04 拍板）：现网没有「通用对话」prompt（只有书内 / 网页两套）→ **新建**
+       `agent-chat-system-general`；「生词本下掉」→ **删页面并换伴读 tab**；对话 → **复用现网 SSE**。
+       （占号标题原误写 R279，R279 已被「普通用户投稿书籍」占用，此处按实际编号更正，编号本身不变。）
+     - 交付：新增 `pages/chat/chat`（欢迎语 / 快捷问题 / 气泡 / 输入栏 / 新会话），
+       `utils/api.js` 新增 `chatStream`（`enableChunked` + `onChunkReceived`、跨块 UTF-8 `carry`
+       解码、SSE `\n\n` 分帧、401 单次刷新、错误透传），`chatTimeout: 180000`；
+       删除 `pages/notebook/*`，tabBar 第二项改「伴读」；临时账号提示条迁到「我」页，
+       样式迁到 `app.wxss`；登录 / 账号 / 词汇量测试文案改「网页端生词本」。
+     - 契约：直连 `POST /ai/agent/chat`，带 `scene: 'general'` 与 `skipMemoryExtract: true`，
+       **不传** `bookId` / `bookTitle` / `pageText` / `unfamiliarWords` / `authors` / `chapter`。
+     - 文档四问：L1 `readme/miniprogram.md` + 模块表；新建 L2 `miniprogram/interface.md`、
+       L3 `miniprogram/features/ai-chat.md`、需求基线 `miniprogram/requirements.md`；
+       LLD `iterations/2026-11-wx-ai-chat/r280-miniprogram-ai-chat/lld.md`（带状态行）。
+     - 验证：R271–R281 静态锁 **46 passed**；`node --check` / JSON 解析通过；跨块中文与 emoji 解码
+       用 Node 实测。全量 `pytest tests/` 本机 SIGKILL（Flask 集成用例占资源），按开发态闸门跑受影响子集。
+       后端同源 moon-well R243：8 passed / BUILD SUCCESS（含上下文测试）。
+     - 部署顺序：**moon-well R243 先上线**（新 prompt 由启动自检发布），再发小程序体验版。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r280-ai-chat`，分支 `feat/r280-ai-chat`，
+       已拉齐 R281 基线并本地 merge，**未 push、未部署**）。真机 `enableChunked` 表现待验。
+
+281. **白名单错误提示带上运行时 AppID，消除「配了还是不生效」的猜测**（2026-11-04）
+     - 现场：后台白名单已配、代码 appid 已是正式号，体验版仍报「请求域名未配置白名单」。
+       白名单按 AppID 存，而「代码里的 appid」≠「这个包上传时用的 appid」——无法从报错里判断。
+     - 交付：`runtimeAppId()`（`wx.getAccountInfoSync().miniProgram.appId`，容错）+ 白名单报错文案带上
+       「当前 AppID xxx · 为这个 AppID 添加域名」；`console.error` 同步带 appid，体验版 vConsole 可核对。
+     - 验证：`tests/test_r281_runtime_appid.py` 3 例 + R277 的 4 例，合计 7 passed。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r281-runtime-appid`，分支 `feat/r281-runtime-appid`）。
+
+282. **请求失败诊断补全：打印实际请求的完整 URL**（2026-11-05）
+     - 现场：白名单（后台 + 开发者工具「项目配置 → 域名信息」+ 工具本地缓存三处）都显示
+       `https://moon-well.haoshenqi.top` 已配、运行时 AppID 也是正式号，请求仍报
+       `url not in domain list`；且开发调试阶段就复现，不是体验版缓存。
+     - 根因（诊断侧）：报错文案只打印 `CONFIG.baseUrl`，**它永远显示那个「本该正确」的域名**。
+       路径拼接错误、baseUrl 含隐藏字符、请求发往别处时，提示照样看起来完全正常，
+       把排查引向「一遍遍确认后台」。R282 补齐：日志与文案都带实际请求 URL + errMsg 原文。
+     - 交付：`rawRequest` 先算 `const url` 再复用；白名单文案改为「为这个 AppID 添加 <host>｜
+       实际请求 <完整URL>｜微信原文 <errMsg>」；新增 `hostOf()`（去协议/路径/查询串、保留端口）；
+       SSE 的 `chatStream` 同步带 `chatUrl`。
+     - 验证：`tests/test_r282_requrl.py` 6 例 + R277/R281 既有锁，合计 **13 passed**；
+       `hostOf` 经 Node 实测（含 null/空串/带端口）。**未真机**。
+     - 状态：**已上线**（`d83cf2ae` 已合入 develop 并推送）；用户 2026-11-05 11:22 确认
+       开发调试已恢复。**根因未确证**：白名单三处（后台 / 工具「项目配置 → 域名信息」/ 工具缓存
+       `RequestDomain`）与运行时 AppID 均正确，服务端无跳转且带小程序 UA 返回业务 JSON，
+       最终恢复也可能来自工具侧配置刷新——下次同类问题先看报错里的「实际请求」一行。
+
+283. **修改意见（挂 R280）：小程序 tabBar「伴读」改为「AI」**（2026-11-05）
+     - 用户口径：只改 tabBar 文案，页面标题 / 登录页文案 / 文档功能名仍「AI 伴读」；改完立刻重传体验版。
+     - 实现：`app.json` 第二项 `text` 改为「AI」；新增 `tests/test_r283_tab_ai.py`，同步 R275/R280 静态锁。
+     - 状态：**已上线待验收**（体验版 `1.0.1` 已上传，65.3 KB / 66,836 Byte；
+       挂 PingCode MB-239、不新建 idea；worktree 复用 r280 驻留树；
+       待后台设为体验版并真机验收，通过后才 Completed）。
+
+284. **页面引导入口全部下线（只保留右上角 Help）**（占号 2026-11-06）
+     - 现场：用户 11-06 截图反馈阅读器里「问号」。后续给出参考截图确认期望的
+       「划词翻译」是 **MagicLens 扩展**的气泡（紫色 `#8b5cf6` 波浪线 +
+       译/详/🔊/认识/生词/AI/✕）；扩展接管高亮时 magicbook 内置 `markVocabulary`
+       让位，改内置标注链路不解决该问题。
+     - 用户拍板（本轮保留部分）：页面上的引导入口全部下线，只保留右上角 Help。
+     - 交付：`onboarding.js` 断开 `runSegment` 与 `showEntryAgainIfNeeded` 两条自动
+       入口调用链；删 `reading_settings.html` 引导区块与 `reading-preferences.js` 转发；
+       收尾文案与 i18n 种子 / zh po-mo 改指右上角 Help；`layout.html` 的
+       `#top_onboarding` 保留为唯一入口；导览引擎与 `read.html` 挂载点保留以支持跨页续览。
+     - **已否决撤销（12:31）**：用户明确「撤销我这两轮改动」——同批做过的
+       「恢复生词 hover 释义」（`span.title = gloss`）与「hover 即时释义卡 + 划词翻译
+       兜底 + 去掉 `cursor:help`」两轮改动全部回滚：`epub.js` / `reader.css` /
+       `reader-core.js` 恢复到 R284 之前，删除 `tests/test_r284_hover_gloss.py`，
+       L2 `reading-vocabulary.md` 与 L1 生词条目同步回退。生词链路回到 R268 原状
+       （`span.title` 仍下线、`cursor:help` 保留），本轮不再改生词链路。
+     - 文档四问：L1 `readme/reading.md` + `readme/readme.md`；L3
+       `learning/features/onboarding.md`；需求基线 `learning/requirements.md` §R284；
+       LLD `iterations/2026-11-reader-hover-gloss/r284-hover-gloss-onboarding/lld.md`。
+     - 验证：更新 `test_reader_r226_acceptance.py`（改钉「调用链断开」）与
+       `test_onboarding_tour.py`（中文种子词条）；定向回归全绿（撤销后复跑）。
+     - 状态：**已上线待验收**（worktree `../magicbook-r284-hover-gloss-onboarding` /
+       分支 `feat/r284-hover-gloss-onboarding` 原样保留；按「修改意见挂已有需求」
+       不新建 idea）。
+
+285. **Buddy 头顶滚动复习气泡（SRS 到期词轮播）**（占号 2026-11-06，待回填）
+
+286. **生词悬停释义卡：去掉「问号指针」，悬停即出释义**（占号 2026-11-06）
+     - 现场：用户 12:41 截图（阅读器里 `reversed` 橙色波浪线 + 悬停底色）反馈
+       「magicbook 划词翻译显示问号，而不是像 MagicLens 那样显示正确的信息」。
+       参考图仍是 MagicLens 气泡（词条 + 释义 + 译/详/🔊/认识/生词/AI/✕）。
+     - 根因（两层，都是界面上静默退化）：① `.reading-vocabulary-unknown` 的
+       `cursor:help` 让鼠标变问号，而 `span.title` 自 R268 已下线、悬停没有任何释义落点；
+       ② `ReaderSelection.setHost` 只接 `markVocabulary`/`buildSpeechUtterance`，装配层
+       一直在传的 `getWordRecord`/`applyWordRecord` 被静默丢弃（`record.gloss` 读不到、
+       ＋/－ 标记不回写波浪线）。划词（拖选）气泡本身正常，但只在 mouseup 弹——
+       而阅读时鼠标大半时间在悬停。
+     - 用户拍板（四选一）：**悬停弹 MagicLens 同款气泡**。
+     - 交付：`reader-selection.js` 新增「生词悬停释义卡」F 节（`openVocabCard` /
+       `bindVocabCard`、140ms 悬停确认、触屏点按、`译/详/🔊/认识/生词/AI/✕`、
+       与划词气泡互斥）；指针改 `pointer`（`reader.css` + `reader-core.js` 注入样式两处）；
+       标记逻辑收敛为 `markWord()` 供气泡 ＋/－ 与卡片共用；`setHost` 补接三条台账通道；
+       关闭路径覆盖 ✕/Esc/翻页/点外/正文 mousedown/滚动。
+     - 计费边界：释义取 `record.gloss`（零请求）；缺 gloss 不自动请求，由「译」显式触发。
+     - 验证：新增 `tests/test_r286_vocab_hover_card.py` 6 例；定向回归 25 passed；
+       阅读器/词汇子集 273 passed（`test_reading_tts_service.py` 44 例为 pytest tmpdir
+       沙箱 `FileExistsError`，develop 同样复现，与本轮无关）；无头 Chrome 真实代码路径
+       冒烟截图确认卡片形态。
+     - 文档四问：L1 `readme/reading.md`；L3 `product/reading-vocabulary.md` §2；
+       需求基线 `learning/requirements.md` §R286；LLD
+       `iterations/2026-11-reader-hover-gloss/r286-vocab-hover-card/lld.md`。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r286-vocab-hover-card` /
+       分支 `feat/r286-vocab-hover-card`）。

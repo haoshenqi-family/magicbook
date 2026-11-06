@@ -1,0 +1,24 @@
+.who {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+/* 输入框样式在 app.wxss（.field / .field-ph / .field-code），与登录页共用一份 */
+
+.tip {
+  margin-top: 16rpx;
+  line-height: 1.6;
+}
+
+.mt {
+  margin-top: 16rpx;
+}
+
+.mt8 {
+  margin-top: 8rpx;
+}
+
+.foot {
+  margin-top: 24rpx;
+  text-align: center;
+}

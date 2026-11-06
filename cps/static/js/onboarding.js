@@ -94,7 +94,8 @@
       body: "Ask questions about this book; it remembers your preferences." },
     { id: "reader-finish", sel: null,
       title: "Happy reading",
-      body: "Use the “Onboarding Tour” button at the bottom-right any time to replay the tour." }
+      // R284：阅读器右下常驻按钮已下线，收尾文案不能再指向一个不存在的入口。
+      body: "Open Help in the top-right corner to replay this tour." }
   ];
 
   /* R206 伙伴段：只在 /buddy 页出现，花名册异步渲染后由 onRosterReady 触发，
@@ -591,8 +592,11 @@
     showEntryAgainIfNeeded(segment);
   }
 
+  /** R284：导览结束/ESC 关闭时不再把右下常驻按钮挂回来。页面上所有引导入口
+      已下线，唯一入口是右上角 Help 下拉；阅读器页没有顶栏，收尾即安静退出。
+      保留函数名与调用链，避免 finish/dismiss 的形状与既有守卫漂移。 */
   function showEntryAgainIfNeeded(segment) {
-    if (segment === "reader") showReaderHelp();
+    // 故意留空：R284 起不恢复任何页面内入口。
   }
 
   /* ---------------- 邀请卡与常驻入口 ---------------- */
@@ -616,7 +620,8 @@
     card.find(".onb-invite-start").trigger("focus");
   }
 
-  /** 阅读器页没有 layout 的「设置」下拉，用带文案的常驻按钮代替手动入口。 */
+  /** R284 起不再调用：页面上的常驻引导入口已全部下线，只保留右上角 Help。
+      函数体保留是为了不改动 R111 视觉守卫所锁的几何/配色契约，且便于回溯。 */
   function showReaderHelp() {
     // 配色要在「已存在就直接 return」之前算：teardown 会摘掉 onb-chrome-dark，
     // 导览结束后不重算，导览入口会从暗色卡回跳成浮在深色主题上的白按钮
@@ -668,12 +673,11 @@
     if (progress && progress.segment === segment) {
       clearProgress();  // 步骤已从表里移除
     }
-    // R216：自动邀请只发生在主站段；阅读器/伙伴页只保留手动入口，避免「出现三次」
-    if (segment === "main" && !isSeen()) {
-      showInvite(segment);
-      return;
-    }
-    showReaderHelp();
+    // R284：页面上所有引导入口下线——不再自动弹邀请卡、不再挂阅读器右下的
+    // 常驻按钮（原「?」/「使用引导」胶囊，正是用户把它误认成生词提示的那一枚）。
+    // 唯一入口是右上角 Help 下拉里的 #top_onboarding。上面这段只保留
+    // 「导览已在进行中」的跨页续览，不主动发起任何新导览；showInvite /
+    // showReaderHelp 的函数体保留供视觉守卫与历史回溯，但从此不再被调用。
   }
 
   function init() {

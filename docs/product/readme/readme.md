@@ -23,6 +23,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | companion | AI 伴读：围绕当前书对话提问、工具调用、跨书记忆；伙伴系统（AI 阅读按钮的外观）；伙伴信封与站内信入口 | [companion](companion.md) |
 | credit | 积分与订阅：积分余额/流水/充值（支付宝扫码）、可转赠积分卡、订阅状态、成就徽章 | [credit](credit.md) |
 | admin | 管理：管理员运营站内信、LLM 任务手动执行面板、用户与站点管理、统一账号中心 OIDC 登录 | [admin](admin.md) |
+| miniprogram | 微信小程序：AI 伴读（通用对话）、每日复习、词汇量测试、学习数据四页；阅读、翻译与生词本仍在网页端 | [miniprogram](miniprogram.md) |
 
 > `account` 是用户视角的跨模块账号域，聚合资料、伙伴、邮件、阅读设置、积分、成就和导出页面；
 > 它不新增后端模块或 L2 契约。
@@ -33,7 +34,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 2. 书架选书进入阅读器；鼠标移到段落上点「译」看该段译文，工具栏「译」翻整页、「整本译」翻全书。划词查词、单词详解与生词高亮：装了 MagicLens 扩展就由它接管，没装就用阅读器自带的同一套（自动切换，不会两个气泡并存）。
 3. 词汇能力（词汇量测试、难度档位）可从首页书墙上方入口两步到达，也可在「账号 → 阅读与词汇」`/reading/settings` 调整；AI 伴读在阅读页右侧抽屉，登录后也可从右下角悬浮伙伴打开。
 4. 账号按任务拆成 7 页：资料与身份 `/me`、伙伴与 AI 伴读 `/buddy`、站内信 `/mail`、阅读与词汇 `/reading/settings`、积分 `/credits`、成就 `/achievements`、我的学习数据 `/me/export`。完整说明见 [账号手册](account.md)。5 个内置阅读主题跟随账号跨设备生效，自定义颜色只留在本机；导出文件保留 7 天。
-5. 首次登录后，主站会自动邀请一次 2 分钟引导；关闭或完成后不再自动出现（同一账号跨设备一致）。需要重看时用设置下拉「使用引导」；阅读器里也可点右下角「使用引导」。匿名访问不弹引导。
+5. 想重看 2 分钟引导时，从右上角「帮助」下拉点「使用引导」。R284 起主站不再自动弹邀请，阅读器右下角与「账号 → 阅读与词汇」里也不再放引导按钮，页面只保留这一个入口；匿名访问不弹引导。
 6. 积分在「账号 → 积分」：AI 功能按 token 消耗积分，余额不足会提示，可支付宝扫码充值；也可以购买文本卡密送人，或兑换别人转赠的有效卡密。
 
 ## 文档分级（本仓库的文档体系 · v2）
@@ -63,6 +64,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | companion | 🟡 邮件与伙伴入口已建 | [companion/interface.md](../companion/interface.md) 已登记邮件代理与伙伴入口；AI/伙伴其余历史契约仍见 [ai-agent](../../project/_legacy/feat/ai-agent/design/magicbook-side-design.md)、[ai-reading-companion](../../project/_legacy/feat/ai-reading-companion/design/ai-reading-companion-implementation-plan.md) |
 | credit | ✅ 已建 | [credit/interface.md](../credit/interface.md) |
 | admin | 🟡 管理面已建 | [admin/interface.md](../admin/interface.md) 已登记 LLM 任务与运营站内信页面/代理；实现边界见 [companion admin-mail](../companion/features/admin-mail.md) |
+| miniprogram | ✅ 已建（R280） | [miniprogram/interface.md](../miniprogram/interface.md)：小程序直连 moon-well 的 AI 伴读 SSE 对话契约；其余复习/测试/账号端点仍以模块手册与 moon-well 契约为准 |
 
 口径（与 AGENTS.md 文档规范节同源）：**未建 L2 的模块，其接口契约以标着「待升 L2」的那份实现说明为准**，新模块的 L2 随功能演进补齐、不要求一次性铺满；上表逐模块核对过，两边不符时以本表为准并回填标注。
 

@@ -1,0 +1,42 @@
+.brand {
+  padding: 64rpx 8rpx 40rpx;
+}
+
+.brand-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  letter-spacing: 1rpx;
+}
+
+.brand-sub {
+  margin-top: 14rpx;
+  color: var(--muted);
+  font-size: 26rpx;
+}
+
+/* 输入框本体与验证码样式在 app.wxss（.field / .field-ph / .field-code），登录页与账号页共用 */
+
+/* 邮箱高亮：让「发到哪个地址」一眼可见，避免用户看错收件箱 */
+.em {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tip {
+  margin-top: 18rpx;
+  line-height: 1.6;
+}
+
+.foot {
+  margin-top: 24rpx;
+  text-align: center;
+}
+
+.mt {
+  margin-top: 16rpx;
+}
+
+/* 重发行布局；灰/亮两态在 app.wxss（.resend-wait / .resend-ready） */
+.resend-row {
+  margin-top: 22rpx;
+}

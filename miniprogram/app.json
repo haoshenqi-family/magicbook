@@ -1,0 +1,44 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/review/review",
+    "pages/chat/chat",
+    "pages/test/test",
+    "pages/stats/stats",
+    "pages/account/account"
+  ],
+  "window": {
+    "navigationBarTitleText": "MagicBook 工具",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f4f5f7",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#8a8f99",
+    "selectedColor": "#2f6fed",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/review/review",
+        "text": "复习"
+      },
+      {
+        "pagePath": "pages/chat/chat",
+        "text": "AI"
+      },
+      {
+        "pagePath": "pages/test/test",
+        "text": "词汇量"
+      },
+      {
+        "pagePath": "pages/stats/stats",
+        "text": "我"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

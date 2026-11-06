@@ -1,0 +1,315 @@
+/**
+ * 全局样式：设计变量 + 跨页复用类。
+ * 页面只写自己的布局差异，颜色/圆角/间距一律取这里的变量，避免各页各自调色。
+ */
+page {
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --text: #1f2329;
+  --muted: #8a8f99;
+  --line: #ebedf0;
+  --primary: #2f6fed;
+  --primary-soft: #eaf1ff;
+  --danger: #e5484d;
+  --danger-soft: #fdecec;
+  --success: #15803d;
+  --success-soft: #e8f5ec;
+  --warn: #b45309;
+  --warn-soft: #fdf3e3;
+  --radius: 20rpx;
+
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+button {
+  border-radius: 14rpx;
+}
+
+.container {
+  padding: 24rpx 24rpx 40rpx;
+}
+
+/* 卡片 */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 26rpx;
+  margin-bottom: 20rpx;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.section-title {
+  font-size: 26rpx;
+  color: var(--muted);
+  margin: 8rpx 4rpx 14rpx;
+}
+
+/**
+ * 表单输入框（登录页 / 账号页共用）。
+ *
+ * Why 显式写 height 而不是靠 padding 撑：小程序 input 自带高度（约 1.4rem），
+ * 再叠 box-sizing: border-box + 上下 padding，内容区会被压到接近 0，
+ * placeholder 只露出下半截还压在边框上（R274 修的就是这个）。
+ * 竖向 padding 一律 0，高度只由 height 决定。
+ */
+.field {
+  width: 100%;
+  height: 92rpx;
+  box-sizing: border-box;
+  padding: 0 24rpx;
+  margin: 20rpx 0 26rpx;
+  border: 1rpx solid var(--line);
+  border-radius: 14rpx;
+  font-size: 30rpx;
+  line-height: 92rpx;
+  background: #fff;
+}
+
+.field[disabled] {
+  background: #f7f8fa;
+  color: var(--muted);
+}
+
+/* placeholder 走 placeholder-class：不继承 .field 的字号/字距 */
+.field-ph {
+  color: #b7bcc4;
+  font-size: 28rpx;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* 6 位验证码：放大居中拉开字距，视线好对齐 */
+.field-code {
+  font-size: 40rpx;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 12rpx;
+}
+
+/* 「重新发送」：倒计时期间灰掉（不可点），归零后才是可点的主色 */
+.resend {
+  padding: 6rpx 0 6rpx 24rpx;
+}
+
+.resend-ready {
+  color: var(--primary);
+}
+
+.resend-wait {
+  color: var(--muted);
+}
+
+/* 临时账号提示条（R280 从已下掉的生词本页迁到「我」页，提到全局供跨页复用） */
+.shadow-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+  border-radius: 12rpx;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.shadow-link {
+  color: var(--primary);
+  flex: none;
+  margin-left: 16rpx;
+}
+
+/* 文字 */
+.muted {
+  color: var(--muted);
+}
+
+.small {
+  font-size: 24rpx;
+}
+
+.mono {
+  font-family: "SF Mono", Menlo, monospace;
+}
+
+.center {
+  text-align: center;
+}
+
+/* 行 */
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gap-8 {
+  margin-right: 16rpx;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 筛选 chips */
+.chips {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin-bottom: 16rpx;
+}
+
+.chip {
+  flex: none;
+  padding: 10rpx 22rpx;
+  margin-right: 14rpx;
+  border-radius: 999rpx;
+  background: #fff;
+  color: var(--muted);
+  font-size: 26rpx;
+  border: 1rpx solid var(--line);
+}
+
+.chip-active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  line-height: 1.7;
+}
+
+.tag-unknown {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.tag-reviewing {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.tag-mastered {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.tag-plain {
+  background: #f2f3f5;
+  color: var(--muted);
+}
+
+/* 按钮 */
+.btn {
+  display: block;
+  width: 100%;
+  padding: 22rpx 0;
+  border-radius: 14rpx;
+  font-size: 30rpx;
+  text-align: center;
+  border: none;
+  line-height: 1.4;
+}
+
+.btn::after {
+  border: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.btn-ghost {
+  background: #fff;
+  color: var(--text);
+  border: 1rpx solid var(--line);
+}
+
+.btn-danger-ghost {
+  background: #fff;
+  color: var(--danger);
+  border: 1rpx solid var(--danger);
+}
+
+.btn[disabled] {
+  opacity: 0.5;
+}
+
+.btn-row {
+  display: flex;
+  gap: 16rpx;
+}
+
+.btn-row .btn {
+  flex: 1;
+}
+
+/* 进度条 */
+.progress {
+  height: 12rpx;
+  border-radius: 999rpx;
+  background: #eef0f3;
+  overflow: hidden;
+}
+
+.progress-inner {
+  height: 100%;
+  border-radius: 999rpx;
+  background: var(--primary);
+}
+
+/* 空态与提示 */
+.empty {
+  padding: 80rpx 24rpx;
+  color: var(--muted);
+  text-align: center;
+}
+
+.error-tip {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  font-size: 26rpx;
+  margin-bottom: 16rpx;
+}
+
+.divider {
+  height: 1rpx;
+  background: var(--line);
+  margin: 20rpx 0;
+}
+
+.load-more {
+  padding: 24rpx;
+  text-align: center;
+  color: var(--muted);
+  font-size: 24rpx;
+}

@@ -167,14 +167,8 @@ $("#form-upload-format").uploadprogress({
 });
 
 $(document).ready(function() {
-    // R257 方案六：语言菜单收敛——「更多语言」折叠组的手风琴开关。
-    $("#mb-lang-more-toggle").click(function(event) {
-        event.preventDefault();
-        var expanded = $(this).attr("aria-expanded") === "true";
-        $(this).attr("aria-expanded", expanded ? "false" : "true");
-        $("#top_language .mb-lang-more-item").toggle();
-    });
-
+    // R269：顶栏语言菜单整体迁入「账号」域（/me 的 me-language 面板），
+    // R257 方案六的「更多语言」折叠开关随之删除——不要在这里重建已下线的入口。
     var inp = $('#query').first()
     if (inp.length) {
         var val = inp.val()

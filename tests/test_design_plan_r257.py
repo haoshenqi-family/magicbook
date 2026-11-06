@@ -129,9 +129,18 @@ class TestPlan8LanguageSwitch:
         yield
         admin_client.post("/me/preferences", data={"locale": "en"})
 
-    def test_顶栏表单带next且只收站内相对路径(self):
+    def test_切语言表单只在账号域且白名单仍生效(self):
+        """R269 取代 R257 方案八的「顶栏原地停留」。
+
+        顶栏语言下拉已整体撤掉，切语言的唯一表单在 /me；`next` 白名单守卫
+        与「界面语言已更新」反馈仍然保留——它们是防开放重定向与反馈分流的
+        契约，不随入口位置变化。
+        """
         tpl = _read('cps/templates/layout.html')
-        assert 'name="next" value="{{ current_path }}"' in tpl
+        assert 'id="top_language"' not in tpl, "顶栏不应再有语言下拉（R269）"
+        me = _read('cps/templates/me.html')
+        assert 'id="me-language"' in me
+        assert "url_for('web.update_preferences')" in me
         src = _read('cps/web.py')
         assert 'startswith("/") and not next_target.startswith("//")' in src
 
@@ -153,22 +162,25 @@ class TestPlan8LanguageSwitch:
 
 
 class TestPlan6bLanguageMenu:
-    """方案六：语言菜单收敛（常用三项+当前语言直出，其余折叠）。"""
+    """方案六的折叠菜单已被 R269 取代：语言整体迁入账号域，改用全量 select。
 
-    def test_顶栏菜单分组与折叠(self):
+    保留本类是为了把「为什么不再有顶栏折叠菜单」钉在测试里——方案六解决的
+    是「顶栏 29 项铺开」；入口一旦搬进 /me 的下拉框，铺开问题自然消失，
+    再留一套折叠 + 手风琴开关就是双份实现。
+    """
+
+    def test_语言入口只在账号域(self):
         tpl = _read('cps/templates/layout.html')
-        assert 'mb_lang_priority' in tpl
-        assert "'zh_Hans_CN'" in tpl and "'zh_Hant_TW'" in tpl
-        assert 'mb-lang-more-item' in tpl
-        assert 'mb-lang-more-toggle' in tpl
+        for gone in ('mb_lang_priority', 'mb-lang-more-item', 'mb-lang-more-toggle'):
+            assert gone not in tpl, "{0} 应随 R269 一起撤出顶栏".format(gone)
+        me = _read('cps/templates/me.html')
+        assert 'id="me-language"' in me
+        assert 'name="locale"' in me
 
-    def test_更多语言词条已编译(self):
-        entry = _mo().get("More languages")
-        assert entry and entry.string == "更多语言"
-
-    def test_toggle已挂载(self):
+    def test_折叠开关已随入口下线(self):
         js = _read('cps/static/js/main.js')
-        assert '#mb-lang-more-toggle' in js
+        assert '#mb-lang-more-toggle' not in js, "元素已不存在，开关是死代码"
+        assert '#top_language' not in js
 
 
 class TestPlan9Shelf:

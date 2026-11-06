@@ -139,15 +139,6 @@
     });
   })();
 
-  var onboarding = $("reading-onboarding-start");
-  if (onboarding) {
-    onboarding.addEventListener("click", function () {
-      var trigger = $("top_onboarding");
-      if (trigger) {
-        trigger.click();
-      } else if (window.MagicbookOnboarding && window.MagicbookOnboarding.start) {
-        window.MagicbookOnboarding.start();
-      }
-    });
-  }
+  // R284：本页的「使用引导」入口已下线，导览统一从右上角 Help 下拉启动；
+  // 原设置页按钮的点击转发随之移除，不再保留第二份入口。
 })();

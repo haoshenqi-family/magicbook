@@ -42,25 +42,24 @@ def test_伙伴头像态保持透明无白圆底():
     assert "box-shadow: none" in base
 
 
-def test_阅读器导览入口带明确文案():
+def test_阅读器常驻引导入口已下线_R284():
+    """〔R226 的「按钮带明确文案」已被 R284 取代〕函数体仍保留供 R111 视觉守卫锁
+       几何/配色契约，但任何调用链都不得再把右下常驻按钮挂回页面。"""
     js = _read("cps/static/js/onboarding.js")
-    body = js.split("function showReaderHelp()", 1)[1].split(
-        "\n  }", 1
-    )[0]
-    assert "var label = mbT(\"Onboarding Tour\")" in body
-    assert "+ esc(label) + '</button>'" in body, "按钮可见文本必须使用同一本地化文案"
+    body = js.split("function showReaderHelp()", 1)[1].split("\n  }", 1)[0]
+    assert "var label = mbT(\"Onboarding Tour\")" in body, "R111 守卫所锁的函数体须保留"
     assert ">?</button>" not in body, "幽灵问号入口不得回流"
 
-    css = _read("cps/static/css/onboarding.css")
-    help = css.split("\n#onb-help {", 1)[1].split("}", 1)[0]
-    assert "width: auto" in help and "padding: 0 14px" in help
-    assert "border-radius: 999px" in help
+    run = js.split("function runSegment(segment)", 1)[1].split("\n  }", 1)[0]
+    assert "showInvite(" not in run and "showReaderHelp()" not in run, \
+        "自动邀请 / 阅读器常驻入口不得从 runSegment 发起"
+    again = js.split("function showEntryAgainIfNeeded(segment)", 1)[1].split("\n  }", 1)[0]
+    assert "showReaderHelp()" not in again, "导览收尾不得重新挂载右下按钮"
 
-    for text in (
-        "Use the “Onboarding Tour” button at the bottom-right any time to replay the tour.",
-        "bottom-right",
-    ):
-        assert text in js, "导览收尾文案仍指向旧的左下角问号"
+    assert "Open Help in the top-right corner to replay this tour." in js
+    assert "bottom-right" not in js, "收尾文案不得再指向已下线的右下角按钮"
+    assert 'id="top_onboarding"' in _read("cps/templates/layout.html"), \
+        "右上角 Help 下拉必须是唯一入口"
 
 
 def test_整页翻译请求期不插占位且完成后一次渲染():

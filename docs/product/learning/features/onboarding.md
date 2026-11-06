@@ -1,6 +1,7 @@
 # 引导导览（Onboarding）· L3
 
-> R109（2026-08）建立三段式 spotlight 导览；R216（2026-10-23）收敛为**账号级只自动邀请一次**。
+> R109（2026-08）建立三段式 spotlight 导览；R216（2026-10-23）收敛为**账号级只自动邀请一次**；
+> **R284（2026-11-06）把页面上的引导入口全部下线，只保留右上角 Help 下拉一个入口**。
 > 相关：L1 [readme.md](../../readme/readme.md)、L2 [reading/interface.md](../../reading/interface.md)（UI 设置代理）、
 > 本次实现 [lld.md](../../../project/iterations/1.0/r216-onboarding-prefs/lld.md)、moon-well R208（`user_ui_settings` 存储主责）。
 
@@ -8,10 +9,14 @@
 
 | 入口 | 位置 | 行为 |
 | --- | --- | --- |
-| 自动邀请 | 仅主站段（书墙/详情等 layout 页面） | 账号从未看过时出现一次；只有「开始引导」与「×」 |
-| 设置下拉「使用引导」 | 所有带 layout 的页面（含 `/buddy`） | 按当前页面段手动重看 |
-| 阅读器「使用引导」 | 阅读页右下角（伴读悬浮球上方） | 手动重看阅读器段 |
-| 断点续览 | 跨页面 / 新标签 | 24 小时内从上次步骤继续（`localStorage`） |
+| **右上角 Help → 使用引导**（R284 唯一入口） | 所有带 layout 的页面（含 `/buddy`） | 按当前页面段手动重看；导览可 handoff 到阅读器段 |
+| 断点续览 | 跨页面 / 新标签 | 24 小时内从上次步骤继续（`localStorage`）；不主动发起新导览 |
+
+> **已被 R284 取代、本轮下线**：① 主站自动邀请卡（R216 的账号级只弹一次）；② 阅读器
+> 右下角常驻「使用引导」胶囊（R226 由幽灵「?」改名而来）；③ `/reading/settings` 的
+> 「使用引导」按钮与 `reading-preferences.js` 的转发。`onboarding.js` 里 `showInvite` /
+> `showReaderHelp` 的函数体保留供 R111 视觉守卫与历史回溯，但 `runSegment`、
+> `showEntryAgainIfNeeded` 两条调用链都已断开，页面上不会再出现入口。
 
 导览分三段，共享同一套文案与引擎：
 
@@ -19,7 +24,13 @@
 - `reader`：目录、翻页、阅读设置、翻译、书签、全屏、AI 伴读。
 - `buddy`：`/buddy` 花名册渲染完成后触发，指向雪鸮领取按钮。
 
-## 2. 状态机（R216）
+## 2. 状态机
+
+**现状（R284）**：登录用户点右上角 Help → 使用引导即 `startTour(detectSegment())`；
+`runSegment` 只恢复断点续览，不再自动邀请、不再挂阅读器常驻按钮，`finish`/`dismiss`
+也不再恢复入口。匿名访客没有该下拉，因此不会进入导览。
+
+〔以下为 R216 历史状态机，已被 R284 取代，保留供回溯〕
 
 ```text
 匿名 ─────────────────────────────► 不请求 UI 设置，不自动弹
@@ -48,7 +59,7 @@
 | `legacySeen()` | 旧 `view_settings.onboarding` 里任一段为 true |
 | `closeOnboarding()` | 本机置已读 + 清进度 + `POST /ajax/ui-settings/onboarding/close`（幂等） |
 | `isSeen()` | **只认** `accountSeen === true`；localStorage 不参与判断 |
-| `runSegment(segment)` | 先恢复断点；仅 `main` 段在未读时显示邀请；其余段只保留手动入口 |
+| `runSegment(segment)` | **R284**：只恢复断点续览；不再自动邀请、不再挂阅读器常驻入口 |
 
 **代理**（`cps/routes/preferences.py`）
 

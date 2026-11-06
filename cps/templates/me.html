@@ -29,6 +29,13 @@
             {{_('Open account center')}} <span aria-hidden="true">↗</span>
           </a>
         </p>
+        {# R269：注销只在这里——顶栏的用户名与注销按钮已撤（与「账号」域重复）。
+           仍是 GET 链接：R255 修过 clear→logout_user 的顺序，注销要能一条链接点完。 #}
+        <p class="me-account-session">
+          <a class="btn btn-default btn-sm" id="me-logout" href="{{ url_for('web.logout') }}">
+            <span class="glyphicon glyphicon-log-out"></span> {{_('Logout')}}
+          </a>
+        </p>
         {% if registered_oauth and registered_oauth.keys()|length > 0 %}
         <div class="form-group">
           {% for id, name in registered_oauth.items() %}
@@ -77,6 +84,43 @@
       </div>
     </div>
 
+    {# R279 书籍投稿：普通用户即可提交，文件先落 MinIO 暂存区，管理员审核
+       通过后才解析入库；在入库前全书库看不到投稿内容。 #}
+    {% if submission_enabled %}
+    <div class="panel panel-default" id="me-submission">
+      <div class="panel-heading">
+        <h3 class="panel-title">{{_('Suggest a book')}}</h3>
+      </div>
+      <div class="panel-body">
+        <p class="help-block">
+          {{_('Upload a book file for the admins to review. It stays private and does not appear in the library until approved.')}}
+          {{_('Allowed: epub, pdf, txt, mobi, azw3, fb2, docx and similar book formats. Max 100 MB.')}}
+        </p>
+        <input type="hidden" id="lh-csrf" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label class="btn btn-default btn-file" for="submission-file">{{_('Choose file')}}
+            <input type="file" id="submission-file" class="hide"
+                   accept=".epub,.pdf,.txt,.kepub,.mobi,.azw,.azw3,.fb2,.doc,.docx,.rtf,.lit,.odt,.html,.djvu,.djv,.prc,.cbr,.cbz,.cbt,.cb7">
+          </label>
+          <span id="submission-filename" class="text-muted"></span>
+        </div>
+        <div class="checkbox">
+          <label>
+            <input type="checkbox" id="submission-declaration">
+            {{_('I confirm I have the right to share this file.')}}
+          </label>
+        </div>
+        <button type="button" id="submission-submit" class="btn btn-primary" disabled>{{_('Submit for review')}}</button>
+        <div id="submission-alert" class="alert" style="display:none" role="alert"></div>
+        <div id="submission-history" class="small text-muted" style="margin-top:12px"></div>
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </div>
+{% endblock %}
+
+{% block js %}
+<script src="{{ url_for('static', filename='js/me_submission.js') }}"></script>
 {% endblock %}

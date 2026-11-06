@@ -25,7 +25,8 @@ ACCOUNT_PATH_PREFIXES = (
     '/achievements', '/buddy', '/credits', '/mail', '/me', '/reading/settings',
 )
 ADMIN_PATH_PREFIXES = (
-    '/translate-all', '/word-detail-batch', '/llm-tasks',
+    '/tasks', '/translate-all', '/word-detail-batch', '/llm-tasks',
+    '/admin/submissions',
 )
 
 # One L2 page carries one task.  These definitions are product-owned navigation
@@ -67,6 +68,9 @@ ADMIN_L2_GROUPS = (
          'endpoint': 'web.word_detail_batch_page', 'matches': ('/word-detail-batch',)},
         {'id': 'admin-llm', 'label': 'LLM 任务中心',
          'endpoint': 'web.llm_task_runner_page', 'matches': ('/llm-tasks',)},
+        # R279：用户投稿审核——暂存区在 MinIO，通过后才解析入库。
+        {'id': 'admin-submissions', 'label': '书籍投稿',
+         'endpoint': 'web.admin_submissions_page', 'matches': ('/admin/submissions',)},
     )),
     ('资产与运营', (
         {'id': 'admin-credits', 'label': '积分治理',
@@ -75,6 +79,10 @@ ADMIN_L2_GROUPS = (
          'endpoint': 'web.admin_mail_page', 'matches': ('/admin/mail',)},
     )),
     ('系统', (
+        # R269：任务列表（/tasks）从顶栏平铺项收进管理域——它看的是后台任务队列，
+        # 属于运营/排障视角，不是每页都要伸手够的主行动。
+        {'id': 'admin-tasks', 'label': '任务列表',
+         'endpoint': 'tasks.get_tasks_status', 'matches': ('/tasks',)},
         {'id': 'admin-ui', 'label': 'UI 配置',
          'endpoint': 'admin.view_configuration', 'matches': ('/admin/viewconfig',)},
         {'id': 'admin-db', 'label': '数据库配置',

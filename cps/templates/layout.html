@@ -52,7 +52,10 @@
             <div class="home-btn"><a class="home-btn-tooltip" href="{{url_for("web.index", page=1)}}" data-toggle="tooltip" title="" data-placement="bottom" data-original-title="Home"></a></div>
             <div class="plexBack"><a href="{{url_for('web.index')}}"></a></div>
         {% endif %}
-        {% if current_user.is_authenticated or g.allow_anonymous %}
+        {# R269：搜索只在书库域出现。它检索的是馆藏（标题 / 作者），首页、学习、账号、
+           管理四个一级域里这个输入框没有语义——留着只是占位，还会把「当前在哪」冲淡。
+           书库域的浏览页、搜索页都算 library，结果页仍可原地改词再搜。 #}
+        {% if (current_user.is_authenticated or g.allow_anonymous) and current_domain == 'library' %}
           <form class="navbar-form navbar-left" role="search" action="{{url_for('search.simple_search')}}" method="GET">
             <div class="form-group input-group input-group-sm">
               <label for="query" class="sr-only">{{_('Search')}}</label>
@@ -101,13 +104,13 @@
                     <li><a id="login" href="{{url_for('web.login')}}"><span class="glyphicon glyphicon-log-in"></span> {{_('Login')}}</a></li>
                     <li><a id="register" href="{{url_for('web.register')}}"><span class="glyphicon glyphicon-user"></span> {{_('Register')}}</a></li>
                     {% endif %}
-                    {% if not current_user.is_anonymous %}
-                    <li><a id="logout" href="{{url_for('web.logout', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}"><span class="glyphicon glyphicon-log-out"></span> <span class="hidden-sm">{{_('Logout')}}</span></a></li>
-                    {% endif %}
+                    {# R269：注销只留「账号」域（/me 的 me-logout），顶栏不再重复一份 #}
                 </ul>
               </li>
               {% endif %}
-              {% if current_user.role_upload() and g.allow_upload %}
+              {# R269：上传书籍只在书库域出现——它是「往馆藏里加书」，离开书库就无处可加。
+                 其他四个一级域不渲染，避免顶栏替无关页面占一个主行动位。 #}
+              {% if current_domain == 'library' and current_user.role_upload() and g.allow_upload %}
                   <li>
                     <form id="form-upload" class="navbar-form" action="{{ url_for('edit-book.upload') }}" data-title="{{_('Uploading...')}}" data-footer="{{_('Close')}}" data-failed="{{_('Error')}}" data-message="{{_('Upload done, processing, please wait...')}}" method="post" enctype="multipart/form-data">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -119,75 +122,33 @@
                     </form>
                   </li>
               {% endif %}
-              {% if not current_user.is_anonymous and not simple%}
-                <li class="top_tasks"><a id="top_tasks" href="{{url_for('tasks.get_tasks_status')}}"><span class="glyphicon glyphicon-tasks"></span> <span class="hidden-sm">{{_('Tasks')}}</span></a></li>
-              {% endif %}
+              {# R269：任务列表不再是顶栏平铺项——它属于运营/管理视角，入口收进
+                 「管理权限」域的 L2 导航（ui_ia.ADMIN_L2_GROUPS 的 admin-tasks）。 #}
               {# magicbook 扩展设置入口统一收进下拉框：平铺项放不下且持续新增；
                  R154 起每日学习/说与写除外——它们是一级使用入口，已平铺在左侧主导航。
                  R112：标签走标准 Babel gettext（英文 msgid，中文词条在 zh_Hans_CN po），
                  随用户 locale 切换单语言显示，替代旧「中英双写」方案 #}
               {% if not current_user.is_anonymous %}
-                {# R212：语言入口前置到顶栏。只提交 locale，不触碰 /me 的书籍语言偏好。 #}
-                <li class="dropdown" id="top_language">
-                  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
-                    <span class="glyphicon glyphicon-globe"></span> {{_('Language')}} <span class="caret"></span>
-                  </a>
-                  <ul class="dropdown-menu">
-                    {# R257 方案六（语言菜单收敛）：一级只保留 常用三项 + 当前语言，
-                       其余收进「更多语言」折叠——站点语言 ≠ 翻译完成度承诺，
-                       29 项全量铺开会稀释常用语言的可达性。完整列表仍在 /me。 #}
-                    {% set mb_lang_priority = ['zh_Hans_CN', 'zh_Hant_TW', 'en'] %}
-                    {% set mb_lang_rest = [] %}
-                    {% for translation in available_translations %}
-                      {% set locale_code = translation|string %}
-                      {% if locale_code in mb_lang_priority or locale_code == current_user.locale|string %}
-                      <li{% if locale_code == current_user.locale %} class="active"{% endif %}>
-                        <form method="POST" action="{{ url_for('web.update_preferences') }}">
-                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                          <input type="hidden" name="locale" value="{{ locale_code }}">
-                          {# R257 方案八：切语言停留在当前页——next 只收站内相对路径。 #}
-                          <input type="hidden" name="next" value="{{ current_path }}">
-                          <button type="submit" class="btn btn-link navbar-language-option">{{ translation.display_name|capitalize }}</button>
-                        </form>
-                      </li>
-                      {% else %}
-                        {% set _ = mb_lang_rest.append(translation) %}
-                      {% endif %}
-                    {% endfor %}
-                    {% if mb_lang_rest %}
-                    <li class="divider"></li>
-                    <li>
-                      <button type="button" id="mb-lang-more-toggle" class="btn btn-link navbar-language-option" aria-expanded="false">{{_('More languages')}} <span class="caret"></span></button>
-                    </li>
-                    {% for translation in mb_lang_rest %}
-                    {% set locale_code = translation|string %}
-                    <li class="mb-lang-more-item{% if locale_code == current_user.locale %} active{% endif %}" style="display:none">
-                      <form method="POST" action="{{ url_for('web.update_preferences') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="locale" value="{{ locale_code }}">
-                        <input type="hidden" name="next" value="{{ current_path }}">
-                        <button type="submit" class="btn btn-link navbar-language-option">{{ translation.display_name|capitalize }}</button>
-                      </form>
-                    </li>
-                    {% endfor %}
-                    {% endif %}
-                  </ul>
-                </li>
+                {# R269：语言切换收进「账号」域（/me 的 me-language 面板，全量语言列表 +
+                   书籍语言偏好同处一页）。R212 的前置顶栏与 R257 方案六的折叠菜单随之退出：
+                   语言是「我的设置」，不是每页都要伸手去够的动作，占顶栏一个下拉位是浪费。 #}
                 <li class="dropdown" id="top_mb_settings">
                   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
                     <span class="glyphicon glyphicon-question-sign"></span> {{_('Help')}} <span class="caret"></span>
                   </a>
                   <ul class="dropdown-menu">
-                    {# R109 使用引导：常驻手动入口，点击后由 onboarding.js 接管 #}
+                    {# R284：全站唯一的引导入口。页面上的常驻胶囊（原阅读器「?」/「使用引导」）、
+                        自动邀请卡与 /me 阅读设置里的入口已全部下线，导览只从这里手动启动。 #}
                     <li><a id="top_onboarding" href="#"><span class="glyphicon glyphicon-education"></span> {{_('Onboarding Tour')}}</a></li>
                   </ul>
                 </li>
               {% endif %}
-              {% if g.current_theme == 0 %}
-              <li><a id="top_user" data-text="{{_('Account')}}" href="{% if not current_user.is_anonymous %}{{url_for('web.profile')}}{% else %}{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}{% endif %}"><span class="glyphicon glyphicon-user"></span> <span class="hidden-sm">{{current_user.name}}</span></a></li>
-                {% if not current_user.is_anonymous %}
-                <li><a id="logout" href="{{url_for('web.logout', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}"><span class="glyphicon glyphicon-log-out"></span> <span class="hidden-sm">{{_('Logout')}}</span></a></li>
-                {% endif %}
+              {# R269：登录用户的「用户名 / 注销」从顶栏撤掉——它们和左侧「账号」一级域
+                 是同一件事（点进去就是 /me），顶栏留一个重复入口只会让人犹豫点哪个。
+                 注销改在 /me 的账号面板（#me-logout）。匿名访客仍保留这个登录入口：
+                 allow_registration 关闭时，下方 login/register 不渲染，它就是唯一入口。 #}
+              {% if g.current_theme == 0 and current_user.is_anonymous %}
+              <li><a id="top_user" data-text="{{_('Account')}}" href="{{url_for('web.login', next=(request.path + "?" + request.query_string.decode("utf-8")).rstrip("?"))}}"><span class="glyphicon glyphicon-log-in"></span> <span class="hidden-sm">{{_('Login')}}</span></a></li>
               {% endif %}
             {% endif %}
             {% if g.allow_registration and not current_user.is_authenticated and g.current_theme == 0 %}
@@ -301,7 +262,9 @@
         </div>
         {% endif %}
         <div class="{% if show_library_sidebar %}col-sm-10 mb-library-content{% else %}col-sm-12 mb-full-content{% endif %}">
-          {% if not current_user.is_anonymous and current_domain in ('account', 'admin') %}
+          {# R269：管理域的 L2 导航只给管理员——/tasks（任务列表）现在归属管理域但仍对
+             普通登录用户开放，不加这道守卫会把一串 admin 链接摊给用不了它们的读者。 #}
+          {% if not current_user.is_anonymous and (current_domain == 'account' or (current_domain == 'admin' and current_user.role_admin())) %}
             {% include 'partials/l2_nav.html' %}
           {% endif %}
           {% block body %}{% endblock %}

@@ -1,0 +1,23 @@
+{
+  "description": "MagicBook 工具型小程序：AI 伴读 / 每日复习 / 词汇量测试 / 学习数据",
+  "packOptions": {
+    "ignore": [
+      {
+        "type": "folder",
+        "value": ".workbuddy"
+      }
+    ],
+    "include": []
+  },
+  "setting": {
+    "bundle": false,
+    "es6": true,
+    "minified": true,
+    "postcss": true,
+    "urlCheck": true
+  },
+  "compileType": "miniprogram",
+  "appid": "wx7b31b435be6beae3",
+  "projectname": "magicbook-tools",
+  "miniprogramRoot": "./"
+}

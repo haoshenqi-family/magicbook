@@ -59,7 +59,7 @@ unknown ("")
 | A6 | 成就 | `/achievements` | 成就进度、解锁与领取 |
 | A7 | 我的学习数据 | `/me/export` | 创建加密/非加密导出、任务进度、下载与过期状态 |
 
-### 3.2 管理 M1–M13
+### 3.2 管理 M1–M14
 
 | 编号 | L2 | 路由 | 页面只负责 |
 | --- | --- | --- | --- |
@@ -70,12 +70,13 @@ unknown ("")
 | M5 | LLM 任务中心 | `/llm-tasks` | 手动执行、队列监控、失败恢复 |
 | M6 | 积分治理 | `/admin/credits` | 积分调整、充值活动、批量发卡与卡密治理 |
 | M7 | 运营站内信 | `/admin/mail` | 单发/群发、人数预览、发送历史、整批撤回 |
-| M8 | UI 配置 | `/admin/viewconfig` | 书架视图与界面配置 |
-| M9 | 数据库配置 | `/admin/dbconfig` | Calibre 数据库连接配置 |
-| M10 | 邮件服务器 | `/admin/mailsettings` | SMTP/邮件服务器配置 |
-| M11 | 计划任务 | `/admin/scheduledtasks` | 元数据、缩略图等计划任务 |
-| M12 | 日志 | `/admin/logfile` | 应用日志查看与下载 |
-| M13 | 调试 | `/admin/debug` | 调试信息下载 |
+| M8 | 任务列表 | `/tasks` | 后台任务队列（上传解析、格式转换、翻译批次）；普通用户仍可直达本页看自己的任务，但入口只在管理域 |
+| M9 | UI 配置 | `/admin/viewconfig` | 书架视图与界面配置 |
+| M10 | 数据库配置 | `/admin/dbconfig` | Calibre 数据库连接配置 |
+| M11 | 邮件服务器 | `/admin/mailsettings` | SMTP/邮件服务器配置 |
+| M12 | 计划任务 | `/admin/scheduledtasks` | 元数据、缩略图等计划任务 |
+| M13 | 日志 | `/admin/logfile` | 应用日志查看与下载 |
+| M14 | 调试 | `/admin/debug` | 调试信息下载 |
 
 旧 `/admin/view` 保留 302 到 M1，供 Calibre 既有 Back/Cancel 链接兼容；顶栏“管理”直接进入 M1，
 不再先经过旧仪表盘。`/admin/user/<id>` 归 M1，所有 L2 页面都只有一个 active。
@@ -106,9 +107,33 @@ unknown ("")
 新增或移动功能时先改功能地图，再同步本文件的路由与边界；两边出现冲突时以功能地图描述
 “用户能做什么”，以本文件描述“技术上如何归属与约束”。
 
-## 5. 侧栏分组契约
+## 5. 顶栏控件归属（R269）
 
-### 5.1 显示范围
+一级域解决「页面归谁」，顶栏控件解决「这个动作属于哪个域」。R269 起 `layout.html`
+按 `current_domain` 决定跨域控件是否渲染，而不是全站常驻：
+
+| 控件 | 出现范围 | 判定 | 理由 |
+| --- | --- | --- | --- |
+| 搜索框 + 高级搜索（`#query` / `#advanced_search`） | 仅 `library` | `current_domain == 'library'` | 检索对象是馆藏；在其他四个域里没有语义 |
+| 上传书籍（`#form-upload`） | 仅 `library` | `current_domain == 'library'` 且 `role_upload()` 且有 `g.allow_upload` | 动作是「往馆藏加书」，离开书库无处可加 |
+| 帮助（`#top_mb_settings`） | 所有登录用户 | 顶栏右侧唯一常驻项 | 引导回放入口，与当前域无关 |
+| 语言（`#me-language`） | 仅 `account`（`/me`） | 页面自带面板 | 属于「我的设置」，不做每页可达的下拉位 |
+| 注销（`#me-logout`） | 仅 `account`（`/me`） | 页面自带按钮 | 与「账号」域同一件事，顶栏重复一份只会让人犹豫点哪个 |
+| 任务列表（`#admin-tasks`） | 仅管理域 L2 | `ADMIN_L2_GROUPS` | 后台任务队列属运营/排障视角 |
+
+边界与注意：
+
+- `#top_user` 只保留匿名分支（`g.current_theme == 0 and current_user.is_anonymous`）
+  作为登录入口；登录后不再渲染用户名链接，避免与「账号」一级域重复。
+- `/tasks` 归 `admin` 域（`ADMIN_PATH_PREFIXES`），但仍对普通登录用户开放：
+  管理域 L2 因此加了 `current_user.role_admin()` 守卫，非管理员在 `/tasks` 看不到管理链接。
+- 语言下拉从顶栏撤下后，R257 方案六的「更多语言」折叠菜单整体下线；`/me` 用原生
+  `<select>` 铺全量语言，折叠不再必要（下拉框本身不占版面）。
+- 匿名可浏览（`g.allow_anonymous`）时，书库域仍渲染搜索框，匿名用户照常检索。
+
+## 6. 侧栏分组契约
+
+### 6.1 显示范围
 
 Calibre 书目侧栏只属于 `library` 一级域。模板用 `current_domain` 计算
 `show_library_sidebar`，不另维护页面名单：
@@ -124,7 +149,7 @@ unknown              -> 不渲染侧栏，内容区使用 col-sm-12
 非书库页不显示空栏，也不需要为不同域临时复制一套假侧栏。移动端继续沿用 Calibre
 原有行为，把书目入口收进折叠菜单，不另造移动侧栏。
 
-### 5.2 分级
+### 6.2 分级
 
 ```text
 ^(?:分级)?阶\s*(\d+)
@@ -133,11 +158,11 @@ unknown              -> 不渲染侧栏，内容区使用 col-sm-12
 只识别明确以“阶N / 分级阶N”开头的书架；`第一阶段` 不冒充阶 1。
 同组按解析出的整数升序，规则不锚定结尾，允许“阶3 桥梁书”。
 
-### 5.3 媒体
+### 6.3 媒体
 
 名称大小写不敏感，以 `TED`、`Audio`、`Listening`、`音频`、`听力` 开头。
 
-### 5.4 默认兜底
+### 6.4 默认兜底
 
 除分级、媒体之外的用户书架全部进入 `Shelves`。模板用已分组 id 排除后取剩余集合，
 使分类互相重叠或规则调整时仍不丢入口。
@@ -145,7 +170,7 @@ unknown              -> 不渲染侧栏，内容区使用 col-sm-12
 **不要为展示目的增加 `Shelf.kind`。** 当前分组是可解释的名称规则，不改变书目归属；
 只有在出现“用户显式指定类型、组内排序、权限或跨设备稳定分类”的真实需求时再设计 schema。
 
-## 6. 模板边界
+## 7. 模板边界
 
 - 主导航 `<ul>` 增加 `mb-primary-nav`，但仍沿用 Calibre 的 Bootstrap 3 骨架。
 - 保留 `top_home` / `top_library` / `top_learning` / `top_me` / `top_admin`。
@@ -157,9 +182,11 @@ unknown              -> 不渲染侧栏，内容区使用 col-sm-12
 - 移动底栏与桌面主导航使用同一个 `current_domain`，避免两套名单产生不同答案。
 - 系统空组不渲染标题；CaliBlur 自己承接系统操作时隐藏 MagicBook 的系统标题。
 - 账号/管理 L2 由 `l2_nav_groups()` 统一生成；页面模板只渲染当前任务，不再复制其他 L2 模块。
+- 顶栏跨域控件（搜索、上传）按 `current_domain` 门控，不写页面白名单；详见 §5。
+- 管理域 L2 额外要求 `current_user.role_admin()`：`/tasks` 属管理域但仍对普通用户开放。
 - 顶栏“管理”直接进入 M1；旧 `/admin/view` 只保留重定向兼容。
 
-## 7. CSS 叠层
+## 8. CSS 叠层
 
 产品样式只追加在 `cps/static/css/magicbook.css`，不改 vendored Calibre CSS。
 
@@ -172,7 +199,7 @@ unknown              -> 不渲染侧栏，内容区使用 col-sm-12
 
 遇到同 ID 覆盖时优先增加作用域或特异度，不用更晚加载的重复 ID 规则互相抢。
 
-## 8. 测试要求
+## 9. 测试要求
 
 每次改动至少验证：
 
@@ -182,17 +209,20 @@ unknown              -> 不渲染侧栏，内容区使用 col-sm-12
 4. 响应式：桌面与 390px 无横向滚动，移动底栏可见。
 5. 主题：至少检查默认主题与 CaliBlur。
 6. 关键 DOM ID 未漂移。
-7. L2：A1–A7 / M1–M13 每个路由恰好一个 active；用户积分与管理员治理 DOM 分离。
+7. L2：A1–A7 / M1–M14 每个路由恰好一个 active；用户积分与管理员治理 DOM 分离。
 8. 入口：`/buddy` 只保留一个“打开 AI 伴读”入口，不新建第二套聊天实现。
 9. 侧栏范围：书库页存在原生书目侧栏；账号等非书库页不得渲染 `#scnd-nav`，
    内容区必须占满十二列。
+10. 顶栏控件归属：搜索与上传只在书库域出现；右上只有帮助；语言与注销只在 `/me`；
+    任务列表只在管理域 L2。
 
 ```bash
 pytest tests/test_home_nav_shell.py -q
 pytest tests/test_account_admin_ia_r251.py -q
+pytest tests/test_topbar_ia_r269.py -q
 ```
 
-## 9. 扩展边界
+## 10. 扩展边界
 
 - 新增一级域前先证明它承担独立任务，且不与现有域重叠。
 - 移动底栏最多四个高频入口；低频管理能力不进入底栏。
