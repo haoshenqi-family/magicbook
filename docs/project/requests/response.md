@@ -5,6 +5,8 @@
 
 **归档索引**
 
+- `response-archive/response-R276.md`：R276 · 小程序切正式 AppID wx7b31b435be6beae3（2026-11-03）——2026-11-06 R285/R286 并行会话 merge 后窗口 11 节，续搬最旧一节，原样搬移不改写
+
 - `response-archive/response-R275.md`：R275 · 首页改复习、「数据」改「我」、新增主站入口（2026-11-03）——2026-11-06 R286 写入触发轮转搬移，原样搬移不改写
 
 - `response-archive/response-R274.md`：R274 · 登录页表单 UI 修正（2026-11-03）——2026-11-06 R284 写入触发轮转搬移，原样搬移不改写
@@ -117,30 +119,6 @@
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事） · [response-R238.md](response-archive/response-R238.md)（2026-10-29 R250 / R252 并行写入轮转，原样搬移不改写） · [response-R239.md](response-archive/response-R239.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R244.md](response-archive/response-R244.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R243.md](response-archive/response-R243.md)（2026-10-29 R254 写入触发轮转搬移） · [response-R246.md](response-archive/response-R246.md)（2026-10-30 R256 写入触发轮转搬移） · [response-R247.md](response-archive/response-R247.md)（2026-10-31 R257 写入触发轮转搬移） · [response-R248.md](response-archive/response-R248.md)（2026-10-31 R258 写入触发轮转搬移） · [response-R253.md](response-archive/response-R253.md)（2026-11-01 R263 写入触发轮转搬移） · [response-R254.md](response-archive/response-R254.md)（2026-11-02 R267 写入触发轮转搬移）
-
-## R276 · 小程序切正式 AppID wx7b31b435be6beae3（2026-11-03）
-
-**对 R276 的回应**：开发者工具弹「测试号 AppId 无法使用当前功能」。换正式号
-`wx7b31b435be6beae3`，后端同步改（moon-well R242）。
-
-- **换号不是改字符串**：`openid` 是 AppID 维度的——同一个微信在新号下是新 openid，
-  `app_user_wechat` 里的旧绑定永远匹配不到。所以换号后第一次登录会落到一个新账号，
-  得用「我已有账号，用邮箱登录」认领回原账号（归并时空壳账号被删、目标账号旧绑定被替换）。
-  这不是我们的 bug，是微信的身份模型，写进了手册与 LLD。
-- **合法域名也是按 AppID 存的**：新号要重新在「开发管理 → 开发设置 → 服务器域名」加
-  `https://moon-well.haoshenqi.top`，旧号的配置不会继承。这条最容易漏，真机直接报
-  「不在合法域名列表」。
-- **静态锁只锁本仓这一侧**：理想是「小程序 appid == 后端默认 appid」一条测试守住，
-  但两仓在 CI 里分开检出，跨仓断言要么恒跳过（假绿）要么恒失败（假红）。改成两侧各锁自己，
-  magicbook 锁正式号字面量与格式，moon-well 的 `WechatAppIdConfigTest` 锁默认值。
-- **验证**：`tests/test_r276_appid.py`（2 例）+ R271 既有锁 → **8 passed**。
-  后端线上实测：新 appid + 新 secret 后 `/auth/wx/login` 传假 code 得到微信 `40029`
-  （说明凭证有效、只是 code 伪造），且未重启（Nacos 热更新）。
-  对照实验同时确认：新 appid + 旧 secret → `40125 invalid appsecret`。
-- **未真机**：本机没有开发者工具，预览/真机、域名白名单、登录全流程要你在工具里走一遍。
-
-**台账总结**：`requests.md` 第 276 条本处回填；`response.md` 写入前 10 节，本次压回 10 节，
-最旧一节 R263（朗读速度选项）原样搬入 `response-archive/response-R263.md` 并登记索引。
 
 ## R277 · 请求失败必须自己说清原因（2026-11-03）
 
@@ -379,6 +357,19 @@
 按「写入即检查」把最旧一节 R274 原样搬入 `response-archive/response-R274.md`
 并在顶部归档索引登记，窗口回到 10 节。冲突记录：无撞号；
 唯一口径变更是 R226 的「阅读器右下使用引导」被 R284 取代，已在 L1/L3 标注。
+
+## R285 · Buddy 头顶滚动复习气泡（2026-11-06）
+
+**对 R285 的回应**：用户要「AI buddy 头顶定时播放一段话，内容是最近划词的单词详情」。两轮只读核查后先纠正两个事实再动手：用户点名的「单词学习表」确实存在（`vocabulary_notebook` / `vocabulary_study_history` / `learning_review_schedule` / `learning_answer_log`），但查词历史只写不读、无倒序接口、划词路径不写入，不需要也不该新建表；「点认识算复习」在代码里不成立——`GET /vocabulary/known/{word}` 只把 SRS 调度行异步毕业 `MASTERED`，不写 `learning_answer_log`、不涨 x/20。用户据此拍板：词源改取 SRS 到期队列、认识复用已有端点、只做被动展示。
+
+- **交付**：登录态全站 FAB 头顶一张纯文字词卡，8 秒轮播 20 个到期词（前端洗牌），显示 `word + meaning + contextSentence`；页面不可见 / 窗口不活跃 / 伙伴隐藏 / 快捷气泡 / 抽屉 / 邮件弹层时暂停；气泡自带暂停·继续与收起·展开，状态记本机 localStorage；点「认识」复用 `/ajax/reading-word-mark {unknown:false}`，成功后只从本地轮播移除。**`cps/routes/*` 与 moon-well 零改动、零新增表、零新增端点、零 TTS / 详解 / 评分调用、零计费**。
+- **实现要点**：卡片挂 `#ai-companion-root` 而非 `fab-wrap`，fixed 按 FAB rect 定位（`is-left` / `is-below` 自适应），避开 hover 快捷气泡与拖拽命中区；所有服务端字段 `textContent`；解包与 CSRF 委托 `MBApi`（R177 单点）。
+- **交叉审查**：独立 Agent 视角发现并修复 6 处——标记请求跨 8s tick 会删错词（`markedIndex` + `inFlight` 暂停）、bfcache 返回轮播停摆（`pageshow` 重建 timer）、EPUB iframe 焦点被 `hasFocus()` 误判为不活跃、拖拽吸附过渡期间定位错位（`transitionend` + 260ms 兜底）、`markError` 跨词残留、移动端触达盒补 44px；测试同步补强到 12 例。
+- **验证**：`node --check` 通过、`pybabel compile -f` 通过；定向 **129 passed**；全量 `1296 passed / 80 errors`，errors 全是干净 worktree 的 pytest tmp 目录 `FileExistsError` 竞态（R144 同类），独立 `--basetemp` 复验三个报错文件 **25 passed**，与本轮改动无关；i18n 13 个 key 中文齐全。**未真机验收**。
+- **文档四问**：L1 `readme/companion.md`、L2 `companion/interface.md` §滚动复习、L3 `companion/features/rolling-review.md`、需求基线 `companion/requirements.md` §6；HLD/LLD/AC/plan 落 `iterations/2026-11-rolling-review/r285-rolling-review/`，`iterations/1.0/plan.md` 补行。
+- **已知前置缺陷**：`readpdf.html` 未引入 jQuery 却 include 面板，`ai_chat.js` 以 `jQuery` 为实参会抛 `ReferenceError`——R285 之前 Buddy 面板在 PDF 阅读器就不可用。本轮不扩范围，AC 单列真机确认项，若属实另立需求。
+
+**台账总结**：`requests.md` 第 285 条本处回填（占号 2026-11-06，`6bbc4738`）；`response.md` 写入前 10 节、本次 11 节，按「写入即检查」把最旧一节 R275 原样搬入 `response-archive/response-R275.md` 并在顶部归档索引登记，窗口回到 10 节。冲突记录：无撞号；R285 与并行会话 R286 的三份台账文件冲突，merge 时按编号顺序合并两节、R275 归档沿用 R286 会话版本，并续搬最旧一节 R276 回 10 节窗口；源码文件无重叠（R286 动 `reader-selection.js` / 阅读器样式，R285 动 `ai_chat.*` / i18n）。worktree `../magicbook-r285-rolling-review` / 分支 `feat/r285-rolling-review` merge 后原样保留待验收，**未 push 上线**（等用户下令）。
 
 ## R286 · 生词悬停释义卡：去掉「问号指针」，悬停即出释义（2026-11-06）
 

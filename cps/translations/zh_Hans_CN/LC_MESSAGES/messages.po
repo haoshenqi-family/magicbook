@@ -7940,6 +7940,43 @@ msgstr "通过并入库"
 msgid "Submitted; an admin will review it"
 msgstr "已提交，等待管理员审核"
 
+#: cps/static/js/ai_chat.js (R285 滚动复习)
+msgid "Rolling review"
+msgstr "滚动复习"
+
+msgid "Pause review"
+msgstr "暂停复习"
+
+msgid "Resume review"
+msgstr "继续复习"
+
+msgid "Collapse review"
+msgstr "收起复习"
+
+msgid "Show review"
+msgstr "展开复习"
+
+msgid "Next word"
+msgstr "下一个"
+
+msgid "I know this"
+msgstr "认识"
+
+msgid "Loading review words…"
+msgstr "正在加载复习单词…"
+
+msgid "No words to review right now"
+msgstr "暂时没有要复习的单词"
+
+msgid "This word cannot be marked here"
+msgstr "这个词无法在此标记"
+
+msgid "Could not load review words"
+msgstr "复习单词加载失败"
+
+msgid "Could not mark this word as known"
+msgstr "标记认识失败"
+
 #~ msgid "Admin page"
 #~ msgstr "管理页"
 

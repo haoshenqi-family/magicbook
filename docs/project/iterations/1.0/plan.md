@@ -51,6 +51,8 @@
 | R255 注销后 remember_token 未清除导致自动登回 | 缺陷（R123 回归） | 承接 R123；用户 sunny 反馈 | [r255-logout-remember/lld.md](./r255-logout-remember/lld.md) | **已上线待验收**（2026-10-29）：`/logout` 改为先清 session 再 `logout_user()`，让 `_remember="clear"` 存活到 after_request 删除 `remember_token`；定向 52 passed。merge/push `81356579`，fnOS 镜像 `house.build-sha=81356579...`、容器 `running/healthy`。worktree `../magicbook-r255-logout-remember`，分支 `fix/r255-logout-remember`，保留待验收。 |
 | R260 AI 了解我：用户自我介绍与系统提示词注入（消费侧） | 用户故事 | PingCode `MB-237` / `MB-22`；后端主责 moon-well R234 | [r260-ai-user-profile/lld.md](./r260-ai-user-profile/lld.md) | **已上线待验收**（2026-10-31）：记忆面板顶部新增 2000 字档案编辑、计数、保存、清空、失败态与隐私提示；两条薄代理接 moon-well `/ai/agent/profile*`，用户文本只用 `.val()` 渲染。定向回归 14 passed、正式发布态全量 1251 passed / 0 failed / 4 warnings，`node --check` 通过；实现 `7b96323e` 已推 `origin/develop`，fnOS `build END OK`、`deploy SUCCESS`、容器 `running/healthy`；Nacos 两套模板 `1.3.0` 已生效。worktree `../magicbook-r260-ai-user-profile`，分支 `feat/r260-ai-user-profile`，保留待验收。 |
 
+| R285 Buddy 头顶滚动复习气泡（SRS 到期词纯文字轮播） | 用户故事 | 待建（挂 MAGICBOOK 产品） | [2026-11-rolling-review/r285-rolling-review/](../2026-11-rolling-review/r285-rolling-review/lld.md)（HLD/LLD/AC） | **开发完成待验收**（2026-11-06）：全站已登录页 FAB 头顶 8s 轮播 20 个到期词，词 + 中文首义项 + 阅读原句；暂停/收起记本机；「认识」复用 `/ajax/reading-word-mark`；零后端改动、零 TTS、零计费；定向 129 passed；worktree `../magicbook-r285-rolling-review` / `feat/r285-rolling-review` 保留待验收 |
+
 ## 版本
 
 - PJM 版本 `1.0`（Open）；迭代收尾时随发布流转 Published。
