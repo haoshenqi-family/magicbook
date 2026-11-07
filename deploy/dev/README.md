@@ -12,7 +12,7 @@
 | 域名 | `dev-magicbook.haoshenqi.top` → fnOS:8085（app-manager 控制面 app 级路由，scheme=http） |
 | 镜像 | `magichouse/magicbook:dev`（与生产 `:latest` 分 tag） |
 | 目录 | fnOS `/app/magicbook-dev/`（docker-compose.yml + .env + deploy.sh + config/ + logs/） |
-| 数据 | **app.db 复制自生产**（独立 CONFIG_PATH）；书库**共享**生产 `/app/magicbook/calibre-library/` |
+| 数据 | **app.db 复制自生产**（独立 CONFIG_PATH）；书库**共享**生产 `/app/magicbook/library/`（⚠️ 真值以生产 .env 为准；ops 文档旧口径 `calibre-library` 是空壳目录，2026-11-07 验收期实测修正） |
 | 集成 | `MOON_WELL_READING_URL=http://fnos:8084`（指 dev moon-well）；OIDC issuer/client 与生产同值，账号互通 |
 
 ## 2. 为什么必须独立 CONFIG_PATH（硬前提）

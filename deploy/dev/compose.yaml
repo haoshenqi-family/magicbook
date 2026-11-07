@@ -24,8 +24,10 @@ services:
       # OIDC（redirect 指 dev 域）/ MOON_WELL_READING_URL=http://fnos:8084 / MOONWELL_SYSTEM_TOKEN 等
       - .env
     volumes:
-      # 书库：共享生产 calibre-library（dev 只读姿态，容器内仍是常规挂载——写防护靠纪律与初始化关闭定时任务）
-      - ${CALIBRE_LIBRARY_PATH:-/app/magicbook/calibre-library}:/calibre-library
+      # 书库：共享生产书库（dev 只读姿态，容器内仍是常规挂载——写防护靠纪律与初始化关闭定时任务）
+      # ⚠️ 现网真值 = /app/magicbook/library（生产 .env 的 CALIBRE_LIBRARY_PATH）；仓库 ops 文档旧口径
+      # calibre-library 是空壳目录（2026-11-07 验收期实测踩坑修正）——.env 必须显式给值，默认值仅防呆
+      - ${CALIBRE_LIBRARY_PATH:-/app/magicbook/library}:/calibre-library
       # 独立应用配置目录（app.db 复制自生产 + .key；端口/会话/调度与生产分离的硬前提）
       - ${CONFIG_PATH:-/app/magicbook-dev/config}:/config
       # 日志（无 filebeat，不进 ES；排障看 docker logs magicbook-dev）

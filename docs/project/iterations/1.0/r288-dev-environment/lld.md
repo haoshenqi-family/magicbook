@@ -20,7 +20,7 @@ push `develop` 部署到 dev 测试环境（不再直发生产），push `releas
 
 1. **独立 `CONFIG_PATH=/app/magicbook-dev/config`**：app.db 复制自生产（用户拍板）。硬前提三条——`config_port` 存 DB 会覆盖 `CALIBRE_PORT`（不独立则端口改不动）；SECRET_KEY/Fernet `.key`、调度开关（`schedule_*` 存 DB）随库走；整本翻译任务台账独立、`_live_workers` 进程内判据 → 两实例不双跑。
 2. **初始化 SQL**：`config_port=8085` + 关 `schedule_metadata_backup`/`schedule_reconnect`/`schedule_generate_book_covers`/`schedule_generate_series_covers`（夜间任务会写共享 metadata.db 与 thumbnail 表）。
-3. **书库共享只读姿态**：`CALIBRE_LIBRARY_PATH=/app/magicbook/calibre-library`；纪律上禁元数据编辑/投稿入库/calibredb 写。
+3. **书库共享只读姿态**：`CALIBRE_LIBRARY_PATH=/app/magicbook/library`（⚠️ 现网真值；ops 文档旧口径 `calibre-library` 为空壳目录，2026-11-07 验收期踩坑后修正——dev 首启曾因此挂空书库被重定向到 /admin/dbconfig，表现为「点 login 报错」）；纪律上禁元数据编辑/投稿入库/calibredb 写。
 4. **moon-well 指向 dev**：`MOON_WELL_READING_URL=http://fnos:8084`（R246 dev 实例），形成完整 dev 链路。
 5. **OIDC**：issuer/client 与生产同值（同一 Authentik provider），redirect 指 dev 域（Authentik 白名单加条目）；账号互通（绑定关系随 app.db 复制）。
 6. `AI_DATABASE_URL` 留空 → 本地 SQLite 隔离。
