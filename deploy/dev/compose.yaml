@@ -1,0 +1,47 @@
+services:
+  # R288 dev 测试环境（2026-11-07）：push develop 部署到 dev-magicbook.haoshenqi.top。
+  # 与生产的差异：容器名 / 端口 8085 / 独立 config 目录（app.db 复制自生产）/ 无 filebeat /
+  # 镜像 :dev 分 tag / MOON_WELL_READING_URL 指向 dev moon-well（fnos:8084）。
+  # 书库与生产**共享只读姿态**：CALIBRE_LIBRARY_PATH 指生产书库目录；dev 里禁止
+  # 元数据编辑 / 投稿入库 / calibredb 写操作（会写共享 metadata.db）。
+  # ⚠️ 端口硬前提：独立 CONFIG_PATH——app.db 的 settings.config_port 会覆盖 CALIBRE_PORT
+  # 环境变量（cps/config_sql.py），共用 config 目录时端口改不动、会与生产抢 8083。
+  # dev app.db 初始化时须 UPDATE config_port=8085 并关闭夜间备份等定时任务（见 README §4）。
+  magicbook-dev:
+    image: registry.cn-hangzhou.aliyuncs.com/magichouse/magicbook:dev
+    container_name: magicbook-dev
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      CALIBRE_PORT: 8085
+      CALIBRE_DBPATH: /config
+      CALIBRE_LIBRARY: /calibre-library
+      TZ: Asia/Shanghai
+      CALIBRE_CONFIG_RECONNECT: ${CALIBRE_CONFIG_RECONNECT:-0}
+      METADATA_GOOGLE_PROXY: ${METADATA_GOOGLE_PROXY:-}
+      METADATA_SEARCH_TIMEOUT: ${METADATA_SEARCH_TIMEOUT:-60}
+    env_file:
+      # OIDC（redirect 指 dev 域）/ MOON_WELL_READING_URL=http://fnos:8084 / MOONWELL_SYSTEM_TOKEN 等
+      - .env
+    volumes:
+      # 书库：共享生产书库（dev 只读姿态，容器内仍是常规挂载——写防护靠纪律与初始化关闭定时任务）
+      # ⚠️ 现网真值 = /app/magicbook/library（生产 .env 的 CALIBRE_LIBRARY_PATH）；仓库 ops 文档旧口径
+      # calibre-library 是空壳目录（2026-11-07 验收期实测踩坑修正）——.env 必须显式给值，默认值仅防呆
+      - ${CALIBRE_LIBRARY_PATH:-/app/magicbook/library}:/calibre-library
+      # 独立应用配置目录（app.db 复制自生产 + .key；端口/会话/调度与生产分离的硬前提）
+      - ${CONFIG_PATH:-/app/magicbook-dev/config}:/config
+      # 日志（无 filebeat，不进 ES；排障看 docker logs magicbook-dev）
+      - ${LOG_PATH:-/app/magicbook-dev/logs}:/app/logs
+    user: "0:0"
+    healthcheck:
+      # 与生产同款应用层 HTTP 探针（R87 教训：nc -z 探不出假死），端口 8085
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8085/', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"

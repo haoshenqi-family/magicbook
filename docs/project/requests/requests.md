@@ -497,4 +497,4 @@
      - 状态：**开发完成待验收**（worktree `../magicbook-r287-selection-vs-vocab` /
        分支 `feat/r287-selection-vs-vocab`）。
 
-288. **新增 dev 测试环境（dev-magicbook）与双环境发版流程**（占号 2026-11-07，待回填）
+288. **新增 dev 测试环境（dev-magicbook）与双环境发版流程**（用户指令「增加测试环境…merge develop 发 dev 环境、merge release 发正式环境」，主号 ops R177，2026-11-07；**已上线待验收**）：deploy/dev 四件套（host 网络 :8085、独立 CONFIG_PATH、书库共享只读、无 filebeat、镜像 :dev）+ AGENTS.md 分支口径改 **develop→dev / release→生产 / master 冻结**（R288 取代 master 发布语义）+ DEPLOY.md 双环境节 + LLD `iterations/1.0/r288-dev-environment/`；app.db 以 sqlite 在线备份复制自生产（config_port=8085、关四个夜间写任务、9 用户随库），Authentik magicbook provider 加 dev 回调白名单；⚠️ 落地实测坑：生产 .env 携带的 CONFIG_PATH/LOG_PATH 会覆盖 compose 默认值（dev .env 必须显式改写 dev 路径，否则 dev 容器挂生产 config 抢 8083）；dev 链 END OK（f039aa70，首轮 GitHub promisor fetch 抖动由 ai-fix 兜底重跑），容器 healthy，worktree 驻留待验收。
