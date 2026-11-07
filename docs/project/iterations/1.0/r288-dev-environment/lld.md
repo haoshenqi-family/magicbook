@@ -1,6 +1,6 @@
 # LLD — magicbook dev 测试环境（R288）
 
-> 状态：**上线中**（2026-11-07 实施；验收通过后回填 Completed）
+> 状态：**已上线待验收**（2026-11-07 dev 链 END OK + 容器 healthy :8085；浏览器端 OIDC 登录验收后回填 Completed）
 > 关联：ops R177（主号设计文档 `ops/docs/dev-environment-2026-11.md`）、moon-well R246（同源双环境改造）
 
 ## 1. 需求
