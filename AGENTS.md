@@ -65,7 +65,7 @@
 	- **交付标准（两级单测闸门，2026-10-08 R131 修订）**：代码完成后必须确保项目可正常启动；单元测试按阶段分两级执行：
 		- **开发态（默认）**——日常编码 / bug 修复只跑**部分单测**：本次新增或改动的用例必须全绿，再补跑受影响模块的相关测试文件即可，**不要求全量**。命令形如 `.venv/bin/python -m pytest tests/test_reading_vocabulary.py`。
 		- **正式发布态**——仅当**用户显式提出「正式发布 / 上线」**（或按下方「Git 分支管理」把 `develop` 合并 `release` 发布）时执行一次**全量单测** `.venv/bin/python -m pytest tests/`，以 0 失败为交付判据，并把用例总数写入 `response.md`；退出码须读 pytest 末行汇总，不要用管道末端返回值判定。
-		- ⚠️ **双环境发版（2026-11-07 R288 起）**：push `develop` 触发 fnOS 构建自动部署 **dev 测试环境**（`magicbook-dev` 容器 :8085，`dev-magicbook.haoshenqi.top`，独立 app.db + 共享书库只读姿态，见 `deploy/dev/README.md` 与 `../ops/docs/dev-environment-2026-11.md`），**不再直发生产**；push `release` 分支触发**生产**部署（见 `../ops/runbook.md` §1，**`master` 已冻结不再触发**）。2026-10-21 R190 起「纯文档 push」跳过构建与部署（本仓 GHA 已停用属预案；fnOS 链同款判据：纯文档 push 打 `build SKIPPED (docs-only)`，实测 `c0a377f3`），台账类 commit 单独 push 不会引起服务抖动。全量闸门以用户显式指令为准；开发期跳过全量的跨模块回归风险由该闸门兜底。
+		- ⚠️ **双环境发版（2026-11-07 R288 起）**：push `develop` 触发 fnOS 构建自动部署 **dev 测试环境**（`magicbook-dev` 容器 :8085，`dev-magicbook.haoshenqi.top`，独立 app.db + 共享书库只读姿态，见 `deploy/dev/README.md` 与 `../ops/docs/dev-environment-2026-11.md`），**不再直发生产**；push `release` 分支触发**生产**部署——**2026-11-11 起 release 链带技术闸门**（dev 全量集成测试通过并 `mark-release-tested.sh` 打标记才放行，fail-closed）并自动打正式 tag `release-<yyyymmdd>-<sha7>`（SOP：`../ops/docs/release-process-2026-11.md`；`master` 已冻结不再触发）。2026-10-21 R190 起「纯文档 push」跳过构建与部署（本仓 GHA 已停用属预案；fnOS 链同款判据：纯文档 push 打 `build SKIPPED (docs-only)`，实测 `c0a377f3`），台账类 commit 单独 push 不会引起服务抖动。全量闸门以用户显式指令为准；开发期跳过全量的跨模块回归风险由该闸门兜底。
 	- **Code Review**：完成后主动切换模型/Agent 视角进行交叉审查，确认无误后再提交。
 
 ### 🔍 3. 验收 (AC 对齐)
