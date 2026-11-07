@@ -433,3 +433,35 @@ L1 `readme/reading.md` 拆成两条用户文案；L2 `reading/interface.md` 同�
 默认也不启用**，只把结论写进文档，不改代码、不给扩展加浮层、也不在正文里插 span（那会扰乱
 扩展的 token 区间）。已记入 L1 `readme/reading.md`、L3 `reading-vocabulary.md` §2.1 与概述表、
 需求基线 §R287 第 5 条，作为**已知限制**（不是待办）。
+
+---
+
+## 2026-11-07 · R288 新增 dev 测试环境（dev-magicbook）与双环境发版流程
+
+**对 R288 的回应**：用户指令「增加测试环境。新增两个 dev 容器 moon-well 和 magicbook，域名加 dev- 前缀。
+数据库等使用同样的即可。修改发布流程，merge develop 发 dev 环境、merge release 发正式环境。先更新所有文档，
+再改发布流程。」本仓承载 magicbook 侧 dev 环境资产与 AGENTS.md 分支口径；主号=ops R177
+（`ops/docs/dev-environment-2026-11.md` 整体设计），moon-well 同源号 R246。
+
+- **本仓改动（应用代码零改动）**：① `deploy/dev/` 四件套——compose.yaml（`magicbook-dev` host 网络
+  :8085、独立 `CONFIG_PATH`、书库共享、无 filebeat）、deploy.sh（:dev 分 tag + code-digest 判等）、
+  .env.example、README.md；② AGENTS.md「Git 分支管理」改 **develop→dev / release→生产 / master 冻结**
+  （R288 取代 master 的发布语义，worktree 规范 L46 引用同步）；③ DEPLOY.md CI/CD 节补双环境口径；
+  ④ LLD 落 `iterations/1.0/r288-dev-environment/`。
+- **独立 CONFIG_PATH 是硬前提**：`settings.config_port` 存 DB 会覆盖 `CALIBRE_PORT` 环境变量
+  （`cps/config_sql.py`），共用 config 目录时 dev 端口改不动；SECRET_KEY/调度开关（存 DB）随库走。
+- **app.db 复制自生产（用户拍板）**：初始化 = sqlite 在线备份复制 + `UPDATE settings SET config_port=8085`
+  + 关闭 `schedule_metadata_backup`/`schedule_reconnect`/`schedule_generate_book_covers`/
+  `schedule_generate_series_covers`（防夜间任务写共享 metadata.db）；账号/OIDC 绑定关系随库复制，登录即用。
+- **书库共享只读姿态**：`CALIBRE_LIBRARY_PATH=/app/magicbook/calibre-library`；dev 禁元数据编辑/投稿
+  入库/calibredb 写操作。
+- **MOON_WELL_READING_URL=http://fnos:8084**：指向 dev moon-well（R246），形成完整 dev 链路；
+  OIDC issuer/client 与生产同值，redirect 指向 dev 域（Authentik 白名单加条目）。
+- **门禁说明**：本改动无应用代码变更，pytest 不适用；验证以部署端到端 AC 为准（LLD §5）。
+
+**驻留登记**：worktree `../magicbook-r288-dev-environment`，分支 `chore/r288-dev-environment`，
+基线 `64753f0e`（origin/develop 最新点，R288 占号提交），状态=待 fnOS 落地与端到端验收；
+验收通过后 `worktree remove` → `branch -d`。
+
+**台账总结**：`requests.md` 第 288 条占号行本处对应；`response.md` 本次追加 1 节，窗口计算以
+merge 回主检出时为准（不足归档阈值）。

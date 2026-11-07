@@ -93,6 +93,8 @@ LOG_PATH=./logs
 
 ## CI/CD
 
+> **双环境发版（2026-11-07 R288 起）**：push `develop` → `build-magicbook-dev.sh` → 镜像 `:dev` → 部署 **dev 测试环境**（fnOS `/app/magicbook-dev/`，`dev-magicbook.haoshenqi.top`:8085，独立 app.db + 共享书库只读，详见 [`deploy/dev/README.md`](./dev/README.md)）；push `release` → `build-magicbook.sh` → `:latest` → 部署**生产**；`master` 已冻结不再触发。dev 构建日志 fnOS `/app/codelib/logs/magicbook-dev.log`。
+
 > ⚠️ **2026-10-06 03:39 实测更正：本仓库当前走的不是 GitHub Actions，而是 fnOS webhook-builder。**
 > 判据三条（都是只读查出来的，别再按下面的 workflow 文本推断）：
 > ① `GET /repos/haoshenqi-family/magicbook/actions/workflows` → `Build and Push to Aliyun` 状态是
@@ -103,9 +105,9 @@ LOG_PATH=./logs
 > ③ 线上约 2 分钟后就出现了新构建的产物（`/static/js/vocab-test.js` 返 200 / 19,252 B），
 >    说明部署确实由另一条链完成。
 > 权威口径见项目组运维手册 `ops/apps/app-magicbook.md` §部署 与 `ops/runbook.md` §1：
-> **push `develop`/`main` → `webhook.haoshenqi.top`（Server 2 Traefik）→ Tailscale → fnOS `:9877`
+> **push `release` → `webhook.haoshenqi.top`（Server 2 Traefik）→ Tailscale → fnOS `:9877`
 > 的 `webhook-builder` systemd 服务 → `build-magicbook.sh` 本地 buildx → 推 ACR `magichouse/magicbook`
-> → 回调 controller `project-update` 部署 → Bark**；构建日志在 fnOS `/app/codelib/logs/magicbook.log`，
+> → 回调 controller `project-update` 部署 → Bark**（R288 前触发分支为 `develop`/`main`）；构建日志在 fnOS `/app/codelib/logs/magicbook.log`，
 > 手动重跑 `/app/codelib/webhook-builder/build-magicbook.sh <ref> <完整sha>`。
 
 下面这段是 **workflow 文件本身的行为**（当前处于停用状态，恢复 GHA 后才会生效，届时仍需复核是否两条链并存）：
