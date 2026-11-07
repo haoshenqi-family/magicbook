@@ -496,3 +496,5 @@
        （§R286 标注被取代）；LLD `iterations/2026-11-reader-hover-gloss/r287-selection-vs-vocab/lld.md`。
      - 状态：**开发完成待验收**（worktree `../magicbook-r287-selection-vs-vocab` /
        分支 `feat/r287-selection-vs-vocab`）。
+
+288. **新增 dev 测试环境（dev-magicbook）与双环境发版流程**（占号 2026-11-07，待回填）
