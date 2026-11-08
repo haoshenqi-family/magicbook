@@ -516,3 +516,30 @@
        分支 `feat/r289-review-detail-pages`，merge 后驻留待验收）。
 
 290. **小程序每日复习页空题面死卡：释义缺失或选择题降级时卡片无题可答（截图）**（占号 2026-11-08，待回填）
+     - 现场：用户 15:36 截图——「每日复习」第 1/20 张只有一行「看下面的提示，回想这个词」
+       和「揭示答案」，没有任何可回想的内容。
+     - 根因（两层，都在 `miniprogram/pages/review`）：① 题干只挂在
+       `mode === 'CHOOSE' || mode === 'SPELL'` 两个分支上，而 `pickMode` 把 `RECALL`
+       （后端自适应/legacy 的常用档位）降成 `SELF`，落进 `wx:else` 的一句提示语——
+       后端下发的 `meaning` 就在手里却从未渲染；② 释义缺失（详解缓存未命中 `meaning=null`）
+       时提示语、释义、词面三者全不出现，卡片是白板；`contextClozeSentence` 也从未被当题干用过。
+     - 修法：呈现态判定抽成纯函数 `utils/review-card.js#presentCard`，与网页端
+       `learning-review.js` 同口径——四选一需释义 + ≥2 选项、拼写需释义、语境完形用挖空句、
+       **其余有释义的一律「回忆」且释义即题干**、都没有才退到「自评」（直接亮词面）；
+       WXML 改为渲染统一 `stem`，词面/语境按「已揭示 or SELF」显隐，「揭示答案」对回忆与拼写都给。
+     - 边界：不补生成释义（只读缓存、不烧积分）、不改后端题型策略、作答回传的
+       `questionType` 仍是后端原值（调度口径不变）。
+     - 验证：新增 `tests/test_r290_review_card_stem.py` 4 例（Node 跑真代码 11 组输入矩阵 +
+       「任何队列项必须露出题干或词面」+ WXML/页面静态锁）；小程序静态锁全绿
+       **58 passed**（R271–R283 合计 54 + 本轮 4）；`node --check` 与 JSON 解析通过。
+       视觉证据走真代码渲染：`before` 取 `origin/develop`（`38dfb494`）整棵 `miniprogram/`，
+       `after` 取本轮工作区，用 `miniprogram-simulate`（官方 `wcc` + `j-component`）编译
+       **仓库里的 WXML**、加载**真实的 `review.js`** 跑 `showCard`，再套真 WXSS 无头 Chrome 截图；
+       四组对照（回忆有释义 / 缺释义 / 揭示后 / 四选一）见
+       `docs/project/iterations/2026-11-wx-review-card/r290-review-card-stem/evidence/`。
+       **未真机、未在微信开发者工具编译**（本机无该工具，与 R271–R283 同）。
+     - 文档四问：L1 `readme/miniprogram.md` 复习段；L3 新建
+       `product/miniprogram/features/review.md`；需求基线 §R290；LLD
+       `iterations/2026-11-wx-review-card/r290-review-card-stem/lld.md`。L2 无接口变化。
+     - 状态：**开发完成待验收**（分支 `agent/fix-miniprogram-review-bug-36fb2af0b54b`，
+       PR 见 `response.md` R290 条）。

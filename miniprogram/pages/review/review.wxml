@@ -49,21 +49,15 @@
     <view class="card">
       <view class="row-between small muted">
         <text>第 {{index + 1}} / {{queue.length}} 张</text>
-        <text class="type-tag">{{mode === 'CHOOSE' ? '四选一' : (mode === 'SPELL' ? '拼写' : '回忆')}}</text>
+        <text class="type-tag">{{modeLabel}}</text>
       </view>
       <view class="divider"></view>
 
-      <view wx:if="{{mode === 'CHOOSE' || mode === 'SPELL'}}" class="prompt">{{card.meaning}}</view>
-      <view wx:elif="{{card.contextClozeSentence}}" class="prompt cloze">{{card.contextClozeSentence}}</view>
-      <view wx:else class="prompt muted">看下面的提示，回想这个词</view>
+      <!-- 题干：有释义/挖空句就出题；SELF 没有题干，直接亮词面自评（不出空卡） -->
+      <view wx:if="{{stem}}" class="prompt {{stemCloze ? 'cloze' : ''}}">{{stem}}</view>
 
       <view wx:if="{{card.encounterCount}}" class="small muted tip-line">
         在阅读中遇见过 {{card.encounterCount}} 次
-      </view>
-
-      <view wx:if="{{card.contextSentence}}" class="context">
-        <view class="context-text">{{card.contextSentence}}</view>
-        <view class="small muted">{{card.contextBook}} {{card.contextChapter}}</view>
       </view>
 
       <view wx:if="{{mode === 'CHOOSE'}}" class="choices">
@@ -90,21 +84,29 @@
         <view class="btn btn-primary btn-small" bindtap="onSpellCheck">检查</view>
       </view>
 
-      <view wx:if="{{revealed}}" class="answer">
-        <view class="answer-word">{{card.word}}</view>
-        <view wx:if="{{spellCorrect === false}}" class="small wrong">拼写不一致，正确答案见上方</view>
-        <view wx:if="{{card.answerNote}}" class="small muted mt8">{{card.answerNote}}</view>
-      </view>
-
+      <!-- 想不起来也得走得掉：拼写与回忆都给「揭示答案」这条退路 -->
       <button
-        wx:if="{{!revealed && mode !== 'CHOOSE'}}"
+        wx:if="{{!revealed && (mode === 'RECALL' || mode === 'SPELL')}}"
         class="btn btn-ghost mt16"
         bindtap="onReveal"
       >
         揭示答案
       </button>
 
-      <block wx:if="{{revealed}}">
+      <!-- 词面：SELF 一开始就亮；其余题型揭示后才亮（释义是题干，词面即答案） -->
+      <view wx:if="{{mode === 'SELF' || revealed}}" class="answer">
+        <view class="answer-word">{{card.word}}</view>
+        <view wx:if="{{spellCorrect === false}}" class="small wrong">拼写不一致，正确答案见上方</view>
+        <view wx:if="{{card.answerNote}}" class="small muted mt8">{{card.answerNote}}</view>
+      </view>
+
+      <!-- 语境原句含目标词，揭示前不渲染（R137 泄题门控），SELF 无题干可直接给 -->
+      <view wx:if="{{card.contextSentence && (revealed || mode === 'SELF')}}" class="context">
+        <view class="context-text">{{card.contextSentence}}</view>
+        <view class="small muted">{{card.contextBook}} {{card.contextChapter}}</view>
+      </view>
+
+      <block wx:if="{{revealed || mode === 'SELF'}}">
         <view class="small muted mt16">这次记得怎么样？答案的诚实程度决定下次出现的时间。</view>
         <view class="grade-row">
           <view
