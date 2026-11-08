@@ -12,7 +12,7 @@
 | 工作项 | 类型 | Ship 需求 | 设计文档 | 状态（2026-11-08） |
 | --- | --- | --- | --- | --- |
 | R285 Buddy 头顶滚动复习气泡 | 用户故事 | 待建（挂 MAGICBOOK 产品） | [HLD](./r285-rolling-review/hld.md) · [LLD](./r285-rolling-review/lld.md) · [AC](./r285-rolling-review/ac/acceptance.md) | **开发完成待验收**（worktree `../magicbook-r285-rolling-review`，分支 `feat/r285-rolling-review`） |
-| R289 滚动复习正文升级为单词详情分页轮播 | 用户故事（R285 增量） | 待建（挂 MAGICBOOK 产品） | [LLD](./r289-detail-pages/lld.md) | **开发完成待验收**（worktree `../magicbook-r289-review-detail-pages`，分支 `feat/r289-review-detail-pages`；对端 moon-well R248） |
+| R289 滚动复习正文升级为单词详情分页轮播 | 用户故事（R285 增量） | [MB-243](https://haoshenqi.pingcode.com/ship/ideas/lNVqWKX3)（进行中） | [LLD](./r289-detail-pages/lld.md) | **开发完成待验收**（worktree `../magicbook-r289-review-detail-pages`，分支 `feat/r289-review-detail-pages`；对端 moon-well R248） |
 
 ## 依赖与边界
 
