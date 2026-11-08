@@ -23,6 +23,7 @@
 
 - `response-archive/response-R269.md`：R269 顶栏信息架构收敛——2026-11-04 先由 R279 写入轮转（response-R269.md 含 R269 一节），2026-11-05 R281 再轮转时被 develop 侧同名文件覆盖合并——两侧均为 R269 原文，无内容差异
 
+- `response-archive/response-R278.md`：R278 身份只显示邮箱，不再露账号 ID——2026-11-08 R289 写入触发轮转搬移，原样搬移不改写
 - `response-archive/response-R267.md`：R267 重写 GitHub README——2026-11-03 R278 写入触发轮转搬移，原样搬移不改写
 
 - `response-archive/response-R265.md`：R265 站内信新增类型与来源文案——2026-11-03 R277 写入触发轮转搬移，原样搬移不改写
@@ -121,28 +122,6 @@
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事） · [response-R238.md](response-archive/response-R238.md)（2026-10-29 R250 / R252 并行写入轮转，原样搬移不改写） · [response-R239.md](response-archive/response-R239.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R244.md](response-archive/response-R244.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R243.md](response-archive/response-R243.md)（2026-10-29 R254 写入触发轮转搬移） · [response-R246.md](response-archive/response-R246.md)（2026-10-30 R256 写入触发轮转搬移） · [response-R247.md](response-archive/response-R247.md)（2026-10-31 R257 写入触发轮转搬移） · [response-R248.md](response-archive/response-R248.md)（2026-10-31 R258 写入触发轮转搬移） · [response-R253.md](response-archive/response-R253.md)（2026-11-01 R263 写入触发轮转搬移） · [response-R254.md](response-archive/response-R254.md)（2026-11-02 R267 写入触发轮转搬移）
-
-## R278 · 身份只显示邮箱，不再露账号 ID（2026-11-03）
-
-**对 R278 的回应**：账号页原来写着「账号 ID 123 · 邮箱 x@y」，副标题还回显自动生成的
-`wx_xxx` 用户名；「我」页标题也拿 username 兜底。
-
-- **删的是两处，不是一处**：用户看到的「ID」其实有两份——真正的 `userId`，和自动生成的
-  `username`。只删前者，后者照样出现在标题与副标题里，而且看起来更像「账号」。
-- **身份表达改成「昵称 → 邮箱 → 微信用户」**：有昵称先显示昵称（那是用户自己的名字），
-  没有就用邮箱（那是他要认的东西），都没有才用中性占位。`username` 退回存储层，
-  只在下一次登录时被覆盖，不参与任何展示计算——头像首字也不再取它。
-- **副标题不再回显邮箱**：邮箱已经占住标题位，副标题重复一遍就是噪音。现在它只说状态：
-  微信临时账号 / 已绑定邮箱 / 邮箱未验证 / 已登录。
-- **长邮箱要截断**：邮箱比用户名长得多，`ellipsis` 加在标题与副标题上，卡片里 `grow` 已有
-  `min-width: 0`，不会把右侧标签挤出去。
-- **验证**：`tests/test_r278_identity.py` 4 例静态锁（模板不得出现 `user.userId`/`user.username`、
-  「账号 ID」文案不得回来、身份用邮箱表达、身份计算不碰 username）。
-  最后一条是给自己的：注释里写「不显示账号 ID」也会被它抓到，所以那句注释改了措辞——
-  宁可让锁严一点。
-
-**台账总结**：`requests.md` 第 278 条本处回填；`response.md` 写入前 10 节，本次压回 10 节，
-最旧一节 R267（重写 GitHub README）原样搬入 `response-archive/response-R267.md` 并登记索引。
 
 ## R281 · 报错要自己说清「是哪个 AppID 在跑」（2026-11-04）
 
@@ -465,3 +444,34 @@ L1 `readme/reading.md` 拆成两条用户文案；L2 `reading/interface.md` 同�
 
 **台账总结**：`requests.md` 第 288 条占号行本处对应；`response.md` 本次追加 1 节，窗口计算以
 merge 回主检出时为准（不足归档阈值）。
+
+## R289 · 滚动复习正文升级为单词详情分页轮播（2026-11-08）
+
+**对 R289 的回应**：用户原话「滚动复习的功能，改为显示单词详情。但是每次只显示一部分，
+每次显示不超过3行」；两问拍板——只用**已缓存详解**（零计费），每词展示「基本意思 +
+一个随机模块」避免太长，同词连翻多页。
+
+- **数据面**：新增薄代理 `POST /ajax/vocabulary/detail-cached-batch`（`routes/vocab.py`，
+  `@user_login_required`）→ moon-well R248 `POST /vocabulary/detail/cached-batch`
+  （只读缓存批量端点，miss 不出现在结果里、绝不触发生成）。词表归一（trim/弯撇号/
+  小写/去重/`_READING_WORD_RE` 白名单）、上限 50 与上游同口径；空/全非法词表本地短路
+  不打上游。**逐词详解代理 `/ajax/reading-word-detail` 仍是禁区**（miss 即计费），
+  R285 守卫测试把两条计费路径一起钉死。
+- **前端分页**：`ai_chat.js` R285 块内新增页装配（基本意思前 2 义项 + 随机模块 ≤2 页、
+  每词 ≤4 页）与 `review.pages/page` 状态；tick 先在词内翻页、翻完换词；词源按句切页
+  （~60 字/页）；`.ai-review-detail` 用 `-webkit-line-clamp: 3` 硬钳 3 行。
+  无缓存词与详情接口失败一律回退 R285 简卡（增强层语义，可观测性在代理日志）。
+- **i18n**：新增 4 词条（Collocations/Word forms/Slang/Fun facts）走种子+PO+MO
+  三方并 `pybabel compile -f`；Etymology/Synonyms/Antonyms 复用存量。
+- **验证**：定向 `test_r285_rolling_review(13) + test_r289_detail_cached_batch_proxy(8)
+  + test_i18n_seed_contract + test_vocab_test_proxy` 共 **52 passed**；相关面回归
+  （R280 伴读/R244 动画/R227 语音/公共解包/learning 代理/CSP/词详解批量）**155 passed**；
+  `node --check` 与 `pybabel` 通过。守卫测试新增 R289 分页专项
+  （翻页优先于换词/页数上限/3 行钳制/失败回退）。
+- **文档四问**：L1 `readme/companion.md` 滚动复习段改写；L2 `companion/interface.md`
+  端点表 +1 行与口径；L3 `companion/features/rolling-review.md` 增 R289 节与降级行；
+  需求基线 §6.1 + 变更记录；LLD 落 `iterations/2026-11-rolling-review/r289-detail-pages/`。
+**驻留登记**：worktree `../magicbook-r289-review-detail-pages`，分支 `feat/r289-review-detail-pages`，
+基线 `7b748bc0`（含占号提交），merge 后保留待验收；验收通过后 `worktree remove` → `branch -d`。
+**台账总结**：`requests.md` 第 289 条已回填；`response.md` 本次追加 1 节并轮转搬移最旧 1 节
+（R278 → `response-archive/response-R278.md`），窗口恢复 10 节。

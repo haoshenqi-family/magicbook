@@ -5,6 +5,7 @@ from cps.web import (
     _LLM_TASK_PATHS,
     _llm_task_admin_gate,
     _moonwell_proxy,
+    _READING_WORD_RE,
     _vt_positive_int,
     web,
 )
@@ -218,3 +219,43 @@ def llm_task_republish():
         return denied
     payload = request.get_json(silent=True) or {}
     return _moonwell_proxy(_LLM_TASK_PATHS["republish"], payload, 30, "llm task republish failed")
+
+
+_DETAIL_CACHED_BATCH_MAX = 50  # 与 moon-well WordDetailService.CACHE_BATCH_CAP 同口径
+
+
+@web.route("/ajax/vocabulary/detail-cached-batch", methods=["POST"])
+@user_login_required
+def vocabulary_detail_cached_batch():
+    """滚动复习批量取「已缓存详解」（R289，对端 moon-well R248）：只读缓存，绝不触发生成。
+
+    payload {"words": [...]} → moon-well POST /vocabulary/detail/cached-batch，
+    result 键 = 归一请求词，未命中词不出现——前端对缺词降级为简卡。
+
+    Why 不复用 /ajax/reading-word-detail（R123 逐词详解）：那个端点缓存 miss 会
+    现场生成（计费 + 15~30s），滚动复习是无人操作的高频被动轮播，批量 20 词里
+    每一个 miss 都是一次隐藏下单——所以这里只走只读批量端点，语义在路由名里钉死
+    （detail-cached-batch，与计费链路 reading-word-detail 无公共前缀混淆）。
+    Why 词形白名单照搬 _READING_WORD_RE：词会进 moon-well 的 ES term 查询，
+    与 word_mark 同一防线；弯撇号归一后非法词直接丢弃而不是报错——轮播容错，
+    个别脏词不值得让整批失败。
+    """
+    payload = request.get_json(silent=True) or {}
+    words = payload.get("words")
+    if not isinstance(words, list):
+        return jsonify({"success": False, "message": "words must be a list"}), 400
+    cleaned, seen = [], set()
+    for raw in words:
+        if not isinstance(raw, str):
+            continue
+        word = raw.strip().replace("\u2019", "'").lower()
+        if not word or word in seen or len(word) > 64 or not _READING_WORD_RE.match(word):
+            continue
+        seen.add(word)
+        cleaned.append(word)
+        if len(cleaned) >= _DETAIL_CACHED_BATCH_MAX:
+            break
+    if not cleaned:
+        return jsonify({"success": True, "result": {}})
+    return _moonwell_proxy("/vocabulary/detail/cached-batch", {"words": cleaned}, 10,
+                           "vocabulary detail cached batch")

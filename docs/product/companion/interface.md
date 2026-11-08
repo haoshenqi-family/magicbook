@@ -101,22 +101,24 @@ moon-well 返回统一 `Result`：
 - `campaigns`：`{records, total, pageNo, pageSize}`；每条含 `id/operatorUserId/audienceType/title/body/actionPath/targetCount/deliveredCount/createdAt/recalledAt/recalledBy`。
 - `recall`：`{campaignId, recalled, affected}`；已撤回批次重复调用保持幂等。
 
-## 滚动复习消费的既有端点（R285）
+## 滚动复习消费的端点（R285 / R289）
 
-R285 **不新增任何端点**，前端只消费下面两个既有薄代理（均 `@user_login_required`）。后端契约权威仍在 moon-well：`GET /learning/srs/queue` 与 `GET /vocabulary/known/{word}`。
+R285 只消费两个既有薄代理（均 `@user_login_required`）；R289 新增一个**只读缓存**批量代理，前端仍零直连 moon-well。后端契约权威在 moon-well：`GET /learning/srs/queue`、`GET /vocabulary/known/{word}`、`POST /vocabulary/detail/cached-batch`（R248）。
 
-| magicbook 端点 | moon-well 端点 | 超时 | R285 用法 |
+| magicbook 端点 | moon-well 端点 | 超时 | 用法 |
 | --- | --- | --- | --- |
 | `GET /ajax/learning/srs/queue` | `GET /learning/srs/queue` | 10s | 页面初始化拉一次，取 `Result.result` 数组；**不带 `?limit=`**——本仓代理用扁平路径且不透传 query，上游 `defaultValue=20` 正好是需要的 20 条 |
 | `POST /ajax/reading-word-mark` | `GET /vocabulary/known/{word}`（`unknown=false`） | 8s | 点「认识」时发 `{"word": <lemma>, "unknown": false}`；POST 需带 `X-CSRFToken` |
+| `POST /ajax/vocabulary/detail-cached-batch`（R289 新增，`routes/vocab.py`） | `POST /vocabulary/detail/cached-batch`（moon-well R248） | 10s | 队列拉到后发 `{"words": [...]}`（≤50，词形白名单过滤），取 `result` 对象（键=归一词）装配详情分页；**只读缓存，上游绝不触发生成**，未命中词不在结果里 |
 
 ### 消费字段与口径
 
 - `LearningReviewItemVO` 只取 `word` / `meaning`（中文首义项，上游 `shortMeanings` 只读 ES 缓存）/ `contextSentence`（阅读原句）/ `contextBook`；`scheduleId`、`questionType`、`choices`、`answer`、`audioUrl` 一律不用。
+- R289 详情分页只取缓存详解的 `meaning`（前 2 义项）/ `etymology` / `phrases` / `forms` / `synonyms` / `antonyms` / `slang` / `funFacts`；每词展示「基本意思 + 1 个随机模块」、每页 ≤3 行、每词 ≤4 页。`isVariant` 角标与变体说明不在此消费（分页正文不展示）。
 - 上游队列筛选为 `state IN ('LEARNING','REVIEW') AND due_at <= now`（**全部到期积压，不是今日新增**），排序 `lastReviewedAt DESC, dueAt ASC`；随机由前端 Fisher-Yates 洗牌实现，上限 20 条。
-- **不调用** `/ajax/reading-word-detail`（缓存 miss 会触发 LLM 生成、15~30s 且计费）、`/ajax/reading-tts*`（本次不出声）、`/ajax/learning/srs/answer`（本次不改 SRS 排程）。
+- **不调用** `/ajax/reading-word-detail`（缓存 miss 会触发 LLM 生成、15~30s 且计费）、`/ajax/reading-tts*`（本次不出声）、`/ajax/learning/srs/answer`（本次不改 SRS 排程）；R289 的 `detail-cached-batch` 是唯一与详解沾边的调用，且为只读缓存（对端 R248 端点与生成链路物理分离）。
 - `known/{word}` 的语义是把 `vocabulary_notebook.familiarity` 置 7 并异步把 SRS 调度行毕业 `MASTERED`；**不写 `learning_answer_log`、不计 x/20**。前端成功后只从本地轮播数组移除该词，失败保留并显示上游 `message`。
-- 解包统一走 `MBApi.getJson/postJson` + `unwrapResult/unwrapStrict`（R177 单点），CSRF 走 `MBApi.csrfToken()`；服务端内容只用文本节点渲染。
+- 解包统一走 `MBApi.getJson/postJson` + `unwrapResult/unwrapStrict`（R177 单点），CSRF 走 `MBApi.csrfToken()`；服务端内容只用文本节点渲染。详情批量失败静默回退简卡（增强层语义，可观测性在代理日志）。
 
 ## 调用方契约
 

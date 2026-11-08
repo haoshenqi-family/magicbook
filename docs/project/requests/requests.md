@@ -500,3 +500,17 @@
 288. **新增 dev 测试环境（dev-magicbook）与双环境发版流程**（用户指令「增加测试环境…merge develop 发 dev 环境、merge release 发正式环境」，主号 ops R177，2026-11-07；**已上线待验收**）：deploy/dev 四件套（host 网络 :8085、独立 CONFIG_PATH、书库共享只读、无 filebeat、镜像 :dev）+ AGENTS.md 分支口径改 **develop→dev / release→生产 / master 冻结**（R288 取代 master 发布语义）+ DEPLOY.md 双环境节 + LLD `iterations/1.0/r288-dev-environment/`；app.db 以 sqlite 在线备份复制自生产（config_port=8085、关四个夜间写任务、9 用户随库），Authentik magicbook provider 加 dev 回调白名单；⚠️ 落地实测坑：生产 .env 携带的 CONFIG_PATH/LOG_PATH 会覆盖 compose 默认值（dev .env 必须显式改写 dev 路径，否则 dev 容器挂生产 config 抢 8083）；dev 链 END OK（f039aa70，首轮 GitHub promisor fetch 抖动由 ai-fix 兜底重跑），容器 healthy，worktree 驻留待验收。
 
 289. **滚动复习改为单词详情分页轮播（已缓存详解，每页≤3行）**（占号 2026-11-08，待回填）
+     - 落地：`routes/vocab.py` 新增只读批量代理 `POST /ajax/vocabulary/detail-cached-batch`
+       → moon-well R248 `POST /vocabulary/detail/cached-batch`（只读缓存、绝不触发生成；
+       词形白名单归一、上限 50、空表本地短路）；`ai_chat.js` R285 块新增详情分页
+       （每词「基本意思前 2 义项 + 1 个随机模块」≤4 页，8s 一页同词连翻，翻完换词，
+       `.ai-review-detail` line-clamp 3 硬钳）；无缓存词与接口失败回退 R285 简卡；
+       i18n 新增 4 词条三方齐全（Collocations/Word forms/Slang/Fun facts）。
+       L1 `readme/companion.md` 改写、L2 `companion/interface.md` 端点表 +1、
+       L3 `rolling-review.md` 增 R289 节、需求基线 §6.1 + 变更记录、
+       LLD `iterations/2026-11-rolling-review/r289-detail-pages/lld.md`。
+     - 验证：定向 52 passed（R285 守卫 13 + 新代理 8 + i18n 契约 + 词测代理）+
+       相关面回归 155 passed；`node --check`/`pybabel` 通过；守卫测试新增 R289 分页专项；
+       集成套件 magicbook 侧用例已挂（矩阵 dev 部署后重扫 + guard 对账）。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r289-review-detail-pages` /
+       分支 `feat/r289-review-detail-pages`，merge 后驻留待验收）。

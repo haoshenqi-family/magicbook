@@ -7977,6 +7977,18 @@ msgstr "复习单词加载失败"
 msgid "Could not mark this word as known"
 msgstr "标记认识失败"
 
+msgid "Collocations"
+msgstr "搭配"
+
+msgid "Word forms"
+msgstr "词形变化"
+
+msgid "Slang"
+msgstr "俚语"
+
+msgid "Fun facts"
+msgstr "冷知识"
+
 #~ msgid "Admin page"
 #~ msgstr "管理页"
 

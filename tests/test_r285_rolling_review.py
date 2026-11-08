@@ -1,14 +1,18 @@
-"""R285 Buddy 头顶滚动复习守卫：纯文字词卡、零新增后端、零计费。
+"""R285/R289 Buddy 头顶滚动复习守卫：纯文字词卡、零计费；R289 起正文为详情分页。
 
 为什么是源码断言而不是只跑页面：这一轮的失效模式全都是静默的——
 (1) init() 忘了调 initRollingReview()，页面完全没卡片却没有任何报错；
 (2) 卡片挂进 fab-wrap 会被 hover 快捷气泡遮住、抢走拖拽命中区；
 (3) 为了凑「例句」去调 /vocabulary/detail/{word}，缓存 miss 会现场生成（计费 + 15~30s）；
+    R289 详情分页只能走只读缓存批量端点（detail-cached-batch，miss 不出现在结果里），
+    逐词详解代理（/ajax/reading-word-detail）与逐词上游路径仍然全是禁区；
 (4) 把「认识」接到 /learning/srs/answer 会重排 FSRS，越过「只做被动展示」；
 (5) 标记请求跨过一个 8s tick 后按回来时的 index 删词 → 删错词；
 (6) pagehide 清掉 timer 但 bfcache 返回不重建 → 轮播永久停摆；
 (7) 失败时把词从本地队列移除，用户以为标记成功，实际后端拒绝了；
-(8) 新词条走 t() 但没进种子/PO/MO，中文用户静默拿到英文。
+(8) 新词条走 t() 但没进种子/PO/MO，中文用户静默拿到英文；
+(9) R289 分页越过「每页 ≤3 行」或详情失败装成有详情——前者是用户明定的口径，
+    后者会让「没有缓存」伪装成「卡片坏了」。
 这些都不会让页面报错，只能在源码/词表层锁住。
 """
 import gettext
@@ -30,6 +34,8 @@ NEW_STRINGS = [
     "Show review", "Next word", "I know this", "Loading review words…",
     "No words to review right now", "This word cannot be marked here",
     "Could not load review words", "Could not mark this word as known",
+    # R289 详情模块标签（Etymology/Synonyms/Antonyms 是存量词条，复用不新增）
+    "Collocations", "Word forms", "Slang", "Fun facts",
 ]
 
 
@@ -85,16 +91,48 @@ def test_init_actually_wires_rolling_review():
 
 
 def test_review_reads_due_queue_without_new_or_billed_calls():
-    """只拉既有 SRS 到期队列；20 个词前端洗牌；不碰 TTS / 详解 / 评分端点。"""
+    """只拉既有 SRS 到期队列；20 个词前端洗牌；不碰 TTS / 计费详解 / 评分端点。"""
     code = _code_only(_r285_block())
     m = re.search(r'var REVIEW_QUEUE_URL\s*=\s*"([^"]+)"', code)
     assert m and m.group(1) == "/ajax/learning/srs/queue", \
         "代理不透传 ?limit=，只能靠上游默认 20，不得自己拼 query"
     assert "REVIEW_MAX = 20" in code
     assert "reviewShuffled" in code
-    for forbidden in ("/tts", "/ajax/reading-tts", "/vocabulary/detail",
-                      "/learning/srs/answer", "AudioContext", "decodeAudioData"):
-        assert forbidden not in code, "R285 不得触碰 %s（不出声、不计费、不改 SRS）" % forbidden
+    # R289：详情只允许走只读缓存批量端点；任何「逐词详解」形态（计费链路）都禁止。
+    m2 = re.search(r'var REVIEW_DETAILS_URL\s*=\s*"([^"]+)"', code)
+    assert m2 and m2.group(1) == "/ajax/vocabulary/detail-cached-batch", \
+        "详情数据源必须是 moon-well R248 只读缓存批量端点"
+    for forbidden in ("/tts", "/ajax/reading-tts", "/vocabulary/detail/",
+                      "/ajax/reading-word-detail", "/learning/srs/answer",
+                      "AudioContext", "decodeAudioData"):
+        assert forbidden not in code, "R285/R289 不得触碰 %s（不出声、不计费、不改 SRS）" % forbidden
+
+
+def test_r289_detail_pages_only_show_a_slice_per_tick():
+    """R289：同词连翻多页、翻完才换词；页内容钳 3 行；详情失败回退简卡不装死。"""
+    code = _code_only(_r285_block())
+    css = _read(CHAT_CSS)
+    # 翻页优先于换词：tick 里先看当前词还有没有下一页
+    tick = _function_body("reviewTick")
+    assert "reviewPagesFor(reviewCurrent())" in tick
+    assert tick.index("review.page += 1") < tick.index("review.index = (review.index + 1)"), \
+        "有下一页时必须先翻页，不能每 tick 都跳词"
+    # 换词/下一词/移除词都要把页下标归零，防止页码溢出串页
+    assert "review.page = 0" in _function_body("reviewAdvance")
+    assert "review.page = 0" in _function_body("reviewLoad")
+    assert "delete review.pages[reviewWordKey(item.word)]" in _function_body("reviewMarkKnown")
+    # 页面装配：基本意思 + 一个随机模块，每词页数有上限
+    assert "pages.length < 2" in _function_body("reviewDetailPages"), "义项最多取前 2 条"
+    assert "pool[Math.floor(Math.random() * pool.length)]" in _function_body("reviewDetailPages")
+    # 渲染钳制：详情正文 -webkit-line-clamp: 3（用户口径「每次显示不超过3行」的硬保证）
+    detail_css = css[css.index(".ai-review-detail {"):css.index(".ai-review-detail:empty")]
+    assert "-webkit-line-clamp: 3" in detail_css
+    assert "white-space: pre-line" in detail_css
+    # 详情拿不到时的回退是简卡（义项+原句+出处照常渲染），且详情 fetch 失败必须清空页表
+    assert "review.pages = {}" in _function_body("reviewLoadDetails")
+    assert "reviewSetText(\"ai-review-detail\", \"\")" in _function_body("reviewRender")
+    assert "item.meaning" in _function_body("reviewRender")
+    assert "item.contextSentence" in _function_body("reviewRender")
 
 
 def test_known_reuses_existing_word_mark_endpoint():
