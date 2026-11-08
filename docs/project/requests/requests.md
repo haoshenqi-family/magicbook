@@ -514,3 +514,5 @@
        集成套件 magicbook 侧用例已挂（矩阵 dev 部署后重扫 + guard 对账）。
      - 状态：**开发完成待验收**（worktree `../magicbook-r289-review-detail-pages` /
        分支 `feat/r289-review-detail-pages`，merge 后驻留待验收）。
+
+290. **小程序每日复习页空题面死卡：释义缺失或选择题降级时卡片无题可答（截图）**（占号 2026-11-08，待回填）
