@@ -1,6 +1,6 @@
 # LLD · R290 小程序每日复习页空题面死卡
 
-- **状态**：开发中（代码与验证已完成，待 PR 评审与真机复核；见 §6）
+- **状态**：开发完成待验收（代码、静态锁与视觉证据已完成；PR #7，待人工评审与真机复核，见 §6）
 - **迭代**：2026-11 小程序复习卡　**需求编号**：R290（用户 2026-11-08 截图报障）
 - **影响范围**：`magicbook/miniprogram/pages/review/*`、新增 `miniprogram/utils/review-card.js`
 - **后端**：零改动（moon-well 契约不变，`LearningReviewItemVO` 照旧下发 `meaning`）
