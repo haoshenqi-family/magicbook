@@ -6,6 +6,8 @@
 > [`project/iterations/1.0/r253-cached-translation-billing/lld.md`](../../../project/iterations/1.0/r253-cached-translation-billing/lld.md)；
 > R252 原始设计见
 > [`project/iterations/1.0/r252-book-cost-summary/lld.md`](../../../project/iterations/1.0/r252-book-cost-summary/lld.md)。
+>
+> 2026-11-11 复核：R253 的缓存翻译 1 积分/段已通过；R262 后续修订了全文生成原价与朗读可见文案，当前口径以本文 §1/§2 为准。
 
 ## 1. 它是什么
 
@@ -13,7 +15,7 @@
 
 ```text
 完整翻译：约 N tokens · 缓存翻译 A 积分（全文生成原价约 M 积分）
-完整朗读：约 N 字符（TTS 不按 token，约 S 段） · 缓存收听 A 积分（全文生成原价约 M 积分）
+完整朗读：约 N 字符 · 缓存收听 A 积分（全文生成原价约 M 积分）
 ```
 
 未缓存时省略「缓存…」片段，只显示全文生成原价。费率不可得时保留
@@ -23,7 +25,7 @@ tokens / 字符规模，积分写「费率暂不可得」。
 
 | 链路 | 规模估算 | 全文生成原价 | 已缓存时 |
 | --- | --- | --- | --- |
-| 整本翻译 | `ceil(chars / 4)` tokens | `ceil(tokens × creditsPer1kToken / 1000)` | `已缓存段数 × 1 积分`；同时保留全文原价 |
+| 整本翻译 | `ceil(chars / 4)` tokens | `ceil(tokens × creditsPer1kToken / 1000) + 段落数`（每段不足 1 积分按 1 积分，R262） | `已缓存段数 × 1 积分`；同时保留全文原价 |
 | 整本朗读 | 约 `chars` 字符，不按 token | `floor(chars / charsPerCredit)` | `已缓存段数 × 1 积分`；同时保留全文原价 |
 
 `1 积分/段` 同时用于 moon-well R231 的缓存翻译与 R213 的缓存收听，在本仓分别集中为
@@ -86,5 +88,6 @@ moon-well `GET /credit/billing`：
    `tests/test_book_cost_summary.py`。
 2. 新增缓存链路或改变 readiness 字段时，同步 `build_book_cost_summary()` 与
    本文件 §4，不要让页面猜缓存状态。
-3. 改模板文案时保留「TTS 不按 token」与「缓存值（全文原价）」两个信息结构。
+3. 改模板文案时保留「缓存值（全文原价）」结构；TTS 不按 token 只保留在悬浮说明，
+   可见括号已按 R262 移除。
 4. 任何新数据源都必须保持详情页零整本解析、零逐段缓存探针。

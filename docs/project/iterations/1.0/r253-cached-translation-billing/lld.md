@@ -1,6 +1,6 @@
 # LLD - R253 缓存翻译按 1 积分/缓存段计费
 
-> 状态：**已上线待验收**（2026-10-29；实现 `1e525b18`，定向 57 passed / 0 failed；fnOS 构建 `END OK`，magicbook healthy）
+> 状态：**已上线 · Agent 复核通过**（2026-11-11，待用户最终确认；实现 `1e525b18`；2026-10-29 定向 57 passed / 0 failed；fnOS 构建 `END OK`，magicbook healthy；2026-11-11 定向 57 passed / 0 failed，dev 真机复核见 AC §D）
 > 工作项：R253 · 迭代 1.0 · 承接 R252 / moon-well R231
 > 需求基线：[library requirements](../../../../product/library/requirements.md) · 验收：[acceptance.md](./ac/acceptance.md)
 
@@ -22,7 +22,7 @@ translate.cachedCredits = readiness.translate.total × 1
 | 翻译缓存单价 | `TRANSLATION_CACHED_CREDITS_PER_SEGMENT` | 固定 1 积分/段，对应 moon-well R231 |
 | 朗读缓存段数 | `cache_readiness.tts.total` | 仅 `ready=true` 时计入 |
 | 朗读缓存单价 | `TTS_CACHED_LISTEN_CREDITS` | 固定 1 积分/段，对应 moon-well R213 |
-| 全文翻译原价 | moon-well `/credit/billing` + `chars/4` | R222 token 公式，不与缓存费互相抵扣 |
+| 全文翻译原价 | moon-well `/credit/billing` + `chars/4` | R222 token 换算 + R262 段落数（每段至少 1 积分），不与缓存费互相抵扣 |
 
 翻译与朗读的段数分别取各自台账，不能用任一方的 `total` 代替另一方。
 
@@ -43,6 +43,7 @@ tts.cachedPerSegment = 1
 ```
 
 未缓存时对应 `cachedCredits = null`、`cachedSegments = 0`，页面只显示全文生成原价。
+2026-11-01 R262 后续修订把原价改为「token 换算积分 + 段落数」；R253 的缓存翻译 1 积分/段口径不变。
 
 ### 3.2 模板
 
@@ -69,6 +70,7 @@ tts.cachedPerSegment = 1
 - **费率独立**：翻译缓存单价是产品固定规则，不依赖 moon-well `/credit/billing`；全文生成费率不可得时仍保留缓存翻译值。
 - **段数隔离**：翻译通常按去重段落，朗读按 TTS 分段，数量可能不同；必须分别使用 `translate.total` 与 `tts.total`。
 - **历史注记**：R252 LLD/AC 保留原文，只加 R253 取代注记。
+- **后续修订**：R262 已把全文生成原价改为「token 换算 + 段落数」并移除朗读可见括号；R253 的缓存翻译 1 积分/段与两条链路分开取数不变。
 
 ## 5. 测试
 
@@ -80,6 +82,8 @@ tts.cachedPerSegment = 1
 4. 两者均缓存时并列展示缓存值与全文原价；
 5. 费率不可得时仍显示缓存翻译值，全文生成显示暂不可得；
 6. 详情页翻译缓存标识与成本行都写 1 积分/段。
+
+R262 后续修订的全文原价公式由 `tests/test_book_cost_summary.py` 的 `fullCredits == 112` 用例锁定；R253 的缓存段数断言（70/101 分开取数）仍独立成立。
 
 ## 6. 文档四问
 
