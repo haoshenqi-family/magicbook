@@ -241,23 +241,32 @@
         translateSingleParagraph(el, text);
     }
 
-    // 翻页/新章节渲染后仅回填已缓存的译文（不发 LLM 请求）；
-    // 翻译由段落按钮或工具栏「译」手动触发，避免整页批量请求卡顿
+    // 翻页/新章节渲染后仅回填当前页已缓存的译文（不发 LLM 请求）；
+    // 翻译由段落按钮或工具栏「译」手动触发，避免整页批量请求卡顿。
+    // R291：回填同样限定当前页 + 两段式（先扫描后插入）——边扫边插会把后面的
+    // 段落推进/推出当前页区间，污染同一轮扫描的可见性判定。
     function restoreCachedTranslations() {
         var cache = loadTranslationCache();
         reader.rendition.getContents().forEach(function (content) {
             var doc = content.document;
             if (!doc || !doc.body) return;
+            var win = content.window || doc.defaultView;
+            var slice = visibleSliceFor(content);
+            var cacheHits = [];
             collectParagraphElements(doc).forEach(function (el) {
                 if (translationSibling(el)) return;
                 var text = paragraphSpeechText(el);
                 if (!text) return;
+                if (!isElementVisible(el, win, slice)) return;
                 var cached = cache[paragraphHash(text)];
                 if (typeof cached === 'string' && cached) {
-                    // 整页回填属整页模式：常驻显示，不自动隐藏
-                    insertTranslation(el, cached, null, true);
-                    setParagraphTranslated(el, true);
+                    cacheHits.push({el: el, text: cached});
                 }
+            });
+            // 整页回填属整页模式：常驻显示，不自动隐藏
+            cacheHits.forEach(function (hit) {
+                insertTranslation(hit.el, hit.text, null, true);
+                setParagraphTranslated(hit.el, true);
             });
         });
     }
@@ -284,6 +293,7 @@
         if (translationInFlight) { translationRetryPending = true; return; }
         var cache = loadTranslationCache();
         var jobs = [];
+        var cacheHits = [];
         reader.rendition.getContents().forEach(function (content) {
             var doc = content.document;
             if (!doc || !doc.body) return;
@@ -293,19 +303,24 @@
                 if (translationSibling(el)) return;
                 var text = paragraphSpeechText(el);
                 if (!text) return;
+                if (!isElementVisible(el, win, slice)) return;
                 var cached = cache[paragraphHash(text)];
                 if (typeof cached === 'string' && cached) {
-                    // 整页模式：当前页的缓存命中即时落位且常驻（不自动隐藏）
-                    insertTranslation(el, cached, null, true);
-                    setParagraphTranslated(el, true);
-                    return;
-                }
-                if (isElementVisible(el, win, slice) && jobs.length < 20) {
+                    // 当前页的缓存命中先收集，扫描完再统一落位（见下）
+                    cacheHits.push({el: el, text: cached});
+                } else if (jobs.length < 20) {
                     jobs.push({
-                        el: el, text: text, hash: paragraphHash(text), index: jobs.length
+                        el: el, text: text, hash: paragraphHash(text)
                     });
                 }
             });
+        });
+        // R291：两段式——扫描期零插入。缓存命中若在扫描途中边插边量，会把后面的
+        // 段落推进/推出当前页区间，污染同一轮扫描的可见性判定（dev 实测：末页
+        // 一次点出 13 段）。扫描完先落缓存命中，再进按序请求队列。
+        cacheHits.forEach(function (hit) {
+            insertTranslation(hit.el, hit.text, null, true);
+            setParagraphTranslated(hit.el, true);
         });
         if (!jobs.length) return;
 

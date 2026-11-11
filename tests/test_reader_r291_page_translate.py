@@ -67,9 +67,10 @@ def test_整页译文常驻_段落级仍自动隐藏():
     assert "div._noHide = true" in insert_fn, "整页模式必须标记常驻"
     resched = js.split("function rescheduleVisibleTranslations", 1)[1].split("\n    }\n", 1)[0]
     assert "_noHide" in resched, "改配置重排计时必须跳过常驻译文"
-    # 三个整页来源（缓存命中 / 回填 / 按序落位）都传 persist=true
-    assert js.count("insertTranslation(el, cached, null, true)") == 2, \
-        "缓存命中与整页回填两处都应常驻"
+    # 三个整页来源（缓存命中 / 回填 / 按序落位）都传 persist=true；
+    # 缓存命中与回填已是两段式（hit 对象），落位均用 hit.el
+    assert js.count("insertTranslation(hit.el, hit.text, null, true)") == 2, \
+        "apply 缓存命中与 rendered 回填两处都应先收集后落位（两段式）"
     assert "insertTranslation(finishedJob.el, translation, null, true)" in js, \
         "按序落位结果应常驻"
     # 段落按钮路径（translateSingleParagraph）不带 persist → 默认仍走计时
@@ -86,3 +87,20 @@ def test_译文块禁止跨栏断裂():
     rule = m.group(1)
     assert "break-inside:avoid" in rule, "译文块必须禁止跨栏断裂（R291）"
     assert "-webkit-column-break-inside:avoid" in rule, "旧 WebKit 前缀同步保留"
+
+
+def test_扫描期零插入_缓存命中后置():
+    """dev 实测（R291 验证轮）：缓存命中边扫边插会把后面的段落推进/推出当前页
+    区间——末页一次点出 13 段（应 4 段）。扫描与插入必须两段式；回填同样
+    限定当前页。"""
+    js = _read("cps/static/js/reading/reader-immersive.js")
+    apply_fn = js.split("function applyImmersiveTranslation()", 1)[1].split(
+        "\n    // 工具栏「译」", 1)[0]
+    scan = apply_fn.split("cacheHits.forEach", 1)[0]
+    assert "cacheHits" in apply_fn, "缓存命中必须先收集后落位"
+    assert "insertTranslation(" not in scan, "扫描期不得插入节点（会污染可见性快照）"
+    restore_fn = js.split("function restoreCachedTranslations", 1)[1].split(
+        "\n    // 整页翻译的单段任务", 1)[0]
+    assert "visibleSliceFor" in restore_fn, "rendered 回填也必须限定当前页"
+    scan_r = restore_fn.split("cacheHits.forEach", 1)[0]
+    assert "insertTranslation(" not in scan_r, "回填扫描期同样不得插入节点"

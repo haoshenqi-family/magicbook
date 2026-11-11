@@ -22,7 +22,7 @@
 
 ## 拍板方案（2026-11-11 用户确认）
 
-- **A 可见性**：新增 `visibleSliceFor(content)`——取 iframe 的 `frameElement.parentElement`（`.epub-view`）与 `frameEl.closest('.epub-container')` 的 `getBoundingClientRect()` 差值，得当前页在 iframe 坐标系里的水平区间；`isElementVisible` 改为与该区间求交。transform 与 scrollLeft 两种翻页机制下公式同形。区间拿不到时显式回退旧判据（宁退化旧行为、不静默翻零段）。段落清单在点击瞬间快照（现有遍历即文档序），含与视口相交的跨页段，不随插入后布局变化重算。
+- **A 可见性**：新增 `visibleSliceFor(content)`——取 iframe 的 `frameElement.parentElement`（`.epub-view`）与 `frameEl.closest('.epub-container')` 的 `getBoundingClientRect()` 差值，得当前页在 iframe 坐标系里的水平区间；`isElementVisible` 改为与该区间求交。transform 与 scrollLeft 两种翻页机制下公式同形。区间拿不到时显式回退旧判据（宁退化旧行为、不静默翻零段）。段落清单在点击瞬间快照（现有遍历即文档序），含与视口相交的跨页段，不随插入后布局变化重算。**两段式**：扫描期零插入，缓存命中先收集、扫描完再统一落位——dev 验证轮实测：缓存命中若边扫边插，会把后面的段落推进当前页区间（末页一次点出 13 段、应 4 段），污染同一轮扫描的可见性判定；缓存命中与 `rendered` 回填也因此同样限定当前页（不再整章）。
 - **渲染策略（取代 R226 的「全部返回后一次渲染」）**：严格按序逐段——`step()` 链式驱动，一段落位再发起下一段，**不并发**（用户明确不要二路并发）；结果到达即插入。理由：范围收窄到当前页（约 6 段）后，逐段小位移发生在阅读位置附近且随阅读节奏出现，优于 90s 空转后整章一次大跳；R226 当时的「二十次连续重排」正是整章范围下的产物。
 - **C 整页常驻**：`insertTranslation` 增加 `persist` 形参；整页三来源（缓存命中、`rendered` 回填、按序落位）与整页错误块均 `persist=true`（`div._noHide` 标记，改配置重排计时时跳过）；关开关 `removeAllTranslations` 移除、换章随 DOM 重建消失。段落级「译」按钮路径不传 persist，5s 自动隐藏语义不变。
 - **B 不跨页断裂**：`reader-core.js` 注入样式的 `.reading-translation` 规则追加 `break-inside:avoid;-webkit-column-break-inside:avoid`。超过整栏高的长译文浏览器忽略 avoid 照常断开，属可接受兜底。
@@ -32,7 +32,7 @@
 
 | 文件 | 改动 |
 | --- | --- |
-| `cps/static/js/reading/reader-immersive.js` | 头注释补 R291 段；`insertTranslation` 加 persist；`rescheduleVisibleTranslations` 跳过 `_noHide`；新增 `visibleSliceFor`；`isElementVisible` 改签名吃 slice；`showTranslationError`/`translateSingleParagraph` 透传 persist；删 `runConcurrent`/`renderTranslationBatch`；`applyImmersiveTranslation` 重写为快照当前页 + step 链按序落位 |
+| `cps/static/js/reading/reader-immersive.js` | 头注释补 R291 段；`insertTranslation` 加 persist；`rescheduleVisibleTranslations` 跳过 `_noHide`；新增 `visibleSliceFor`；`isElementVisible` 改签名吃 slice；`showTranslationError`/`translateSingleParagraph` 透传 persist；删 `runConcurrent`/`renderTranslationBatch`；`applyImmersiveTranslation` 重写为快照当前页（可见性前置 + 缓存命中收集后置的两段式）+ step 链按序落位；`restoreCachedTranslations` 改限当前页 + 两段式 |
 | `cps/static/js/reading/reader-core.js` | `.reading-translation` 注入样式追加 `break-inside:avoid;-webkit-column-break-inside:avoid` |
 | `tests/test_reader_r226_acceptance.py` | 「完成后一次渲染」断言按 R291 取代，收缩为「请求期不插占位 + 顶栏加载态」两条仍有效底线（文件头加取代标注） |
 | `tests/test_reader_r291_page_translate.py` | 新增：可见性基准、按序无并发、常驻/段落级计时分界、break-inside 四组形制锁 |
@@ -43,7 +43,7 @@
 
 - 划词气泡翻译、段落级「译」按钮的 5s 自动隐藏语义不变；「整本译」走 `RS.startWholeBookTranslation`，不动。
 - 不随翻页自动触发翻译（R226 拍板保留）：开关开着翻到新章不自动翻，需再点开关（关→开）。
-- `rendered` 回填（`restoreCachedTranslations`）保持整章范围：常见流（新章无缓存）为 no-op；重访章回填的是用户此前翻过的段。它发生在章节切换/打开瞬间，且 persist 后不再有「5s 后消失」的二次重排。
+- `rendered` 回填（`restoreCachedTranslations`）改限当前页：与「译文只随页出现」模型一致，也消除开书/翻章时整章回填的一次性大重排；时机仍挂 `rendered`+60ms，若初始定位尚未 settle，回填可能落在首页——错过不破坏排版，重开开关即正确。
 - 翻页/换章后的在飞请求：脱附段只写缓存；若全部脱附，队列照常排空、加载态正常收尾。
 - 后端 `reading-translate-batch` 接口契约不变（L2 无变化）；单段请求 10–18s 的网关时延不在本次范围。
 
