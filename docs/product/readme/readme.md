@@ -23,7 +23,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | companion | AI 伴读：围绕当前书对话提问、工具调用、跨书记忆；伙伴系统（AI 阅读按钮的外观）；伙伴信封与站内信入口 | [companion](companion.md) |
 | credit | 积分与订阅：积分余额/流水/充值（支付宝扫码）、可转赠积分卡、订阅状态、成就徽章 | [credit](credit.md) |
 | admin | 管理：管理员运营站内信、LLM 任务手动执行面板、用户与站点管理、统一账号中心 OIDC 登录 | [admin](admin.md) |
-| miniprogram | 微信小程序：AI 伴读（通用对话）、每日复习、词汇量测试、学习数据四页；阅读、翻译与生词本仍在网页端 | [miniprogram](miniprogram.md) |
+| miniprogram | 微信小程序：每日复习、词汇量测试、学习数据三页；阅读、翻译、生词本与 AI 伴读在网页端（小程序内 AI 伴读已于 R292 移除） | [miniprogram](miniprogram.md) |
 
 > `account` 是用户视角的跨模块账号域，聚合资料、伙伴、邮件、阅读设置、积分、成就和导出页面；
 > 它不新增后端模块或 L2 契约。
@@ -64,7 +64,7 @@ magicbook 是一个电子书库与英语阅读学习站点：以 Calibre 书库�
 | companion | 🟡 邮件与伙伴入口已建 | [companion/interface.md](../companion/interface.md) 已登记邮件代理与伙伴入口；AI/伙伴其余历史契约仍见 [ai-agent](../../project/_legacy/feat/ai-agent/design/magicbook-side-design.md)、[ai-reading-companion](../../project/_legacy/feat/ai-reading-companion/design/ai-reading-companion-implementation-plan.md) |
 | credit | ✅ 已建 | [credit/interface.md](../credit/interface.md) |
 | admin | 🟡 管理面已建 | [admin/interface.md](../admin/interface.md) 已登记 LLM 任务与运营站内信页面/代理；实现边界见 [companion admin-mail](../companion/features/admin-mail.md) |
-| miniprogram | ✅ 已建（R280） | [miniprogram/interface.md](../miniprogram/interface.md)：小程序直连 moon-well 的 AI 伴读 SSE 对话契约；其余复习/测试/账号端点仍以模块手册与 moon-well 契约为准 |
+| miniprogram | ✅ 已建（R280，R292 改写） | [miniprogram/interface.md](../miniprogram/interface.md)：小程序直连 moon-well 的端点清单（复习/测试/账号/学习数据）；AI 伴读 SSE 对话契约已随 R292 移除 |
 
 口径（与 AGENTS.md 文档规范节同源）：**未建 L2 的模块，其接口契约以标着「待升 L2」的那份实现说明为准**，新模块的 L2 随功能演进补齐、不要求一次性铺满；上表逐模块核对过，两边不符时以本表为准并回填标注。
 

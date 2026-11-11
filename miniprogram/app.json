@@ -2,7 +2,6 @@
   "pages": [
     "pages/login/login",
     "pages/review/review",
-    "pages/chat/chat",
     "pages/test/test",
     "pages/stats/stats",
     "pages/account/account"
@@ -23,10 +22,6 @@
       {
         "pagePath": "pages/review/review",
         "text": "复习"
-      },
-      {
-        "pagePath": "pages/chat/chat",
-        "text": "AI"
       },
       {
         "pagePath": "pages/test/test",

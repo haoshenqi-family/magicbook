@@ -1,7 +1,7 @@
 # 每日复习（miniprogram）· 实现说明（L3）
 
 > 读者：要改小程序复习卡的人。只讲「这一页怎么实现 + 边界在哪」；
-> 需求见 [需求基线 §R271](../requirements.md)，接口契约见 [L2](../interface.md) §5，
+> 需求见 [需求基线 §R271](../requirements.md)，接口契约见 [L2](../interface.md) §3，
 > 本次修复见 [R290 LLD](../../../project/iterations/2026-11-wx-review-card/r290-review-card-stem/lld.md)。
 
 ## 1. 数据面
