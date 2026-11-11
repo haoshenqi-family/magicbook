@@ -435,6 +435,46 @@ merge 回主检出时为准（不足归档阈值）。
 - **状态**：**开发完成待验收**（分支 `agent/fix-miniprogram-review-bug-36fb2af0b54b`，
   PR 见本轮 push 后的 GitHub 链接；小程序需重新上传体验版才能在真机看到修复）。
 
-**台账总结**：`requests.md` 第 290 条已回填；`response.md` 写入前窗口已有 11 节
-（R281、R280 两节由并行会话累积未轮转），本次连同新增 R290 一并压回 10 节——
-最旧两节 R281、R280 原样搬入 `response-archive/response-R280-R281.md` 并在顶部登记索引。
+## R291 · 整页翻译按序逐段渲染与排版修复（2026-11-11）
+
+- **需求**：用户报障「点右上角『译』排版会有问题」，要求在 dev 环境实测；实测确认后用户拍板
+  「从当前页面第一段开始，一段一段翻译，直到当前页面的段落都翻译完」，明确不要二路并发。
+- **实测复现**（`dev-magicbook.haoshenqi.top/read/487/epub`，`mbtester1030`，DOM 度量为准）：
+  ① 可见性判据拿整章宽 iframe 的 `innerWidth`（实测 2310px，视口 462px）恒真，全章 25 段全进
+  队列、20 段封顶截断章尾，按钮转圈约 90s；② 19 段译文一次性插入，`scrollWidth` 2291→3215，
+  页边界整体后移、正在读的段落被挤走；③ 译文被页边界切成两截（`getClientRects()` 分裂为本页底
+  628–739 + 下页顶 20–64）；④ 译文约 5s 自动消失（`per100` 默认 5 兼最小显示秒数）再触发整章回弹；
+  ⑤ 关开关第三次重排（3677→2291）。
+- **根因**：epub.js default manager 把整章多栏排进一个 iframe，`isElementVisible` 拿 `win.innerWidth`
+  当视口恒真；译文块无 `break-inside:avoid`；整页开关复用了段落级 5s 自动隐藏。
+- **改法**（用户拍板，取代 R226 的「全部返回后一次渲染」渲染决策）：可见性改按外层
+  `.epub-container` 裁切区间求交（`visibleSliceFor`，transform/scrollLeft 两种翻页机制同形）+
+  点击瞬间快照当前页；**严格按序逐段**——`step()` 链一段落位再发起下一段，结果到达即插入，
+  落位前查 `isConnected`（换章脱附只写缓存不插 DOM，顺带修了旧路径脱附 TypeError）；整页译文
+  常驻（`persist`/`_noHide`），关开关才移除，段落级按钮维持 5s 计时；译文块
+  `break-inside:avoid;-webkit-column-break-inside:avoid`。缓存每次落位重读重写（避免与划词气泡
+  写缓存互相覆盖）。
+- **验证轮补丁（自测抓出的自引 bug）**：缓存命中边扫边插会把后面的段落推进当前页区间——
+  末页一次点出 13 段（应 4 段）。改两段式：扫描期零插入，缓存命中与 `rendered` 回填均先收集
+  后落位、且限定当前页（回填不再整章）。
+- **验证**（dev 真机，补丁上线后）：首页点「译」仅落当前页 6 段（0–5），其余 19 段未动；末页
+  （缓存空、服务端也无命中延迟）点「译」仅落 21–24 段，performance 时间线 4 个请求**严格串行**
+  （每请求 start ≥ 前一请求 end，120–282ms，服务端缓存命中），零跨栏断裂（fragments=0），
+  `scrollWidth` 2291→2753（仅 +一列）；译文 28s+ 常驻不消失，关开关全清；再开走缓存命中路径
+  仍只落当前页 4 段；段落级按钮译文 2s 时在、8s 后消失（5s 计时回归不变）。静态守卫 43 passed
+  （R291 新增 5 例、R226 收缩后 3 例、R215/R183 模块面/R263/R287 既有锁），`node --check` 通过，
+  集成套件 `scan_magicbook_routes.py` 无新路由、`guard.py` 三向对账全绿（magicbook 466 行缺口 0）。
+- **边界**：不随翻页自动触发请求（R226 保留，回填只读缓存）；「整本译」、划词气泡、段落朗读不动；
+  `reading-translate-batch` 契约不变（L2 无变化）；单段 10–18s 的网关时延不在本次范围（服务端有
+  缓存时显著变快）；`rendered` 回填若初始定位未 settle 可能落到首页——错过不破坏排版，重开开关即正确。
+- **文档四问**：L1 `readme/reading.md` 段落翻译/整页翻译两条改「按序逐段显示 + 常驻」；L2 无接口
+  变化；L3 无既有实现文档，实现口径以本轮 LLD 为准；需求基线新增 §R291；
+  LLD `iterations/2026-11-page-translate-sequential/r291-page-translate-sequential/lld.md`。
+- **冲突记录**：本轮占号 R291 时 develop 无并行占号；r289 worktree 为并行会话验收期驻留，
+  与本次改动文件无交集。
+- **状态**：**开发完成待验收**（分支 `fix/r291-page-translate-sequential`，merge `develop`
+  @ `bcd3f5b7`，dev 环境已部署并真机验证通过；worktree `../magicbook-r291-page-translate-sequential`
+  驻留等验收，通过后删）。
+
+**台账总结**：`requests.md` 第 291 条已回填；`response.md` 写入前窗口已有 9 节，
+本次新增 R291 后共 10 节，未超窗口、无需归档。
