@@ -6,6 +6,10 @@ Why：这三处都是「结构上看似正确、真机上仍然坏」的回归�
   3. 整页翻译逐段插正文，每段都触发 iframe 重排；请求期占位还会
      额外插入再删除二十个节点。
 
+  〔第 3 条的「完成后一次渲染」已被 R291 取代（2026-11-11 用户拍板）：整页翻译
+  范围收窄到当前页后改为严格按序逐段落位，见 test_reader_r291_page_translate.py。
+  本文件仍锁 R226 依然有效的底线：请求期不插占位。〕
+
 本用例只钉必须保持的形制，不依赖真实浏览器；真机截图另在 response.md 记证。
 """
 
@@ -62,7 +66,10 @@ def test_阅读器常驻引导入口已下线_R284():
         "右上角 Help 下拉必须是唯一入口"
 
 
-def test_整页翻译请求期不插占位且完成后一次渲染():
+def test_整页翻译请求期不插占位():
+    """〔R226 的「完成后一次渲染」已被 R291 取代：按序逐段落位，
+    形制锁在 test_reader_r291_page_translate.py〕本用例只锁仍然有效的底线：
+    请求期不插占位（插了还要替换，双倍重排）；顶栏加载态与降速动画存在。"""
     js = _read("cps/static/js/reading/reader-immersive.js")
     apply_fn = js.split("function applyImmersiveTranslation()", 1)[1].split(
         "\n    // 工具栏「译」", 1
@@ -70,16 +77,6 @@ def test_整页翻译请求期不插占位且完成后一次渲染():
     assert "insertTranslation(job.el, mbT('Translating…'), 'is-loading')" not in apply_fn, (
         "请求期逐段插占位会让正文高度连续变化"
     )
-    assert "renderTranslationBatch(results, cache)" in apply_fn
-    completion = apply_fn.split("if (remaining) return;", 1)[1]
-    assert completion.index("setTranslationLoading(false)") < completion.index(
-        "renderTranslationBatch(results, cache)"
-    ), "必须先结束加载态，再一次性写入整批译文"
-    batch = js.split("function renderTranslationBatch(results, cache)", 1)[1].split(
-        "\n    function applyImmersiveTranslation", 1
-    )[0]
-    assert "results.forEach" in batch
-    assert "saveTranslationCache(cache)" in batch, "缓存写入应合并为一次"
 
     css = _read("cps/static/css/reader.css")
     assert "#immersive-translate.is-loading .tb-icon" in css
