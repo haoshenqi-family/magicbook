@@ -546,4 +546,19 @@
 
 291. **阅读器整页翻译：按序逐段渲染与排版修复（可见性基准/跨页切断/整页不自动隐藏）**（占号 2026-11-11，待回填）
 
-292. **小程序移除 AI 伴读能力（微信上架合规）**（占号 2026-11-11，待回填）
+292. **小程序移除 AI 伴读能力（微信上架合规）**（占号 2026-11-11）：用户原话「移除小程序的AI能力，否则无法上架」。
+     - 口径：代码包里不留任何 AI 对话能力（审核看代码包，不是只藏入口）——删 `miniprogram/pages/chat/`
+       整目录、`app.json` 页面注册与 tabBar「AI」项（底栏变「复习 / 词汇量 / 我」）、
+       `utils/api.js` 的 SSE 对话通道（`chatStream` / `decodeUtf8` / `parseSseBlock`）、
+       `config.chatTimeout`，登录页副标题与工程描述去「AI 伴读」。**取代 R280 的 AI 伴读部分与 R283**。
+     - 不动：moon-well `/ai/agent/chat` 与 `scene=general` prompt、服务端会话历史、
+       网页端与 magiclens 的 AI 伴读。
+     - 测试：新增 `tests/test_r292_miniprogram_remove_ai.py` 7 例（含代码包全文件无 AI 字样扫描），
+       删 `test_r280_ai_chat.py` / `test_r283_tab_ai.py`，改 R275 / R282 各一处；小程序相关 57 passed；
+       `.js` 全过 `node --check`、`.json` 全过 `JSON.parse`。**未用微信开发者工具编译、未真机、未上传**。
+     - 文档四问：L1 `readme/miniprogram.md` + 索引；L2 `miniprogram/interface.md` 改写为端点清单；
+       L3 `features/ai-chat.md` 标下线；需求基线 §R292；
+       LLD `iterations/2026-11-wx-remove-ai/r292-miniprogram-remove-ai/lld.md`。
+     - 状态：**开发完成待验收**（分支 `feat/r292-miniprogram-remove-ai`，worktree
+       `../magicbook-r292-miniprogram-remove-ai` 驻留）。仓外待办：开发者工具上传新版本并提审；
+       小程序后台名称 / 简介 / 类目里的 AI 描述需手动改。PingCode MB-245。

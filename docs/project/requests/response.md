@@ -120,54 +120,12 @@
 - `response-archive/response-R248.md`：R248 整本进度仅留详情（2026-10-31 R258 写入触发轮转搬移，原样搬移不改写）。
 - `response-archive/response-R249-R250.md`：R249 整本朗读后台线程共享会话崩溃 + R250 管理员运营站内信（2026-10-31 R260 写入触发轮转搬移，原样搬移不改写）。
 - `response-archive/response-R252.md`：R252（2026-10-29）——2026-11-01 R261 写入触发轮转搬移，原样搬移不改写
+- `response-archive/response-R279.md`：R279 · 普通用户投稿书籍：暂存 MinIO，管理员审核后入库（2026-11-04）——2026-11-11 R292 写入前窗口已有 11 节，连同本次新增一并压回 10 节，原样搬移不改写
+- `response-archive/response-R282.md`：R282 · 报错必须说出「实际请求的完整 URL」（2026-11-05）——同上，2026-11-11 R292 写入触发轮转搬移，原样搬移不改写
 
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事） · [response-R238.md](response-archive/response-R238.md)（2026-10-29 R250 / R252 并行写入轮转，原样搬移不改写） · [response-R239.md](response-archive/response-R239.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R244.md](response-archive/response-R244.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R243.md](response-archive/response-R243.md)（2026-10-29 R254 写入触发轮转搬移） · [response-R246.md](response-archive/response-R246.md)（2026-10-30 R256 写入触发轮转搬移） · [response-R247.md](response-archive/response-R247.md)（2026-10-31 R257 写入触发轮转搬移） · [response-R248.md](response-archive/response-R248.md)（2026-10-31 R258 写入触发轮转搬移） · [response-R253.md](response-archive/response-R253.md)（2026-11-01 R263 写入触发轮转搬移） · [response-R254.md](response-archive/response-R254.md)（2026-11-02 R267 写入触发轮转搬移）
-
-## R279 · 普通用户投稿书籍：暂存 MinIO，管理员审核后入库（2026-11-04）
-
-**对 R279 的回应**：需求是「给普通用户一个新的上传图书接口，仅上传到 MinIO，管理者审核后可以解析入库」，operator 已确认开工。
-
-- **没有复用 `/upload`**：那条链路的权限位 `ROLE_UPLOAD` 会直写共享书库，`upload_book_formats` 甚至能覆盖任意书目的格式文件。新链路把写权限收回管理员：用户提交只进 MinIO 私有暂存区并落一条 PENDING 台账，**入库只发生在管理员点「通过」之后**。
-- **暂存前缀 `book-submissions/<user_id>/<uuid>.<ext>`**：不进匿名只读 Statement（现在只放开 `buddy/`、`ted-audio/`）。预览走同源代理、不生成预签名直链，仓库侧有守卫测试锁死。
-- **审核页** `/admin/submissions`（管理 → 内容与 AI → 书籍投稿）：列表、预览、通过、驳回；通过后后台线程 `app.app_context()` + 线程作用域会话解析入库，状态写 `INGESTED` 并回填 `book_id`；驳回删对象留备注。失败置 `FAILED` 可重审。
-- **用户侧**：`/me` 新增「建议一本书」面板，提交前必须勾选「我有权分享此文件」；文件先入私有暂存区，审核通过前不出现在书库。支持 epub/pdf/txt/mobi/azw3/fb2/docx 等，单文件上限 100MB。
-- **未做**：站内信通知、对象定期清理/孤儿扫描、「只对投稿者可见」的 owner 模型——均记入 LLD §8，需另立需求。
-- **验证**：`tests/test_r279_book_submission.py` 20 例（提交/声明/白名单/音视频拒绝/匿名/去重/权限/通过入库/驳回/状态机/安全守卫/导航归属 + 3 条 E2E 回归守卫）全绿；**真实上传测试**用一本真实 EPUB 走完「提交→暂存→审核→入库」：`book_id=1`、暂存对象已删、`calibredb list` 可见「E2E 投稿测试书 / 测试作者 / EPUB」；这次 E2E 抓出并修掉三个单测桩覆盖不到的缺陷（后台线程需 `test_request_context`、入库前需 `create_functions`、add-or-get 不能用 `merge`）。生产 MinIO 凭据本机不可得，E2E 用本地 S3 兼容端点走真实 minio SDK，生产真机验证待合并部署后补。`test_account_admin_ia_r251` 契约演进 14→15 管理页；i18n 种子契约与相关导航/账号回归全绿。**全量 1315 passed / 21 failed（21 项在 origin/develop 基线同样失败，属本机无 calibre 书库的环境性失败，非本次回归）**。画面证据见 `docs/project/iterations/2026-11-book-submission/evidence/`。
-
-**台账总结**：`requests.md` 第 279 条本处回填；`response.md` 写入前窗口与 R280/R281 并行增长，merge develop 后按 10 节窗口把最旧一节 R271（微信小程序）原样搬入 `response-archive/response-R271.md` 并登记索引（R270 由 develop 侧 R280 写入轮转、R269 由 R279/R281 先后轮转，见归档索引）。
-
-## R282 · 报错必须说出「实际请求的完整 URL」（2026-11-05）
-
-**对 R282 的回应**：白名单三处都对（后台、「项目配置 → 域名信息」、工具本地缓存里
-`RequestDomain` 含 `https://moon-well.haoshenqi.top`，appid 为正式号、`isTrusted: true`），
-服务端也实测可达、无跳转、带小程序 UA 返回业务 JSON，可请求仍报 `url not in domain list`。
-
-- **这一轮没能定位根因，但拿掉了「靠猜」的那部分。** 之前所有排查都建立在我们自己的提示上，
-  而那条提示只打印 `CONFIG.baseUrl`——**它永远显示那个「本该正确」的域名**。于是无论真实原因
-  是什么（路径拼接错、baseUrl 带隐藏字符、请求发往别处），用户看到的都是「添加
-  moon-well.haoshenqi.top」，看起来完全正确，人就被引去反复确认后台。这是提示的设计缺陷，
-  不是运气差。
-- **改法**：`rawRequest` 先把 `const url` 算出来，`wx.request`、日志、错误文案共用同一个值；
-  白名单文案变成三段——「为这个 AppID 添加 `<被拦域名>`｜实际请求 `<完整 URL>`｜微信原文
-  `<errMsg>`」。被拦域名从**真实 URL** 里取（`hostOf()`），不再从 `CONFIG.baseUrl` 取，
-  这样两者不一致才会暴露出来。SSE 的 `chatStream` 同步带上 `chatUrl`。
-- **`hostOf()` 保留端口**：白名单不接受端口，若 URL 真带了端口，提示里必须原样显示，
-  否则又会变成一个「看起来对」的域名。
-- **本次已排除**：开发者工具项目记录与缓存（单条记录、appid 正确、域名齐全）、
-  `project.config.json` 的 `appid`、`baseUrl` 的字符构成（纯 ASCII 31 字符）、所有请求路径
-  均以 `/` 开头、服务端 301/302（四个路径全部直连）、网关对小程序 UA 的拦截。
-- **验证**：`tests/test_r282_requrl.py` 6 例（URL 只算一次并复用、日志打 URL 不打 path、
-  文案含真实 URL 与 errMsg 原文、两处调用点都传 url、`hostOf` 行为）+ R277/R281 既有锁，
-  合计 **13 passed**；`hostOf` 经 Node 实测含 null/空串/带端口。
-- **状态**：**已上线**（`d83cf2ae` 合入 develop 并推送）。用户于 2026-11-05 11:22 确认开发调试恢复。
-  **根因未确证**——白名单三处与运行时 AppID 全部正确、服务端无跳转，恢复也可能来自工具侧配置刷新；
-  这条改动本身只负责「下次报错能自证」，不解决故障。
-
-**台账总结**：`requests.md` 第 282 条本处回填；`response.md` 写入前 9 节（上一轮已归档 R272 之外的
-旧条目），本次回到 10 节，最旧一节 R272（小程序账号体系）原样搬入
-`response-archive/response-R272.md` 并登记索引。
 
 ## R283 · 修改意见（挂 R280）：tabBar「伴读」改为「AI」（2026-11-05）
 
@@ -478,3 +436,40 @@ merge 回主检出时为准（不足归档阈值）。
 
 **台账总结**：`requests.md` 第 291 条已回填；`response.md` 写入前窗口已有 9 节，
 本次新增 R291 后共 10 节，未超窗口、无需归档。
+
+## R292 · 小程序移除 AI 伴读能力（微信上架合规）（2026-11-11）
+
+- **需求**：用户原话「移除小程序的AI能力，否则无法上架」。
+- **范围判定**：小程序里的 AI 能力只有一处——R280 接入、R283 改名的「AI」tab（通用对话）。
+  复习 / 词汇量测试 / 学习数据 / 账号都不调用模型（复习卡释义只读详解缓存，缺了亮词面，不触发生成）。
+- **取「删除」而非「藏入口」**：审核面对的是上传的代码包。只摘 tab、留着对话页与流式通道，
+  包里仍有一整套 AI 对话实现，过不过取决于审核扫没扫到；留着也没有用户价值。
+  恢复成本低——`git show 5a49872f:miniprogram/` 可取回。
+- **改法**：删 `pages/chat/` 整目录；`app.json` 去页面注册与 tabBar 项（底栏变「复习 / 词汇量 / 我」）；
+  `utils/api.js` 删 `decodeUtf8` / `parseSseBlock` / `chatStream` 及导出（432 → 241 行）；
+  `config.js` 删 `chatTimeout`；登录页副标题与 `project.config.json` 描述去「AI 伴读」；
+  `sitemap.json` 的模板残留文案顺手改掉；`miniprogram/README.md` 删 AI 章节并交代原因。
+- **不动**：moon-well `/ai/agent/chat`、`scene=general` 分支与 `agent-chat-system-general` prompt
+  （接口由网页端与扩展共用）；服务端已有会话历史；网页端与 magiclens 的 AI 伴读。
+- **验证**：新增 `tests/test_r292_miniprogram_remove_ai.py` 7 例——其中一条遍历代码包全部
+  `.js/.json/.wxml/.wxss`，断言不含 `\bAI\b` / 伴读 / `/ai/` / `agent-chat` 等字样；
+  删除 `test_r280_ai_chat.py`、`test_r283_tab_ai.py`（断言全以对话页存在为前提，R280 里仍成立的
+  两条生词本锁迁入 R292 文件）；改 `test_r275_home_profile.py`、`test_r282_requrl.py` 各一处。
+  小程序相关 12 个测试文件 **57 passed**；全部 `.js` 过 `node --check`、`.json` 过 `JSON.parse`。
+  开发态部分单测，未跑全量（不涉及 `cps/`）。集成套件不覆盖小程序，无矩阵行变化。
+- **未验证**：**没有用微信开发者工具编译，没有真机运行，没有上传新代码包**。静态锁保证不了
+  WXML 渲染与三项底栏的实际观感。
+- **仓外待办（需用户）**：① 开发者工具编译确认 → 上传高于 `1.0.1` 的版本 → 提审；
+  ② 小程序后台的名称 / 简介 / 服务类目 / 审核备注里若有 AI 描述需手动改，代码仓管不到。
+- **文档四问**：L1 `readme/miniprogram.md` 去 AI 伴读并说明移除、索引两行同步；L2 `miniprogram/interface.md`
+  改写为现行端点清单（原 SSE 契约指向 git 历史）；L3 `features/ai-chat.md` 顶部加「已下线」横幅、
+  正文只读保留，`features/review.md` 一处章节号随 L2 改写更正；需求基线新增 §R292、
+  R280 / R283 标注被取代；LLD `iterations/2026-11-wx-remove-ai/r292-miniprogram-remove-ai/lld.md`。
+- **冲突记录**：R292 取代 R280 的 AI 伴读部分与 R283 全部（两条历史原文保留，只加标注）。
+  占号时 develop 无并行占号；r289 / r291 worktree 为并行会话验收期驻留，与本次改动文件无交集。
+- **PingCode**：MB-245（`z6rxRK6G`），In progress（含待验收）。
+- **状态**：**开发完成待验收**（分支 `feat/r292-miniprogram-remove-ai`，worktree
+  `../magicbook-r292-miniprogram-remove-ai` 驻留等验收，通过后删）。
+
+**台账总结**：`requests.md` 第 292 条已回填；`response.md` 写入前窗口实有 11 节，
+加上本次 R292 共 12 节，把最旧两节 R279、R282 原样搬入 `response-archive/` 并登记索引，压回 10 节。
