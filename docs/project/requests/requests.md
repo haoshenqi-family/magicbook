@@ -543,3 +543,5 @@
        `iterations/2026-11-wx-review-card/r290-review-card-stem/lld.md`。L2 无接口变化。
      - 状态：**开发完成待验收**（分支 `agent/fix-miniprogram-review-bug-36fb2af0b54b`，
        PR 见 `response.md` R290 条）。
+
+291. **阅读器整页翻译：按序逐段渲染与排版修复（可见性基准/跨页切断/整页不自动隐藏）**（占号 2026-11-11，待回填）
