@@ -562,3 +562,5 @@
      - 状态：**开发完成待验收**（分支 `feat/r292-miniprogram-remove-ai`，worktree
        `../magicbook-r292-miniprogram-remove-ai` 驻留）。仓外待办：开发者工具上传新版本并提审；
        小程序后台名称 / 简介 / 类目里的 AI 描述需手动改。PingCode MB-245。
+
+293. **release-2026-11-13 批次发布：R285/R289–R292 上生产（全量测试+T1 闸门+双仓同窗）**（占号 2026-11-13，待回填）
