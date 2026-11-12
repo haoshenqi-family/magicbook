@@ -563,4 +563,8 @@
        `../magicbook-r292-miniprogram-remove-ai` 驻留）。仓外待办：开发者工具上传新版本并提审；
        小程序后台名称 / 简介 / 类目里的 AI 描述需手动改。PingCode MB-245。
 
-293. **release-2026-11-13 批次发布：R285/R289–R292 上生产（全量测试+T1 闸门+双仓同窗）**（占号 2026-11-13，待回填）
+293. **release-2026-11-13 批次发布：R285/R289–R292 上生产（全量测试+T1 闸门+双仓同窗）**（占号 2026-11-13）
+    - 用户令「跑全量测试，测试通过后发布正式版本 release」。全量 pytest **1400 全绿**（R279 投稿 5 例初判失败定位为本机缺 libmagic——`validate_mime_type` fail-closed 拒绝，Docker 镜像装 libmagic1 无此问题，brew 补装后 20/20 通过）。
+    - dev T1 **566/0/0**（0 SKIP）+ guard 三向 0 缺口；闸门标记被测 sha `4e446ea`（tree `3c75db5`）。develop 顶端仅余 docs-only 提交（553cff69），dev 容器不随 docs-only 前进——按用户拍板「按被测 sha merge」：merge `7f9e0fa` → 闸门 tree 精确相等 → 正式 tag `release-20261113-7f9e0fa`，生产重建 healthy（digest adac2b5）。
+    - 验证：magicbook.haoshenqi.top 匿名 302（登录跳转，正常）；端到端功能抽查归入各 R 项验收（R289 详情分页/R290 复习题面/R291 整页翻译/R292 小程序——R292 仍有仓外待办：开发者工具上传+提审、后台 AI 描述手改）。
+    - 同窗：moon-well `508205a`（R247–R254）+ 生产迁移三步（R251 v2 / r253 / r253b，见 moon-well R254 条目）。
