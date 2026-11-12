@@ -6,16 +6,18 @@
  * 题型口径（与网页端 learning-review.js 对齐）：
  * - CHOOSE（四选一）：题干是中文释义，选项是词；选中即亮答案，再由用户自评四档；
  * - SPELL（拼写）：题干是释义，输入拼写，客户端按「trim + 小写 + 弯撇号归一」比对；
- * - RECALL / 其余：揭示词面后自评。
+ * - RECALL（回忆）：题干同样是中文释义，自己回想后揭示词面，再自评；
+ * - SELF（自评，释义缺失时的兜底）：没有题干就直接亮词面按印象自评，绝不出白板卡。
  * 判对错不代替自评：SRS 的 grade 决定下次出现时间，「选对了但没想起来」和
  * 「真轻松」必须分开，所以任何题型最后都落在 1–4 四档上。
  *
  * 听辨题型（LISTEN_*）在本期不支持：音频端点要带 JWT 头，小程序的 audio 组件无法
  * 自定义请求头。后端 R238 起默认停出这四个题型，队列里正常不会出现；万一出现按
- * 「揭示自评」降级，不会出哑题。
+ * 「回忆 / 自评」降级，不会出哑题。
  */
 const api = require('../../utils/api');
 const auth = require('../../utils/auth');
+const reviewCard = require('../../utils/review-card');
 
 const QUEUE_LIMIT = 20;
 const GRADES = [
@@ -33,6 +35,9 @@ Page({
     index: 0,
     card: null,
     mode: 'SELF',
+    modeLabel: '自评',
+    stem: '',
+    stemCloze: false,
     revealed: false,
     chosen: '',
     spellInput: '',
@@ -84,11 +89,15 @@ Page({
     }
     // 计时起点：作答耗时进调度参数，从卡片出现开始算（不 setData，避免无谓渲染）
     this.answeredAt = Date.now();
+    const presented = reviewCard.presentCard(raw);
     this.setData({
       phase: 'card',
       index,
       card: raw,
-      mode: pickMode(raw),
+      mode: presented.mode,
+      modeLabel: presented.label,
+      stem: presented.stem,
+      stemCloze: presented.cloze,
       revealed: false,
       chosen: '',
       spellInput: '',
@@ -157,17 +166,9 @@ Page({
 });
 
 /**
- * 选呈现态：能出题就出题，出不了就退回「揭示自评」。
- * 释义缺失时不能硬出四选一——题干是空的，用户只能瞎点。
+ * 呈现态判定见 utils/review-card.js（纯函数，Node 可直接跑真代码验证）。
+ * 这里只保留与提交口径有关的纯工具：拼写归一与统计装饰。
  */
-function pickMode(card) {
-  const type = card.questionType;
-  if (type === 'CHOOSE' || type === 'DISCRIMINATE') {
-    if (card.meaning && card.choices && card.choices.length >= 2) return 'CHOOSE';
-  }
-  if (type === 'SPELL' && card.meaning) return 'SPELL';
-  return 'SELF';
-}
 
 function normalize(text) {
   return String(text || '')

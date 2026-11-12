@@ -23,8 +23,9 @@ def _app():
 def test_review_is_the_first_tab():
     tabs = [item["pagePath"] for item in _app()["tabBar"]["list"]]
     assert tabs[0] == "pages/review/review", "首页必须是复习，不是生词本"
-    # R280 起第二 tab 由「生词本」换成 AI 对话页（R283 起 tab 文案为「AI」）
-    assert tabs[1] == "pages/chat/chat"
+    # R280 起第二 tab 由「生词本」换成 AI 对话页；R292 为上架合规把对话页整体移除，
+    # 底栏收为三项，第二项顺位成词汇量测试
+    assert tabs[1] == "pages/test/test"
 
 
 def test_tab_renamed_to_me():

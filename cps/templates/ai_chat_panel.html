@@ -45,6 +45,9 @@
         <span class="ai-review-word" id="ai-review-word"></span>
         <span class="ai-review-meaning" id="ai-review-meaning"></span>
       </div>
+      {# R289 详情分页正文：有缓存的词显示当前页（≤3 行），无缓存回退简卡三件套；
+         空元素由 CSS :empty 隐藏，两态互斥由 JS 填充决定。 #}
+      <div class="ai-review-detail" id="ai-review-detail"></div>
       <div class="ai-review-context" id="ai-review-context"></div>
       <div class="ai-review-source" id="ai-review-source"></div>
       <div class="ai-review-actions">

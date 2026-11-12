@@ -498,3 +498,67 @@
        分支 `feat/r287-selection-vs-vocab`）。
 
 288. **新增 dev 测试环境（dev-magicbook）与双环境发版流程**（用户指令「增加测试环境…merge develop 发 dev 环境、merge release 发正式环境」，主号 ops R177，2026-11-07；**已上线待验收**）：deploy/dev 四件套（host 网络 :8085、独立 CONFIG_PATH、书库共享只读、无 filebeat、镜像 :dev）+ AGENTS.md 分支口径改 **develop→dev / release→生产 / master 冻结**（R288 取代 master 发布语义）+ DEPLOY.md 双环境节 + LLD `iterations/1.0/r288-dev-environment/`；app.db 以 sqlite 在线备份复制自生产（config_port=8085、关四个夜间写任务、9 用户随库），Authentik magicbook provider 加 dev 回调白名单；⚠️ 落地实测坑：生产 .env 携带的 CONFIG_PATH/LOG_PATH 会覆盖 compose 默认值（dev .env 必须显式改写 dev 路径，否则 dev 容器挂生产 config 抢 8083）；dev 链 END OK（f039aa70，首轮 GitHub promisor fetch 抖动由 ai-fix 兜底重跑），容器 healthy，worktree 驻留待验收。
+
+289. **滚动复习改为单词详情分页轮播（已缓存详解，每页≤3行）**（占号 2026-11-08，待回填）
+     - 落地：`routes/vocab.py` 新增只读批量代理 `POST /ajax/vocabulary/detail-cached-batch`
+       → moon-well R248 `POST /vocabulary/detail/cached-batch`（只读缓存、绝不触发生成；
+       词形白名单归一、上限 50、空表本地短路）；`ai_chat.js` R285 块新增详情分页
+       （每词「基本意思前 2 义项 + 1 个随机模块」≤4 页，8s 一页同词连翻，翻完换词，
+       `.ai-review-detail` line-clamp 3 硬钳）；无缓存词与接口失败回退 R285 简卡；
+       i18n 新增 4 词条三方齐全（Collocations/Word forms/Slang/Fun facts）。
+       L1 `readme/companion.md` 改写、L2 `companion/interface.md` 端点表 +1、
+       L3 `rolling-review.md` 增 R289 节、需求基线 §6.1 + 变更记录、
+       LLD `iterations/2026-11-rolling-review/r289-detail-pages/lld.md`。
+     - 验证：定向 52 passed（R285 守卫 13 + 新代理 8 + i18n 契约 + 词测代理）+
+       相关面回归 155 passed；`node --check`/`pybabel` 通过；守卫测试新增 R289 分页专项；
+       集成套件 magicbook 侧用例已挂（矩阵 dev 部署后重扫 + guard 对账）。
+     - 状态：**开发完成待验收**（worktree `../magicbook-r289-review-detail-pages` /
+       分支 `feat/r289-review-detail-pages`，merge 后驻留待验收）。
+
+290. **小程序每日复习页空题面死卡：释义缺失或选择题降级时卡片无题可答（截图）**（占号 2026-11-08，待回填）
+     - 现场：用户 15:36 截图——「每日复习」第 1/20 张只有一行「看下面的提示，回想这个词」
+       和「揭示答案」，没有任何可回想的内容。
+     - 根因（两层，都在 `miniprogram/pages/review`）：① 题干只挂在
+       `mode === 'CHOOSE' || mode === 'SPELL'` 两个分支上，而 `pickMode` 把 `RECALL`
+       （后端自适应/legacy 的常用档位）降成 `SELF`，落进 `wx:else` 的一句提示语——
+       后端下发的 `meaning` 就在手里却从未渲染；② 释义缺失（详解缓存未命中 `meaning=null`）
+       时提示语、释义、词面三者全不出现，卡片是白板；`contextClozeSentence` 也从未被当题干用过。
+     - 修法：呈现态判定抽成纯函数 `utils/review-card.js#presentCard`，与网页端
+       `learning-review.js` 同口径——四选一需释义 + ≥2 选项、拼写需释义、语境完形用挖空句、
+       **其余有释义的一律「回忆」且释义即题干**、都没有才退到「自评」（直接亮词面）；
+       WXML 改为渲染统一 `stem`，词面/语境按「已揭示 or SELF」显隐，「揭示答案」对回忆与拼写都给。
+     - 边界：不补生成释义（只读缓存、不烧积分）、不改后端题型策略、作答回传的
+       `questionType` 仍是后端原值（调度口径不变）。
+     - 验证：新增 `tests/test_r290_review_card_stem.py` 4 例（Node 跑真代码 11 组输入矩阵 +
+       「任何队列项必须露出题干或词面」+ WXML/页面静态锁）；小程序静态锁全绿
+       **58 passed**（R271–R283 合计 54 + 本轮 4）；`node --check` 与 JSON 解析通过。
+       视觉证据走真代码渲染：`before` 取 `origin/develop`（`38dfb494`）整棵 `miniprogram/`，
+       `after` 取本轮工作区，用 `miniprogram-simulate`（官方 `wcc` + `j-component`）编译
+       **仓库里的 WXML**、加载**真实的 `review.js`** 跑 `showCard`，再套真 WXSS 无头 Chrome 截图；
+       四组对照（回忆有释义 / 缺释义 / 揭示后 / 四选一）见
+       `docs/project/iterations/2026-11-wx-review-card/r290-review-card-stem/evidence/`。
+       **未真机、未在微信开发者工具编译**（本机无该工具，与 R271–R283 同）。
+     - 文档四问：L1 `readme/miniprogram.md` 复习段；L3 新建
+       `product/miniprogram/features/review.md`；需求基线 §R290；LLD
+       `iterations/2026-11-wx-review-card/r290-review-card-stem/lld.md`。L2 无接口变化。
+     - 状态：**开发完成待验收**（分支 `agent/fix-miniprogram-review-bug-36fb2af0b54b`，
+       PR 见 `response.md` R290 条）。
+
+291. **阅读器整页翻译：按序逐段渲染与排版修复（可见性基准/跨页切断/整页不自动隐藏）**（占号 2026-11-11，待回填）
+
+292. **小程序移除 AI 伴读能力（微信上架合规）**（占号 2026-11-11）：用户原话「移除小程序的AI能力，否则无法上架」。
+     - 口径：代码包里不留任何 AI 对话能力（审核看代码包，不是只藏入口）——删 `miniprogram/pages/chat/`
+       整目录、`app.json` 页面注册与 tabBar「AI」项（底栏变「复习 / 词汇量 / 我」）、
+       `utils/api.js` 的 SSE 对话通道（`chatStream` / `decodeUtf8` / `parseSseBlock`）、
+       `config.chatTimeout`，登录页副标题与工程描述去「AI 伴读」。**取代 R280 的 AI 伴读部分与 R283**。
+     - 不动：moon-well `/ai/agent/chat` 与 `scene=general` prompt、服务端会话历史、
+       网页端与 magiclens 的 AI 伴读。
+     - 测试：新增 `tests/test_r292_miniprogram_remove_ai.py` 7 例（含代码包全文件无 AI 字样扫描），
+       删 `test_r280_ai_chat.py` / `test_r283_tab_ai.py`，改 R275 / R282 各一处；小程序相关 57 passed；
+       `.js` 全过 `node --check`、`.json` 全过 `JSON.parse`。**未用微信开发者工具编译、未真机、未上传**。
+     - 文档四问：L1 `readme/miniprogram.md` + 索引；L2 `miniprogram/interface.md` 改写为端点清单；
+       L3 `features/ai-chat.md` 标下线；需求基线 §R292；
+       LLD `iterations/2026-11-wx-remove-ai/r292-miniprogram-remove-ai/lld.md`。
+     - 状态：**开发完成待验收**（分支 `feat/r292-miniprogram-remove-ai`，worktree
+       `../magicbook-r292-miniprogram-remove-ai` 驻留）。仓外待办：开发者工具上传新版本并提审；
+       小程序后台名称 / 简介 / 类目里的 AI 描述需手动改。PingCode MB-245。

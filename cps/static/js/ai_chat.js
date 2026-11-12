@@ -918,7 +918,10 @@
   }
 
   // ------------------------------------------------------------------
-  // R285 滚动复习：FAB 头顶的纯文字词卡轮播（不出声、不计费、不新增后端）。
+  // R285 滚动复习：FAB 头顶的纯文字词卡轮播（不出声、不计费）。
+  // R289 演进：正文从「义项+原句」升级为单词详情分页轮播——每词只显示一部分，
+  // 每页钳在 3 行内；数据只来自已缓存详解（REVIEW_DETAILS_URL，零计费零等待），
+  // 没有缓存的词保持 R285 简卡。计费红线沿用 R285（见下）。
   //
   // Why 取 SRS 到期队列而不是「最近划词」：用户 2026-11-06 拍板——复习对象以
   // learning_review_schedule 的 due_at <= now 为准（含历史积压），20 个词前端洗牌；
@@ -926,6 +929,8 @@
   // Why 不调 /vocabulary/detail/{word}：队列 VO 自带 meaning（中文首义项，上游
   // shortMeanings 只读 ES 缓存）与 contextSentence（阅读原句），两者都不触发 LLM；
   // 详解端点缓存 miss 会现场生成（15~30s 且计费），与「不出声、不计费」冲突。
+  // R289 的详情走 /ajax/vocabulary/detail-cached-batch（moon-well R248 只读缓存
+  // 批量端点，miss 不出现在结果里），这是唯一与详解沾边的调用，绝不逐词拉详解。
   // Why 不调 /learning/srs/answer：点「认识」复用划词气泡已有的
   // /ajax/reading-word-mark → GET /vocabulary/known/{word}，语义是「毕业/移出队列」，
   // 不写复习日志、不计 x/20；用户确认「算复习」= 这条从轮播里移除。
@@ -935,6 +940,10 @@
   // ------------------------------------------------------------------
   var REVIEW_QUEUE_URL = "/ajax/learning/srs/queue"; // 代理不透传 ?limit=，上游默认 20
   var REVIEW_MARK_URL = "/ajax/reading-word-mark";
+  // R289 详情分页的数据源：只读缓存批量端点（对端 moon-well R248）。缓存 miss 的词
+  // 不在结果里——绝不调 /ajax/reading-word-detail（R123 逐词详解，miss 现场生成
+  // 计费 + 15~30s），也不调 /vocabulary/detail/ 逐词路径：轮播翻页不许变成隐藏下单。
+  var REVIEW_DETAILS_URL = "/ajax/vocabulary/detail-cached-batch";
   var REVIEW_MAX = 20;
   var REVIEW_INTERVAL_MS = 8000;
   var REVIEW_PAUSED_KEY = "calibre.ai.review.paused";
@@ -944,6 +953,9 @@
   var review = {
     items: [], index: 0, timer: null, loading: false, inFlight: false,
     paused: false, collapsed: false, failed: false, markError: "",
+    // R289 详情分页：pages = 归一词 → 页数组（每页 {label, text}，渲染钳在 3 行内），
+    // page = 当前词内的页下标。pages 为空 = 简卡回退（ 义项 + 原句 + 出处）。
+    pages: {}, page: 0,
   };
 
   function reviewRoot() { return document.getElementById("ai-companion-review"); }
@@ -970,6 +982,148 @@
       var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
     }
     return a;
+  }
+
+  // ------------------------------------------------------------------
+  // R289 详情分页：词卡正文从「义项+原句」升级为单词详情，但每次只显示一页、
+  // 页面钳在 3 行内（CSS line-clamp 兜底）。数据只来自已缓存详解（零计费）。
+  //
+  // Why 每词只展示「基本意思 + 一个随机模块」（用户 2026-11-08 拍板）：六板块全上
+  // 一个词要停 30~60 秒，滚动复习是路过瞄一眼的被动卡片，太长就成了阅读任务。
+  // 随机在队列加载时定一次，同一轮内稳定，下次拉队列重新洗。
+  // Why 页宽按 ~60 个中文字切：280px 卡约 21 中文字/行，3 行 ≈ 63 字；超宽由
+  // line-clamp 兜底截断，正常内容不会被切字。
+  // ------------------------------------------------------------------
+  function reviewWordKey(word) {
+    // 与代理/上游的归一口径一致（trim → 弯撇号转直撇号 → 小写），pages 按此键存取。
+    return String(word || "").trim().replace(/\u2019/g, "'").toLowerCase();
+  }
+
+  function reviewModuleLabel(kind) {
+    var labels = {
+      etymology: t("Etymology"), phrases: t("Collocations"), forms: t("Word forms"),
+      synonyms: t("Synonyms"), antonyms: t("Antonyms"), slang: t("Slang"),
+      funFacts: t("Fun facts"),
+    };
+    return labels[kind] || "";
+  }
+
+  function reviewPushModulePage(pages, kind, text) {
+    var body = String(text || "").trim();
+    if (!body) return;
+    pages.push({ label: reviewModuleLabel(kind), text: body });
+  }
+
+  // 词源是一整段：按句切、约 60 字装一页，最多 2 页（避免长词源霸屏）。
+  function reviewAppendEtymologyPages(pages, etymology) {
+    var sentences = String(etymology).match(/[^。！？!?]+[。！？!?]?/g) || [];
+    var buf = "";
+    var count = 0;
+    for (var i = 0; i < sentences.length && count < 2; i++) {
+      var s = sentences[i].trim();
+      if (!s) continue;
+      if (buf && (buf + s).length > 60) {
+        reviewPushModulePage(pages, "etymology", buf);
+        count += 1;
+        buf = "";
+      }
+      buf = buf ? buf + s : s;
+    }
+    if (buf && count < 2) reviewPushModulePage(pages, "etymology", buf);
+  }
+
+  // 从非空板块里随机挑一个，装配 ≤2 页。各板块的取材口径见 R289 LLD。
+  function reviewAppendModulePages(pages, kind, detail) {
+    if (kind === "etymology") {
+      reviewAppendEtymologyPages(pages, detail.etymology);
+      return;
+    }
+    if (kind === "phrases" || kind === "slang") {
+      var items = (detail[kind] || []).slice(0, 2);
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i] || {};
+        var text = kind === "phrases"
+          ? [it.phrase, it.meaning].filter(Boolean).join("　")
+          : [it.meaning, it.example].filter(Boolean).join("\n");
+        reviewPushModulePage(pages, kind, text);
+      }
+      return;
+    }
+    if (kind === "forms") {
+      var lines = (detail.forms || []).slice(0, 6).map(function (f) {
+        if (!f || !f.form) return "";
+        return f.form + (f.type ? "（" + f.type + "）" : "");
+      }).filter(Boolean);
+      if (lines.length) reviewPushModulePage(pages, "forms", lines.join("\n"));
+      return;
+    }
+    if (kind === "synonyms" || kind === "antonyms") {
+      var names = (detail[kind] || []).slice(0, 8).map(function (w) {
+        return w && w.word;
+      }).filter(Boolean);
+      if (names.length) reviewPushModulePage(pages, kind, names.join("、"));
+      return;
+    }
+    if (kind === "funFacts") {
+      var facts = (detail.funFacts || []).slice(0, 2);
+      for (var j = 0; j < facts.length; j++) reviewPushModulePage(pages, "funFacts", facts[j]);
+    }
+  }
+
+  // 页装配总入口：基本意思（前 2 个义项）+ 随机模块（≤2 页），单词总数 ≤4。
+  function reviewDetailPages(detail) {
+    var pages = [];
+    if (!detail || typeof detail !== "object") return pages;
+    var meanings = Array.isArray(detail.meaning) ? detail.meaning : [];
+    for (var i = 0; i < meanings.length && pages.length < 2; i++) {
+      var m = meanings[i] || {};
+      var line = (m.pos ? m.pos + ". " : "") + String(m.sense || "").trim();
+      if (!line) continue;
+      if (m.example) line += "\n" + String(m.example).trim();
+      pages.push({ label: "", text: line });
+    }
+    var pool = [];
+    if (detail.etymology && String(detail.etymology).trim()) pool.push("etymology");
+    if (Array.isArray(detail.phrases) && detail.phrases.length) pool.push("phrases");
+    if (Array.isArray(detail.forms) && detail.forms.length) pool.push("forms");
+    if (Array.isArray(detail.synonyms) && detail.synonyms.length) pool.push("synonyms");
+    if (Array.isArray(detail.antonyms) && detail.antonyms.length) pool.push("antonyms");
+    if (Array.isArray(detail.slang) && detail.slang.length) pool.push("slang");
+    if (Array.isArray(detail.funFacts) && detail.funFacts.length) pool.push("funFacts");
+    if (pool.length) {
+      reviewAppendModulePages(pages, pool[Math.floor(Math.random() * pool.length)], detail);
+    }
+    return pages;
+  }
+
+  function reviewPagesFor(item) {
+    return review.pages[reviewWordKey(item && item.word)] || null;
+  }
+
+  // 队列拉到后批量补详情。失败/空结果都静默回退简卡：详情是增强层，
+  // 卡片的核心功能（轮播 + 认识）不依赖它——失败在此处不可见是设计口径，
+  // 可观测性由代理端日志承担（vocabulary detail cached batch）。
+  function reviewLoadDetails() {
+    var api = window.MBApi;
+    if (!api || typeof api.postJson !== "function" || !review.items.length) return;
+    var words = review.items.map(function (it) { return String(it.word || ""); })
+      .filter(Boolean).slice(0, REVIEW_MAX);
+    if (!words.length) return;
+    api.postJson(REVIEW_DETAILS_URL, { words: words }).then(function (resp) {
+      if (!resp.ok) throw new Error("details unavailable");
+      var data = unwrap(resp.data);  // Result 信封：success=false 抛上游 message
+      if (!data || typeof data !== "object") throw new Error("details unavailable");
+      var pages = {};
+      review.items.forEach(function (it) {
+        var key = reviewWordKey(it.word);
+        var built = reviewDetailPages(data[key]);
+        if (built.length) pages[key] = built;
+      });
+      review.pages = pages;
+      review.page = 0;
+    }).catch(function () {
+      review.pages = {};
+    }).then(function () { reviewRender(); });
   }
 
   // 纯展示：任一「用户不在看」或「已有浮层」态都只跳过本次 tick，不重置计时器、
@@ -1072,6 +1226,7 @@
       reviewSetText("ai-review-meaning", "");
       reviewSetText("ai-review-context", "");
       reviewSetText("ai-review-source", "");
+      reviewSetText("ai-review-detail", "");
       reviewSetText("ai-review-status", review.loading
         ? t("Loading review words…") : t("No words to review right now"));
       var known0 = document.getElementById("ai-review-known");
@@ -1081,12 +1236,29 @@
       reviewPosition();
       return;
     }
-    reviewSetText("ai-review-progress", (review.index + 1) + "/" + review.items.length);
-    // 服务端内容一律 textContent：meaning / contextSentence 来自 ES，不能拼 HTML。
+    // R289 详情页模式：词面常驻，正文显示当前页（≤3 行）；进度带页码。
+    // 无详情页的词回退简卡（义项 + 原句 + 出处），两态互斥由 detail 空/非空表达。
+    var pages = reviewPagesFor(item);
+    var pageNo = 0;
+    if (pages && pages.length) {
+      pageNo = Math.min(review.page, pages.length - 1);
+    }
+    reviewSetText("ai-review-progress", (review.index + 1) + "/" + review.items.length +
+      (pages && pages.length > 1 ? " · " + (pageNo + 1) + "/" + pages.length : ""));
+    // 服务端内容一律 textContent：meaning / contextSentence / 详解六板块都来自 ES，不能拼 HTML。
     reviewSetText("ai-review-word", item.word);
-    reviewSetText("ai-review-meaning", item.meaning || "");
-    reviewSetText("ai-review-context", item.contextSentence || "");
-    reviewSetText("ai-review-source", item.contextBook || "");
+    if (pages && pages.length) {
+      var page = pages[pageNo];
+      reviewSetText("ai-review-detail", page.label ? page.label + "：" + page.text : page.text);
+      reviewSetText("ai-review-meaning", "");
+      reviewSetText("ai-review-context", "");
+      reviewSetText("ai-review-source", "");
+    } else {
+      reviewSetText("ai-review-detail", "");
+      reviewSetText("ai-review-meaning", item.meaning || "");
+      reviewSetText("ai-review-context", item.contextSentence || "");
+      reviewSetText("ai-review-source", item.contextBook || "");
+    }
     // 「认识」失败的原因要留到用户下一次操作；reviewRender 每次都会重画状态行，
     // 所以错误文案存在 review.markError 里，而不是直接写进 DOM。
     reviewSetText("ai-review-status", review.markError);
@@ -1108,8 +1280,16 @@
 
   function reviewTick() {
     if (reviewShouldPause()) return;
-    review.markError = "";  // 换词就清掉上一条的「认识」失败原因（M3）
-    review.index = (review.index + 1) % review.items.length;
+    // R289：先在当前词内翻页（若有），翻完才换词。markError 只在换词时清——
+    // 「认识」失败的原因属于这个词，翻它的下一页时仍应可见（M3 口径不变）。
+    var pages = reviewPagesFor(reviewCurrent());
+    if (pages && pages.length && review.page < pages.length - 1) {
+      review.page += 1;
+    } else {
+      review.markError = "";  // 换词就清掉上一条的「认识」失败原因（M3）
+      review.index = (review.index + 1) % review.items.length;
+      review.page = 0;
+    }
     reviewRender();
   }
 
@@ -1130,6 +1310,9 @@
         return it && typeof it.word === "string" && it.word.trim();
       })).slice(0, REVIEW_MAX);
       review.index = 0;
+      review.pages = {};  // 新队列 = 新随机模块选择，旧页表全部作废
+      review.page = 0;
+      if (review.items.length) reviewLoadDetails();
     }).catch(function (err) {
       reviewShowError(err && err.message ? err.message : t("Could not load review words"));
     }).then(function () {
@@ -1142,6 +1325,7 @@
     if (!review.items.length) return;
     review.markError = "";
     review.index = (review.index + 1) % review.items.length;
+    review.page = 0;
     reviewRender();
   }
 
@@ -1167,6 +1351,8 @@
         // 上游把 SRS 行异步毕业；本地先移除，避免 8 秒后它又滚回来。
         // 失败时什么都不改，卡片留在原地并显出上游原因。
         review.items.splice(markedIndex, 1);
+        delete review.pages[reviewWordKey(item.word)];  // R289：页表随词一起移除
+        review.page = 0;
         if (review.index > markedIndex) review.index -= 1;
         if (review.index >= review.items.length) review.index = 0;
         review.markError = "";

@@ -7,6 +7,15 @@
  * 段落下方」的形态；用户明确接受由此带来的 epub.js 重分页抖动。本文件回到
  * R183 实现，不再包含右栏/点段选中逻辑。
  *
+ * R291（2026-11-11，用户拍板）：整页翻译重排修复。① 可见性判定改以外层
+ * .epub-container 的裁切区间为准——iframe 本身是整章宽，旧判据 win.innerWidth
+ * 恒真，把全章段落都排进队列（实测 dev 一页点出 20 段、等待约 90s）；② 整页
+ * 翻译改为严格按序逐段：一段落位再发起下一段，结果到达即插入（取代 R226
+ * 「全部返回后一次渲染」——范围收窄到当前页后，逐段小位移优于整章一次大跳）；
+ * ③ 整页译文常驻显示、不自动隐藏，关开关才移除；段落级「译」按钮的自动隐藏
+ * 语义不变；④ 译文块 break-inside: avoid，不再被页边界切成两截（样式注入
+ * 在 reader-core.js）。
+ *
  * 载入顺序：i18n_seed → api.js → reader-core.js → reader-word-detail.js →
  * reader-annotations.js → reader-selection.js → 本文件 → epub.js
  */
@@ -82,7 +91,7 @@
         return (next && next.classList && next.classList.contains('reading-translation')) ? next : null;
     }
 
-    function insertTranslation(el, text, extraClass) {
+    function insertTranslation(el, text, extraClass, persist) {
         var existing = translationSibling(el);
         if (existing) existing.remove();
         var doc = el.ownerDocument;
@@ -90,7 +99,9 @@
         div.className = 'reading-translation' + (extraClass ? ' ' + extraClass : '');
         div.textContent = text;
         el.parentNode.insertBefore(div, el.nextSibling);
-        // 仅对最终译文计时自动隐藏；loading/error 中间态会被替换或需点击重试，不计时
+        // 整页模式（persist）常驻显示，直到关开关/换章才消失；仅段落级最终译文
+        // 计时自动隐藏；loading/error 中间态会被替换或需点击重试，不计时
+        if (persist) { div._noHide = true; return div; }
         if (extraClass !== 'is-loading' && extraClass !== 'is-error') scheduleTranslationHide(div, el);
         return div;
     }
@@ -117,6 +128,7 @@
             if (!doc || !doc.body) return;
             Array.prototype.slice.call(doc.querySelectorAll('.reading-translation'))
                 .forEach(function (div) {
+                    if (div._noHide) return; // R291：整页常驻译文不参与重排计时
                     if (div.classList.contains('is-loading') || div.classList.contains('is-error')) return;
                     scheduleTranslationHide(div, div.previousElementSibling);
                 });
@@ -140,25 +152,46 @@
         if (btn) btn.classList.toggle('is-done', !!on);
     }
 
-    // iframe 内容是 CSS 分栏：与 iframe 视口相交的段落即当前可见页
-    function isElementVisible(el, win) {
+    // R291：epub.js default manager 把整章多栏排进一个 iframe——iframe 自身宽度
+    // 就是整章宽（实测 2310px，视口 462px），win.innerWidth 判据恒真。真正的裁切
+    // 视口是外层 .epub-container；当前页在 iframe 坐标系里的水平区间 = 容器裁切框
+    // 相对 .epub-view 的偏移。transform 与 scrollLeft 两种翻页机制下该差值同形。
+    function visibleSliceFor(content) {
+        try {
+            var frameEl = content.document.defaultView.frameElement;
+            var view = frameEl.parentElement;                                     // .epub-view：整章宽，随翻页平移
+            var clip = frameEl.closest('.epub-container') || view.parentElement;  // 真正的裁切视口
+            if (!view || !clip) return null;
+            var clipRect = clip.getBoundingClientRect();
+            var viewRect = view.getBoundingClientRect();
+            var left = clipRect.left - viewRect.left;
+            return {left: left, right: left + clipRect.width};
+        } catch (e) { return null; }
+    }
+
+    // 与当前页裁切区间相交的段落即本页段落；slice 拿不到（epub.js DOM 结构变化）
+    // 时回退旧判据——宁可退化旧行为，也不静默翻零段
+    function isElementVisible(el, win, slice) {
         try {
             var rect = el.getBoundingClientRect();
-            return rect.bottom > 0 && rect.top < win.innerHeight &&
-                   rect.right > 0 && rect.left < win.innerWidth;
+            if (!(rect.bottom > 0 && rect.top < win.innerHeight)) return false;
+            if (!slice) return rect.right > 0 && rect.left < win.innerWidth;
+            return rect.right > slice.left && rect.left < slice.right;
         } catch (e) { return false; }
     }
 
-    function showTranslationError(el, text) {
+    // persist：整页模式的错误块/重试结果与整页译文同寿命（不自动隐藏）；
+    // 段落按钮路径不传 persist，维持原有计时语义
+    function showTranslationError(el, text, persist) {
         setParagraphTranslated(el, false);
-        var div = insertTranslation(el, mbT('Translation failed, click to retry'), 'is-error');
+        var div = insertTranslation(el, mbT('Translation failed, click to retry'), 'is-error', persist);
         div.addEventListener('click', function () {
             div.remove();
-            translateSingleParagraph(el, text);
+            translateSingleParagraph(el, text, persist);
         });
     }
 
-    function translateSingleParagraph(el, text) {
+    function translateSingleParagraph(el, text, persist) {
         var btn = el.querySelector(':scope > .reading-translate-btn');
         if (btn) btn.classList.add('is-loading');
         insertTranslation(el, mbT('Translating…'), 'is-loading');
@@ -171,17 +204,17 @@
         }).done(function (response) {
             var translation = ((response.result || response.data || [])[0] || '').trim();
             if (translation) {
-                insertTranslation(el, translation);
+                insertTranslation(el, translation, null, persist);
                 setParagraphTranslated(el, true);
                 var cache = loadTranslationCache();
                 cache[paragraphHash(text)] = translation;
                 saveTranslationCache(cache);
             } else {
-                showTranslationError(el, text);
+                showTranslationError(el, text, persist);
             }
 }).fail(function (xhr) {
             if (reloadIfCsrfBlocked(xhr)) return;
-            showTranslationError(el, text);
+            showTranslationError(el, text, persist);
         }).always(function () {
             if (btn) btn.classList.remove('is-loading');
         });
@@ -208,40 +241,38 @@
         translateSingleParagraph(el, text);
     }
 
-    // 翻页/新章节渲染后仅回填已缓存的译文（不发 LLM 请求）；
-    // 翻译由段落按钮或工具栏「译」手动触发，避免整页批量请求卡顿
+    // 翻页/新章节渲染后仅回填当前页已缓存的译文（不发 LLM 请求）；
+    // 翻译由段落按钮或工具栏「译」手动触发，避免整页批量请求卡顿。
+    // R291：回填同样限定当前页 + 两段式（先扫描后插入）——边扫边插会把后面的
+    // 段落推进/推出当前页区间，污染同一轮扫描的可见性判定。
     function restoreCachedTranslations() {
         var cache = loadTranslationCache();
         reader.rendition.getContents().forEach(function (content) {
             var doc = content.document;
             if (!doc || !doc.body) return;
+            var win = content.window || doc.defaultView;
+            var slice = visibleSliceFor(content);
+            var cacheHits = [];
             collectParagraphElements(doc).forEach(function (el) {
                 if (translationSibling(el)) return;
                 var text = paragraphSpeechText(el);
                 if (!text) return;
+                if (!isElementVisible(el, win, slice)) return;
                 var cached = cache[paragraphHash(text)];
                 if (typeof cached === 'string' && cached) {
-                    insertTranslation(el, cached);
-                    setParagraphTranslated(el, true);
+                    cacheHits.push({el: el, text: cached});
                 }
+            });
+            // 整页回填属整页模式：常驻显示，不自动隐藏
+            cacheHits.forEach(function (hit) {
+                insertTranslation(hit.el, hit.text, null, true);
+                setParagraphTranslated(hit.el, true);
             });
         });
     }
 
-    // 并发池：同一时刻最多 limit 个任务飞行，每个任务完成后立即启动下一个
-    function runConcurrent(items, limit, worker) {
-        var index = 0;
-        function launch() {
-            if (index >= items.length) return;
-            var item = items[index++];
-            worker(item, launch);
-        }
-        for (var i = 0; i < Math.min(limit, items.length); i++) launch();
-    }
-
     // 整页翻译的单段任务（复用批量接口，段落数为 1）：带书籍上下文。
-    // 结果先交给批量渲染器，等整页请求全部结束后再一次性改正文，避免逐段
-    // 插入把 iframe 高度改二十次，造成肉眼可见的连续重分页。
+    // 结果经 onResult 交还调用方，由严格按序的驱动器逐段落位。
     function translateParagraphJob(job, chapter, onResult, onDone) {
         $.ajax({
             url: calibre.readingTranslateBatchUrl,
@@ -257,76 +288,77 @@
         }).always(onDone);
     }
 
-    // 同一批译文在同一个 JS 任务里插入：浏览器只会在任务结束时绘制一次。
-    // 失败段也走同一批渲染，重试入口仍保留在段下。
-    function renderTranslationBatch(results, cache) {
-        var cacheDirty = false;
-        results.forEach(function (result) {
-            if (!result) return;
-            if (result.translation) {
-                cache[result.job.hash] = result.translation;
-                cacheDirty = true;
-                insertTranslation(result.job.el, result.translation);
-                setParagraphTranslated(result.job.el, true);
-            } else if (result.showError !== false) {
-                showTranslationError(result.job.el, result.job.text);
-            }
-        });
-        if (cacheDirty) saveTranslationCache(cache);
-    }
-
     function applyImmersiveTranslation() {
         if (!translationEnabled() || !calibre.readingTranslateBatchUrl) return;
         if (translationInFlight) { translationRetryPending = true; return; }
         var cache = loadTranslationCache();
         var jobs = [];
+        var cacheHits = [];
         reader.rendition.getContents().forEach(function (content) {
             var doc = content.document;
             if (!doc || !doc.body) return;
             var win = content.window || doc.defaultView;
+            var slice = visibleSliceFor(content);
             collectParagraphElements(doc).forEach(function (el) {
                 if (translationSibling(el)) return;
                 var text = paragraphSpeechText(el);
                 if (!text) return;
+                if (!isElementVisible(el, win, slice)) return;
                 var cached = cache[paragraphHash(text)];
                 if (typeof cached === 'string' && cached) {
-                    insertTranslation(el, cached);
-                    setParagraphTranslated(el, true);
-                    return;
-                }
-                if (isElementVisible(el, win) && jobs.length < 20) {
+                    // 当前页的缓存命中先收集，扫描完再统一落位（见下）
+                    cacheHits.push({el: el, text: cached});
+                } else if (jobs.length < 20) {
                     jobs.push({
-                        el: el, text: text, hash: paragraphHash(text), index: jobs.length
+                        el: el, text: text, hash: paragraphHash(text)
                     });
                 }
             });
+        });
+        // R291：两段式——扫描期零插入。缓存命中若在扫描途中边插边量，会把后面的
+        // 段落推进/推出当前页区间，污染同一轮扫描的可见性判定（dev 实测：末页
+        // 一次点出 13 段）。扫描完先落缓存命中，再进按序请求队列。
+        cacheHits.forEach(function (hit) {
+            insertTranslation(hit.el, hit.text, null, true);
+            setParagraphTranslated(hit.el, true);
         });
         if (!jobs.length) return;
 
         translationInFlight = true;
         setTranslationLoading(true);
         var chapter = host.currentChapterTitle();
-        var results = new Array(jobs.length);
-        var remaining = jobs.length;
-        // 逐段并发（限 4）：每段一个请求；请求期不向正文插占位，全部完成后统一渲染。
-        runConcurrent(jobs, 4, function (job, done) {
-            translateParagraphJob(job, chapter, function (finishedJob, translation, showError) {
-                results[finishedJob.index] = {
-                    job: finishedJob, translation: translation, showError: showError
-                };
-            }, function () {
-                done();
-                remaining--;
-                if (remaining) return;
+        // R291（用户拍板）：严格按序逐段——一段落位再发起下一段，不并发。
+        // 结果到达即插入：位移发生在该段之后的内容上，随阅读节奏逐段出现。
+        // 换章/翻页可能让段落脱附：落位前查 isConnected，脱附段只写缓存不插 DOM
+        // （旧批量路径此处直接 el.parentNode.insertBefore，脱附即 TypeError）。
+        // 缓存每次落位都重读重写：划词气泡翻译也会写同一缓存，避免整对象旧值覆盖。
+        var index = 0;
+        function step() {
+            if (index >= jobs.length) {
                 translationInFlight = false;
                 setTranslationLoading(false);
-                if (translationEnabled()) renderTranslationBatch(results, cache);
                 if (translationRetryPending) {
                     translationRetryPending = false;
                     setTimeout(applyImmersiveTranslation, 50);
                 }
-            });
-        });
+                return;
+            }
+            var job = jobs[index++];
+            translateParagraphJob(job, chapter, function (finishedJob, translation, showError) {
+                if (translation) {
+                    var fresh = loadTranslationCache();
+                    fresh[finishedJob.hash] = translation;
+                    saveTranslationCache(fresh);
+                    if (finishedJob.el.isConnected) {
+                        insertTranslation(finishedJob.el, translation, null, true);
+                        setParagraphTranslated(finishedJob.el, true);
+                    }
+                } else if (showError && finishedJob.el.isConnected) {
+                    showTranslationError(finishedJob.el, finishedJob.text, true);
+                }
+            }, step);
+        }
+        step();
     }
 
     // 工具栏「译」：开启 = 批量翻译当前可见页（全部翻译），关闭 = 移除所有译文。

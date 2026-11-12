@@ -1,8 +1,8 @@
 # 滚动复习（Buddy 头顶文字词卡）
 
 > 读者：改 `ai_chat.js` 的 `initRollingReview` / `reviewRender` / `reviewPosition`，或 `ai_chat.css` 的 `.ai-review*` 的人。
-> 状态：现行（2026-11-06 R285，开发完成待真机验收）。
-> 需求基线：[`../requirements.md`](../requirements.md) §6；接口：[`../interface.md`](../interface.md) §滚动复习；本次实现：[`../../../project/iterations/2026-11-rolling-review/r285-rolling-review/lld.md`](../../../project/iterations/2026-11-rolling-review/r285-rolling-review/lld.md)。
+> 状态：现行（2026-11-06 R285 上线；2026-11-08 R289 正文升级为单词详情分页轮播，开发完成待真机验收）。
+> 需求基线：[`../requirements.md`](../requirements.md) §6；接口：[`../interface.md`](../interface.md) §滚动复习；本次实现：[`../../../project/iterations/2026-11-rolling-review/r285-rolling-review/lld.md`](../../../project/iterations/2026-11-rolling-review/r285-rolling-review/lld.md)（R285）· [`../../../project/iterations/2026-11-rolling-review/r289-detail-pages/lld.md`](../../../project/iterations/2026-11-rolling-review/r289-detail-pages/lld.md)（R289）。
 
 ## 实现方式
 
@@ -36,6 +36,23 @@
 - 状态行：`review.markError`（「认识」失败原因）优先；空队列显示「暂时没有要复习的单词」，
   加载中显示「正在加载复习单词…」。队列失败走独立的错误面板 + Retry，不伪装成空态。
 
+### 2.1 R289 详情分页轮播（正文升级）
+
+- 队列拉到后，前端把 20 个词 POST 给 `POST /ajax/vocabulary/detail-cached-batch`
+  （对端 moon-well R248 `POST /vocabulary/detail/cached-batch`，**只读缓存、绝不触发生成**；
+  result 键 = 归一请求词，未命中的词不出现）。这是滚动复习与「详解」唯一的交点。
+- 有缓存详解的词：正文升级为**分页详情**——「基本意思」（前 2 个义项）+ **1 个随机模块**
+  （词源/搭配/词形变化/同义词/反义词/俚语/冷知识中随机取一，用户 2026-11-08 拍板：
+  六板块全上一个词要停 30~60 秒，太长就成了阅读任务），每词最多 4 页；词面常驻页眉，
+  进度显示 `词序/总数 · 页序/页数`。8s 一 tick 先在当前词内翻页，翻完才换下一个词。
+- 每页渲染硬钳 3 行（`.ai-review-detail` 的 `-webkit-line-clamp: 3`）；词源按句切页
+  （约 60 个中文字/页，280px 卡 ≈ 21 字/行 × 3 行）；页内多段用 `\n` 分行（`pre-line`）。
+- 没有缓存详解的词（batch 响应里没有）：保持 R285 简卡（义项 + 原句 + 出处），
+  一个 tick 一个词。详情批量接口失败/超时同样全员回退简卡——详情是增强层，
+  轮播与「认识」不依赖它；失败的可观测性由代理端日志承担。
+- 模块标签（词源/搭配/同义词…）内联在页首（`标签：内容`）；「Etymology/Synonyms/Antonyms」
+  复用存量词条，「Collocations/Word forms/Slang/Fun facts」为 R289 新增（种子+PO+MO 三方）。
+
 ### 3. 暂停条件
 
 `reviewShouldPause()` 命中任一条本次 tick 直接 return（不推进、不重置计时、不发请求）：
@@ -66,6 +83,11 @@ FAB `buddy-hidden` 或 `bubbles-open` / AI 抽屉 `open` / 邮件弹层可见。
 ## 边界条件
 
 - 不出声、不计费：代码里没有 `AudioContext` / `decodeAudioData` / `/tts` 任何调用。
+- R289 详情**只读缓存**：只调 `/ajax/vocabulary/detail-cached-batch`；逐词详解代理
+  `/ajax/reading-word-detail` 与上游 `/vocabulary/detail/{word}` 仍是禁区（miss 即计费），
+  R285 守卫测试把这两条路径钉在禁区里。
+- 详情随机模块按「队列加载」定格：同一轮 20 词的模块选择固定，下次拉队列重洗；
+  标记「认识」移除词时页表同步删除，页码归零。
 - 不做查词记录：`vocabulary_study_history` 虽有表，但无倒序接口、无索引、划词路径不写入，本轮不扩。
 - 「今天应该复习」= `due_at <= now` 的全部到期积压（含历史欠账），不是今日新增到期。
 - 「认识」≠ 完成一次 SRS 复习；今日进度 x/20 不变，这是上游 `known/{word}` 的既有语义。
@@ -85,6 +107,8 @@ FAB `buddy-hidden` 或 `bubbles-open` / AI 抽屉 `open` / 邮件弹层可见。
 | 场景 | 行为 |
 | --- | --- |
 | 队列接口非 2xx / 非信封 / 非数组 | 错误面板显示上游 `message`（或本地兜底文案）+ Retry，不显示「没有单词」 |
+| 详情批量接口失败 / 超时 / 非信封 | 静默回退简卡（义项+原句+出处），轮播与「认识」不受影响；代理端日志可查 |
+| 某词无缓存详解（batch 响应缺失） | 该词保持简卡；有缓存词的分页展示不受影响 |
 | 队列为空 | 状态行「暂时没有要复习的单词」，按钮禁用，不启动推进 |
 | 某词缺 `meaning` / `contextSentence` | 该行留空并由 `:empty` 隐藏，词本身照常显示 |
 | 「认识」上游失败 / 积分或登录态异常 | 状态行红字保留原因，词卡不移除，按钮恢复可重试 |

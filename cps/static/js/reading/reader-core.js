@@ -47,7 +47,9 @@
         '.reading-para-btn.is-loading,.reading-para-btn.is-playing{opacity:.85}',
         '.reading-para-menu-btn{display:none;width:44px;height:44px;margin:-10px 0;align-items:center;justify-content:center;font-size:22px;line-height:1;opacity:.62;cursor:pointer;user-select:none;-webkit-user-select:none;color:inherit}',
         '.reading-para-menu-btn::after{content:"⋯"}',
-        '.reading-translation{margin:6px 0 14px;font-size:.92em;line-height:1.5;color:inherit;opacity:.72;border-left:2px solid currentColor;padding-left:10px}',
+        // R291：译文块禁止跨栏断裂（实测会被页边界切成「本页底一截 + 下页顶一截」）；
+        // 超过整栏高的长译文浏览器会忽略 avoid 照常断开，属可接受兑底
+        '.reading-translation{margin:6px 0 14px;font-size:.92em;line-height:1.5;color:inherit;opacity:.72;border-left:2px solid currentColor;padding-left:10px;break-inside:avoid;-webkit-column-break-inside:avoid}',
         '.reading-translation.is-loading{opacity:.4;font-style:italic}',
         '.reading-translation.is-error{cursor:pointer;color:#c0392b;opacity:.9;font-style:italic;border-left-color:#c0392b}',
         '@media (hover:none){.reading-para-toolbar{display:none}.reading-para-menu-btn{display:inline-flex}}',

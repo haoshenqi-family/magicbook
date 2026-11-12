@@ -1,5 +1,12 @@
 # AI 伴读通用对话 · 实现说明（L3）
 
+> ⚠️ **已下线（R292，2026-11-11）**：带 AI 对话能力的小程序过不了微信上架审核，
+> `pages/chat`、`utils/api.js` 的 `chatStream` / `decodeUtf8` / `parseSseBlock` 与
+> `config.chatTimeout` 已从代码包整体删除。下文是 R280 / R283 的实现记录，**只读不改**，
+> 所述文件与函数现已不存在；将来若具备上架资质要恢复，从 `git show 5a49872f:miniprogram/`
+> 取回并以本文为起点。移除的做法见
+> [R292 LLD](../../../project/iterations/2026-11-wx-remove-ai/r292-miniprogram-remove-ai/lld.md)。
+
 > 读者：要改这个功能的人。只写「实现方式 + 边界条件」。
 > 契约见 [L2 接口说明](../interface.md)，本次怎么实现见
 > [R280 LLD](../../../project/iterations/2026-11-wx-ai-chat/r280-miniprogram-ai-chat/lld.md)。

@@ -62,7 +62,7 @@ def test_whitelist_message_exposes_real_url_and_raw_reason():
 def test_both_call_sites_pass_url():
     api = _read("utils/api.js")
     assert "describeNetworkError(err, url)" in api, "普通请求要把 url 传进分类器"
-    assert "describeNetworkError(err, chatUrl)" in api, "SSE 请求同样要传 url"
+    # R292 移除 AI 伴读后请求层只剩普通 request 一处失败入口；原 SSE 调用点断言随对话通道删除
 
 
 def test_host_of_strips_scheme_path_and_keeps_port():

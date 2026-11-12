@@ -1,7 +1,7 @@
 <view class="container">
   <view class="brand">
     <view class="brand-title">MagicBook 工具</view>
-    <view class="brand-sub">AI 伴读 · 每日复习 · 词汇量测试 · 学习数据</view>
+    <view class="brand-sub">每日复习 · 词汇量测试 · 学习数据</view>
   </view>
 
   <view wx:if="{{error}}" class="error-tip">{{error}}</view>
