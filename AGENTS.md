@@ -16,32 +16,29 @@
 
 ---
 
-## 🔀 Git Worktree 使用规范（2026-10-10 R147 增补；2026-10-23 ops R158 修订命名并增补同编号互斥；家族统一口径见 ../AGENTS.md「Git Worktree 开发纪律」）
+## 🔀 Git Worktree 使用规范（2026-10-10 增补；2026-10-23 ops R158 修订命名并增补同编号互斥；2026-11-14 ops R187 重构为「主检出优先、merge 即清」；家族统一口径见 ../ops/AGENTS.md「Git Worktree 开发纪律」）
 
-> **模式：一任务一临时 worktree，合并后保留待验收，验收通过后删除**。先例：R144 发布态全量复跑正是用干净 HEAD worktree 才把 25 个失败定性为本地运行态污染而非代码回归；本仓并行会话多，主检出不宜直接切分支开发。
+> **模式：主检出为默认开发位，worktree 只服务并行与干净复跑，merge 即清**。验收状态由 PingCode idea（`In progress`=待验收）承载；验收发生在 dev 环境 / 真机，本地目录在 merge 后已无用途。
 
-- **何时必须用**：编码类任务（含 bug 修复）开工时创建专属 worktree 开发，**不得在可能被并行会话共用的主检出上直接改分支**；纯问答、排查、文档微改可在主检出直接进行。
-- **一次会话一个 worktree（2026-10-12 moon-well R164 同源增补；家族统一口径第 7 条）**：同一会话内的连续工作（含多阶段/多子任务）必须**复用同一个 worktree**——阶段收尾 merge 回开发分支后不删树，续作前 `git fetch` 并 merge `origin/<开发分支>` 拉齐基线继续推进；**禁止每阶段/每子任务各开新树**（反面样本：moon-well R162 重构五阶段 + NAS 下线累积 6 处驻留）。跨会话续作优先复用台账登记的该任务 worktree；仅并行会话允许并存多树。
-- **创建**（位置必须在仓库目录外的兄弟目录，命名 **`magicbook-r<编号>-<slug>`**，目录名与分支名的编号一致——2026-10-23 ops R158 修订，原 `<任务slug>` 不带编号、同一任务可被起成两个名字，无法作互斥判据；先 `git fetch origin`，从 `origin/develop` 最新点切出）：
+- **开发位选择**：主检出空闲（在 `develop`、工作区干净）→ 直接 `git switch -c <type>/r<编号>-<slug> origin/develop` 开发（**默认路径**）；主检出被占（脏 / 停在他人任务分支）→ 第二会话建 worktree；需要干净复跑全量门禁 → detached 临时树跑完即删。纯问答、排查、文档微改在 `develop` 上直接做。
+- **基线纪律**：无论哪个开发位，分支一律从 `origin/develop` 最新点切出（先 `git fetch origin`），不基于本地陈旧基线（moon-well R143 教训：旧基线开工被远端 29 提交甩开，整轮重做——问题是基线，不是主检出）。
+- **worktree 创建**（仅在需要时；位置必须在仓库目录外的兄弟目录，命名 **`magicbook-r<编号>-<slug>`**，目录名与分支名的编号一致）：
   ```bash
   git worktree add ../magicbook-r<编号>-<slug> -b <type>/r<编号>-<slug> origin/develop
   ```
-- **同编号互斥（2026-10-23 ops R158；家族统一口径第 9 条）**：一个 request 编号同时只允许存在一个 worktree——目录名带编号后由文件系统天然强制，同编号目录已存在时 `git worktree add` 直接失败，此时**禁止换 slug 绕开**：是验收期驻留 → 按「一次会话一个 worktree」条在原 worktree 续作；是另一并行会话在途 → 协调而非并行开工；是登记外残留 → 向用户报告，不擅删。互斥粒度钉在编号（功能）级，不升到模块级（同模块多需求并行是常态，跨功能的同文件冲突由「从 origin 切出」的基线纪律兜底）。
-- **收尾闸门（merge 后不立即删除，等验收）**：
+- **同编号互斥**：一个 request 编号同时只允许一个活跃开发位（主检出任务分支或 worktree 均算；后者由目录名天然强制，前者用 `git branch --list '*r<编号>-*'` 查重）。撞号**禁止换 slug 绕开**：是另一会话在途 → 协调而非并行开工；是登记外残留 → 跑 `../ops/tools/worktree-doctor.sh` 核对后处置，不擅删。互斥粒度钉在编号（功能）级，不升到模块级（同模块多需求并行是常态，跨功能的同文件冲突由「从 origin 切出」的基线纪律兜底）。
+- **收尾闸门（merge 即清）**：
   ```bash
   git merge <type>/r<编号>-<slug>        # 在主检出 develop 上执行
-  ```
-  merge 完成后 worktree **原样保留**，等用户验收；验收通过后执行删除：
-  ```bash
   git worktree remove ../magicbook-r<编号>-<slug>
-  git branch -d <type>/r<编号>-<slug>    # 只用 -d：未合并会被 git 拒绝，此时停下排查
+  git branch -d <type>/r<编号>-<slug>    # 只用 -d；主检出开发则 merge 后切回 develop
   ```
-  **禁止 `branch -D`**（会吞掉未合并提交，属破坏性操作，必须先经用户确认）；worktree 内有未提交残留导致 remove 被拒时，先向用户出示 diff 再处置，不得静默丢弃。
-- **验收期驻留（正常状态）**：merge 后未验收的 worktree 属正常驻留，须在当轮 response.md 登记分支名与合并 commit，验收通过后立即删除；用户明确否决的改动，处置方式（revert merge / 保留分支）由用户定夺。本仓验收优势：worktree 干净检出 + 主检出 `.venv` 复用（`../magicbook-r<编号>-<slug>` 目录下 `../magicbook/.venv/bin/python -m pytest`）＋拷贝当轮运行期文件即可真机整站验收（R144 已验证该姿势）。
-- **长任务例外**：跨多会话、未到 merge 点的任务同样驻留 worktree，须登记分支名、日期与原因；任务关闭时按闸门收尾。
-- **收尾失败留台账**：任务中止、冲突未解等无法完成闸门时，必须在 response.md 记录 worktree 位置、分支名与原因，禁止静默滞留。
+  **禁止 `branch -D`**（会吞掉未合并提交，属破坏性操作，必须先经用户确认）；worktree 内有未提交残留导致 remove 被拒时，先向用户出示 diff 再处置，不得静默丢弃。验收否决不依赖原树：`git revert -m 1 <merge-commit>`，或 `git switch -c <新分支> <merge-commit>` 找回原始提交续作——历史里都有。
+- **验收状态载体**：idea 停在 `In progress` 即待验收，不再登记驻留 worktree；验收通过 → `Completed`。
+- **长任务例外**：跨多会话、未到 merge 点的任务可驻留 worktree 或保留主检出任务分支，须登记分支名、日期与原因；任务关闭时按闸门收尾。
+- **收尾失败留台账**：任务中止、冲突未解等无法完成闸门时，必须在 response.md 记录位置、分支名与原因，禁止静默滞留。
 - **本仓适配**：
-  - 主检出 `.venv` 可直接复用（2026-10-10 R146 实测：在 worktree 目录执行 `../magicbook/.venv/bin/python -m pytest tests/...`，flask 导入与 pytest 收集正常），无需每个 worktree 重建虚拟环境；`.venv` 本身不入 worktree（gitignore）。
+  - 主检出 `.venv` 可直接复用（在 worktree 目录执行 `../magicbook/.venv/bin/python -m pytest tests/...`，flask 导入与 pytest 收集正常），无需每个 worktree 重建虚拟环境；`.venv` 本身不入 worktree（gitignore）。
   - worktree 内**没有** `library/`、`app.db` 等被 gitignore 的运行态——这正是「干净复跑」的原理（R144 先例），但整站手工验收仍需主检出或完整环境。
   - 发布流程不变：仍按上方「Git 分支管理」节，仅发布时 merge `develop` → `release`（R288 起；`master` 已冻结）。
 
