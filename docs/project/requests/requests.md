@@ -570,3 +570,5 @@
     - 同窗：moon-well `508205a`（R247–R254）+ 生产迁移三步（R251 v2 / r253 / r253b，见 moon-well R254 条目）。
 
 293. **Worktree 纪律同源修订：主检出优先、merge 即清**（主号 ops R187；2026-11-14，**已完成**）：本仓 `AGENTS.md`「Git Worktree 使用规范」节按 ops R187 新口径重写——主检出空闲时直接切任务分支开发（默认），主检出被占才建 worktree，干净复跑用 detached 临时树；merge 后立即 `worktree remove` + `branch -d`，验收状态由 PingCode idea `In progress` 承载；同编号互斥扩到「主检出任务分支或 worktree 均算」。`../ops/tools/worktree-doctor.sh` 巡检清理，本轮清掉本仓 r289/r291/r292 三棵已合入驻留树及分支。纯文档 push，dev 链 docs-only SKIP。
+
+294. **buddy 快捷动作切 moon-well 薄代理+存量懒迁移，配置面新增三项扩展动作（与 magiclens 悬浮球同源）**（占号 2026-11-15，待回填）
