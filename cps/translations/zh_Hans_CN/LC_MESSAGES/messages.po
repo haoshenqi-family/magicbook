@@ -1690,6 +1690,18 @@ msgstr "首页"
 msgid "Daily Learning"
 msgstr "每日学习"
 
+#: cps/routes/buddy.py
+msgid "Word highlight"
+msgstr "生词高亮"
+
+#: cps/routes/buddy.py
+msgid "Page translate"
+msgstr "整页翻译"
+
+#: cps/routes/buddy.py
+msgid "Review card"
+msgstr "回顾词卡"
+
 #: cps/routes/learning.py:66 cps/templates/i18n_seed.html:297
 #: cps/templates/learning.html:97 cps/templates/learning.html:170
 #: cps/templates/learning.html:200 cps/templates/learning_review.html:5

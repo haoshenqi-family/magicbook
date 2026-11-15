@@ -8,6 +8,8 @@ from cps.web import (
 )
 from ..render_template import render_title_template
 from ..usermanagement import user_login_required
+import json
+
 from flask import jsonify
 from flask import Response
 from flask import request
@@ -31,6 +33,9 @@ _BUDDY_IMAGE_PATH_PREFIX = "/magicbook/buddy/"
 QUICK_ACTION_IDS = (
     "chat", "immersive-translate", "tts-book", "bookmark",
     "learning", "library", "me",
+    # R294 扩展专有三项（magiclens 悬浮球同源配置，真值在 moon-well R260 白名单）：
+    # 宿主球不渲染（ai_chat.js 按 HOST_ACTION_IDS 过滤），buddy 页 chips 带「仅扩展」标
+    "highlight", "page-translate", "review",
 )
 QUICK_ACTION_PINNED = "chat"
 QUICK_ACTION_MIN = 4
@@ -43,7 +48,14 @@ QUICK_ACTION_LABEL_IDS = {
     "learning": "Daily Learning",
     "library": "Library",
     "me": "Me",
+    "highlight": "Word highlight",
+    "page-translate": "Page translate",
+    "review": "Review card",
 }
+# 仅扩展球存在的动作（buddy 页 chip 标「仅扩展」，宿主球未知 id 一律跳过）
+QUICK_ACTION_EXT_ONLY = ("highlight", "page-translate", "review")
+# 宿主球认识的动作全集（ai_chat.js 渲染过滤用；与扩展 registry 的交集语义在扩展侧）
+HOST_ACTION_IDS = tuple(k for k in QUICK_ACTION_IDS if k not in QUICK_ACTION_EXT_ONLY)
 QUICK_ACTION_DEFAULTS = ("chat", "immersive-translate", "tts-book", "bookmark")
 
 
@@ -117,15 +129,42 @@ def buddy_image_proxy():
 @user_login_required
 def buddy_quick_actions():
     """Hover 快捷气泡配置；GET 返回全集与当前选择，POST 覆写选择（4-5 个，chat 恒首位）。
+    R294：真值迁 moon-well（user_ui_settings.buddy_quick_actions，R260 白名单含扩展专有三项），
+    本路由降级为「薄代理 + 存量懒迁移 + 离线兜底」——moon-well javadoc 预留的形态。
     label 在请求期取词——gettext 依赖请求上下文，模块导入期只会缓存英文 msgid。"""
-    current = current_user_view_settings()
     if request.method == "GET":
+        selected, stored = None, False
+        body, status, _ = _moonwell_proxy("/buddy/quick-actions", {}, 10, "buddy quick-actions")
+        mw = _quick_actions_json(body)
+        if status == 200 and isinstance(mw, dict) and mw.get("success"):
+            result = mw.get("result") or {}
+            selected, stored = result.get("selected"), bool(result.get("stored"))
+            # 存量懒迁移（幂等自愈，每用户首次访问触发，无批量脚本）：moon-well 从未保存
+            # 而 view_settings 有真实存量选择 → 代用户回填一次，存量用户不丢配置；
+            # 迁移成功后真值即在 moon-well，下次 GET 直读。raw 存在才迁——恰好存了
+            # 默认四项的用户也迁移（有保存行为就该进真值源）。
+            if not stored:
+                raw = (current_user.view_settings or {}).get("buddy", {}).get("quickActions")
+                if isinstance(raw, list) and raw:
+                    legacy = _pin_chat_first(raw)[:QUICK_ACTION_MAX]
+                    if QUICK_ACTION_MIN <= len(legacy) <= QUICK_ACTION_MAX:
+                        save_body, save_status, _ = _moonwell_proxy(
+                            "/buddy/quick-actions/save", {"selected": legacy}, 10,
+                            "buddy quick-actions save")
+                        mw_saved = _quick_actions_json(save_body)
+                        if save_status == 200 and isinstance(mw_saved, dict) and mw_saved.get("success"):
+                            selected = (mw_saved.get("result") or {}).get("selected") or legacy
+                            stored = True
+        if selected is None:
+            # moon-well 不可用/登录态异常：退回本地 view_settings（R234 原语义），页面不瘫
+            selected, stored = current_user_view_settings(), False
         return jsonify({
             "success": True,
             "result": {
-                "available": [{"id": k, "label": gettext(v)}
+                "available": [{"id": k, "label": gettext(v), "ext_only": k in QUICK_ACTION_EXT_ONLY}
                               for k, v in QUICK_ACTION_LABEL_IDS.items()],
-                "selected": current,
+                "selected": selected,
+                "stored": stored,
             },
         })
     payload = request.get_json(silent=True) or {}
@@ -139,8 +178,28 @@ def buddy_quick_actions():
     normalized = _pin_chat_first(selected)
     if not (QUICK_ACTION_MIN <= len(normalized) <= QUICK_ACTION_MAX):
         return jsonify({"success": False, "message": "invalid quick actions"}), 400
+    save_body, save_status, _ = _moonwell_proxy(
+        "/buddy/quick-actions/save", {"selected": normalized}, 10, "buddy quick-actions save")
+    mw_saved = _quick_actions_json(save_body)
+    if not (save_status == 200 and isinstance(mw_saved, dict) and mw_saved.get("success")):
+        # 真值源拒绝/不可用不静默：透出真实原因（moon-well 会按同一白名单/数量口径二次兜底）
+        message = mw_saved.get("message") if isinstance(mw_saved, dict) else None
+        return jsonify({"success": False, "message": message or "quick actions save failed"}), 502
+    # 本地 view_settings 以 moon-well 归一结果同步覆写为热兜底（moon-well 不可用时 GET 的回退源）
+    normalized = (mw_saved.get("result") or {}).get("selected") or normalized
     current_user.set_view_property("buddy", "quickActions", normalized)
-    return jsonify({"success": True, "result": {"selected": normalized}})
+    return jsonify({"success": True, "result": {"selected": normalized, "stored": True}})
+
+
+def _quick_actions_json(body):
+    """moon-well client 回包是 response.text 字符串（binary=False）——统一解 JSON，
+    非 JSON/坏包按 None（调用方走兜底或报错路径，不在代理边界抛异常）。"""
+    if isinstance(body, dict):
+        return body
+    try:
+        return json.loads(body)
+    except (TypeError, ValueError):
+        return None
 
 
 def current_user_view_settings():

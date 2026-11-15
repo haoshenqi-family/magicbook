@@ -167,7 +167,8 @@
       var chip = document.createElement("button");
       chip.type = "button";
       chip.className = "buddy-qa-chip" + (on ? " on" : "");
-      chip.textContent = a.label + (isChat ? " ★" : "");
+      // R294：扩展专有三项标「仅扩展」——勾选只影响 magiclens 扩展悬浮球，宿主球不渲染
+      chip.textContent = a.label + (isChat ? " ★" : "") + (a.ext_only ? "（仅扩展）" : "");
       chip.dataset.id = a.id;
       chip.addEventListener("click", function () {
         if (isChat) return;

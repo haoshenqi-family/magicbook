@@ -687,6 +687,10 @@
     chat: "💬", "immersive-translate": "译", "tts-book": "▶",
     bookmark: "🔖", learning: "🎓", library: "📚", me: "👤",
   };
+  // R294：快捷动作真值源（moon-well）自本批起含扩展专有三项（highlight/page-translate/
+  // review，magiclens 扩展球消费）——宿主球渲染只认自己有处理器的动作子集，
+  // selection 混入扩展 id 时静默跳过（不渲染 • 空泡、不进 dispatch）。
+  var HOST_ACTION_IDS = Object.keys(BUBBLE_ICONS);
   // 延迟关闭定时器：FAB 与气泡间有空隙，鼠标穿越时会短暂 mouseleave。
   var bubbleCloseTimer = null;
 
@@ -746,7 +750,9 @@
     host.innerHTML = "";
     var labels = {};
     (available || []).forEach(function (a) { labels[a.id] = a.label; });
-    var ordered = ["chat"].concat((selected || []).filter(function (a) { return a !== "chat"; }));
+    var ordered = ["chat"].concat((selected || []).filter(function (a) {
+      return a !== "chat" && HOST_ACTION_IDS.indexOf(a) !== -1;
+    }));
     ordered.forEach(function (id, i) {
       var bubble = document.createElement("button");
       bubble.type = "button";
