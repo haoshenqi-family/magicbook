@@ -473,3 +473,31 @@ merge 回主检出时为准（不足归档阈值）。
 
 **台账总结**：`requests.md` 第 292 条已回填；`response.md` 写入前窗口实有 11 节，
 加上本次 R292 共 12 节，把最旧两节 R279、R282 原样搬入 `response-archive/` 并登记索引，压回 10 节。
+
+## 2026-11-15（R294：buddy 快捷动作切 moon-well 薄代理+存量懒迁移+配置面扩展三项）
+
+**对 R294 的回应**：用户拍板「两颗球同一份配置」——buddy 页成为扩展悬浮球与宿主球的唯一
+配置面。真值源切换 + 懒迁移 + 离线兜底三层落位。
+
+- **交付（cps/routes/buddy.py + buddy.js + ai_chat.js + po/mo）**：
+  - GET/POST 切 `_moonwell_proxy("/buddy/quick-actions[ /save]")`；client 回包是
+    `response.text`，`_quick_actions_json` 统一解 JSON（非 JSON 按 None 走兜底）。
+  - **存量懒迁移**：moon-well `stored=False` 且 view_settings 有真实存量 → 代用户回填一次
+    （幂等、每用户首次访问自愈；恰好存过默认四项也算保存行为照迁）。
+  - **离线兜底**：moon-well 不可用/未登录 GET 退本地 view_settings（R234 归一语义），
+    POST 502 透真实原因；POST 成功后本地 view_settings 同步覆写为热兜底。
+  - 配置面 available 7→10（+生词高亮/整页翻译/回顾词卡，po 三 msgid + pybabel 编译）；
+    chips 带「（仅扩展）」标；ai_chat.js 按 `HOST_ACTION_IDS` 过滤（selection 混入扩展 id
+    静默跳过——宿主球不渲染空泡）。
+- **验证**：test_buddy_page.py 12/12（fixture=内存真值源模拟 moon-well R260 归一口径；
+  新增 ext_only 目录/扩展 id 混选/懒迁移自愈+幂等/moonwell_down 兜底+POST 502；原
+  view_settings 读归一用例改挂 moonwell_down——迁移后该路径只活在离线兜底）。
+- **文档四问**：L1 不动（页面文案未变版式）；L2 契约在 moon-well R260 侧；LLD 不单开
+  （本节+requests 承载，代理薄层无独立设计面）；台账 requests.md 294 回填。
+- **发布范围**：push develop（fnOS webhook 自动部署 dev）；未动 release/生产——三仓
+  （moon-well R260 / 本仓 R294 / magiclens R70）齐后 dev 端到端验收，生产随批次。
+- **状态**：验收待三仓齐；PingCode idea 未建待用户令（R289 等同口径）。
+
+**台账总结**：`requests.md` 第 294 条由 `claim.sh` 占号即 push（`9426ee99`）；response.md
+写入本节未超窗口。冲突记录：无撞号。另有工作区预存未跟踪杂项文件（剪贴板使用说明.txt）
+非本条产物，未纳入提交。
