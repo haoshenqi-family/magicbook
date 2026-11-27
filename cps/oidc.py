@@ -4,6 +4,7 @@ import os
 import requests
 from urllib.parse import parse_qs, urlencode, urljoin, urlsplit, urlunsplit
 
+from authlib.integrations.base_client.errors import OAuthError
 from authlib.integrations.flask_client import OAuth
 from authlib.integrations.flask_client.apps import FlaskOAuth2App
 from authlib.jose import jwt as jose_jwt
@@ -359,9 +360,45 @@ def signup():
 
 @oidc.get("/callback")
 def callback():
+    """OIDC 回调：任何失败都回登录页，不再甩 500 白页（R295）。
+
+    Why：``authorize_access_token()`` 在 state 取不回（换浏览器 / 无痕窗口 /
+    App 内嵌 webview 打开回跳链接、两个标签页同时登录）、授权码过期或被复用、
+    Authentik 直接回 ``?error=``、token 端点不可达时都会抛 ``OAuthError`` 或
+    ``RequestException``。此前没有任何兜底，这些都能复现成 500
+    「服务器内部错误」白页：用户既没有「重新登录」的出路，日志里也只有一条
+    traceback，分不清是哪种失败。
+    How：OAuth 失败记 warning（error / description / state 是否还在），其余异常
+    记 exception；两者都 flash 提示并 302 回登录页。成功路径逻辑原样保留在
+    ``_finish_callback``，不改动建号与 token 交换口径。
+    """
+    try:
+        return _finish_callback()
+    except OAuthError as error:
+        log.warning(
+            "OIDC callback: authorization failed: error=%s description=%s "
+            "state_present=%s next_present=%s",
+            getattr(error, "error", None) or type(error).__name__,
+            (getattr(error, "description", None) or str(error))[:200],
+            "state" in session,
+            "oidc_next" in session,
+        )
+        flash("Login session expired, please sign in again", "error")
+        return redirect(url_for("web.login"))
+    except Exception:
+        log.exception("OIDC callback: unexpected failure, sending user back to login")
+        flash("Login failed, please sign in again", "error")
+        return redirect(url_for("web.login"))
+
+
+def _finish_callback():
     token = oauth.authentik.authorize_access_token()
     id_token = token.get("id_token")
     userinfo = token.get("userinfo") or oauth.authentik.userinfo()
+    if not userinfo:
+        # userinfo 为空时后面 ``userinfo.get`` 会抛 AttributeError——同样要回登录页
+        flash("Authentik did not return user information", "error")
+        return redirect(url_for("web.login"))
     subject = userinfo.get("sub")
     if not subject:
         flash("Authentik did not return a subject", "error")

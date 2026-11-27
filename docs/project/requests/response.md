@@ -5,6 +5,8 @@
 
 **归档索引**
 
+- `response-archive/response-R283-R284.md`：R283（tabBar「伴读」改「AI」）+ R284（页面引导入口下线）——2026-11-27 R295 写入触发轮转搬移，原样搬移不改写
+
 - `response-archive/response-R280-R281.md`：R280（小程序 AI 伴读通用对话 + 生词本下掉）+ R281（白名单报错带运行时 AppID）——2026-11-08 R290 写入前窗口已有 11 节，连同本次新增一并压回 10 节，原样搬移不改写
 
 - `response-archive/response-R277.md`：R277 · 请求失败必须自己说清原因（2026-11-03）——2026-11-06 R287 写入触发轮转搬移，原样搬移不改写
@@ -126,71 +128,6 @@
 ---
 
 > 归档索引：[response-R01-R31.md](response-archive/response-R01-R31.md) · [response-R32-R49.md](response-archive/response-R32-R49.md) · [response-R50.md](response-archive/response-R50.md) · [response-R51-R70.md](response-archive/response-R51-R70.md) · [response-R70-R80.md](response-archive/response-R70-R80.md) · [response-R81-R101.md](response-archive/response-R81-R101.md) · [response-R102-R110.md](response-archive/response-R102-R110.md) · [response-R111-R119.md](response-archive/response-R111-R119.md)（2026-10-08 R129 补账搬移）· [response-R120-R125.md](response-archive/response-R120-R125.md)（2026-10-08 R135 写入触发搬移，含 R134 登记的窗口欠账补账）· [response-R126-R131.md](response-archive/response-R126-R131.md)（2026-10-09 R141 写入触发轮转搬移）· [response-R132-R133.md](response-archive/response-R132-R133.md)（2026-10-10 R143 写入触发轮转搬移） · [response-R134.md](response-archive/response-R134.md)（2026-10-10 R144 写入触发轮转搬移） · [response-R135-R137.md](response-archive/response-R135-R137.md)（2026-10-10 R147 写入触发轮转搬移，含 R145/R146 两次写入的窗口欠账补账） · [response-R138.md](response-archive/response-R138.md)（2026-10-11 R152 写入触发轮转搬移） · [response-R139.md](response-archive/response-R139.md)（2026-10-11 R153 写入触发轮转搬移） · [response-R140.md](response-archive/response-R140.md)（2026-10-11 R153 复核后的补搬——R152 写入时搬走 R138 后窗口仍为 11） · [response-R141-R142.md](response-archive/response-R141-R142.md)（2026-10-11 R155 集成时窗口超限搬移） · [response-R144-R153.md](response-archive/response-R144-R153.md)（2026-10-12 R161 写入触发轮转搬移，清并行欠账 R144–R153） · [response-R154.md](response-archive/response-R154.md)（2026-10-12 R165 写入触发轮转搬移） · [response-R155-R156.md](response-archive/response-R155-R156.md)（2026-10-13 R166 写入触发轮转搬移，含同日同编号「细筛」那条） · [response-R157.md](response-archive/response-R157.md)（2026-10-13 R166 分支 merge origin/develop 后窗口仍达 11，续搬最旧一节） · [response-R156-mic.md](response-archive/response-R156-mic.md) · [response-R158.md](response-archive/response-R158.md)（2026-10-13 R168 写入触发轮转搬移）（2026-10-13 R167 写入触发轮转搬移；与 response-R155-R156.md 里的同编号「细筛」条目不同事） · [response-R160-R164.md](response-archive/response-R160-R164.md)（2026-10-14 R172 写入触发轮转搬移，窗口转入 R161 起） · [response-R161-R162.md](response-archive/response-R161-R162.md)（2026-10-14 R173 写入触发轮转搬移，窗口转入 R165 起） · [response-R165-R173.md](response-archive/response-R165-R173.md)（2026-10-15 R183 写入触发轮转搬移，窗口转入 R174 起） · [response-R174-R177.md](response-archive/response-R174-R177.md)（2026-10-16 R185 写入触发轮转搬移，窗口转入 R178 起） · [response-R175.md](response-archive/response-R175.md)（2026-10-16 R188 写入触发轮转搬移） · [response-R214-C.md](response-archive/response-R214-C.md)（2026-10-25 R229 写入触发轮转搬移：R214 子项 C 整本任务代价面板；与既有 response-R214.md（子项 A）不同事） · [response-R238.md](response-archive/response-R238.md)（2026-10-29 R250 / R252 并行写入轮转，原样搬移不改写） · [response-R239.md](response-archive/response-R239.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R244.md](response-archive/response-R244.md)（2026-10-29 R250 / R252 合并后窗口达 11 节轮转） · [response-R243.md](response-archive/response-R243.md)（2026-10-29 R254 写入触发轮转搬移） · [response-R246.md](response-archive/response-R246.md)（2026-10-30 R256 写入触发轮转搬移） · [response-R247.md](response-archive/response-R247.md)（2026-10-31 R257 写入触发轮转搬移） · [response-R248.md](response-archive/response-R248.md)（2026-10-31 R258 写入触发轮转搬移） · [response-R253.md](response-archive/response-R253.md)（2026-11-01 R263 写入触发轮转搬移） · [response-R254.md](response-archive/response-R254.md)（2026-11-02 R267 写入触发轮转搬移）
-
-## R283 · 修改意见（挂 R280）：tabBar「伴读」改为「AI」（2026-11-05）
-
-**对 R283 的回应**：用户 12:32 原话「伴读改为AI」。先核清「伴读」在小程序里的 4 处
-用户可见文案（底栏 / 导航栏标题 / 页内标题 / 登录页品牌副标题）与 README、注释里的分布，
-再交互确认口径：**只改 tabBar**，其余功能名仍「AI 伴读」；改完立刻重传体验版。
-
-- **为什么不是全局替换**：「AI 伴读」在网页阅读器抽屉、伙伴系统与 moon-well 场景名里
-  是既有能力名，全局替换会污染无关模块。本次只是底栏入口标签的用词收敛。
-- **改动只有一行**：`app.json` tabBar 第二项 `text: "伴读"` → `"AI"`，`pagePath` 仍是
-  `pages/chat/chat`；接口、请求体、prompt 与后端零改动，moon-well 不受影响。
-- **守卫同时钉「改了」与「没越界」**：新增 `tests/test_r283_tab_ai.py`，断言四项文案
-  `["复习", "AI", "词汇量", "我"]` 与 `pagePath` 不变，并反向断言 `chat.json` /
-  `chat.wxml` / `login.wxml` 仍含「AI 伴读」——防止后续顺手把功能名一起改掉造成口径漂移。
-  R280 静态锁里写死的「伴读」同步改为「AI」，R275 注释补 R283 标注。
-- **验证**：小程序静态锁 **54 passed**（R271–R283，排除 R279 后端集成用例）；
-  `app.json` JSON 解析通过，四项 tab 实值回读正确。
-- **状态**：**已上线待验收**（复用验收期驻留 worktree `../magicbook-r280-ai-chat`，
-  分支 `feat/r280-ai-chat`，已 merge 并 push `origin/develop`；体验版 `1.0.1` 已上传，
-  65.3 KB / 66,836 Byte；待后台设为体验版并真机验收，通过后才置 Completed）。
-- **状态回写**：修改意见按治理「必须挂到已有需求 / 任务、不做无主修复」，**不新建
-  PingCode idea**，挂 `MB-239`（`xB0tmxqa`，R280 载体，仍 `In progress`，
-  待真机验收后才置 `Completed`）。本轮虽占号 R283，但 worktree 按
-  「一次会话一个 worktree / 验收期驻留续作」复用 r280 树，不新开。
-- **部署**：只改小程序包，不涉及后端；上传源为主检出 `develop@a3a205e5`，沿用 CLI
-  服务端口 13564，且不带 `--info-output`（R280 实测会触发 IDE `code 17` 二维码路径报错）。
-  `cli upload -v 1.0.1` 返回 ✔ upload，TOTAL **65.3 KB / 66,836 Byte**；
-  比 R280 的 `1.0.0`（66,840 Byte）少 4 字节，正好是「伴读」6B → 「AI」2B 的差值。
-
-**台账总结**：`requests.md` 第 283 条本处回填；`response.md` 写入前 10 节、本次 11 节，
-最旧一节 R273（小程序邮箱登录）原样搬入 `response-archive/response-R273.md` 并在顶部登记索引。
-
-## R284 · 页面引导入口下线，只保留右上角 Help（2026-11-06）
-
-**对 R284 的回应**：用户口径「页面上的引导入口全部下线掉。只保留右上角的帮助的入口」。
-修改意见挂 R226 后续，不新建 PingCode idea。
-
-- **唯一入口**：右上角 Help 下拉的 `#top_onboarding`。断开 `onboarding.js`
-  `runSegment` 的自动邀请 / 右下常驻按钮与 `showEntryAgainIfNeeded` 的收尾重挂；
-  删 `/reading/settings` 引导区块与 `reading-preferences.js` 转发。
-- **函数体保留**：`showInvite` / `showReaderHelp` 仍在但不再调用——R111/R226 视觉守卫
-  锁其几何与文案形制，删除会让那批守卫失去锚点。`read.html` 挂载点保留，导览从 Help
-  启动后仍可跨页续到阅读器段。
-- **文案同源**：收尾卡改指右上角 Help，`i18n_seed.html` + zh po/mo 同步；只重编译
-  zh_Hans_CN 的 mo（整树编译会撞上 `it` 语既有的 `unknown named placeholder 'nome'`）。
-- **验证**：更新 `test_reader_r226_acceptance.py`（R226 断言改「调用链断开」）与
-  `test_onboarding_tour.py`（中文种子词条）；定向回归全绿，`node --check` 通过。
-
-**已否决并撤销（12:31，用户「撤销我这两轮改动」）**：同批做过的「恢复生词 hover
-释义」（`span.title = gloss`）与「hover 即时释义卡 + 划词翻译兜底 + 去掉
-`cursor:help`」两轮改动全部回滚。起因是用户随后给出参考截图，明确期望的是
-**MagicLens 扩展的划词气泡**（紫色 `#8b5cf6` 波浪线 + 译/详/🔊/认识/生词/AI/✕），
-不是 magicbook 内置 hover 卡片；扩展接管高亮时内置 `markVocabulary` 让位，
-内置改动本就不会执行。回滚范围：`epub.js` / `reader.css` / `reader-core.js`
-恢复到 R284 之前、删除 `tests/test_r284_hover_gloss.py`、L2 `reading-vocabulary.md`
-与 L1 生词条目回退；引导入口下线部分全部保留。生词链路回到 R268 原状。
-
-- **状态**：已上线待验收；worktree `../magicbook-r284-hover-gloss-onboarding` /
-  分支 `feat/r284-hover-gloss-onboarding` 原样保留，真机验收通过后才 `worktree remove`
-  → `branch -d`。
-
-**台账总结**：`requests.md` 第 284 条本处回填；`response.md` 写入前 10 节、本次 11 节，
-按「写入即检查」把最旧一节 R274 原样搬入 `response-archive/response-R274.md`
-并在顶部归档索引登记，窗口回到 10 节。冲突记录：无撞号；
-唯一口径变更是 R226 的「阅读器右下使用引导」被 R284 取代，已在 L1/L3 标注。
 
 ## R285 · Buddy 头顶滚动复习气泡（2026-11-06）
 
@@ -501,3 +438,14 @@ merge 回主检出时为准（不足归档阈值）。
 **台账总结**：`requests.md` 第 294 条由 `claim.sh` 占号即 push（`9426ee99`）；response.md
 写入本节未超窗口。冲突记录：无撞号。另有工作区预存未跟踪杂项文件（剪贴板使用说明.txt）
 非本条产物，未纳入提交。
+
+## R295 · /oidc/callback 失败兜底：不再 500，回登录页（2026-11-27）
+
+**对 R295 的回应**：用户报「登录回跳后 500，不是 100% 复现」。查证结果是回调没有异常兜底——任何一次不干净的回跳都会变成 500 白页。
+
+- **复现（线上直测）**：`/oidc/callback?code=fake&state=fake`（不带 cookie / 带 cookie 各一次）、`?code=&state=`、`?error=access_denied` 四组全部 500。
+- **根因**：`authorize_access_token()` 抛 `OAuthError` / `RequestException` 时无人接管。触发条件天然偶发：回跳链接在别的浏览器/App 内嵌 webview 打开（带不上 session cookie）、两个标签页同时登录覆盖 state、授权码 60 秒过期或被复用、Authentik 回 `?error=`、token 端点抖动。
+- **修复**：`callback()` 拆 `_finish_callback()`，外层分类兜底（`OAuthError` → warning 带 error/description/state_present；其他 → exception），统一 flash 并 302 回登录页；`userinfo` 为空补护栏。
+- **验证**：新增 6 例（含日志口径断言）；OIDC 相关回归 69 passed。
+- **顺带发现（非本 R）**：`home.haoshenqi.top` AAAA → `240e:391:e2c:bc90::8ec`（NAS 自身，返回 fnOS 自签名证书），本机 Python `requests` 走 IPv6 直接 SSLError；线上 OIDC 实际用 `account.haoshenqi.top`（阿里云 116.62.200.90，Let's Encrypt，无 AAAA），故入口正常，但 home.* 的 IPv6 记录建议人工清掉。
+
