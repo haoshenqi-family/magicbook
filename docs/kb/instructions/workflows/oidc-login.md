@@ -117,16 +117,26 @@ redirect_uri = os.getenv("AUTHENTIK_MAGICBOOK_REDIRECT_URI") or url_for("oidc.ca
 - **修复**：改 `.env` 为新域名 → 重启服务（见 §5）→ 同时在 Authentik
   application 的 Redirect URLs 白名单添加新域名回调。
 
-### 4.2 /oidc/callback 返回 500
+### 4.2 /oidc/callback 登录失败（R295 起不再返回 500）
 
-- **根因（已修复）**：authentik 若以 **HS256 对称签名**生成 id_token，
+- **现状（R295）**：回调失败一律 **302 回登录页** 并 flash 提示，日志留一条
+  `OIDC callback: authorization failed: error=<code> description=<...>
+  state_present=<True|False> next_present=<True|False>`。看到这条先看两个布尔：
+  - `state_present=False`：浏览器没带上 magicbook 的 session cookie —— 常见于
+    回跳链接在**另一个浏览器 / 无痕窗口 / App 内嵌 webview**（飞书、微信）里
+    打开，或同一账号两个标签页同时登录覆盖了 state。让用户回原浏览器重试即可。
+  - `state_present=True` 且 `error=invalid_grant`：授权码过期（Authentik 默认
+    ~60 秒）或已被使用（刷新/重复请求/分享出来的回调链接）。重新走一次登录。
+  - `error=access_denied`：用户在 Authentik 侧取消或拒绝授权。
+- **其它异常**（非 OAuthError，如 token 端点 TLS/超时）记
+  `OIDC callback: unexpected failure` 的 exception 堆栈，同样回登录页。
+- **历史根因（已修复）**：authentik 若以 **HS256 对称签名**生成 id_token，
   jwks_uri 返回空对象 `{}`，authlib 默认 JWKS 校验抛
-  `ValueError: Invalid key set format`。`AuthentikOAuth2App.create_load_key`
-  已特判：`HS*` 算法用 `client_secret` 做 HMAC 校验，`RS*` 仍走 JWKS
-  （并支持强制刷新 JWKS）。
-- **排障顺序**：看 `/tmp/calibre-web.log`（或 logs 体积）中 callback 的异常
-  堆栈 → 确认签名算法与 jwks_uri 内容 → 确认 `.env` 的 issuer 与
-  client_secret 与 Authentik 侧一致。
+  `ValueError: Invalid key set format`。`AuthentikOAuth2App` 已特判：`HS*`
+  算法用 `client_secret` 做 HMAC 校验，`RS*` 仍走 JWKS（并支持强制刷新 JWKS）。
+- **排障顺序**：先按上面 `error=` 分支判断 → 再看 `.env` 的 issuer、
+  `AUTHENTIK_MAGICBOOK_REDIRECT_URI` 与 Authentik 侧 client_secret 是否一致 →
+  最后才怀疑 id_token 签名算法。
 
 ### 4.3 回调被 Authentik 拒绝 / 无法重定向
 
